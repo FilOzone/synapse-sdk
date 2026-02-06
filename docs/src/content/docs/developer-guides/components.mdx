@@ -13,9 +13,6 @@ The SDK is built from these core components:
 - **`PaymentsService`** - SDK client for managing deposits, approvals, and payment rails (interacts with Filecoin Pay contract)
 - **`StorageManager`**, **`StorageContext`** - Storage operation classes
 - **`WarmStorageService`** - SDK client for storage coordination and pricing (interacts with WarmStorage contract)
-- **`PDPVerifier`** - Client for PDPVerifier contract - get data set and piece status, create data sets and add pieces
-- **`PDPServer`** - HTTP client for Curio providers - create data sets and add pieces
-- **`PDPAuthHelper`** - Signature generation utility - Generate EIP-712 signatures for authenticated operations (create data sets and add pieces)
 
 The following diagram illustrates how these components relate to each other and the external systems they interact with:
 
@@ -36,17 +33,11 @@ graph LR
     subgraph "Lower-Level"
         WSS[WarmStorageService]
         SC[StorageContext]
-        PDPS[PDPServer]
-        PDPA[PDPAuthHelper]
-        PDPV[PDPVerifier]
     end
     Synapse --> SM
     Synapse --> PS
     SM --> SC
     SM --> WSS
-    SC --> PDPS
-    SC --> PDPA
-    SC --> PDPV
     PS --> SC
 ```
 
@@ -109,34 +100,6 @@ Check out the [Storage Context](/developer-guides/storage/storage-context/) guid
 **Purpose**: SDK client for storage coordination and pricing - storage pricing and cost calculations, data set management and queries, metadata operations (data sets and pieces), service provider approval management, contract address discovery, data set creation verification.
 
 **API Reference**: [WarmStorageService API Reference](/reference/filoz/synapse-sdk/warmstorage/classes/warmstorageservice/)
-
-### PDPComponents
-
-#### PDPVerifier
-
-**Purpose**: Client for PDPVerifier contract - get dataset and piece status, create data sets and add pieces.
-
-**API Reference**: [PDPVerifier API Reference](/reference/filoz/synapse-sdk/pdp/classes/pdpverifier/)
-
-**PDPVerifier Example**:
-
-```ts twoslash
-// @lib: esnext,dom
-import { PDPVerifier } from "@filoz/synapse-sdk/pdp";
-const dataSetId = 1n;
-// ---cut---
-const pdpVerifier = PDPVerifier.create();
-
-// Check if data set is live
-const isLive = await pdpVerifier.dataSetLive(dataSetId);
-
-// Query data set information
-const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId);
-const listener = await pdpVerifier.getDataSetListener(dataSetId);
-const storageProvider = await pdpVerifier.getDataSetStorageProvider(dataSetId);
-const leafCount = await pdpVerifier.getDataSetLeafCount(dataSetId);
-const activePieces = await pdpVerifier.getActivePieces(dataSetId);
-```
 
 ## Complete Data Flow
 

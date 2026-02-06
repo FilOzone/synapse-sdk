@@ -17,7 +17,6 @@
       "src/payments/index.ts",
       "src/session/index.ts",
       "src/storage/index.ts",
-      "src/subgraph/index.ts",
       "src/warm-storage/index.ts",
       "src/sp-registry/index.ts",
       "src/filbeam/index.ts"

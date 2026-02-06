@@ -11,5 +11,6 @@
 
 export * from './common.ts'
 export * from './jsonrpc/index.ts'
-export { mockServiceProviderRegistry } from './jsonrpc/service-registry.ts'
+export * from './jsonrpc/service-registry.ts'
+export * from './jsonrpc/types.ts'
 export * as pdp from './pdp.ts'

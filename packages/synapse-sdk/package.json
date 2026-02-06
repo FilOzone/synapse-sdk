@@ -39,10 +39,6 @@
       "import": "./dist/src/storage/index.js",
       "types": "./dist/src/storage/index.d.ts"
     },
-    "./subgraph": {
-      "import": "./dist/src/subgraph/index.js",
-      "types": "./dist/src/subgraph/index.d.ts"
-    },
     "./warm-storage": {
       "import": "./dist/src/warm-storage/index.js",
       "types": "./dist/src/warm-storage/index.d.ts"
@@ -66,9 +62,6 @@
       ],
       "storage": [
         "./dist/src/storage"
-      ],
-      "subgraph": [
-        "./dist/src/subgraph"
       ],
       "warm-storage": [
         "./dist/src/warm-storage"
