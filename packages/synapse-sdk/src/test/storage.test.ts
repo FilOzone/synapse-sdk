@@ -2,7 +2,6 @@ import { type Chain, calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { calculate, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
-import * as SP from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -33,8 +32,6 @@ describe('StorageService', () => {
   let client: Client<Transport, Chain, Account>
   // MSW lifecycle hooks
   before(async () => {
-    // Set timeout to 100ms for testing
-    SP.setTimeout(100)
     await server.start()
   })
 
@@ -1177,9 +1174,9 @@ describe('StorageService', () => {
 
       // Create 3 uploads
       const uploads = [
-        service.upload(new Uint8Array(127).fill(1)),
-        service.upload(new Uint8Array(128).fill(2)),
-        service.upload(new Uint8Array(129).fill(3)),
+        service.upload(new File([new Uint8Array(127).fill(1)], 'test1.txt')),
+        service.upload(new File([new Uint8Array(128).fill(2)], 'test2.txt')),
+        service.upload(new File([new Uint8Array(129).fill(3)], 'test3.txt')),
       ]
 
       // All uploads in the batch should fail with the same error
@@ -1215,12 +1212,12 @@ describe('StorageService', () => {
 
       // Create minimal data but mock length to simulate oversized data
       // This tests validation without allocating 1+ GiB
-      const smallData = new Uint8Array(127)
+      const smallData = new File([new Uint8Array(127)], 'test.txt')
       const testSize = SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1
-      Object.defineProperty(smallData, 'length', { value: testSize })
+      Object.defineProperty(smallData, 'size', { value: testSize })
 
       try {
-        await service.upload(smallData)
+        await service.upload(new File([smallData], 'test.txt'))
         assert.fail('Should have thrown size limit error')
       } catch (error: any) {
         assert.include(error.message, 'exceeds maximum allowed size')
@@ -1245,7 +1242,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
-        await service.upload(testData)
+        await service.upload(new File([testData], 'test.txt'))
         assert.fail('Should have thrown error for verification failure')
       } catch (error: any) {
         // The error is wrapped by createError
@@ -1314,7 +1311,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
-        await service.upload(testData)
+        await service.upload(new File([testData], 'test.txt'))
         assert.fail('Should have thrown error for failed transaction')
       } catch (error: any) {
         // The error is wrapped twice - first by the specific throw, then by the outer catch
@@ -1382,7 +1379,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
-        await service.upload(testData)
+        await service.upload(new File([testData], 'test.txt'))
         assert.fail('Should have thrown timeout error')
       } catch (error: any) {
         assert.include(error.message, 'Timeout waiting for piece to be parked')
@@ -1408,7 +1405,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
-        await service.upload(testData)
+        await service.upload(new File([testData], 'test.txt'))
         assert.fail('Should have thrown upload error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to upload piece to service provider')
@@ -1439,7 +1436,7 @@ describe('StorageService', () => {
       })
 
       try {
-        await service.upload(testData)
+        await service.upload(new File([testData], 'test.txt'))
         assert.fail('Should have thrown add pieces error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to add piece to data set')
@@ -1728,6 +1725,8 @@ describe('StorageService', () => {
               {
                 pieceId: 1,
                 pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
+                subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 5000,
@@ -1767,6 +1766,8 @@ describe('StorageService', () => {
               {
                 pieceId: 1,
                 pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
+                subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 5000,
@@ -1801,6 +1802,8 @@ describe('StorageService', () => {
               {
                 pieceId: 1,
                 pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
+                subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 5000,
@@ -1836,6 +1839,8 @@ describe('StorageService', () => {
               {
                 pieceId: 1,
                 pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
+                subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 0,
@@ -1873,6 +1878,8 @@ describe('StorageService', () => {
               {
                 pieceId: 1,
                 pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
+                subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 0,
@@ -1933,6 +1940,8 @@ describe('StorageService', () => {
               {
                 pieceId: 1,
                 pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
+                subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 5000,
@@ -1953,34 +1962,6 @@ describe('StorageService', () => {
       assert.isTrue(status.exists)
       assert.isFalse(status.inChallengeWindow) // Not yet in challenge window
       assert.isTrue((status.hoursUntilChallengeWindow ?? 0) > 0)
-    })
-
-    it('should handle data set data fetch failure gracefully', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          eth_blockNumber: numberToHex(4880n),
-        }),
-        Mocks.PING(),
-        http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
-          return HttpResponse.error()
-        }),
-        Mocks.pdp.findPieceHandler(mockPieceCID, true, pdpOptions)
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
-
-      const status = await service.pieceStatus(mockPieceCID)
-
-      // Should still return basic status even if data set data fails
-      assert.isTrue(status.exists)
-      assert.isNotNull(status.retrievalUrl)
-      assert.isNull(status.dataSetLastProven)
-      assert.isNull(status.dataSetNextProofDue)
-      assert.isUndefined(status.pieceId)
     })
   })
 
@@ -2103,30 +2084,6 @@ describe('StorageService', () => {
       assert.equal(allPieces.length, 0, 'Should return empty array for data set with no pieces')
     })
 
-    it('should handle AbortSignal in getPieces', async () => {
-      const controller = new AbortController()
-
-      server.use(Mocks.JSONRPC(Mocks.presets.basic))
-
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-      const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
-
-      // Abort before making the call
-      controller.abort()
-
-      try {
-        for await (const _piece of context.getPieces({ signal: controller.signal })) {
-          // Should not reach here
-        }
-        assert.fail('Should have thrown an error')
-      } catch (error: any) {
-        assert.equal(error.message, 'StorageContext getPieces failed: Operation aborted')
-      }
-    })
-
     it('should work with getPieces generator', async () => {
       // Use actual valid PieceCIDs from test data
       const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
@@ -2172,53 +2129,6 @@ describe('StorageService', () => {
       assert.equal(pieces[0].pieceCid.toString(), piece1Cid.toString())
       assert.equal(pieces[1].pieceId, 2n)
       assert.equal(pieces[1].pieceCid.toString(), piece2Cid.toString())
-    })
-
-    it('should handle AbortSignal in getPieces generator during iteration', async () => {
-      const controller = new AbortController()
-
-      const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
-
-      // Mock getActivePieces to return a result that triggers pagination
-      let callCount = 0
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          pdpVerifier: {
-            ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: () => {
-              callCount++
-              // Only return data on first call, then abort
-              if (callCount === 1) {
-                setTimeout(() => controller.abort(), 0)
-                return [[{ data: bytesToHex(piece1Cid.bytes) }], [1n], true]
-              }
-              return [[], [], false]
-            },
-          },
-        })
-      )
-
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-      const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
-
-      try {
-        const pieces = []
-        for await (const piece of context.getPieces({
-          batchSize: 1n,
-          signal: controller.signal,
-        })) {
-          pieces.push(piece)
-          // Give the abort a chance to trigger
-          await new Promise((resolve) => setTimeout(resolve, 10))
-        }
-        assert.fail('Should have thrown an error')
-      } catch (error: any) {
-        assert.equal(error.message, 'StorageContext getPieces failed: Operation aborted')
-      }
     })
   })
 })

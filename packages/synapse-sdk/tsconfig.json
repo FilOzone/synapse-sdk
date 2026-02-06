@@ -15,7 +15,6 @@
     "entryPoints": [
       "src/index.ts",
       "src/payments/index.ts",
-      "src/pdp/index.ts",
       "src/session/index.ts",
       "src/storage/index.ts",
       "src/subgraph/index.ts",
