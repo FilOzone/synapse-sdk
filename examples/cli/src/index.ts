@@ -11,6 +11,7 @@ import { getSpPeerIds } from './commands/get-sp-peer-ids.ts'
 import { init } from './commands/init.ts'
 import { pay } from './commands/pay.ts'
 import { pieces } from './commands/pieces.ts'
+import { piecesRemoval } from './commands/pieces-removal.ts'
 import { piecesUpload } from './commands/pieces-upload.ts'
 import { upload } from './commands/upload.ts'
 import { uploadDataset } from './commands/upload-dataset.ts'
@@ -32,6 +33,7 @@ const argv = cli({
     datasetsTerminate,
     datasetsCreate,
     pieces,
+    piecesRemoval,
     piecesUpload,
     uploadDataset,
     getSpPeerIds,

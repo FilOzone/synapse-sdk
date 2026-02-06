@@ -35,7 +35,7 @@
       "ignoreFiles": ["src/custom.css"]
     },
     "packages/synapse-sdk": {
-      "entry": ["src/index.ts", "src/{payments,pdp,session,storage,subgraph,warm-storage,sp-registry,filbeam}/index.ts"]
+      "entry": ["src/index.ts", "src/{payments,session,storage,subgraph,warm-storage,sp-registry,filbeam}/index.ts"]
     },
     "packages/synapse-react": {
       "entry": ["src/index.ts", "src/filsnap.ts"]
@@ -43,7 +43,7 @@
     "packages/synapse-core": {
       "entry": [
         "src/index.ts",
-        "src/sp.ts",
+        "src/sp/index.ts",
         "src/chains.ts",
         "src/piece.ts",
         "src/usdfc.ts",

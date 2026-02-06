@@ -1,8 +1,8 @@
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
 import { createPieceUrlPDP } from '@filoz/synapse-core/utils'
 import { Synapse } from '@filoz/synapse-sdk'
+import { openLazyFile } from '@remix-run/fs'
 import { type Command, command } from 'cleye'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
@@ -41,7 +41,7 @@ export const upload: Command = command(
 
     const filePath = argv._.requiredPath
     const absolutePath = path.resolve(filePath)
-    const fileData = await readFile(absolutePath)
+    const file = openLazyFile(absolutePath)
 
     try {
       const synapse = new Synapse({
@@ -63,15 +63,15 @@ export const upload: Command = command(
         },
       })
 
-      await context.upload(fileData, {
+      await context.upload(file, {
         metadata: {
           name: path.basename(absolutePath),
         },
         onUploadComplete(pieceCid) {
-          const url = createPieceUrlPDP(
-            pieceCid.toString(),
-            context.provider.pdp.serviceURL
-          )
+          const url = createPieceUrlPDP({
+            cid: pieceCid.toString(),
+            serviceURL: context.provider.pdp.serviceURL,
+          })
           p.log.info(`Upload complete! ${url}`)
         },
         onPiecesAdded(transactionHash) {
