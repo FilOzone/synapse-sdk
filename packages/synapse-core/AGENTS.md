@@ -201,12 +201,10 @@ All read and write action require a call function to enable composition with oth
 ```ts
 
 /**
- * Create a call to the getServicePrice function
- *
- * This function is used to create a call to the getServicePrice function for use with the multicall or readContract function.
+ * Create a call to the {@link getServicePrice} function for use with the Viem multicall, readContract, or simulateContract functions.
  *
  * @param options - {@link getServicePriceCall.OptionsType}
- * @returns The call to the getServicePrice function {@link getServicePriceCall.OutputType}
+ * @returns Call object {@link getServicePriceCall.OutputType}
  * @throws Errors {@link getServicePriceCall.ErrorType}
  *
  * @example

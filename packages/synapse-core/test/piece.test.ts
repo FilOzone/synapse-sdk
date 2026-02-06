@@ -3,7 +3,6 @@
  */
 
 import {
-  asLegacyPieceCID,
   asPieceCID,
   calculate,
   createPieceCIDStream,
@@ -104,63 +103,6 @@ describe('PieceCID utilities', () => {
 
     it('should return null for object that is not a CID', () => {
       const result = asPieceCID({} as any)
-      assert.isNull(result)
-    })
-  })
-
-  describe('asLegacyPieceCID', () => {
-    zeroPieceCidFixture.forEach(([size, , v1]) => {
-      it('should down-convert PieceCID to LegacyPieceCID', () => {
-        const v2 = toPieceCID(BigInt(size), v1)
-        const actual = asLegacyPieceCID(v2)
-        assert.isNotNull(actual)
-        assert.strictEqual(actual.toString(), v1.toString())
-
-        // Round-trip the v1
-        const fromV1 = asLegacyPieceCID(v1)
-        assert.isNotNull(fromV1)
-        assert.strictEqual(fromV1.toString(), v1.toString())
-
-        // Round-trip the v1 as a string
-        const fromV1String = asLegacyPieceCID(v1.toString())
-        assert.isNotNull(fromV1String)
-        assert.strictEqual(fromV1String.toString(), v1.toString())
-      })
-    })
-
-    it('should return null for invalid LegacyPieceCID string', () => {
-      const result = asLegacyPieceCID(invalidCidString)
-      assert.isNull(result)
-    })
-
-    it('should return null for invalid CID object', () => {
-      const invalidCid = CID.parse(invalidCidString)
-      const result = asLegacyPieceCID(invalidCid)
-      assert.isNull(result)
-    })
-
-    it('should return null for malformed string', () => {
-      const result = asLegacyPieceCID('not-a-cid')
-      assert.isNull(result)
-    })
-
-    it('should return null for null input', () => {
-      const result = asLegacyPieceCID(null as any)
-      assert.isNull(result)
-    })
-
-    it('should return null for undefined input', () => {
-      const result = asLegacyPieceCID(undefined as any)
-      assert.isNull(result)
-    })
-
-    it('should return null for number input', () => {
-      const result = asLegacyPieceCID(123 as any)
-      assert.isNull(result)
-    })
-
-    it('should return null for object that is not a CID', () => {
-      const result = asLegacyPieceCID({} as any)
       assert.isNull(result)
     })
   })

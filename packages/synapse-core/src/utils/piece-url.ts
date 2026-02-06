@@ -1,38 +1,74 @@
 import type { Address } from 'viem'
 import type { Chain } from '../chains.ts'
 
-export function createPieceUrl(cid: string, cdn: boolean, address: Address, chain: Chain, pdpUrl: string) {
-  if (cdn) {
-    if (chain.filbeam != null) {
-      const endpoint = `https://${address}.${chain.filbeam.retrievalDomain}`
-      const url = new URL(`/${cid}`, endpoint)
-      return url.toString()
-    }
-    console.warn(
-      `CDN retrieval is not available for chain ${chain.id} (${chain.name}). Falling back to direct retrieval via the storage provider.`
-    )
+export namespace createPieceUrl {
+  export type OptionsType = {
+    /** The PieceCID identifier. */
+    cid: string
+    /** Whether the CDN is enabled. */
+    cdn: boolean
+    /** The address of the user. */
+    address: Address
+    /** The chain. */
+    chain: Chain
+    /** The endpoint of the PDP API. */
+    serviceURL: string
   }
 
-  return createPieceUrlPDP(cid, pdpUrl)
+  export type OutputType = string
+}
+
+/**
+ * Create a piece URL for the CDN or PDP API
+ * @param options - {@link createPieceUrl.OptionsType}
+ * @returns The piece URL
+ *
+ * @example
+ * ```ts
+ * const pieceUrl = createPieceUrl({
+ *   cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+ *   cdn: true,
+ *   address: '0x1234567890123456789012345678901234567890',
+ *   chain: mainnet,
+ *   serviceURL: 'https://pdp.example.com',
+ * })
+ * console.log(pieceUrl) // https://0x1234567890123456789012345678901234567890.mainnet.filbeam.io/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy
+ * ```
+ */
+export function createPieceUrl(options: createPieceUrl.OptionsType) {
+  const { cid, cdn, address, chain, serviceURL } = options
+  if (cdn && chain.filbeam != null) {
+    return new URL(`${cid}`, `https://${address}.${chain.filbeam.retrievalDomain}`).toString()
+  }
+
+  return createPieceUrlPDP({ cid, serviceURL })
+}
+
+export namespace createPieceUrlPDP {
+  export type OptionsType = {
+    /** The PieceCID identifier. */
+    cid: string
+    /** The PDP URL. */
+    serviceURL: string
+  }
+
+  export type OutputType = string
 }
 
 /**
  * Create a piece URL for the PDP API
  *
- * @param cid - The PieceCID identifier
- * @param pdpUrl - The PDP URL
- * @returns The PDP URL for the piece
+ * @param options - {@link createPieceUrlPDP.OptionsType}
+ * @returns The PDP URL
  *
  * @example
  * ```ts
- * const pdpUrl = 'https://pdp.example.com'
  * const cid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
- * const pieceUrl = createPieceUrlPDP(cid, pdpUrl)
+ * const pieceUrl = createPieceUrlPDP({ cid, serviceURL: 'https://pdp.example.com' })
  * console.log(pieceUrl) // https://pdp.example.com/piece/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy
  * ```
  */
-export function createPieceUrlPDP(cid: string, pdpUrl: string) {
-  const endpoint = pdpUrl
-  const url = `piece/${cid}`
-  return new URL(url, endpoint).toString()
+export function createPieceUrlPDP(options: createPieceUrlPDP.OptionsType) {
+  const { cid, serviceURL } = options
+  return new URL(`piece/${cid}`, serviceURL).toString()
 }

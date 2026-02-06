@@ -87,8 +87,8 @@ export const SIZE_CONSTANTS = {
 export const LOCKUP_PERIOD = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
 
 export const RETRY_CONSTANTS = {
+  RETRIES: Infinity,
   FACTOR: 1,
   DELAY_TIME: 4000, // 4 seconds in milliseconds between retries
-  RETRIES: Infinity,
   MAX_RETRY_TIME: 1000 * 60 * 5, // 5 minutes in milliseconds
 } as const
