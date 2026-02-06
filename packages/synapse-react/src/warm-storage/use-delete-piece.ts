@@ -1,8 +1,10 @@
 import { getChain } from '@filoz/synapse-core/chains'
 import type { SessionKey } from '@filoz/synapse-core/session-key'
-import { type DataSet, deletePiece, waitForDeletePieceStatus } from '@filoz/synapse-core/warm-storage'
+import * as SP from '@filoz/synapse-core/sp'
+import type { PdpDataSet } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { TransactionReceipt } from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 
@@ -16,7 +18,7 @@ export interface UseDeletePieceProps {
 }
 
 export interface UseDeletePieceVariables {
-  dataSet: DataSet
+  dataSet: PdpDataSet
   pieceId: bigint
 }
 export function useDeletePiece(props: UseDeletePieceProps) {
@@ -39,15 +41,15 @@ export function useDeletePiece(props: UseDeletePieceProps) {
         connectorClient = props?.sessionKey.client(chain, client.transport)
       }
 
-      const deletePieceRsp = await deletePiece(connectorClient, {
-        endpoint: dataSet.pdp.serviceURL,
+      const deletePieceRsp = await SP.schedulePieceDeletion(connectorClient, {
+        serviceURL: dataSet.provider.pdp.serviceURL,
         dataSetId: dataSet.dataSetId,
         clientDataSetId: dataSet.clientDataSetId,
         pieceId,
       })
 
-      props?.onHash?.(deletePieceRsp.txHash)
-      const rsp = await waitForDeletePieceStatus(client, deletePieceRsp)
+      props?.onHash?.(deletePieceRsp.hash)
+      const rsp = await waitForTransactionReceipt(client, deletePieceRsp)
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', account.address],
