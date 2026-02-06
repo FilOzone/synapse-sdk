@@ -6,7 +6,6 @@ import { Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
-import { hashLink } from '../utils.ts'
 
 export const upload: Command = command(
   {
@@ -16,11 +15,6 @@ export const upload: Command = command(
     alias: 'u',
     flags: {
       ...globalFlags,
-      forceCreateDataSet: {
-        type: Boolean,
-        description: 'Force create a new data set',
-        default: false,
-      },
       withCDN: {
         type: Boolean,
         description: 'Enable CDN',
@@ -37,7 +31,7 @@ export const upload: Command = command(
     },
   },
   async (argv) => {
-    const { client, chain } = privateKeyClient(argv.flags.chain)
+    const { client } = privateKeyClient(argv.flags.chain)
 
     const filePath = argv._.requiredPath
     const absolutePath = path.resolve(filePath)
@@ -50,7 +44,6 @@ export const upload: Command = command(
 
       p.log.step('Creating context...')
       const context = await synapse.storage.createContext({
-        forceCreateDataSet: argv.flags.forceCreateDataSet,
         withCDN: argv.flags.withCDN,
         dataSetId: argv.flags.dataSetId,
         callbacks: {
@@ -64,24 +57,21 @@ export const upload: Command = command(
       })
 
       await context.upload(fileData, {
-        metadata: {
+        pieceMetadata: {
           name: path.basename(absolutePath),
         },
-        onUploadComplete(pieceCid) {
+        onStored(_providerId, pieceCid) {
           const url = createPieceUrlPDP(
             pieceCid.toString(),
             context.provider.pdp.serviceURL
           )
           p.log.info(`Upload complete! ${url}`)
         },
-        onPiecesAdded(transactionHash) {
-          p.log.info(`Pieces added in tx ${hashLink(transactionHash, chain)}`)
+        onPieceAdded() {
+          p.log.info('Piece submitted for on-chain addition...')
         },
-        onPiecesConfirmed(dataSetId, pieces) {
-          p.log.info(`Data set ${dataSetId} confirmed`)
-          p.log.info(
-            `Piece IDs: ${pieces.map(({ pieceId }) => pieceId).join(', ')}`
-          )
+        onPieceConfirmed(_providerId, _pieceCid, pieceId) {
+          p.log.info(`Piece ${pieceId} confirmed on-chain`)
         },
       })
 
