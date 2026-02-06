@@ -1,5 +1,5 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
-import { type Account, type Address, type Chain, type Client, isAddressEqual, type Transport } from 'viem'
+import { type Account, type Address, type Chain, type Client, type Hex, isAddressEqual, type Transport } from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { asChain, getChain } from '../chains.ts'
@@ -228,6 +228,8 @@ export type CreateDataSetAndAddPiecesOptions = {
   metadata?: MetadataObject
   /** The pieces and metadata to add to the data set. */
   pieces: { pieceCid: PieceCID; metadata?: MetadataObject }[]
+  /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
+  extraData?: Hex
 }
 
 export namespace createDataSetAndAddPieces {
@@ -249,11 +251,9 @@ export async function createDataSetAndAddPieces(
   options: CreateDataSetAndAddPiecesOptions
 ): Promise<createDataSetAndAddPieces.ReturnType> {
   const chain = asChain(client.chain)
-
-  return SP.createDataSetAndAddPieces({
-    endpoint: options.endpoint,
-    recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
-    extraData: await signCreateDataSetAndAddPieces(client, {
+  const extraData =
+    options.extraData ??
+    (await signCreateDataSetAndAddPieces(client, {
       clientDataSetId: options.clientDataSetId ?? randU256(),
       payee: options.payee,
       payer: options.payer,
@@ -264,7 +264,12 @@ export async function createDataSetAndAddPieces(
         pieceCid: piece.pieceCid,
         metadata: pieceMetadataObjectToEntry(piece.metadata),
       })),
-    }),
+    }))
+
+  return SP.createDataSetAndAddPieces({
+    endpoint: options.endpoint,
+    recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
+    extraData,
     pieces: options.pieces.map((piece) => piece.pieceCid),
   })
 }

@@ -24,7 +24,10 @@ export type AddPiecesOptions = {
   clientDataSetId: bigint
   endpoint: string
   pieces: PieceInputWithMetadata[]
+  /** Optional nonce for the add pieces signature. Ignored when extraData is provided. */
   nonce?: bigint
+  /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
+  extraData?: Hex
 }
 
 /**
@@ -42,18 +45,21 @@ export async function addPieces(client: Client<Transport, Chain, Account>, optio
   if (options.pieces.length === 0) {
     throw new AtLeastOnePieceRequiredError()
   }
-  return PDP.addPieces({
-    endpoint: options.endpoint,
-    dataSetId: options.dataSetId,
-    pieces: options.pieces.map((piece) => piece.pieceCid),
-    extraData: await signAddPieces(client, {
+  const extraData =
+    options.extraData ??
+    (await signAddPieces(client, {
       clientDataSetId: options.clientDataSetId,
       nonce: options.nonce,
       pieces: options.pieces.map((piece) => ({
         pieceCid: piece.pieceCid,
         metadata: pieceMetadataObjectToEntry(piece.metadata),
       })),
-    }),
+    }))
+  return PDP.addPieces({
+    endpoint: options.endpoint,
+    dataSetId: options.dataSetId,
+    pieces: options.pieces.map((piece) => piece.pieceCid),
+    extraData,
   })
 }
 export type DeletePieceOptions = {
