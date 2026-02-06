@@ -20,6 +20,12 @@ The SDK integrates with four key components of the Filecoin Onchain Cloud:
 **Start building in 5 minutes!** Follow the [**Getting Started Guide →**](/getting-started/) to install the SDK, configure your environment, and upload your first file to Filecoin Onchain Cloud.
 :::
 
+## SDKs by Language
+
+- **TypeScript/JavaScript**: [@filoz/synapse-sdk](https://github.com/FilOzone/synapse-sdk)
+- **Python**: [pynapse](https://github.com/anjor/pynapse)
+- **Go**: [go-synapse](https://github.com/data-preservation-programs/go-synapse)
+
 The SDK provides two primary components:
 
 - **`synapse.payments`** - Token operations, service authorizations, and payment rail settlements
