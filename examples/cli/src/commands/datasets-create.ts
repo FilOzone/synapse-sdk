@@ -4,7 +4,6 @@ import {
   getPDPProvider,
   getPDPProviders,
 } from '@filoz/synapse-core/sp-registry'
-import { createDataSet } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
 import type { Account, Chain, Client, Transport } from 'viem'
 import { privateKeyClient } from '../client.ts'
@@ -32,7 +31,6 @@ export const datasetsCreate: Command = command(
   async (argv) => {
     const { client, chain } = privateKeyClient(argv.flags.chain)
 
-    const spinner = p.spinner()
     try {
       const provider = argv._.providerId
         ? await getPDPProvider(client, {
@@ -43,27 +41,26 @@ export const datasetsCreate: Command = command(
       p.log.info(
         `Selected provider: #${provider.id} - ${provider.serviceProvider} ${provider.pdp.serviceURL}`
       )
-      spinner.start(`Creating data set...`)
+      p.log.info(`Creating data set...`)
 
-      const result = await createDataSet(client, {
+      const result = await sp.createDataSet(client, {
         payee: provider.payee,
         payer: client.account.address,
-        endpoint: provider.pdp.serviceURL,
+        serviceURL: provider.pdp.serviceURL,
         cdn: argv.flags.cdn,
       })
 
-      spinner.message(
+      p.log.info(
         `Waiting for tx ${hashLink(result.txHash, chain)} to be mined...`
       )
-      const dataset = await sp.waitForDataSetCreationStatus(result)
+      const dataset = await sp.waitForCreateDataSet(result)
 
-      spinner.stop(`Data set created #${dataset.dataSetId}`)
+      p.log.info(`Data set created #${dataset.dataSetId}`)
     } catch (error) {
       if (argv.flags.debug) {
-        spinner.clear()
         console.error(error)
       } else {
-        spinner.error((error as Error).message)
+        p.log.error((error as Error).message)
       }
     }
   }
