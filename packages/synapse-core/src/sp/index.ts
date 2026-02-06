@@ -15,9 +15,6 @@ export * from './data-sets.ts'
 export * from './get-data-set.ts'
 export * from './schedule-piece-deletion.ts'
 export type {
-  addPieces,
-  createDataSet,
-  createDataSetAndAddPieces,
   deletePiece,
   UploadPieceResponse,
   UploadPieceStreamingOptions,
