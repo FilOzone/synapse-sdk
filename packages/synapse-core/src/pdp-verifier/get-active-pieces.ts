@@ -11,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
+import { hexToPieceCID, type PieceCID } from '../piece.ts'
 import type { ActionCallChain } from '../types.ts'
 
 export namespace getActivePieces {
@@ -25,24 +26,23 @@ export namespace getActivePieces {
     contractAddress?: Address
   }
 
+  export type OutputType = {
+    pieces: { cid: PieceCID; id: bigint }[]
+    hasMore: boolean
+  }
   /**
    * `[piecesData, pieceIds, hasMore]`
    * - `piecesData`: CID bytes encoded as hex strings
    * - `pieceIds`: Piece IDs
    * - `hasMore`: Whether there are more pieces to fetch
    */
-  export type OutputType = readonly [
-    pieceData: readonly { data: `0x${string}` }[],
-    pieceIds: readonly bigint[],
-    hasMore: boolean,
-  ]
   export type ContractOutputType = ContractFunctionReturnType<typeof pdpVerifierAbi, 'pure' | 'view', 'getActivePieces'>
 
   export type ErrorType = asChain.ErrorType | ReadContractErrorType
 }
 
 /**
- * Get active pieces for a data set with pagination
+ * Get active pieces for a data set with pagination does NOT account for removals
  *
  * @example
  * ```ts
@@ -69,7 +69,7 @@ export async function getActivePieces(
   client: Client<Transport, Chain>,
   options: getActivePieces.OptionsType
 ): Promise<getActivePieces.OutputType> {
-  const [piecesData, pieceIds, hasMore] = await readContract(
+  const data = await readContract(
     client,
     getActivePiecesCall({
       chain: client.chain,
@@ -79,7 +79,7 @@ export async function getActivePieces(
       contractAddress: options.contractAddress,
     })
   )
-  return [piecesData, pieceIds, hasMore]
+  return parseActivePieces(data)
 }
 
 export namespace getActivePiecesCall {
@@ -89,9 +89,9 @@ export namespace getActivePiecesCall {
 }
 
 /**
- * Create a call to the getActivePieces function
+ * Create a call to the {@link getActivePieces} function for use with the multicall or readContract function.
  *
- * This function is used to create a call to the getActivePieces function for use with the multicall or readContract function.
+ * Use {@link parseActivePieces} to parse the contract output into a {@link getActivePieces.OutputType}.
  *
  * @example
  * ```ts
@@ -125,4 +125,20 @@ export function getActivePiecesCall(options: getActivePiecesCall.OptionsType) {
     functionName: 'getActivePieces',
     args: [options.dataSetId, options.offset ?? 0n, options.limit ?? 100n],
   } satisfies getActivePiecesCall.OutputType
+}
+
+/**
+ * Parse the contract output into a {@link getActivePieces.OutputType}.
+ *
+ * @param data - The contract output from the getActivePieces function {@link getActivePieces.ContractOutputType}
+ * @returns The active pieces for the data set {@link getActivePieces.OutputType}
+ */
+export function parseActivePieces(data: getActivePieces.ContractOutputType): getActivePieces.OutputType {
+  return {
+    pieces: data[0].map((piece, index) => ({
+      cid: hexToPieceCID(piece.data),
+      id: data[1][index],
+    })),
+    hasMore: data[2],
+  }
 }

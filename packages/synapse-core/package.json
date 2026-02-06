@@ -34,8 +34,8 @@
       "default": "./dist/src/chains.js"
     },
     "./sp": {
-      "types": "./dist/src/sp.d.ts",
-      "default": "./dist/src/sp.js"
+      "types": "./dist/src/sp/index.d.ts",
+      "default": "./dist/src/sp/index.js"
     },
     "./pdp-verifier": {
       "types": "./dist/src/pdp-verifier/index.d.ts",
@@ -104,7 +104,7 @@
         "./dist/src/chains"
       ],
       "sp": [
-        "./dist/src/sp"
+        "./dist/src/sp/index"
       ],
       "pdp-verifier": [
         "./dist/src/pdp-verifier/index"

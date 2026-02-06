@@ -11,18 +11,14 @@
  * @module piece
  */
 
-import type { LegacyPieceLink as LegacyPieceCIDType, PieceLink as PieceCIDType } from '@web3-storage/data-segment'
+import type { PieceLink as PieceCIDType } from '@web3-storage/data-segment'
 import * as Hasher from '@web3-storage/data-segment/multihash'
 import { Unpadded } from '@web3-storage/data-segment/piece/size'
 import { CID } from 'multiformats/cid'
 import * as Raw from 'multiformats/codecs/raw'
-import * as Digest from 'multiformats/hashes/digest'
 import * as Link from 'multiformats/link'
 import { type Hex, hexToBytes } from 'viem'
 import { DownloadPieceError } from './errors/pdp.ts'
-
-const FIL_COMMITMENT_UNSEALED = 0xf101
-const SHA2_256_TRUNC254_PADDED = 0x1012
 
 /**
  * PieceCID - A constrained CID type for Piece Commitments.
@@ -38,23 +34,6 @@ const SHA2_256_TRUNC254_PADDED = 0x1012
 export type PieceCID = PieceCIDType
 
 /**
- * LegacyPieceCID - A constrained CID type for Legacy Piece Commitments.
- * This is implemented as a Link type which is made concrete by a CID.
- *
- * A LegacyPieceCID uses the fil-commitment-unsealed codec (0xf101) and the
- * sha2-256-trunc254-padded (0x1012) multihash function.
- *
- * This 32 bytes of the hash digest in a LegacyPieceCID is the same as the
- * equivalent PieceCID, but a LegacyPieceCID does not encode the length or
- * tree height of the original raw piece. A PieceCID can be converted to a
- * LegacyPieceCID, but not vice versa.
- *
- * LegacyPieceCID is commonly known as "CommP" or simply "Piece Commitment"
- * in Filecoin.
- */
-export type LegacyPieceCID = LegacyPieceCIDType
-
-/**
  * Parse a PieceCID string into a CID and validate it
  * @param pieceCidString - The PieceCID as a string (base32 or other multibase encoding)
  * @returns The parsed and validated PieceCID CID or null if invalid
@@ -64,23 +43,6 @@ function parsePieceCID(pieceCidString: string): PieceCID | null {
     const cid = CID.parse(pieceCidString)
     if (isValidPieceCID(cid)) {
       return cid as PieceCID
-    }
-  } catch {
-    // ignore error
-  }
-  return null
-}
-
-/**
- * Parse a LegacyPieceCID string into a CID and validate it
- * @param pieceCidString - The LegacyPieceCID as a string (base32 or other multibase encoding)
- * @returns The parsed and validated LegacyPieceCID CID or null if invalid
- */
-function parseLegacyPieceCID(pieceCidString: string): LegacyPieceCID | null {
-  try {
-    const cid = CID.parse(pieceCidString)
-    if (isValidLegacyPieceCID(cid)) {
-      return cid as LegacyPieceCID
     }
   } catch {
     // ignore error
@@ -107,15 +69,6 @@ function isValidPieceCID(cid: PieceCID | CID): cid is PieceCID {
 }
 
 /**
- * Check if a CID is a valid LegacyPieceCID
- * @param cid - The CID to check
- * @returns True if it's a valid LegacyPieceCID
- */
-function isValidLegacyPieceCID(cid: LegacyPieceCID | CID): cid is LegacyPieceCID {
-  return cid.code === FIL_COMMITMENT_UNSEALED && cid.multihash.code === SHA2_256_TRUNC254_PADDED
-}
-
-/**
  * Convert a PieceCID input (string or CID) to a validated CID
  * This is the main function to use when accepting PieceCID inputs
  * @param pieceCidInput - PieceCID as either a CID object or string
@@ -132,41 +85,6 @@ export function asPieceCID(pieceCidInput: PieceCID | CID | string | null | undef
 
   if (isCID(pieceCidInput)) {
     if (isValidPieceCID(pieceCidInput)) {
-      return pieceCidInput
-    }
-  }
-
-  return null
-}
-
-/**
- * Convert a LegacyPieceCID input (string or CID) to a validated CID
- * This function can be used to parse a LegacyPieceCID (CommPv1) or to downgrade a PieceCID
- * (CommPv2) to a LegacyPieceCID.
- * @param pieceCidInput - LegacyPieceCID as either a CID object or string
- * @returns The validated LegacyPieceCID CID or null if not a valid LegacyPieceCID
- */
-export function asLegacyPieceCID(
-  pieceCidInput: PieceCID | LegacyPieceCID | CID | string | null | undefined
-): LegacyPieceCID | null {
-  if (pieceCidInput === null || pieceCidInput === undefined) {
-    return null
-  }
-
-  // Try converting as PieceCID first (handles PieceCID and CID types)
-  const pieceCid = asPieceCID(pieceCidInput as PieceCID | CID | string | null | undefined)
-  if (pieceCid != null) {
-    // Downgrade PieceCID to LegacyPieceCID
-    const digest = Digest.create(SHA2_256_TRUNC254_PADDED, pieceCid.multihash.digest.subarray(-32))
-    return Link.create(FIL_COMMITMENT_UNSEALED, digest) as LegacyPieceCID
-  }
-
-  if (typeof pieceCidInput === 'string') {
-    return parseLegacyPieceCID(pieceCidInput)
-  }
-
-  if (isCID(pieceCidInput)) {
-    if (isValidLegacyPieceCID(pieceCidInput)) {
       return pieceCidInput
     }
   }

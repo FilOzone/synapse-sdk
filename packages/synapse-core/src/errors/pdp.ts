@@ -1,3 +1,5 @@
+import type { AddPiecesRejected } from '../sp/wait-for-add-pieces.ts'
+import type { CreateDataSetRejected } from '../sp/wait-for-create-dataset.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { decodePDPError } from '../utils/decode-pdp-errors.ts'
 import { isSynapseError, SynapseError } from './base.ts'
@@ -29,18 +31,30 @@ export class CreateDataSetError extends SynapseError {
   }
 }
 
-export class WaitDataSetCreationStatusError extends SynapseError {
-  override name: 'WaitDataSetCreationStatusError' = 'WaitDataSetCreationStatusError'
+export class WaitForCreateDataSetError extends SynapseError {
+  override name: 'WaitForCreateDataSetError' = 'WaitForCreateDataSetError'
 
   constructor(error: string) {
     const decodedError = decodePDPError(error)
-    super(`Failed to wait for data set creation status.`, {
+    super(`Failed to wait for data set creation.`, {
       details: decodedError,
     })
   }
 
-  static override is(value: unknown): value is WaitDataSetCreationStatusError {
-    return isSynapseError(value) && value.name === 'WaitDataSetCreationStatusError'
+  static override is(value: unknown): value is WaitForCreateDataSetError {
+    return isSynapseError(value) && value.name === 'WaitForCreateDataSetError'
+  }
+}
+
+export class WaitForCreateDataSetRejectedError extends SynapseError {
+  override name: 'WaitForCreateDataSetRejectedError' = 'WaitForCreateDataSetRejectedError'
+  response: CreateDataSetRejected
+
+  constructor(error: CreateDataSetRejected) {
+    super(`Data set creation request rejected.`, {
+      details: `Tx hash: ${error.createMessageHash}`,
+    })
+    this.response = error
   }
 }
 
@@ -118,18 +132,34 @@ export class AddPiecesError extends SynapseError {
   }
 }
 
-export class WaitForAddPiecesStatusError extends SynapseError {
-  override name: 'WaitForAddPiecesStatusError' = 'WaitForAddPiecesStatusError'
+export class WaitForAddPiecesError extends SynapseError {
+  override name: 'WaitForAddPiecesError' = 'WaitForAddPiecesError'
 
   constructor(error: string) {
     const decodedError = decodePDPError(error)
-    super(`Failed to wait for add pieces status.`, {
+    super(`Failed to wait for add pieces.`, {
       details: decodedError,
     })
   }
 
-  static override is(value: unknown): value is WaitForAddPiecesStatusError {
-    return isSynapseError(value) && value.name === 'WaitForAddPiecesStatusError'
+  static override is(value: unknown): value is WaitForAddPiecesError {
+    return isSynapseError(value) && value.name === 'WaitForAddPiecesError'
+  }
+}
+
+export class WaitForAddPiecesRejectedError extends SynapseError {
+  override name: 'WaitForAddPiecesRejectedError' = 'WaitForAddPiecesRejectedError'
+  response: AddPiecesRejected
+
+  constructor(error: AddPiecesRejected) {
+    super(`Add pieces request rejected.`, {
+      details: `Tx hash: ${error.txHash}, Data set ID: ${error.dataSetId}, Piece count: ${error.pieceCount}`,
+    })
+    this.response = error
+  }
+
+  static override is(value: unknown): value is WaitForAddPiecesRejectedError {
+    return isSynapseError(value) && value.name === 'WaitForAddPiecesRejectedError'
   }
 }
 

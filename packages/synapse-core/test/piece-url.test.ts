@@ -21,20 +21,32 @@ describe('createPieceUrl', () => {
 
     for (const { chain, expected } of testCases) {
       it(`should create CDN URL for ${chain.name}`, () => {
-        const result = createPieceUrl(testCid, true, testAddress, chain, testPdpUrl)
+        const result = createPieceUrl({ cid: testCid, cdn: true, address: testAddress, chain, serviceURL: testPdpUrl })
         assert.strictEqual(result, expected)
       })
     }
 
     it('should fall back to PDP URL when chain.filbeam is null', () => {
-      const result = createPieceUrl(testCid, true, testAddress, devnet, testPdpUrl)
+      const result = createPieceUrl({
+        cid: testCid,
+        cdn: true,
+        address: testAddress,
+        chain: devnet,
+        serviceURL: testPdpUrl,
+      })
       assert.strictEqual(result, `${testPdpUrl}piece/${testCid}`)
     })
   })
 
   describe('PDP URLs', () => {
     it('should create PDP URL when CDN is disabled', () => {
-      const result = createPieceUrl(testCid, false, testAddress, mainnet, testPdpUrl)
+      const result = createPieceUrl({
+        cid: testCid,
+        cdn: false,
+        address: testAddress,
+        chain: mainnet,
+        serviceURL: testPdpUrl,
+      })
       const expected = `${testPdpUrl}piece/${testCid}`
       assert.strictEqual(result, expected)
     })
@@ -45,7 +57,7 @@ describe('createPieceUrlPDP', () => {
   it('should create PDP URL', () => {
     const cid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
     const pdpUrl = 'https://sp.example.com/pdp/'
-    const result = createPieceUrlPDP(cid, pdpUrl)
+    const result = createPieceUrlPDP({ cid, serviceURL: pdpUrl })
     assert.strictEqual(
       result,
       'https://sp.example.com/pdp/piece/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'

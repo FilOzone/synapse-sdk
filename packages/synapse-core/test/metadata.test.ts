@@ -86,6 +86,15 @@ describe('Metadata Utils', () => {
       ])
     })
 
+    it('should add withCDN when cdn internal flag is true and withCDN is already present', () => {
+      const result = datasetMetadataObjectToEntry({ project: 'test', withCDN: '' }, { cdn: true })
+
+      assert.deepStrictEqual(result, [
+        { key: 'project', value: 'test' },
+        { key: 'withCDN', value: '' },
+      ])
+    })
+
     it('should not add withCDN when cdn internal flag is false', () => {
       const result = datasetMetadataObjectToEntry({ project: 'test' }, { cdn: false })
 

@@ -14,7 +14,9 @@ import {
   parseEther,
   parseUnits,
   stringToHex,
+  toHex,
 } from 'viem'
+import * as Piece from '../../piece.ts'
 import { TIME_CONSTANTS } from '../../utils/constants.ts'
 import { ADDRESSES } from './constants.ts'
 import { endorsementsCallHandler } from './endorsements.ts'
@@ -498,7 +500,14 @@ export const presets = {
       getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
       getNextPieceId: () => [2n],
       getActivePieceCount: () => [2n],
-      getActivePieces: () => [[], [], false],
+      getActivePieces: () => [
+        [
+          { data: toHex(Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy').bytes) },
+          { data: toHex(Piece.parse('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace').bytes) },
+        ],
+        [0n, 1n],
+        false,
+      ],
       getDataSetStorageProvider: () => [ADDRESSES.serviceProvider1, ADDRESSES.zero],
       getDataSetLeafCount: () => [0n],
       getScheduledRemovals: () => [[]],
