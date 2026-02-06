@@ -1,0 +1,69 @@
+---
+import type { Chain } from '@filoz/synapse-core/chains'
+
+interface Props {
+  chain: Chain
+}
+
+const { chain } = Astro.props
+
+const explorerUrl = chain.blockExplorers?.default?.url ?? ''
+
+const contractNames: Record<string, string> = {
+  multicall3: 'Multicall3',
+  storage: 'Warm Storage Service',
+  storageView: 'Warm Storage Service StateView',
+  pdp: 'PDPVerifier',
+  payments: 'Filecoin Pay',
+  usdfc: 'USDFC Token',
+  serviceProviderRegistry: 'Service Provider Registry',
+  sessionKeyRegistry: 'Session Key Registry',
+  endorsements: 'Endorsements',
+}
+
+const contractOrder = [
+  'multicall3',
+  'storage',
+  'storageView',
+  'pdp',
+  'payments',
+  'usdfc',
+  'serviceProviderRegistry',
+  'sessionKeyRegistry',
+  'endorsements',
+] as const
+
+const rows = contractOrder
+  .filter((key) => {
+    const contract = chain.contracts[key]
+    return contract?.address && contract.address !== '0x0000000000000000000000000000000000000000'
+  })
+  .map((key) => {
+    const contract = chain.contracts[key]
+    const address = contract.address
+    return {
+      name: contractNames[key] ?? key,
+      address,
+      explorer: `${explorerUrl}/address/${address}`,
+    }
+  })
+---
+
+<table>
+  <thead>
+    <tr>
+      <th>Contract</th>
+      <th>Address</th>
+      <th>Explorer</th>
+    </tr>
+  </thead>
+  <tbody>
+    {rows.map((row) => (
+      <tr>
+        <td>{row.name}</td>
+        <td><code>{row.address}</code></td>
+        <td><a href={row.explorer} target="_blank" rel="noopener noreferrer">View</a></td>
+      </tr>
+    ))}
+  </tbody>
+</table>
