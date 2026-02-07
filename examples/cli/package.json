@@ -16,7 +16,7 @@
     "@clack/prompts": "^1.0.0",
     "@filoz/synapse-core": "workspace:^",
     "@filoz/synapse-sdk": "workspace:^",
-    "@remix-run/fs": "^0.3.0",
+    "@remix-run/fs": "^0.4.1",
     "cleye": "^2.0.0",
     "conf": "^15.0.2",
     "terminal-link": "^5.0.0",
