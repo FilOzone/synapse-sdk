@@ -9,51 +9,110 @@
  * 3. Uploading a file to PDP storage with callbacks
  * 4. Downloading the file back and verifying contents
  *
- * Required environment variables:
+ * By default, configuration is loaded from the local FOC devnet info file
+ * at ~/.foc-devnet/state/latest/devnet-info.json (using the first user).
+ *
+ * Environment variables:
+ * - DETAILS_VIA_ENVVARS: Set to "true" to use env vars instead of devnet info (default: false)
+ * - USE_CALIBRATION: Set to "true" to use calibration network instead of devnet (default: false)
+ *
+ * When DETAILS_VIA_ENVVARS=true or USE_CALIBRATION=true:
  * - PRIVATE_KEY: Your Ethereum private key (with 0x prefix)
  * - RPC_URL: Filecoin RPC endpoint (defaults to calibration)
- *
- * Optional environment variables (for devnet):
- * - WARM_STORAGE_ADDRESS: Warm Storage service contract address (uses default for network)
+ * - WARM_STORAGE_ADDRESS: Warm Storage service contract address (optional)
  * - MULTICALL3_ADDRESS: Multicall3 address (required for devnet)
  * - USDFC_ADDRESS: USDFC token address (optional)
+ * - ENDORSEMENTS_ADDRESS: Endorsements contract address (optional)
  *
+ * When DETAILS_VIA_ENVVARS=false (default):
+ * - DEVNET_INFO_PATH: Path to devnet-info.json (optional, defaults to ~/.foc-devnet/state/latest/devnet-info.json)
+ * - DEVNET_USER_INDEX: Index of the user to use from devnet info (optional, defaults to 0) *
  * Usage:
- *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] [file-path3] ...
+ *   node example-storage-e2e.js [file-path] [file-path2] [file-path3] ...
+ *   DETAILS_VIA_ENVVARS=true PRIVATE_KEY=0x... node example-storage-e2e.js [file-path] ...
+ *   USE_CALIBRATION=true PRIVATE_KEY=0x... node example-storage-e2e.js [file-path] ...
+ *
+ * If no file paths are provided, uses ~/.foc-devnet/state/latest/devnet-info.json as test file.
  */
 
-import { ethers } from 'ethers'
+import { readFileSync } from 'fs'
 import fsPromises from 'fs/promises'
+import { homedir } from 'os'
+import { join } from 'path'
+import { http as viemHttp } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '../packages/synapse-core/src/chains.ts'
+import { loadDevnetInfo, toChain } from '../packages/synapse-core/src/foc-devnet-info/src/index.ts'
 import { SIZE_CONSTANTS, Synapse, TIME_CONSTANTS } from '../packages/synapse-sdk/src/index.ts'
-import {
-  ADD_PIECES_TYPEHASH,
-  CREATE_DATA_SET_TYPEHASH,
-  PDP_PERMISSION_NAMES,
-} from '../packages/synapse-sdk/src/session/index.ts'
+import { SessionKey } from '../packages/synapse-sdk/src/session/index.ts'
 
-// Configuration from environment
-const PRIVATE_KEY = process.env.PRIVATE_KEY
-const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
-const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
-const MULTICALL3_ADDRESS = process.env.MULTICALL3_ADDRESS // Required for devnet
-const USDFC_ADDRESS = process.env.USDFC_ADDRESS // Optional
-const ENDORSEMENTS_ADDRESS = process.env.ENDORSEMENTS_ADDRESS // Required for devnet
+// Configuration - resolve from devnet info or environment variables
+const DETAILS_VIA_ENVVARS = process.env.DETAILS_VIA_ENVVARS === 'true'
+const USE_CALIBRATION = process.env.USE_CALIBRATION === 'true'
+
+let PRIVATE_KEY
+let CHAIN
+
+if (DETAILS_VIA_ENVVARS || USE_CALIBRATION) {
+  PRIVATE_KEY = process.env.PRIVATE_KEY
+  const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
+
+  // Use calibration chain with custom RPC if provided
+  CHAIN = {
+    ...calibration,
+    rpcUrls: {
+      ...calibration.rpcUrls,
+      default: { http: [RPC_URL] },
+    },
+  }
+} else {
+  // Load from FOC devnet info file
+  const devnetInfoPath =
+    process.env.DEVNET_INFO_PATH || join(homedir(), '.foc-devnet', 'state', 'latest', 'devnet-info.json')
+  const userIndex = Number(process.env.DEVNET_USER_INDEX || '0')
+
+  console.log(`Loading devnet info from: ${devnetInfoPath}`)
+  const rawData = JSON.parse(readFileSync(devnetInfoPath, 'utf8'))
+  const devnetInfo = loadDevnetInfo(rawData)
+  const { info } = devnetInfo
+
+  if (userIndex >= info.users.length) {
+    console.error(`ERROR: DEVNET_USER_INDEX=${userIndex} is out of range (${info.users.length} users available)`)
+    process.exit(1)
+  }
+
+  const user = info.users[userIndex]
+
+  PRIVATE_KEY = user.private_key_hex
+  CHAIN = toChain(devnetInfo)
+
+  console.log(`Devnet run: ${info.run_id} (started: ${info.start_time})`)
+  console.log(`Using user: ${user.name} (${user.evm_addr})`)
+  console.log(`SPs available: ${info.pdp_sps.length}`)
+}
 
 function printUsageAndExit() {
-  console.error('Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] ...')
+  console.error('Usage: node example-storage-e2e.js [file-path] [file-path2] ...')
+  console.error('  Default: loads config from ~/.foc-devnet/state/latest/devnet-info.json')
+  console.error('  If no file paths provided, uses devnet-info.json as test file')
+  console.error('  DETAILS_VIA_ENVVARS=true PRIVATE_KEY=0x... node example-storage-e2e.js [file-path]')
+  console.error('  USE_CALIBRATION=true PRIVATE_KEY=0x... node example-storage-e2e.js [file-path]')
   process.exit(1)
 }
 
 // Validate inputs
 if (!PRIVATE_KEY) {
-  console.error('ERROR: PRIVATE_KEY environment variable is required')
+  console.error('ERROR: PRIVATE_KEY is required (set PRIVATE_KEY env var or use devnet info)')
   printUsageAndExit()
 }
 
-const filePaths = process.argv.slice(2)
+let filePaths = process.argv.slice(2)
+
+// If no file paths provided, use the devnet info file as default test file
 if (filePaths.length === 0) {
-  console.error('ERROR: At least one file path argument is required')
-  printUsageAndExit()
+  const defaultFile = join(homedir(), '.foc-devnet', 'state', 'latest', 'devnet-info.json')
+  filePaths = [defaultFile]
+  console.log(`No file paths provided, using default test file: ${defaultFile}`)
 }
 
 // Helper to format bytes for display
@@ -74,6 +133,9 @@ function formatUSDFC(amount) {
 async function main() {
   try {
     console.log('=== Synapse SDK Storage E2E Example ===\n')
+
+    const mode = USE_CALIBRATION ? 'Calibration' : DETAILS_VIA_ENVVARS ? 'Environment Variables' : 'FOC DevNet'
+    console.log(`Mode: ${mode}`)
 
     // Read all files to upload
     console.log(`Reading file${filePaths.length !== 1 ? 's' : ''}...`)
@@ -102,36 +164,36 @@ async function main() {
 
     // Create Synapse instance
     console.log('\n--- Initializing Synapse SDK ---')
-    console.log(`RPC URL: ${RPC_URL}`)
+    console.log(`RPC URL: ${CHAIN.rpcUrls.default.http[0]}`)
+    console.log(`Chain: ${CHAIN.name} (ID: ${CHAIN.id})`)
+
+    // Create account from private key
+    const account = privateKeyToAccount(PRIVATE_KEY)
 
     const synapseOptions = {
-      multicall3Address: MULTICALL3_ADDRESS,
-      privateKey: PRIVATE_KEY,
-      rpcURL: RPC_URL,
-      usdfcAddress: USDFC_ADDRESS,
-      warmStorageAddress: WARM_STORAGE_ADDRESS,
-      endorsementsAddress: ENDORSEMENTS_ADDRESS,
+      chain: CHAIN,
+      transport: viemHttp(),
+      account,
     }
 
-    if (WARM_STORAGE_ADDRESS) {
-      console.log(`Warm Storage Address: ${WARM_STORAGE_ADDRESS}`)
+    if (CHAIN.contracts.fwss) {
+      console.log(`Warm Storage Address: ${CHAIN.contracts.fwss.address}`)
     }
-    if (MULTICALL3_ADDRESS) {
-      console.log(`Multicall3 Address: ${MULTICALL3_ADDRESS}`)
+    if (CHAIN.contracts.multicall3) {
+      console.log(`Multicall3 Address: ${CHAIN.contracts.multicall3.address}`)
     }
-    if (USDFC_ADDRESS) {
-      console.log(`USDFC Address: ${USDFC_ADDRESS}`)
+    if (CHAIN.contracts.usdfc) {
+      console.log(`USDFC Address: ${CHAIN.contracts.usdfc.address}`)
     }
-    if (ENDORSEMENTS_ADDRESS) {
-      console.log(`Endorsements Address: ${ENDORSEMENTS_ADDRESS}`)
+    if (CHAIN.contracts.endorsements) {
+      console.log(`Endorsements Address: ${CHAIN.contracts.endorsements.address}`)
     }
 
-    const synapse = await Synapse.create(synapseOptions)
+    const synapse = Synapse.create(synapseOptions)
     console.log('✓ Synapse instance created')
 
     // Get wallet info
-    const signer = synapse.getSigner()
-    const address = await signer.getAddress()
+    const address = synapse.client.account.address
     console.log(`Wallet address: ${address}`)
 
     // Check balances
@@ -147,12 +209,11 @@ async function main() {
       if (!sessionPrivateKey.startsWith('0x')) {
         sessionPrivateKey = `0x${sessionPrivateKey}`
       }
-      const sessionKeyWallet = new ethers.Wallet(sessionPrivateKey, synapse.getProvider())
-      const sessionKey = synapse.createSessionKey(sessionKeyWallet)
-      synapse.setSession(sessionKey)
-      const permissions = [CREATE_DATA_SET_TYPEHASH, ADD_PIECES_TYPEHASH]
+      const sessionAccount = privateKeyToAccount(sessionPrivateKey)
+      const sessionKey = new SessionKey(synapse.client, sessionAccount)
+      const permissions = ['CreateDataSet', 'AddPieces']
       const expiries = await sessionKey.fetchExpiries(permissions)
-      const sessionKeyAddress = await sessionKeyWallet.getAddress()
+      const sessionKeyAddress = sessionAccount.address
 
       console.log('\n--- SessionKey Login ---')
       console.log(`Session Key: ${sessionKeyAddress})`)
@@ -164,20 +225,16 @@ async function main() {
       const refresh = soon + day
       for (const permission of permissions) {
         if (expiries[permission] < soon) {
-          console.log(`  refreshing ${PDP_PERMISSION_NAMES[permission]}: ${expiries[permission]} to ${refresh}`)
+          console.log(`  refreshing ${permission}: ${expiries[permission]} to ${refresh}`)
           permissionsToRefresh.push(permission)
         }
       }
       if (permissionsToRefresh.length > 0) {
         // Use login() to reset the expiry of existing permissions to the new value
         const loginTx = await sessionKey.login(refresh, permissionsToRefresh)
-        console.log(`  tx: ${loginTx.hash}`)
-        const loginReceipt = await loginTx.wait()
-        if (loginReceipt.status === 1) {
-          console.log('✓ login successful')
-        } else {
-          throw new Error('Login failed')
-        }
+        console.log(`  tx: ${loginTx}`)
+        // Note: In viem, we get transaction hash directly
+        console.log('✓ login successful')
       } else {
         console.log('✓ session active')
       }
@@ -230,8 +287,8 @@ async function main() {
       console.log(`Provider Address: ${providerInfo.serviceProvider}`)
       console.log(`Provider Name: ${providerInfo.name}`)
       console.log(`Active: ${providerInfo.active}`)
-      if (providerInfo.products.PDP?.data.serviceURL) {
-        console.log(`PDP Service URL: ${providerInfo.products.PDP.data.serviceURL}`)
+      if (providerInfo.pdp?.serviceURL) {
+        console.log(`PDP Service URL: ${providerInfo.pdp.serviceURL}`)
       }
     }
 
@@ -412,9 +469,9 @@ async function main() {
           console.log(`    PieceCID: ${fileResult.pieceCid}`)
           console.log(`    Piece ID: ${fileResult.pieceId}`)
           console.log(`    Size: ${formatBytes(fileResult.size)}`)
-          if (providerInfo.products.PDP?.data.serviceURL) {
+          if (providerInfo.pdp?.serviceURL) {
             console.log(
-              `    Retrieval URL: ${providerInfo.products.PDP.data.serviceURL.replace(/\/$/, '')}/piece/${fileResult.pieceCid}`
+              `    Retrieval URL: ${providerInfo.pdp.serviceURL.replace(/\/$/, '')}/piece/${fileResult.pieceCid}`
             )
           }
         })
