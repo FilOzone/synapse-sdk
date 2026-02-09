@@ -125,7 +125,7 @@ export class StorageManager {
    * only support Uint8Array. For streaming uploads with multiple contexts, convert your
    * stream to Uint8Array first or use stream forking (future feature).
    */
-  async upload(data: File, options?: StorageManagerUploadOptions): Promise<UploadResult> {
+  async upload(data: Blob, options?: StorageManagerUploadOptions): Promise<UploadResult> {
     // Validate options - if context is provided, no other options should be set
     if (options?.context != null || options?.contexts != null) {
       const invalidOptions = []

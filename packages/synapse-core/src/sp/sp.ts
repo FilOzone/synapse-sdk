@@ -235,18 +235,27 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
   }
 }
 
-export type UploadPieceStreamingOptions = {
-  serviceURL: string
-  data: File
-  size?: number
-  onProgress?: (bytesUploaded: number) => void
-  pieceCid?: PieceCID
-  signal?: AbortSignal
-}
+export namespace uploadPieceStreaming {
+  export type OptionsType = {
+    /** The service URL of the PDP API. */
+    serviceURL: string
+    /** The data to upload. */
+    data: Blob
+    /** The size of the data. If defined, it will be used to set the Content-Length header. */
+    size?: number
+    /** The progress callback. */
+    onProgress?: (bytesUploaded: number) => void
+    /** The piece CID to upload. */
+    pieceCid?: PieceCID
+    /** The signal to abort the request. */
+    signal?: AbortSignal
+  }
+  export type OutputType = {
+    pieceCid: PieceCID
+    size: number
+  }
 
-export type UploadPieceResponse = {
-  pieceCid: PieceCID
-  size: number
+  export type ErrorType = InvalidUploadSizeError | PostPieceError | LocationHeaderError
 }
 
 /**
@@ -257,16 +266,13 @@ export type UploadPieceResponse = {
  * 2. PUT /pdp/piece/uploads/{uuid} → stream data while calculating CommP
  * 3. POST /pdp/piece/uploads/{uuid} → finalize with calculated CommP
  *
- * @param options - Upload options
- * @param options.serviceURL - The service URL of the PDP API
- * @param options.data - AsyncIterable or ReadableStream yielding Uint8Array chunks
- * @param options.size - Optional known size for Content-Length header
- * @param options.onProgress - Optional progress callback
- * @param options.signal - Optional AbortSignal to cancel the upload
- * @returns PieceCID and size of uploaded data
- * @throws Error if upload fails at any step or if size exceeds MAX_UPLOAD_SIZE
+ * @param options - {@link uploadPieceStreaming.OptionsType}
+ * @returns PieceCID and size of uploaded data {@link uploadPieceStreaming.OutputType}
+ * @throws Errors {@link uploadPieceStreaming.ErrorType}
  */
-export async function uploadPieceStreaming(options: UploadPieceStreamingOptions): Promise<UploadPieceResponse> {
+export async function uploadPieceStreaming(
+  options: uploadPieceStreaming.OptionsType
+): Promise<uploadPieceStreaming.OutputType> {
   if (options.data.size < SIZE_CONSTANTS.MIN_UPLOAD_SIZE || options.data.size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
     throw new InvalidUploadSizeError(options.data.size)
   }
@@ -310,7 +316,6 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
     getPieceCID = result.getPieceCID
   }
 
-  // Convert to ReadableStream if needed (skip if already ReadableStream)
   const dataStream = options.data.stream()
 
   // Add size tracking and progress reporting

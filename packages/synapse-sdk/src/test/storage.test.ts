@@ -1174,9 +1174,9 @@ describe('StorageService', () => {
 
       // Create 3 uploads
       const uploads = [
-        service.upload(new File([new Uint8Array(127).fill(1)], 'test1.txt')),
-        service.upload(new File([new Uint8Array(128).fill(2)], 'test2.txt')),
-        service.upload(new File([new Uint8Array(129).fill(3)], 'test3.txt')),
+        service.upload(new Blob([new Uint8Array(127).fill(1)])),
+        service.upload(new Blob([new Uint8Array(128).fill(2)])),
+        service.upload(new Blob([new Uint8Array(129).fill(3)])),
       ]
 
       // All uploads in the batch should fail with the same error
@@ -1213,12 +1213,12 @@ describe('StorageService', () => {
 
       // Create minimal data but mock length to simulate oversized data
       // This tests validation without allocating 1+ GiB
-      const smallData = new File([new Uint8Array(127)], 'test.txt')
+      const smallData = new Blob([new Uint8Array(127)])
       const testSize = SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1
       Object.defineProperty(smallData, 'size', { value: testSize })
 
       try {
-        await service.upload(new File([smallData], 'test.txt'))
+        await service.upload(new Blob([smallData]))
         assert.fail('Should have thrown size limit error')
       } catch (error: any) {
         console.log('🚀 ~ error:', error)
@@ -1245,7 +1245,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
-        await service.upload(new File([testData], 'test.txt'))
+        await service.upload(new Blob([testData]))
         assert.fail('Should have thrown error for verification failure')
       } catch (error: any) {
         // The error is wrapped by createError
@@ -1314,7 +1314,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
-        await service.upload(new File([testData], 'test.txt'))
+        await service.upload(new Blob([testData]))
         assert.fail('Should have thrown error for failed transaction')
       } catch (error: any) {
         // The error is wrapped twice - first by the specific throw, then by the outer catch
@@ -1382,7 +1382,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
-        await service.upload(new File([testData], 'test.txt'))
+        await service.upload(new Blob([testData]))
         assert.fail('Should have thrown timeout error')
       } catch (error: any) {
         assert.include(error.message, 'Timeout waiting for piece to be parked')
@@ -1408,7 +1408,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
-        await service.upload(new File([testData], 'test.txt'))
+        await service.upload(new Blob([testData]))
         assert.fail('Should have thrown upload error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to upload piece to service provider')
@@ -1439,7 +1439,7 @@ describe('StorageService', () => {
       })
 
       try {
-        await service.upload(new File([testData], 'test.txt'))
+        await service.upload(new Blob([testData]))
         assert.fail('Should have thrown add pieces error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to add piece to data set')

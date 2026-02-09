@@ -44,7 +44,7 @@ describe('Storage Upload', () => {
     try {
       // Create data that is below the minimum
       const undersizedData = new Uint8Array(126) // 126 bytes (1 byte under minimum)
-      await context.upload(new File([undersizedData], 'test.txt'))
+      await context.upload(new Blob([undersizedData]))
       assert.fail('Should have thrown size limit error')
     } catch (error: any) {
       assert.include(error.message, 'below minimum allowed size')
@@ -102,15 +102,15 @@ describe('Storage Upload', () => {
 
     // Start all uploads concurrently with callbacks
     const uploads = [
-      context.upload(new File([firstData], 'test1.txt'), {
+      context.upload(new Blob([firstData]), {
         onPieceAdded: () => addPiecesCount++,
         onUploadComplete: () => uploadCompleteCount++,
       }),
-      context.upload(new File([secondData], 'test2.txt'), {
+      context.upload(new Blob([secondData]), {
         onPieceAdded: () => addPiecesCount++,
         onUploadComplete: () => uploadCompleteCount++,
       }),
-      context.upload(new File([thirdData], 'test3.txt'), {
+      context.upload(new Blob([thirdData]), {
         onPieceAdded: () => addPiecesCount++,
         onUploadComplete: () => uploadCompleteCount++,
       }),
@@ -192,9 +192,9 @@ describe('Storage Upload', () => {
 
     // Start all uploads concurrently with callbacks
     const uploads = [
-      context.upload(new File([firstData], 'test1.txt')),
-      context.upload(new File([secondData], 'test2.txt')),
-      context.upload(new File([thirdData], 'test3.txt')),
+      context.upload(new Blob([firstData])),
+      context.upload(new Blob([secondData])),
+      context.upload(new Blob([thirdData])),
     ]
 
     const results = await Promise.all(uploads)
@@ -285,9 +285,9 @@ describe('Storage Upload', () => {
 
     // Start all uploads concurrently with callbacks
     const uploads = [
-      context.upload(new File([firstData], 'tes1.txt')),
-      context.upload(new File([secondData], 'test2.txt')),
-      context.upload(new File([thirdData], 'test3.txt')),
+      context.upload(new Blob([firstData])),
+      context.upload(new Blob([secondData])),
+      context.upload(new Blob([thirdData])),
     ]
 
     const results = await Promise.all(uploads)
@@ -348,7 +348,7 @@ describe('Storage Upload', () => {
 
     const uploads = []
     for (let i = 0; i < 5; i++) {
-      uploads.push(context.upload(new File([new Uint8Array(127).fill(i)], 'test.txt')))
+      uploads.push(context.upload(new Blob([new Uint8Array(127).fill(i)])))
     }
 
     await Promise.all(uploads)
@@ -400,7 +400,7 @@ describe('Storage Upload', () => {
     })
 
     const expectedSize = 127
-    const upload = await context.upload(new File([new Uint8Array(expectedSize)], 'test.txt'))
+    const upload = await context.upload(new Blob([new Uint8Array(expectedSize)]))
     assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
     assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, expectedSize, 'size should be 127')
@@ -451,7 +451,7 @@ describe('Storage Upload', () => {
     })
 
     const expectedSize = SIZE_CONSTANTS.MIN_UPLOAD_SIZE
-    const upload = await context.upload(new File([new Uint8Array(expectedSize).fill(1)], 'test.txt'))
+    const upload = await context.upload(new Blob([new Uint8Array(expectedSize).fill(1)]))
 
     assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
     assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
@@ -507,7 +507,7 @@ describe('Storage Upload', () => {
     })
 
     const expectedSize = SIZE_CONSTANTS.MIN_UPLOAD_SIZE
-    const uploadResult = await context.upload(new File([new Uint8Array(expectedSize).fill(1)], 'test.txt'), {
+    const uploadResult = await context.upload(new Blob([new Uint8Array(expectedSize).fill(1)]), {
       onPiecesAdded(transaction: Hex | undefined, pieces: Array<{ pieceCid: PieceCID }> | undefined) {
         piecesAddedArgs = { transaction, pieces }
       },
@@ -592,7 +592,7 @@ describe('Storage Upload', () => {
     })
 
     const buffer = new Uint8Array(1024)
-    const upload = await context.upload(new File([buffer], 'test.txt'))
+    const upload = await context.upload(new Blob([buffer]))
     assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, 1024, 'size should be 1024')
   })

@@ -1103,7 +1103,7 @@ InvalidSignature(address expected, address actual)
 
       const result = await uploadPieceStreaming({
         serviceURL: 'http://pdp.local',
-        data: new File([testData], 'test.txt'),
+        data: new Blob([testData]),
         pieceCid,
       })
 
@@ -1130,7 +1130,7 @@ InvalidSignature(address expected, address actual)
 
       const result = await uploadPieceStreaming({
         serviceURL: 'http://pdp.local',
-        data: new File([testData], 'test.txt'),
+        data: new Blob([testData]),
         pieceCid,
         onProgress: (bytes) => progressCalls.push(bytes),
       })
@@ -1154,7 +1154,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new File([testData], 'test.txt'),
+          data: new Blob([testData]),
           pieceCid,
         })
         assert.fail('Should have thrown error for session creation failure')
@@ -1177,7 +1177,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new File([testData], 'test.txt'),
+          data: new Blob([testData]),
           pieceCid,
         })
         assert.fail('Should have thrown error for wrong status')
@@ -1200,7 +1200,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new File([testData], 'test.txt'),
+          data: new Blob([testData]),
           pieceCid,
         })
         assert.fail('Should have thrown error for missing Location header')
@@ -1226,7 +1226,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new File([testData], 'test.txt'),
+          data: new Blob([testData]),
           pieceCid,
         })
         assert.fail('Should have thrown error for invalid Location header')
@@ -1250,7 +1250,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new File([testData], 'test.txt'),
+          data: new Blob([testData]),
           pieceCid,
         })
         assert.fail('Should have thrown error for PUT failure')
@@ -1274,7 +1274,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new File([testData], 'test.txt'),
+          data: new Blob([testData]),
           pieceCid,
         })
         assert.fail('Should have thrown error for wrong PUT status')
@@ -1299,7 +1299,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new File([testData], 'test.txt'),
+          data: new Blob([testData]),
           pieceCid,
         })
         assert.fail('Should have thrown error for finalize failure')
@@ -1324,7 +1324,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new File([testData], 'test.txt'),
+          data: new Blob([testData]),
           pieceCid,
         })
         assert.fail('Should have thrown error for wrong finalize status')
