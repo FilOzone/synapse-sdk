@@ -8,25 +8,49 @@ import { createPieceUrl } from '../utils/piece-url.ts'
 import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
 import * as SP from './sp.ts'
-export interface Events {
-  pieceUploaded: {
-    pieceCid: Piece.PieceCID
-    dataSet: PdpDataSet
+
+export namespace upload {
+  export type Events = {
+    pieceUploaded: {
+      pieceCid: Piece.PieceCID
+      dataSet: PdpDataSet
+    }
+    pieceParked: {
+      pieceCid: Piece.PieceCID
+      url: string
+      dataSet: PdpDataSet
+    }
   }
-  pieceParked: {
+  export type OptionsType = {
+    /** The ID of the data set. */
+    dataSetId: bigint
+    /** The data to upload. */
+    data: File[]
+    /** The callback to call when an event occurs. */
+    onEvent?: <T extends keyof upload.Events>(event: T, data: upload.Events[T]) => void
+  }
+  export type OutputType = {
     pieceCid: Piece.PieceCID
     url: string
-    dataSet: PdpDataSet
+    metadata: { name: string; type: string }
   }
+  export type ErrorType =
+    | DataSetNotFoundError
+    | SP.uploadPiece.ErrorType
+    | SP.findPiece.ErrorType
+    | SP.addPieces.ErrorType
+    | signAddPieces.ErrorType
 }
 
-export type UploadOptions = {
-  dataSetId: bigint
-  data: File[]
-  onEvent?<T extends keyof Events>(event: T, data: Events[T]): void
-}
-
-export async function upload(client: Client<Transport, Chain, Account>, options: UploadOptions) {
+/**
+ * Upload multiplepieces to a data set on the PDP API.
+ *
+ * @param client - The client to use to upload the pieces.
+ * @param options - {@link upload.OptionsType}
+ * @returns Upload response {@link upload.OutputType}
+ * @throws Errors {@link upload.ErrorType}
+ */
+export async function upload(client: Client<Transport, Chain, Account>, options: upload.OptionsType) {
   const dataSet = await getPdpDataSet(client, {
     dataSetId: options.dataSetId,
   })
