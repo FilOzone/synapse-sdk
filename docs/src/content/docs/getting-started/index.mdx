@@ -58,11 +58,13 @@ npm install @filoz/synapse-sdk viem
 
 Note: `viem` is a peer dependency and must be installed separately.
 
-## SDKs by Language
-
-- **TypeScript/JavaScript**: [@filoz/synapse-sdk](https://github.com/FilOzone/synapse-sdk)
+:::note[Community SDKs]
+In addition to the official TypeScript SDK, community-maintained SDKs are available:
 - **Python**: [pynapse](https://github.com/anjor/pynapse)
 - **Go**: [go-synapse](https://github.com/data-preservation-programs/go-synapse)
+
+These are unofficial projects — refer to their respective repositories for documentation and support.
+:::
 
 ## Quick Start Example
 
@@ -123,42 +125,6 @@ main().then(() => {
   console.error(error.cause); // Underlying error if any
 });
 ```
-
-### Python Quick Start Example
-
-Install the Python SDK from PyPI:
-
-```bash
-pip install synapse-filecoin-sdk
-```
-
-Then upload and download data with `pynapse`:
-
-```python
-import asyncio
-
-from pynapse import AsyncSynapse
-
-
-async def main() -> None:
-    synapse = await AsyncSynapse.create(
-        rpc_url="https://api.calibration.node.glif.io/rpc/v1",
-        chain="calibration",
-        private_key="0xYOUR_PRIVATE_KEY",
-    )
-
-    data = (b"Hello from pynapse on Filecoin Calibration! " * 8)
-    result = await synapse.storage.upload(data)
-    print(f"Uploaded: {result.piece_cid} ({result.size} bytes)")
-
-    downloaded = await synapse.storage.download(result.piece_cid)
-    print(f"Downloaded {len(downloaded)} bytes")
-
-
-asyncio.run(main())
-```
-
-Note: `pynapse` requires the external `stream-commp` helper at runtime for PieceCID calculation. See the [pynapse README](https://github.com/anjor/pynapse#commp--piececid).
 
 What you just did:
 
