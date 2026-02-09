@@ -4,7 +4,6 @@ import type { PieceCID } from '../piece.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
-import { randU256 } from '../utils/rand.ts'
 import * as SP from './sp.ts'
 
 export type CreateDataSetOptions = {
@@ -39,7 +38,7 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
 
   // Sign and encode the create data set message
   const extraData = await signCreateDataSet(client, {
-    clientDataSetId: options.clientDataSetId ?? randU256(),
+    clientDataSetId: options.clientDataSetId,
     payee: options.payee,
     payer: options.payer,
     metadata: datasetMetadataObjectToEntry(options.metadata, {
@@ -101,7 +100,7 @@ export async function createDataSetAndAddPieces(
     serviceURL: options.serviceURL,
     recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
     extraData: await signCreateDataSetAndAddPieces(client, {
-      clientDataSetId: options.clientDataSetId ?? randU256(),
+      clientDataSetId: options.clientDataSetId,
       payee: options.payee,
       payer: options.payer,
       metadata: datasetMetadataObjectToEntry(options.metadata, {

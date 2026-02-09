@@ -8,7 +8,7 @@ export namespace schedulePieceDeletion {
     pieceId: bigint
     /** The data set ID to delete the piece from. */
     dataSetId: bigint
-    /** The client data set ID. */
+    /** The client data set id (nonce) to use for the signature. Must be unique for each data set. */
     clientDataSetId: bigint
     /** The service URL of the PDP API. */
     serviceURL: string
