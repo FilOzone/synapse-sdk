@@ -9,6 +9,7 @@ import {
   type Transport,
 } from 'viem'
 import type { PieceCID } from '../piece.ts'
+import { randU256 } from '../utils/rand.ts'
 import { signAddPieces } from './sign-add-pieces.ts'
 import { signCreateDataSet } from './sign-create-dataset.ts'
 import type { MetadataEntry } from './type-definitions.ts'
@@ -27,15 +28,17 @@ export async function signCreateDataSetAndAddPieces(
   client: Client<Transport, Chain, Account>,
   options: signCreateDataSetAndAddPieces.OptionsType
 ): Promise<signCreateDataSetAndAddPieces.ReturnType> {
-  const dataSetExtraData = await signCreateDataSet(client, options)
-  const addPiecesExtraData = await signAddPieces(client, options)
+  // we need the data set nonce for add pieces to we generate it here
+  const clientDataSetId = options.clientDataSetId ?? randU256()
+  const dataSetExtraData = await signCreateDataSet(client, { ...options, clientDataSetId })
+  const addPiecesExtraData = await signAddPieces(client, { ...options, clientDataSetId })
   return encodeAbiParameters(signcreateDataSetAndAddPiecesAbiParameters, [dataSetExtraData, addPiecesExtraData])
 }
 
 export namespace signCreateDataSetAndAddPieces {
   export type OptionsType = {
-    /** The client data set id to use for the signature. */
-    clientDataSetId: bigint
+    /** The client data set id (nonce) to use for the signature. */
+    clientDataSetId?: bigint
     /** The payee address to use for the signature. */
     payee: Address
     /** The payer address to use for the signature. If client is from a session key this should be set to the actual payer address. */

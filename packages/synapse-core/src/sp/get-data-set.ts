@@ -37,6 +37,7 @@ export namespace getDataSet {
  *
  * GET /pdp/data-sets/{dataSetId}
  *
+ * @deprecated Use {@link getPdpDataSet} instead.
  * @param options - {@link getDataSet.OptionsType}
  * @returns The data set from the PDP API. {@link getDataSet.OutputType}
  * @throws Errors {@link getDataSet.ErrorType}

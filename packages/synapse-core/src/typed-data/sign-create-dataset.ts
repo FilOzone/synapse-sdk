@@ -11,11 +11,12 @@ import type {
 import { encodeAbiParameters } from 'viem'
 import { signTypedData } from 'viem/actions'
 import { asChain } from '../chains.ts'
+import { randU256 } from '../utils/rand.ts'
 import { EIP712Types, getStorageDomain, type MetadataEntry } from './type-definitions.ts'
 
 export type signCreateDataSetOptions = {
   /** The client data set id (nonce). */
-  clientDataSetId: bigint
+  clientDataSetId?: bigint
   /** The payee address. */
   payee: Address
   /** The payer address. If client is from a session key this should be set to the actual payer address. */
@@ -42,13 +43,14 @@ export const signCreateDataSetAbiParameters = [
 export async function signCreateDataSet(client: Client<Transport, Chain, Account>, options: signCreateDataSetOptions) {
   const chain = asChain(client.chain)
   const metadata = options.metadata ?? []
+  const clientDataSetId = options.clientDataSetId ?? randU256()
   const signature = await signTypedData(client, {
     account: client.account,
     domain: getStorageDomain({ chain }),
     types: EIP712Types,
     primaryType: 'CreateDataSet',
     message: {
-      clientDataSetId: options.clientDataSetId,
+      clientDataSetId,
       payee: options.payee,
       metadata,
     },
@@ -60,7 +62,7 @@ export async function signCreateDataSet(client: Client<Transport, Chain, Account
 
   const extraData = encodeAbiParameters(signCreateDataSetAbiParameters, [
     payer,
-    options.clientDataSetId,
+    clientDataSetId,
     keys,
     values,
     signature,
