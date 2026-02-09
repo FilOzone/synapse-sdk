@@ -231,7 +231,7 @@ const storageContext = await synapse.storage.createContext({
 const llmModel = "sonnnet-4.5";
 const conversationId = "1234567890";
 
-const data = new File(["Deep research on decentralization..."], 'file.txt')
+const data = new Blob(["Deep research on decentralization..."])
 
 const preflight = await storageContext.preflightUpload(data.size);
 

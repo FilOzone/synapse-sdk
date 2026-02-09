@@ -897,7 +897,7 @@ export class StorageContext {
    * to avoid redundant computation. For streaming uploads, pieceCid must be provided in options as it
    * cannot be calculated without consuming the stream.
    */
-  async upload(data: File, options?: UploadOptions): Promise<UploadResult> {
+  async upload(data: Blob, options?: UploadOptions): Promise<UploadResult> {
     performance.mark('synapse:upload-start')
 
     // Validation Phase: Check data size and calculate pieceCid
@@ -909,7 +909,7 @@ export class StorageContext {
     this._activeUploads.add(uploadId)
 
     try {
-      let uploadResult: SP.UploadPieceResponse
+      let uploadResult: SP.uploadPieceStreaming.OutputType
       // Upload Phase: Upload data to service provider
       try {
         uploadResult = await SP.uploadPieceStreaming({
