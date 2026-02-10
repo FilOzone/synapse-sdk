@@ -492,7 +492,7 @@ export class StorageManager {
       }
 
       // Create SPRegistryService to get providers
-      const spRegistry = new SPRegistryService(this._synapse.client)
+      const spRegistry = new SPRegistryService({ client: this._synapse.client })
 
       // Fetch all data in parallel for performance
       const [pricingData, approvedIds, allowances] = await Promise.all([
@@ -502,7 +502,7 @@ export class StorageManager {
       ])
 
       // Get provider details for approved IDs
-      const providers = await spRegistry.getProviders(approvedIds)
+      const providers = await spRegistry.getProviders({ providerIds: approvedIds })
 
       // Calculate pricing per different time units
       const epochsPerMonth = BigInt(pricingData.epochsPerMonth)

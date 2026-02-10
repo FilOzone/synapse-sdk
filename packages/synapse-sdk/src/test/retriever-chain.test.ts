@@ -46,7 +46,7 @@ describe('ChainRetriever', () => {
       account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
     })
     warmStorage = new WarmStorageService({ client })
-    spRegistry = await SPRegistryService.create(client)
+    spRegistry = new SPRegistryService({ client })
   })
 
   describe('fetchPiece with specific provider', () => {

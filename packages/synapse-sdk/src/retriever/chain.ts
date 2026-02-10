@@ -53,7 +53,7 @@ export class ChainRetriever implements PieceRetriever {
 
     if (providerAddress != null) {
       // Direct provider case - skip data set lookup entirely
-      const provider = await this.spRegistry.getProviderByAddress(providerAddress)
+      const provider = await this.spRegistry.getProviderByAddress({ address: providerAddress })
       if (provider == null) {
         throw createError('ChainRetriever', 'findProviders', `Provider ${providerAddress} not found in registry`)
       }
@@ -76,7 +76,7 @@ export class ChainRetriever implements PieceRetriever {
     const uniqueProviderIds = [...new Set(validDataSets.map((ds) => ds.providerId))]
 
     // Batch fetch provider info for all unique provider IDs
-    const providerInfos = await this.spRegistry.getProviders(uniqueProviderIds)
+    const providerInfos = await this.spRegistry.getProviders({ providerIds: uniqueProviderIds })
 
     // Filter out null values (providers not found in registry)
     const validProviderInfos = providerInfos.filter((info): info is PDPProvider => info != null)

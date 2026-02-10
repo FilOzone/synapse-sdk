@@ -8,13 +8,15 @@
  * ```typescript
  * import { SPRegistryService } from '@filoz/synapse-sdk/sp-registry'
  *
- * const spRegistry = await SPRegistryService.create(provider, registryAddress)
+ * const spRegistry = SPRegistryService.create({ account })
  *
  * // Register as a provider
- * const tx = await spRegistry.registerProvider(signer, {
- *   name: 'My Storage Service',
- *   description: 'Fast and reliable storage',
- *   pdpOffering: { ... }
+ * const tx = await spRegistry.registerProvider({
+ *   info: {
+ *     name: 'My Storage Service',
+ *     description: 'Fast and reliable storage',
+ *     pdpOffering: { ... }
+ *   }
  * })
  *
  * // Query providers
@@ -22,61 +24,89 @@
  * ```
  */
 
-import type { Chain } from '@filoz/synapse-core/chains'
 import * as SP from '@filoz/synapse-core/sp-registry'
-import type { Account, Address, Client, Hash, Transport } from 'viem'
+import {
+  type Account,
+  type Address,
+  type Chain,
+  type Client,
+  createClient,
+  type Hash,
+  http,
+  type Transport,
+} from 'viem'
+import { DEFAULT_CHAIN } from '../utils/constants.ts'
 import type { PDPOffering, ProductType, ProviderRegistrationInfo } from './types.ts'
 
 export class SPRegistryService {
-  private readonly _client: Client<Transport, Chain>
+  private readonly _client: Client<Transport, Chain, Account>
 
   /**
    * Constructor for SPRegistryService
+   * @param options - Options for the SPRegistryService
+   * @param options.client - Wallet client used for read and write operations
    */
-  constructor(client: Client<Transport, Chain>) {
-    this._client = client
+  constructor(options: { client: Client<Transport, Chain, Account> }) {
+    this._client = options.client
   }
 
   /**
    * Create a new SPRegistryService instance
+   * @param options - Options for the SPRegistryService
+   * @param options.transport - Viem transport (optional, defaults to http())
+   * @param options.chain - Filecoin chain (optional, defaults to {@link DEFAULT_CHAIN})
+   * @param options.account - Viem account (required)
    */
-  static async create(client: Client<Transport, Chain>): Promise<SPRegistryService> {
-    return new SPRegistryService(client)
+  static create(options: { transport?: Transport; chain?: Chain; account: Account }): SPRegistryService {
+    const client = createClient({
+      chain: options.chain ?? DEFAULT_CHAIN,
+      transport: options.transport ?? http(),
+      account: options.account,
+      name: 'SPRegistryService',
+      key: 'sp-registry-service',
+    })
+
+    if (client.account.type === 'json-rpc' && client.transport.type !== 'custom') {
+      throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
+    }
+    return new SPRegistryService({ client })
   }
 
   // ========== Provider Management ==========
 
   /**
    * Register as a new service provider with optional PDP product
-   * @param client - Client to use for the transaction
-   * @param info - Provider registration information
+   * @param options - Options for provider registration
+   * @param options.info - Provider registration information
    * @returns Transaction hash
    *
    * @example
    * ```ts
-   * const hash = await spRegistry.registerProvider(client, {
-   *   payee: '0x...', // Address that will receive payments
-   *   name: 'My Storage Provider',
-   *   description: 'High-performance storage service',
-   *   pdpOffering: {
-   *     serviceURL: 'https://provider.example.com',
-   *     minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
-   *     maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
-   *     // ... other PDP fields
-   *   },
-   *   capabilities: { 'region': 'us-east', 'tier': 'premium' }
+   * const hash = await spRegistry.registerProvider({
+   *   info: {
+   *     payee: '0x...', // Address that will receive payments
+   *     name: 'My Storage Provider',
+   *     description: 'High-performance storage service',
+   *     pdpOffering: {
+   *       serviceURL: 'https://provider.example.com',
+   *       minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+   *       maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
+   *       // ... other PDP fields
+   *     },
+   *     capabilities: { 'region': 'us-east', 'tier': 'premium' }
+   *   }
    * })
    *
    * console.log(hash)
    * ```
    */
-  async registerProvider(client: Client<Transport, Chain, Account>, info: ProviderRegistrationInfo): Promise<Hash> {
-    const hash = await SP.registerProvider(client, {
-      payee: info.payee,
-      name: info.name,
-      description: info.description,
-      pdpOffering: info.pdpOffering,
-      capabilities: info.capabilities,
+  async registerProvider(options: { info: ProviderRegistrationInfo }): Promise<Hash> {
+    const hash = await SP.registerProvider(this._client, {
+      payee: options.info.payee,
+      name: options.info.name,
+      description: options.info.description,
+      pdpOffering: options.info.pdpOffering,
+      capabilities: options.info.capabilities,
     })
 
     return hash
@@ -84,38 +114,37 @@ export class SPRegistryService {
 
   /**
    * Update provider information
-   * @param client - Client to use for the transaction
-   * @param name - New name
-   * @param description - New description
+   * @param options - Options for provider info updates
+   * @param options.name - New name
+   * @param options.description - New description
    * @returns Transaction response
    */
-  async updateProviderInfo(
-    client: Client<Transport, Chain, Account>,
-    name: string,
-    description: string
-  ): Promise<Hash> {
-    return SP.updateProviderInfo(client, { name, description })
+  async updateProviderInfo(options: { name: string; description: string }): Promise<Hash> {
+    return SP.updateProviderInfo(this._client, {
+      name: options.name,
+      description: options.description,
+    })
   }
 
   /**
    * Remove provider registration
-   * @param client - Client to use for the transaction
    * @returns Transaction response
    */
-  async removeProvider(client: Client<Transport, Chain, Account>): Promise<Hash> {
-    return SP.removeProvider(client)
+  async removeProvider(): Promise<Hash> {
+    return SP.removeProvider(this._client)
   }
 
   // ========== Provider Queries ==========
 
   /**
    * Get provider information by ID
-   * @param providerId - Provider ID
+   * @param options - Options for provider lookup
+   * @param options.providerId - Provider ID
    * @returns Provider info with decoded products
    */
-  async getProvider(providerId: bigint): Promise<SP.getPDPProvider.OutputType | null> {
+  async getProvider(options: { providerId: bigint }): Promise<SP.getPDPProvider.OutputType | null> {
     try {
-      return await SP.getPDPProvider(this._client, { providerId })
+      return await SP.getPDPProvider(this._client, { providerId: options.providerId })
     } catch (error) {
       if (error instanceof Error && error.message.includes('Provider not found')) {
         return null
@@ -126,25 +155,27 @@ export class SPRegistryService {
 
   /**
    * Get provider information by address
-   * @param address - Provider address
+   * @param options - Options for provider lookup
+   * @param options.address - Provider address
    * @returns Provider info with decoded products
    */
-  async getProviderByAddress(address: Address): Promise<SP.getPDPProvider.OutputType | null> {
-    const providerId = await SP.getProviderIdByAddress(this._client, { providerAddress: address })
+  async getProviderByAddress(options: { address: Address }): Promise<SP.getPDPProvider.OutputType | null> {
+    const providerId = await SP.getProviderIdByAddress(this._client, { providerAddress: options.address })
     if (providerId === 0n) {
       return null
     }
 
-    return this.getProvider(providerId)
+    return this.getProvider({ providerId })
   }
 
   /**
    * Get provider ID by address
-   * @param address - Provider address
+   * @param options - Options for provider ID lookup
+   * @param options.address - Provider address
    * @returns Provider ID (0 if not found)
    */
-  async getProviderIdByAddress(address: Address): Promise<bigint> {
-    return SP.getProviderIdByAddress(this._client, { providerAddress: address })
+  async getProviderIdByAddress(options: { address: Address }): Promise<bigint> {
+    return SP.getProviderIdByAddress(this._client, { providerAddress: options.address })
   }
 
   /**
@@ -175,10 +206,11 @@ export class SPRegistryService {
 
   /**
    * Get active providers by product type (handles pagination internally)
-   * @param productType - Product type to filter by
+   * @param options - Options for provider filtering
+   * @param options.productType - Product type to filter by
    * @returns List of providers with specified product type
    */
-  async getActiveProvidersByProductType(productType: ProductType): Promise<SP.ProviderWithProduct[]> {
+  async getActiveProvidersByProductType(options: { productType: ProductType }): Promise<SP.ProviderWithProduct[]> {
     const providers: SP.ProviderWithProduct[] = []
 
     const limit = 50n // Fetch in batches (conservative for multicall limits)
@@ -188,7 +220,7 @@ export class SPRegistryService {
     // Loop through all pages and start fetching provider details in parallel
     while (hasMore) {
       const result = await SP.getProvidersByProductType(this._client, {
-        productType,
+        productType: options.productType,
         onlyActive: true,
         offset,
         limit,
@@ -205,20 +237,22 @@ export class SPRegistryService {
 
   /**
    * Check if provider is active
-   * @param providerId - Provider ID
+   * @param options - Options for provider status lookup
+   * @param options.providerId - Provider ID
    * @returns Whether provider is active
    */
-  async isProviderActive(providerId: bigint): Promise<boolean> {
-    return SP.isProviderActive(this._client, { providerId })
+  async isProviderActive(options: { providerId: bigint }): Promise<boolean> {
+    return SP.isProviderActive(this._client, { providerId: options.providerId })
   }
 
   /**
    * Check if address is a registered provider
-   * @param address - Address to check
+   * @param options - Options for provider registration lookup
+   * @param options.address - Address to check
    * @returns Whether address is registered
    */
-  async isRegisteredProvider(address: Address): Promise<boolean> {
-    return SP.isRegisteredProvider(this._client, { provider: address })
+  async isRegisteredProvider(options: { address: Address }): Promise<boolean> {
+    return SP.isRegisteredProvider(this._client, { provider: options.address })
   }
 
   /**
@@ -241,19 +275,15 @@ export class SPRegistryService {
 
   /**
    * Add PDP product to provider
-   * @param client - Client to use for the transaction
-   * @param pdpOffering - PDP offering details
-   * @param capabilities - Optional capability keys
+   * @param options - Options for adding a PDP product
+   * @param options.pdpOffering - PDP offering details
+   * @param options.capabilities - Optional capability keys
    * @returns Transaction hash
    */
-  async addPDPProduct(
-    client: Client<Transport, Chain, Account>,
-    pdpOffering: PDPOffering,
-    capabilities: Record<string, string> = {}
-  ): Promise<Hash> {
-    const hash = await SP.addProduct(client, {
-      pdpOffering,
-      capabilities,
+  async addPDPProduct(options: { pdpOffering: PDPOffering; capabilities?: Record<string, string> }): Promise<Hash> {
+    const hash = await SP.addProduct(this._client, {
+      pdpOffering: options.pdpOffering,
+      capabilities: options.capabilities ?? {},
     })
 
     return hash
@@ -261,19 +291,15 @@ export class SPRegistryService {
 
   /**
    * Update PDP product with capabilities
-   * @param client - Client to use for the transaction
-   * @param pdpOffering - Updated PDP offering
-   * @param capabilities - Updated capability key-value pairs
+   * @param options - Options for updating a PDP product
+   * @param options.pdpOffering - Updated PDP offering
+   * @param options.capabilities - Updated capability key-value pairs
    * @returns Transaction hash
    */
-  async updatePDPProduct(
-    client: Client<Transport, Chain, Account>,
-    pdpOffering: PDPOffering,
-    capabilities: Record<string, string> = {}
-  ): Promise<Hash> {
-    const hash = await SP.updateProduct(client, {
-      pdpOffering,
-      capabilities,
+  async updatePDPProduct(options: { pdpOffering: PDPOffering; capabilities?: Record<string, string> }): Promise<Hash> {
+    const hash = await SP.updateProduct(this._client, {
+      pdpOffering: options.pdpOffering,
+      capabilities: options.capabilities ?? {},
     })
 
     return hash
@@ -281,13 +307,13 @@ export class SPRegistryService {
 
   /**
    * Remove product from provider
-   * @param client - Client to use for the transaction
-   * @param productType - Type of product to remove
+   * @param options - Options for product removal
+   * @param options.productType - Type of product to remove
    * @returns Transaction hash
    */
-  async removeProduct(client: Client<Transport, Chain, Account>, productType: ProductType): Promise<Hash> {
-    const hash = await SP.removeProduct(client, {
-      productType,
+  async removeProduct(options: { productType: ProductType }): Promise<Hash> {
+    const hash = await SP.removeProduct(this._client, {
+      productType: options.productType,
     })
 
     return hash
@@ -297,16 +323,17 @@ export class SPRegistryService {
 
   /**
    * Get multiple providers by IDs using Multicall3 for efficiency
-   * @param providerIds - Array of provider IDs
+   * @param options - Options for provider batch lookup
+   * @param options.providerIds - Array of provider IDs
    * @returns Array of provider info
    */
-  async getProviders(providerIds: bigint[]): Promise<SP.PDPProvider[]> {
-    if (providerIds.length === 0) {
+  async getProviders(options: { providerIds: bigint[] }): Promise<SP.PDPProvider[]> {
+    if (options.providerIds.length === 0) {
       return []
     }
 
     return SP.getPDPProvidersByIds(this._client, {
-      providerIds,
+      providerIds: options.providerIds,
     })
   }
 }

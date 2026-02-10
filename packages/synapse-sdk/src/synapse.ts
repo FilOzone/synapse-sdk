@@ -69,7 +69,7 @@ export class Synapse {
     this._client = options.client.extend(publicActions)
     this._chain = asChain(options.client.chain)
     this._withCDN = options.withCDN ?? false
-    this._providers = new SPRegistryService(options.client)
+    this._providers = new SPRegistryService({ client: options.client })
     this._filbeamService = new FilBeamService(this._chain)
     this._warmStorageService = new WarmStorageService({ client: options.client })
     this._payments = new PaymentsService({ client: options.client })
@@ -211,9 +211,9 @@ export class Synapse {
 
       let providerInfo: PDPProvider | null
       if (typeof providerAddress === 'string') {
-        providerInfo = await this._providers.getProviderByAddress(providerAddress)
+        providerInfo = await this._providers.getProviderByAddress({ address: providerAddress })
       } else {
-        providerInfo = await this._providers.getProvider(providerAddress)
+        providerInfo = await this._providers.getProvider({ providerId: providerAddress })
       }
 
       // Check if provider was found in registry

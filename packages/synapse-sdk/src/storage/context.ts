@@ -202,7 +202,7 @@ export class StorageContext {
     const count = options?.count ?? 2
     const resolutions: ProviderSelectionResult[] = []
     const clientAddress = synapse.client.account.address
-    const spRegistry = new SPRegistryService(synapse.client)
+    const spRegistry = new SPRegistryService({ client: synapse.client })
     if (options.dataSetIds) {
       const selections = []
       for (const dataSetId of new Set(options.dataSetIds)) {
@@ -287,7 +287,7 @@ export class StorageContext {
     options: StorageServiceOptions = {}
   ): Promise<StorageContext> {
     // Create SPRegistryService
-    const spRegistry = new SPRegistryService(synapse.client)
+    const spRegistry = new SPRegistryService({ client: synapse.client })
 
     // Resolve provider and data set based on options
     const resolution = await StorageContext.resolveProviderAndDataSet(synapse, warmStorageService, spRegistry, options)
@@ -424,7 +424,7 @@ export class StorageContext {
       )
     }
 
-    const provider = await spRegistry.getProvider(dataSetInfo.providerId)
+    const provider = await spRegistry.getProvider({ providerId: dataSetInfo.providerId })
     if (provider == null) {
       throw createError(
         'StorageContext',
@@ -473,7 +473,7 @@ export class StorageContext {
     // Validate provider address if specified
     if (options.providerAddress != null) {
       // Look up the actual provider to get its serviceProvider address
-      const actualProvider = await spRegistry.getProvider(dataSet.providerId)
+      const actualProvider = await spRegistry.getProvider({ providerId: dataSet.providerId })
       if (
         actualProvider == null ||
         actualProvider.serviceProvider.toLowerCase() !== options.providerAddress.toLowerCase()
@@ -511,7 +511,7 @@ export class StorageContext {
   ): Promise<ProviderSelectionResult> {
     // Fetch provider (always) and dataSets (only if not forcing) in parallel
     const [provider, dataSets] = await Promise.all([
-      spRegistry.getProvider(providerId),
+      spRegistry.getProvider({ providerId }),
       forceCreateDataSet ? Promise.resolve([]) : warmStorageService.getClientDataSets({ address: clientAddress }),
     ])
 
@@ -631,7 +631,7 @@ export class StorageContext {
     forceCreateDataSet?: boolean
   ): Promise<ProviderSelectionResult> {
     // Get provider by address
-    const provider = await spRegistry.getProviderByAddress(providerAddress)
+    const provider = await spRegistry.getProviderByAddress({ address: providerAddress })
     if (provider == null) {
       throw createError(
         'StorageContext',
@@ -699,7 +699,7 @@ export class StorageContext {
             continue
           }
           skipProviderIds.add(dataSet.providerId)
-          const provider = await spRegistry.getProvider(dataSet.providerId)
+          const provider = await spRegistry.getProvider({ providerId: dataSet.providerId })
 
           if (provider == null) {
             console.warn(
@@ -748,7 +748,7 @@ export class StorageContext {
     // No existing data sets - select from all approved providers. First we get approved IDs from
     // WarmStorage, then fetch provider details.
     const approvedIds = await warmStorageService.getApprovedProviderIds()
-    const approvedProviders = await spRegistry.getProviders(approvedIds)
+    const approvedProviders = await spRegistry.getProviders({ providerIds: approvedIds })
     const allProviders = approvedProviders.filter(
       (provider: PDPProvider) =>
         (!withIpni || provider.pdp.ipniIpfs === true) && !excludeProviderIds.includes(provider.id)
