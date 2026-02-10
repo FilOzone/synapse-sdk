@@ -1117,23 +1117,12 @@ export class StorageContext {
    * @param options - Download options
    * @returns The downloaded data
    */
-  async download(pieceCid: string | PieceCID, options?: DownloadOptions): Promise<Uint8Array> {
-    // Pass through to storage manager with our provider hint and withCDN setting
-    // Use storage manager if available (production), otherwise use provider download for tests
-    const downloadFn = this._synapse.storage?.download ?? this._synapse.download
-    return await downloadFn.call(this._synapse.storage ?? this._synapse, pieceCid, {
+  async download(options: DownloadOptions): Promise<Uint8Array> {
+    return this._synapse.storage.download({
+      pieceCid: options.pieceCid,
       providerAddress: this._provider.serviceProvider,
-      withCDN: (options as any)?.withCDN ?? this._withCDN,
+      withCDN: options?.withCDN ?? this._withCDN,
     })
-  }
-
-  /**
-   * Download data from the service provider
-   * @deprecated Use download() instead. This method will be removed in a future version.
-   */
-  async providerDownload(pieceCid: string | PieceCID, options?: DownloadOptions): Promise<Uint8Array> {
-    console.warn('providerDownload() is deprecated. Use download() instead.')
-    return await this.download(pieceCid, options)
   }
 
   /**

@@ -284,7 +284,7 @@ describe('Synapse', () => {
       const synapse = new Synapse({ client })
 
       try {
-        await synapse.download('invalid-piece-link')
+        await synapse.storage.download({ pieceCid: 'invalid-piece-link' })
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'Invalid PieceCID')
@@ -314,7 +314,7 @@ describe('Synapse', () => {
 
       // Use the actual PieceCID for 'test data'
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
-      const data = await synapse.download(testPieceCid)
+      const data = await synapse.storage.download({ pieceCid: testPieceCid })
 
       // Should return Uint8Array
       assert.isTrue(data instanceof Uint8Array)
@@ -351,7 +351,7 @@ describe('Synapse', () => {
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
 
       // Test with explicit withCDN
-      await synapse.download(testPieceCid, { withCDN: true })
+      await synapse.storage.download({ pieceCid: testPieceCid, withCDN: true })
       const result = await deferred.promise
 
       const { cid, wallet } = result
@@ -359,7 +359,7 @@ describe('Synapse', () => {
       assert.ok(isAddressEqual(wallet as Address, Mocks.ADDRESSES.client1))
 
       // Test without explicit withCDN (should use instance default)
-      const data = await synapse.download(testPieceCid)
+      const data = await synapse.storage.download({ pieceCid: testPieceCid })
       assert.isTrue(data instanceof Uint8Array)
       assert.equal(new TextDecoder().decode(data), 'test data')
     })
@@ -399,7 +399,7 @@ describe('Synapse', () => {
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
       const testProvider = '0x1234567890123456789012345678901234567890'
 
-      await synapse.download(testPieceCid, { providerAddress: testProvider })
+      await synapse.storage.download({ pieceCid: testPieceCid, providerAddress: testProvider })
       assert.equal(providerAddressReceived, testProvider)
     })
 
@@ -418,7 +418,7 @@ describe('Synapse', () => {
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
 
       try {
-        await synapse.download(testPieceCid)
+        await synapse.storage.download({ pieceCid: testPieceCid })
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(
@@ -434,7 +434,7 @@ describe('Synapse', () => {
       server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }))
 
       const synapse = new Synapse({ client })
-      const storageInfo = await synapse.getStorageInfo()
+      const storageInfo = await synapse.storage.getStorageInfo()
 
       // Check pricing
       assert.exists(storageInfo.pricing)
@@ -476,7 +476,7 @@ describe('Synapse', () => {
       )
 
       const synapse = new Synapse({ client })
-      const storageInfo = await synapse.getStorageInfo()
+      const storageInfo = await synapse.storage.getStorageInfo()
 
       // Should still return data with null allowances
       assert.exists(storageInfo.pricing)
@@ -506,7 +506,7 @@ describe('Synapse', () => {
       )
       try {
         const synapse = new Synapse({ client })
-        await synapse.getStorageInfo()
+        await synapse.storage.getStorageInfo()
         assert.fail('Should have thrown')
       } catch (error: any) {
         // The error should bubble up from the contract call

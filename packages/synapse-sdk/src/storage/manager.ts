@@ -88,7 +88,6 @@ export interface StorageManagerUploadOptions extends StorageServiceOptions {
 export interface StorageManagerDownloadOptions extends DownloadOptions {
   context?: StorageContext
   providerAddress?: Address
-  withCDN?: boolean
 }
 
 export class StorageManager {
@@ -202,7 +201,7 @@ export class StorageManager {
    * If context is provided, routes to context.download()
    * Otherwise performs SP-agnostic download
    */
-  async download(pieceCid: string | PieceCID, options?: StorageManagerDownloadOptions): Promise<Uint8Array> {
+  async download(options: StorageManagerDownloadOptions): Promise<Uint8Array> {
     // Validate options - if context is provided, no other options should be set
     if (options?.context != null) {
       const invalidOptions = []
@@ -218,31 +217,32 @@ export class StorageManager {
       }
 
       // Route to specific context
-      return await options.context.download(pieceCid, options)
+      return await options.context.download({
+        pieceCid: options.pieceCid,
+        withCDN: options.withCDN ?? this._withCDN,
+      })
     }
 
     // SP-agnostic download with fast path optimization
-    const parsedPieceCID = asPieceCID(pieceCid)
+    const parsedPieceCID = asPieceCID(options.pieceCid)
     if (parsedPieceCID == null) {
-      throw createError('StorageManager', 'download', `Invalid PieceCID: ${String(pieceCid)}`)
+      throw createError('StorageManager', 'download', `Invalid PieceCID: ${String(options.pieceCid)}`)
     }
 
     // Use withCDN setting: option > manager default > synapse default
     const withCDN = options?.withCDN ?? this._withCDN
 
+    let finalProviderAddress: Address | undefined = options?.providerAddress
     // Fast path: If we have a default context with CDN disabled and no specific provider requested,
     // check if the piece exists on the default context's provider first
-    if (this._defaultContexts != null && !withCDN && options?.providerAddress == null) {
+    if (this._defaultContexts != null && !withCDN && finalProviderAddress == null) {
       // from the default contexts, select a random storage provider that has the piece
       const contextsWithoutCDN = this._defaultContexts.filter((context) => context.withCDN === false)
       const contextsHavePiece = await Promise.all(contextsWithoutCDN.map((context) => context.hasPiece(parsedPieceCID)))
       const defaultContextsWithPiece = contextsWithoutCDN.filter((_context, i) => contextsHavePiece[i])
       if (defaultContextsWithPiece.length > 0) {
-        options = {
-          ...options,
-          providerAddress:
-            defaultContextsWithPiece[randIndex(defaultContextsWithPiece.length)].provider.serviceProvider,
-        }
+        finalProviderAddress =
+          defaultContextsWithPiece[randIndex(defaultContextsWithPiece.length)].provider.serviceProvider
       }
     }
 
@@ -252,7 +252,7 @@ export class StorageManager {
     const response = await this._pieceRetriever.fetchPiece({
       pieceCid: parsedPieceCID,
       client: clientAddress,
-      providerAddress: options?.providerAddress,
+      providerAddress: finalProviderAddress,
       withCDN,
     })
 

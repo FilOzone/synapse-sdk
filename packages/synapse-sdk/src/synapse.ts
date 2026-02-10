@@ -17,14 +17,7 @@ import { ChainRetriever, FilBeamRetriever } from './retriever/index.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageContext } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
-import type {
-  PDPProvider,
-  PieceCID,
-  StorageInfo,
-  StorageServiceOptions,
-  SynapseFromClientOptions,
-  SynapseOptions,
-} from './types.ts'
+import type { PDPProvider, StorageServiceOptions, SynapseFromClientOptions, SynapseOptions } from './types.ts'
 import { DEFAULT_CHAIN } from './utils/constants.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
@@ -165,35 +158,6 @@ export class Synapse {
   }
 
   /**
-   * Download data from service providers
-   * @deprecated Use synapse.storage.download() instead. This method will be removed in a future version.
-   * @param pieceCid - The PieceCID identifier (string or PieceCID object)
-   * @param options - Download options
-   * @returns The downloaded data as Uint8Array
-   *
-   * @example
-   * ```typescript
-   * // Download by PieceCID string
-   * const data = await synapse.download('bafkzcib...')
-   *
-   * // Download from specific provider
-   * const data = await synapse.download(pieceCid, {
-   *   providerAddress: '0x123...'
-   * })
-   * ```
-   */
-  async download(
-    pieceCid: string | PieceCID,
-    options?: {
-      providerAddress?: Address
-      withCDN?: boolean
-    }
-  ): Promise<Uint8Array> {
-    console.warn('synapse.download() is deprecated. Use synapse.storage.download() instead.')
-    return await this._storageManager.download(pieceCid, options)
-  }
-
-  /**
    * Get detailed information about a specific service provider
    * @param providerAddress - The provider's address or provider ID
    * @returns Provider information including URLs and pricing
@@ -231,16 +195,5 @@ export class Synapse {
       }
       throw new Error(`Failed to get provider info: ${error instanceof Error ? error.message : String(error)}`)
     }
-  }
-
-  /**
-   * Get comprehensive information about the storage service including
-   * approved providers, pricing, contract addresses, and current allowances
-   * @deprecated Use synapse.storage.getStorageInfo() instead. This method will be removed in a future version.
-   * @returns Complete storage service information
-   */
-  async getStorageInfo(): Promise<StorageInfo> {
-    console.warn('synapse.getStorageInfo() is deprecated. Use synapse.storage.getStorageInfo() instead.')
-    return await this._storageManager.getStorageInfo()
   }
 }

@@ -1001,7 +1001,7 @@ describe('StorageService', () => {
         withCDN: true,
       })
 
-      const downloaded = await service.download(testPieceCID)
+      const downloaded = await service.download({ pieceCid: testPieceCID })
       assert.deepEqual(downloaded, testData)
     })
 
@@ -1024,7 +1024,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
-        await service.download(testPieceCID)
+        await service.download({ pieceCid: testPieceCID })
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'Failed to retrieve piece')
@@ -1050,10 +1050,10 @@ describe('StorageService', () => {
       const service = await StorageContext.create(synapse, warmStorageService)
 
       // Test with and without empty options object
-      const downloaded1 = await service.download(testPieceCID)
+      const downloaded1 = await service.download({ pieceCid: testPieceCID })
       assert.deepEqual(downloaded1, testData)
 
-      const downloaded2 = await service.download(testPieceCID, {})
+      const downloaded2 = await service.download({ pieceCid: testPieceCID })
       assert.deepEqual(downloaded2, testData)
     })
   })

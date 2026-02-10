@@ -104,8 +104,10 @@ export interface UploadTask {
  * Currently empty, reserved for future options
  */
 
-// biome-ignore lint/complexity/noBannedTypes: future proofing
-export type DownloadOptions = {}
+export type DownloadOptions = {
+  withCDN?: boolean
+  pieceCid: string | PieceCID
+}
 
 export interface PieceFetchOptions {
   pieceCid: PieceCID // Internal interface uses PieceCID type for validation
