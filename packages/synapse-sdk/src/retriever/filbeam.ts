@@ -6,31 +6,34 @@
  */
 
 import { asChain, type Chain } from '@filoz/synapse-core/chains'
-import type { Address } from 'viem'
-import type { PieceCID, PieceRetriever } from '../types.ts'
+import type { PieceFetchOptions, PieceRetriever } from '../types.ts'
+
+export interface FilBeamRetrieverConstructorOptions {
+  baseRetriever: PieceRetriever
+  chain: Chain
+}
 
 export class FilBeamRetriever implements PieceRetriever {
   private readonly baseRetriever: PieceRetriever
   private readonly chain: Chain
 
-  constructor(baseRetriever: PieceRetriever, chain: Chain) {
-    this.baseRetriever = baseRetriever
-    this.chain = asChain(chain)
+  /**
+   * @param options - Constructor options
+   * @param options.baseRetriever - Base retriever used as fallback
+   * @param options.chain - Chain configuration for CDN resolution
+   */
+  constructor(options: FilBeamRetrieverConstructorOptions) {
+    this.baseRetriever = options.baseRetriever
+    this.chain = asChain(options.chain)
   }
 
-  async fetchPiece(
-    pieceCid: PieceCID,
-    client: Address,
-    options?: {
-      providerAddress?: Address
-      withCDN?: boolean
-      signal?: AbortSignal
-    }
-  ): Promise<Response> {
-    if (options?.withCDN === true && this.chain.filbeam != null) {
+  async fetchPiece(options: PieceFetchOptions): Promise<Response> {
+    const { pieceCid, client, withCDN, signal } = options
+
+    if (withCDN === true && this.chain.filbeam != null) {
       const cdnUrl = `https://${client}.${this.chain.filbeam.retrievalDomain}/${pieceCid.toString()}`
       try {
-        const cdnResponse = await fetch(cdnUrl, { signal: options?.signal })
+        const cdnResponse = await fetch(cdnUrl, { signal })
         if (cdnResponse.ok) {
           return cdnResponse
         } else if (cdnResponse.status === 402) {
@@ -46,6 +49,6 @@ export class FilBeamRetriever implements PieceRetriever {
       console.log('Falling back to direct retrieval')
     }
 
-    return await this.baseRetriever.fetchPiece(pieceCid, client, options)
+    return await this.baseRetriever.fetchPiece(options)
   }
 }

@@ -107,6 +107,14 @@ export interface UploadTask {
 // biome-ignore lint/complexity/noBannedTypes: future proofing
 export type DownloadOptions = {}
 
+export interface PieceFetchOptions {
+  pieceCid: PieceCID // Internal interface uses PieceCID type for validation
+  client: Address
+  providerAddress?: Address // Restrict to specific provider
+  withCDN?: boolean // Enable CDN retrieval attempts
+  signal?: AbortSignal // Optional AbortSignal for request cancellation
+}
+
 /**
  * PieceRetriever interface for fetching pieces from various sources
  * Returns standard Web API Response objects for flexibility
@@ -114,20 +122,15 @@ export type DownloadOptions = {}
 export interface PieceRetriever {
   /**
    * Fetch a piece from available sources
-   * @param pieceCid - The PieceCID identifier of the piece (validated internally)
-   * @param client - The client address requesting the piece
-   * @param options - Optional retrieval parameters
+   * @param options - Retrieval parameters
+   * @param options.pieceCid - The PieceCID identifier of the piece (validated internally)
+   * @param options.client - The client address requesting the piece
+   * @param options.providerAddress - Restrict retrieval to a specific provider
+   * @param options.withCDN - Enable CDN retrieval attempts
+   * @param options.signal - Optional AbortSignal for request cancellation
    * @returns A Response object that can be processed for the piece data
    */
-  fetchPiece: (
-    pieceCid: PieceCID, // Internal interface uses PieceCID type for validation
-    client: Address,
-    options?: {
-      providerAddress?: Address // Restrict to specific provider
-      withCDN?: boolean // Enable CDN retrieval attempts
-      signal?: AbortSignal // Optional AbortSignal for request cancellation
-    }
-  ) => Promise<Response>
+  fetchPiece: (options: PieceFetchOptions) => Promise<Response>
 }
 
 /**

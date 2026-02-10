@@ -16,10 +16,10 @@ describe('FilBeamRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
+        fetchPiece: async (options) => {
           baseCalled = true
-          assert.equal(pieceCid, mockPieceCID)
-          assert.equal(client, '0xClient')
+          assert.equal(options.pieceCid, mockPieceCID)
+          assert.equal(options.client, '0xClient')
           assert.equal(options?.withCDN, false)
           return baseResponse
         },
@@ -31,8 +31,10 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibration)
-        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+        const cdnRetriever = new FilBeamRetriever({ baseRetriever: mockBaseRetriever, chain: calibration })
+        const response = await cdnRetriever.fetchPiece({
+          pieceCid: mockPieceCID,
+          client: '0xClient',
           withCDN: false,
         })
 
@@ -48,7 +50,7 @@ describe('FilBeamRetriever', () => {
       let signalPropagated = false
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (_pieceCid: PieceCID, _client: string, options?: any) => {
+        fetchPiece: async (options) => {
           if (options?.signal != null) {
             signalPropagated = true
             assert.equal(options.signal, controller.signal)
@@ -62,8 +64,10 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, mainnet)
-        await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+        const cdnRetriever = new FilBeamRetriever({ baseRetriever: mockBaseRetriever, chain: mainnet })
+        await cdnRetriever.fetchPiece({
+          pieceCid: mockPieceCID,
+          client: '0xClient',
           signal: controller.signal,
           withCDN: false,
         })
@@ -80,10 +84,10 @@ describe('FilBeamRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
+        fetchPiece: async (options) => {
           baseCalled = true
-          assert.equal(pieceCid, mockPieceCID)
-          assert.equal(client, '0xClient')
+          assert.equal(options.pieceCid, mockPieceCID)
+          assert.equal(options.client, '0xClient')
           assert.equal(options?.withCDN, true)
           return baseResponse
         },
@@ -96,8 +100,10 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibration)
-        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+        const cdnRetriever = new FilBeamRetriever({ baseRetriever: mockBaseRetriever, chain: calibration })
+        const response = await cdnRetriever.fetchPiece({
+          pieceCid: mockPieceCID,
+          client: '0xClient',
           withCDN: true,
         })
 
@@ -115,10 +121,10 @@ describe('FilBeamRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
+        fetchPiece: async (options) => {
           baseCalled = true
-          assert.equal(pieceCid, mockPieceCID)
-          assert.equal(client, '0xClient')
+          assert.equal(options.pieceCid, mockPieceCID)
+          assert.equal(options.client, '0xClient')
           assert.equal(options?.withCDN, true)
           return baseResponse
         },
@@ -131,8 +137,10 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibration)
-        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+        const cdnRetriever = new FilBeamRetriever({ baseRetriever: mockBaseRetriever, chain: calibration })
+        const response = await cdnRetriever.fetchPiece({
+          pieceCid: mockPieceCID,
+          client: '0xClient',
           withCDN: true,
         })
 
@@ -150,10 +158,10 @@ describe('FilBeamRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
+        fetchPiece: async (options) => {
           baseCalled = true
-          assert.equal(pieceCid, mockPieceCID)
-          assert.equal(client, '0xClient')
+          assert.equal(options.pieceCid, mockPieceCID)
+          assert.equal(options.client, '0xClient')
           assert.equal(options?.withCDN, true)
           return baseResponse
         },
@@ -165,8 +173,10 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibration)
-        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+        const cdnRetriever = new FilBeamRetriever({ baseRetriever: mockBaseRetriever, chain: calibration })
+        const response = await cdnRetriever.fetchPiece({
+          pieceCid: mockPieceCID,
+          client: '0xClient',
           withCDN: true,
         })
 
@@ -203,8 +213,10 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibration)
-        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+        const cdnRetriever = new FilBeamRetriever({ baseRetriever: mockBaseRetriever, chain: calibration })
+        const response = await cdnRetriever.fetchPiece({
+          pieceCid: mockPieceCID,
+          client: '0xClient',
           withCDN: true,
         })
 

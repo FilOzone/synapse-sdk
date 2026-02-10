@@ -78,7 +78,13 @@ export class Synapse {
     this._storageManager = new StorageManager(
       this,
       this._warmStorageService,
-      new FilBeamRetriever(new ChainRetriever(this._warmStorageService, this._providers), this._chain),
+      new FilBeamRetriever({
+        baseRetriever: new ChainRetriever({
+          warmStorageService: this._warmStorageService,
+          spRegistry: this._providers,
+        }),
+        chain: this._chain,
+      }),
       this._withCDN,
       options.withIpni
     )

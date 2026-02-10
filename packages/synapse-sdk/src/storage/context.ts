@@ -39,7 +39,6 @@ import {
 } from '@filoz/synapse-core/utils'
 import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
 import { getBlockNumber } from 'viem/actions'
-import type { PaymentsService } from '../payments/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
 import type {

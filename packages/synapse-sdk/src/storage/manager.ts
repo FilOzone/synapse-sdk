@@ -47,7 +47,6 @@ import {
   metadataMatches,
   SIZE_CONSTANTS,
   TIME_CONSTANTS,
-  TOKENS,
 } from '../utils/index.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
@@ -250,7 +249,9 @@ export class StorageManager {
     const clientAddress = this._synapse.client.account.address
 
     // Use piece retriever to fetch
-    const response = await this._pieceRetriever.fetchPiece(parsedPieceCID, clientAddress, {
+    const response = await this._pieceRetriever.fetchPiece({
+      pieceCid: parsedPieceCID,
+      client: clientAddress,
       providerAddress: options?.providerAddress,
       withCDN,
     })
