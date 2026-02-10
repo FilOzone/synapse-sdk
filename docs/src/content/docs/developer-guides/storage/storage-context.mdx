@@ -231,9 +231,9 @@ const storageContext = await synapse.storage.createContext({
 const llmModel = "sonnnet-4.5";
 const conversationId = "1234567890";
 
-const data = new Blob(["Deep research on decentralization..."])
+const data = new TextEncoder().encode("Deep research on decentralization...")
 
-const preflight = await storageContext.preflightUpload(data.size);
+const preflight = await storageContext.preflightUpload(data.length);
 
 console.log("Estimated costs:", preflight.estimatedCost);
 console.log("Allowance sufficient:", preflight.allowanceCheck.sufficient);

@@ -447,7 +447,11 @@ InvalidSignature(address expected, address actual)
     it('should handle successful data set creation', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const pieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-      server.use(createAndAddPiecesHandler(mockTxHash))
+      server.use(
+        createAndAddPiecesHandler(mockTxHash, {
+          baseUrl: 'http://pdp.local',
+        })
+      )
 
       const result = await createDataSetAndAddPieces({
         serviceURL: 'http://pdp.local',
@@ -864,7 +868,7 @@ InvalidSignature(address expected, address actual)
       server.use(findPieceHandler(mockPieceCidStr, true))
 
       const result = await findPiece({
-        serviceURL: 'http://pdp.local',
+        serviceURL: 'https://pdp.example.com',
         pieceCid,
       })
       assert.strictEqual(result.toString(), mockPieceCidStr)
@@ -877,7 +881,7 @@ InvalidSignature(address expected, address actual)
 
       try {
         await findPiece({
-          serviceURL: 'http://pdp.local',
+          serviceURL: 'https://pdp.example.com',
           pieceCid,
           retry: true,
           timeout: 50,
@@ -894,7 +898,7 @@ InvalidSignature(address expected, address actual)
       const pieceCid = Piece.parse(mockPieceCidStr)
 
       server.use(
-        http.get('http://pdp.local/pdp/piece', () => {
+        http.get('https://pdp.example.com/pdp/piece', () => {
           return HttpResponse.text('Database error', {
             status: 500,
           })
@@ -903,7 +907,7 @@ InvalidSignature(address expected, address actual)
 
       try {
         await findPiece({
-          serviceURL: 'http://pdp.local',
+          serviceURL: 'https://pdp.example.com',
           pieceCid,
         })
         assert.fail('Should have thrown error for server error')
@@ -957,7 +961,7 @@ InvalidSignature(address expected, address actual)
 
       // Should not throw
       await uploadPiece({
-        serviceURL: 'http://pdp.local',
+        serviceURL: 'https://pdp.example.com',
         data: testData,
         pieceCid,
       })
@@ -972,7 +976,7 @@ InvalidSignature(address expected, address actual)
 
       // Should not throw - early return when piece exists
       await uploadPiece({
-        serviceURL: 'http://pdp.local',
+        serviceURL: 'https://pdp.example.com',
         data: testData,
         pieceCid,
       })
@@ -1068,14 +1072,14 @@ InvalidSignature(address expected, address actual)
 
       server.use(
         postPieceHandler(mockPieceCidStr, mockUuid),
-        http.put(`http://pdp.local/pdp/piece/upload/${mockUuid}`, () => {
+        http.put(`https://pdp.example.com/pdp/piece/upload/${mockUuid}`, () => {
           return HttpResponse.text('Upload failed', { status: 500 })
         })
       )
 
       try {
         await uploadPiece({
-          serviceURL: 'http://pdp.local',
+          serviceURL: 'https://pdp.example.com',
           data: testData,
           pieceCid,
         })
@@ -1102,8 +1106,8 @@ InvalidSignature(address expected, address actual)
       )
 
       const result = await uploadPieceStreaming({
-        serviceURL: 'http://pdp.local',
-        data: new Blob([testData]),
+        serviceURL: 'https://pdp.example.com',
+        data: testData,
         pieceCid,
       })
 
@@ -1119,7 +1123,7 @@ InvalidSignature(address expected, address actual)
       server.use(
         postPieceUploadsHandler(mockUuid),
         // Custom handler that consumes the stream
-        http.put(`http://pdp.local/pdp/piece/uploads/${mockUuid}`, async ({ request }) => {
+        http.put(`https://pdp.example.com/pdp/piece/uploads/${mockUuid}`, async ({ request }) => {
           // Consume the stream to trigger progress callbacks
           const body = await request.arrayBuffer()
           assert.strictEqual(body.byteLength, testData.length)
@@ -1129,8 +1133,8 @@ InvalidSignature(address expected, address actual)
       )
 
       const result = await uploadPieceStreaming({
-        serviceURL: 'http://pdp.local',
-        data: new Blob([testData]),
+        serviceURL: 'https://pdp.example.com',
+        data: testData,
         pieceCid,
         onProgress: (bytes) => progressCalls.push(bytes),
       })
@@ -1154,7 +1158,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new Blob([testData]),
+          data: testData,
           pieceCid,
         })
         assert.fail('Should have thrown error for session creation failure')
@@ -1177,7 +1181,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new Blob([testData]),
+          data: testData,
           pieceCid,
         })
         assert.fail('Should have thrown error for wrong status')
@@ -1200,7 +1204,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new Blob([testData]),
+          data: testData,
           pieceCid,
         })
         assert.fail('Should have thrown error for missing Location header')
@@ -1226,7 +1230,7 @@ InvalidSignature(address expected, address actual)
       try {
         await uploadPieceStreaming({
           serviceURL: 'http://pdp.local',
-          data: new Blob([testData]),
+          data: testData,
           pieceCid,
         })
         assert.fail('Should have thrown error for invalid Location header')
@@ -1242,15 +1246,15 @@ InvalidSignature(address expected, address actual)
 
       server.use(
         postPieceUploadsHandler(mockUuid),
-        http.put(`http://pdp.local/pdp/piece/uploads/${mockUuid}`, () => {
+        http.put(`https://pdp.example.com/pdp/piece/uploads/${mockUuid}`, () => {
           return HttpResponse.text('Upload failed', { status: 500 })
         })
       )
 
       try {
         await uploadPieceStreaming({
-          serviceURL: 'http://pdp.local',
-          data: new Blob([testData]),
+          serviceURL: 'https://pdp.example.com',
+          data: testData,
           pieceCid,
         })
         assert.fail('Should have thrown error for PUT failure')
@@ -1266,15 +1270,15 @@ InvalidSignature(address expected, address actual)
 
       server.use(
         postPieceUploadsHandler(mockUuid),
-        http.put(`http://pdp.local/pdp/piece/uploads/${mockUuid}`, () => {
+        http.put(`https://pdp.example.com/pdp/piece/uploads/${mockUuid}`, () => {
           return HttpResponse.text('OK', { status: 200 })
         })
       )
 
       try {
         await uploadPieceStreaming({
-          serviceURL: 'http://pdp.local',
-          data: new Blob([testData]),
+          serviceURL: 'https://pdp.example.com',
+          data: testData,
           pieceCid,
         })
         assert.fail('Should have thrown error for wrong PUT status')
@@ -1291,15 +1295,15 @@ InvalidSignature(address expected, address actual)
       server.use(
         postPieceUploadsHandler(mockUuid),
         uploadPieceStreamingHandler(mockUuid),
-        http.post(`http://pdp.local/pdp/piece/uploads/${mockUuid}`, () => {
+        http.post(`https://pdp.example.com/pdp/piece/uploads/${mockUuid}`, () => {
           return HttpResponse.text('Finalize failed', { status: 500 })
         })
       )
 
       try {
         await uploadPieceStreaming({
-          serviceURL: 'http://pdp.local',
-          data: new Blob([testData]),
+          serviceURL: 'https://pdp.example.com',
+          data: testData,
           pieceCid,
         })
         assert.fail('Should have thrown error for finalize failure')
@@ -1316,15 +1320,15 @@ InvalidSignature(address expected, address actual)
       server.use(
         postPieceUploadsHandler(mockUuid),
         uploadPieceStreamingHandler(mockUuid),
-        http.post(`http://pdp.local/pdp/piece/uploads/${mockUuid}`, () => {
+        http.post(`https://pdp.example.com/pdp/piece/uploads/${mockUuid}`, () => {
           return HttpResponse.text('Created', { status: 201 })
         })
       )
 
       try {
         await uploadPieceStreaming({
-          serviceURL: 'http://pdp.local',
-          data: new Blob([testData]),
+          serviceURL: 'https://pdp.example.com',
+          data: testData,
           pieceCid,
         })
         assert.fail('Should have thrown error for wrong finalize status')

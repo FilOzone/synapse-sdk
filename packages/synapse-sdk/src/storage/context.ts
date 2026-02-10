@@ -27,7 +27,7 @@ import { getProviderIds } from '@filoz/synapse-core/endorsements'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import { schedulePieceDeletion } from '@filoz/synapse-core/sp'
+import { schedulePieceDeletion, type UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import {
   calculateLastProofDate,
   createPieceUrlPDP,
@@ -897,7 +897,7 @@ export class StorageContext {
    * to avoid redundant computation. For streaming uploads, pieceCid must be provided in options as it
    * cannot be calculated without consuming the stream.
    */
-  async upload(data: Blob, options?: UploadOptions): Promise<UploadResult> {
+  async upload(data: UploadPieceStreamingData, options?: UploadOptions): Promise<UploadResult> {
     performance.mark('synapse:upload-start')
 
     // Validation Phase: Check data size and calculate pieceCid

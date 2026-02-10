@@ -850,7 +850,7 @@ describe('Synapse', () => {
             )
           )
         }
-        const result = await synapse.storage.upload(new Blob([data]), { contexts })
+        const result = await synapse.storage.upload(data, { contexts })
         assert.equal(result.pieceCid.toString(), pieceCid.toString())
         assert.equal(result.size, 1024)
       })
@@ -894,7 +894,7 @@ describe('Synapse', () => {
           )
         }
         try {
-          await synapse.storage.upload(new Blob([data]), { contexts })
+          await synapse.storage.upload(data, { contexts })
           assert.fail('Expected upload to fail when one provider returns wrong pieceCid')
         } catch (error: any) {
           assert.include(error.message, 'Failed to create upload session')

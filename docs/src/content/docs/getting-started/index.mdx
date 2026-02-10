@@ -90,12 +90,12 @@ async function main() {
   console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
 
   // 3) Upload
-  const file = new Blob([
+  const file = new TextEncoder().encode(
     `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
     Your data is safe here. 
     🌍 You need to make sure to meet the minimum size 
     requirement of 127 bytes per upload.`
-  ]);
+  );
   const { pieceCid, size } = await synapse.storage.upload(file)
   console.log(`✅ Upload complete!`);
   console.log(`PieceCID: ${pieceCid}`);
@@ -179,12 +179,12 @@ import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 // ---cut---
 // Upload data - SDK automatically selects provider and creates data set if needed
-const file = new Blob([
+const file = new TextEncoder().encode(
     `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
     Your data is safe here. 
     🌍 You need to make sure to meet the minimum size 
     requirement of 127 bytes per upload.`
-]);
+);
 const { pieceCid } = await synapse.storage.upload(file);
 
 // Download data from any provider that has it
@@ -226,12 +226,12 @@ For more control over provider selection and data set management:
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
-const file = new Blob([
+const file = new TextEncoder().encode(
     `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
     Your data is safe here. 
     🌍 You need to make sure to meet the minimum size 
     requirement of 127 bytes per upload.`
-]);
+);
 // ---cut---
 // Create a storage context with specific provider
 const context = await synapse.storage.createContext({

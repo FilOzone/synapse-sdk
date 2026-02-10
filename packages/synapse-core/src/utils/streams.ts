@@ -111,3 +111,13 @@ export async function* uint8ArrayToAsyncIterable(
     yield data.subarray(i, i + chunkSize)
   }
 }
+
+/**
+ * Check if value is Uint8Array
+ *
+ * @param value - The value to check
+ * @returns True if it's a Uint8Array
+ */
+export function isUint8Array(value: unknown): value is Uint8Array {
+  return value instanceof Uint8Array || (ArrayBuffer.isView(value) && value.constructor.name === 'Uint8Array')
+}

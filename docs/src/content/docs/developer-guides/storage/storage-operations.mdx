@@ -53,9 +53,9 @@ import { privateKeyToAccount } from 'viem/accounts'
 
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
-const file = new Blob([new Uint8Array([1, 2, 3, 4, 5])]);
+const data = new Uint8Array([1, 2, 3, 4, 5]);
 
-const result = await synapse.storage.upload(file);
+const result = await synapse.storage.upload(data);
 const downloaded = await synapse.storage.download(result.pieceCid);
 
 console.log("Uploaded:", result.pieceCid);
@@ -71,7 +71,7 @@ Add metadata to organize uploads and enable faster data set reuse - SDK will reu
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 
-const data = new Blob([new Uint8Array([1, 2, 3, 4, 5])]);
+const data = new Uint8Array([1, 2, 3, 4, 5]);
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const context = await synapse.storage.createContext({
