@@ -337,8 +337,6 @@ export interface StorageServiceOptions {
   /** Whether to enable CDN services */
   withCDN?: boolean
   withIpni?: boolean
-  /** Whether to include providers with serviceStatus=dev in the capabilities list (default: false) */
-  dev?: boolean
   /** Force creation of a new data set, even if a candidate exists */
   forceCreateDataSet?: boolean
   /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */

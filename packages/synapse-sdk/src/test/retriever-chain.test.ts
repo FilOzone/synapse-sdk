@@ -4,7 +4,8 @@ import { asPieceCID } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
-import { createPublicClient, http as viemHttp } from 'viem'
+import { createWalletClient, http as viemHttp } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { ChainRetriever } from '../retriever/chain.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { PieceCID, PieceRetriever } from '../types.ts'
@@ -43,12 +44,13 @@ describe('ChainRetriever', () => {
     server.resetHandlers()
     // Set up basic JSON-RPC handler before creating services
     server.use(Mocks.JSONRPC(Mocks.presets.basic))
-    const publicClient = createPublicClient({
+    const client = createWalletClient({
       chain: calibration,
       transport: viemHttp(),
+      account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
     })
-    warmStorage = new WarmStorageService(publicClient)
-    spRegistry = await SPRegistryService.create(publicClient)
+    warmStorage = new WarmStorageService({ client })
+    spRegistry = await SPRegistryService.create(client)
   })
 
   describe('fetchPiece with specific provider', () => {

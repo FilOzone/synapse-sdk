@@ -12,24 +12,24 @@
  * ```typescript
  * import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
  *
- * const client = createClient({
- *   chain: calibration,
- *   transport: http(),
- * })
+ * const warmStorageService = WarmStorageService.create()
  *
- * const warmStorageService = WarmStorageService.create(client)
  * ```
  */
 
-import { asChain, type Chain, calibration, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
+import { asChain, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
+import * as Pay from '@filoz/synapse-core/pay'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import { dataSetLiveCall, getDataSetListenerCall } from '@filoz/synapse-core/pdp-verifier'
 import { type MetadataObject, metadataArrayToObject } from '@filoz/synapse-core/utils'
 import {
   addApprovedProvider,
   getAllDataSetMetadata,
+  getAllDataSetMetadataCall,
   getAllPieceMetadata,
   getApprovedProviders,
+  getClientDataSets,
+  getDataSet,
   getServicePrice,
   removeApprovedProvider,
   terminateService,
@@ -37,6 +37,7 @@ import {
 import {
   type Account,
   type Address,
+  type Chain,
   type Client,
   createClient,
   type Hash,
@@ -45,117 +46,100 @@ import {
   type Transport,
 } from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
-import type { PaymentsService } from '../payments/service.ts'
-import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
-import { METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/constants.ts'
-import { createError } from '../utils/index.ts'
+import type { EnhancedDataSetInfo } from '../types.ts'
+import { DEFAULT_CHAIN, METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 
 export class WarmStorageService {
-  private readonly _client: Client<Transport, Chain>
+  private readonly _client: Client<Transport, Chain, Account>
   private readonly _chain: SynapseChain
 
   /**
    * Create a new WarmStorageService instance
+   *
+   * @param options - Options for the WarmStorageService
+   * @param options.client - Wallet client
+   * @returns A new WarmStorageService instance
    */
-  constructor(client: Client<Transport, Chain>) {
-    this._client = client
-    this._chain = asChain(client.chain)
+  constructor(options: { client: Client<Transport, Chain, Account> }) {
+    this._client = options.client
+    this._chain = asChain(options.client.chain)
   }
 
   /**
-   * Create a new WarmStorageService instance with initialized addresses
+   * Create a new WarmStorageService with pre-configured client
+   *
+   * @param options - Options for the WarmStorageService
+   * @param options.transport - Viem transport (optional, defaults to http())
+   * @param options.chain - Filecoin chain (optional, defaults to {@link DEFAULT_CHAIN})
+   * @param options.account - Viem account (required)
+   * @returns A new {@link WarmStorageService} instance
    */
-  static create(options: { transport?: Transport; chain?: Chain } = {}): WarmStorageService {
+  static create(options: { transport?: Transport; chain?: Chain; account: Account }): WarmStorageService {
     const client = createClient({
-      chain: options.chain ?? calibration,
+      chain: options.chain ?? DEFAULT_CHAIN,
       transport: options.transport ?? http(),
+      account: options.account,
+      name: 'WarmStorageService',
+      key: 'warm-storage-service',
     })
-    return new WarmStorageService(client)
-  }
 
-  getPDPVerifierAddress(): Address {
-    return this._chain.contracts.pdp.address
-  }
-
-  getPaymentsAddress(): Address {
-    return this._chain.contracts.filecoinPay.address
-  }
-
-  getUSDFCTokenAddress(): Address {
-    return this._chain.contracts.usdfc.address
-  }
-
-  getViewContractAddress(): Address {
-    return this._chain.contracts.fwssView.address
-  }
-
-  getServiceProviderRegistryAddress(): Address {
-    return this._chain.contracts.serviceProviderRegistry.address
-  }
-
-  getSessionKeyRegistryAddress(): Address {
-    return this._chain.contracts.sessionKeyRegistry.address
+    if (client.account.type === 'json-rpc' && client.transport.type !== 'custom') {
+      throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
+    }
+    return new WarmStorageService({ client })
   }
 
   // ========== Client Data Set Operations ==========
 
   /**
    * Get a single data set by ID
-   * @param dataSetId - The data set ID to retrieve
-   * @returns Data set information
-   * @throws Error if data set doesn't exist
+   * @param options - Options for the data set
+   * @param options.dataSetId - The data set ID to retrieve
+   * @returns Data set information {@link getDataSet.OutputType}
+   * @throws Errors {@link getDataSet.ErrorType}
    */
-  async getDataSet(dataSetId: bigint): Promise<DataSetInfo> {
-    const ds = await readContract(this._client, {
-      address: this._chain.contracts.fwssView.address,
-      abi: this._chain.contracts.fwssView.abi,
-      functionName: 'getDataSet',
-      args: [dataSetId],
-    })
-
-    if (ds.pdpRailId === 0n) {
-      throw createError('WarmStorageService', 'getDataSet', `Data set ${dataSetId} does not exist`)
-    }
-
-    // Convert from on-chain format to our interface
-    return ds
+  async getDataSet(options: { dataSetId: bigint }): Promise<getDataSet.OutputType> {
+    return getDataSet(this._client, options)
   }
 
   /**
    * Get all data sets for a specific client
-   * @param clientAddress - The client address
-   * @returns Array of data set information
+   * @param options - Options for the client data sets
+   * @param options.address - The client address
+   * @returns Array of data set information {@link getClientDataSets.OutputType}
+   * @throws Errors {@link getClientDataSets.ErrorType}
    */
-  async getClientDataSets(clientAddress: Address): Promise<readonly DataSetInfo[]> {
-    return await readContract(this._client, {
-      address: this._chain.contracts.fwssView.address,
-      abi: this._chain.contracts.fwssView.abi,
-      functionName: 'getClientDataSets',
-      args: [clientAddress],
-    })
+  async getClientDataSets(options: { address: Address }): Promise<getClientDataSets.OutputType> {
+    return getClientDataSets(this._client, options)
   }
 
   /**
    * Get all data sets for a client with enhanced details
    * This includes live status and management information
-   * @param client - The client address
-   * @param onlyManaged - If true, only return data sets managed by this Warm Storage contract
-   * @returns Array of enhanced data set information
+   * @param options - Options for the client data sets
+   * @param options.address - The client address
+   * @param options.onlyManaged - If true, only return data sets managed by this Warm Storage contract
+   * @returns Array of enhanced data set information {@link EnhancedDataSetInfo}
    */
-  async getClientDataSetsWithDetails(client: Address, onlyManaged: boolean = false): Promise<EnhancedDataSetInfo[]> {
+  async getClientDataSetsWithDetails(options: {
+    address?: Address
+    onlyManaged?: boolean
+  }): Promise<EnhancedDataSetInfo[]> {
+    const { address = this._client.account.address, onlyManaged = false } = options
     // Query dataset IDs directly from the view contract
     const ids = await readContract(this._client, {
       address: this._chain.contracts.fwssView.address,
       abi: this._chain.contracts.fwssView.abi,
       functionName: 'clientDataSets',
-      args: [client],
+      args: [address],
     })
     if (ids.length === 0) return []
 
     // Enhance all in parallel using dataset IDs
     const enhancedDataSetsPromises = ids.map(async (dataSetId) => {
       try {
-        const base = await this.getDataSet(dataSetId)
+        const base = await this.getDataSet({ dataSetId })
+        if (base == null) return null
 
         const [isLive, listener, metadata] = await multicall(this._client, {
           allowFailure: false,
@@ -168,17 +152,15 @@ export class WarmStorageService {
               chain: this._client.chain,
               dataSetId: dataSetId,
             }),
-            {
-              address: this._chain.contracts.fwssView.address,
-              abi: this._chain.contracts.fwssView.abi,
-              functionName: 'getAllDataSetMetadata',
-              args: [dataSetId],
-            },
+            getAllDataSetMetadataCall({
+              chain: this._client.chain,
+              dataSetId: dataSetId,
+            }),
           ],
         })
 
         // Check if this data set is managed by our Warm Storage contract
-        const isManaged = listener != null && isAddressEqual(listener, this._chain.contracts.fwss.address)
+        const isManaged = isAddressEqual(listener, this._chain.contracts.fwss.address)
 
         // Skip unmanaged data sets if onlyManaged is true
         if (onlyManaged && !isManaged) {
@@ -218,34 +200,35 @@ export class WarmStorageService {
    * - Dataset exists and is live
    * - Dataset is managed by this WarmStorage contract
    *
-   * @param dataSetId - The PDPVerifier data set ID
+   * @param options - Options for the data set
+   * @param options.dataSetId - The PDPVerifier data set ID
    * @throws if dataset is not valid for operations
    */
-  async validateDataSet(dataSetId: bigint): Promise<void> {
+  async validateDataSet(options: { dataSetId: bigint }): Promise<void> {
     // Parallelize validation checks
     const [isLive, listener] = await multicall(this._client, {
       allowFailure: false,
       contracts: [
         dataSetLiveCall({
           chain: this._client.chain,
-          dataSetId: dataSetId,
+          dataSetId: options.dataSetId,
         }),
         getDataSetListenerCall({
           chain: this._client.chain,
-          dataSetId: dataSetId,
+          dataSetId: options.dataSetId,
         }),
       ],
     })
 
     // Check if data set exists and is live
     if (!isLive) {
-      throw new Error(`Data set ${dataSetId} does not exist or is not live`)
+      throw new Error(`Data set ${options.dataSetId} does not exist or is not live`)
     }
 
     // Verify this data set is managed by our Warm Storage contract
     if (!isAddressEqual(listener, this._chain.contracts.fwss.address)) {
       throw new Error(
-        `Data set ${dataSetId} is not managed by this WarmStorage contract (${
+        `Data set ${options.dataSetId} is not managed by this WarmStorage contract (${
           this._chain.contracts.fwss.address
         }), managed by ${String(listener)}`
       )
@@ -254,63 +237,72 @@ export class WarmStorageService {
 
   /**
    * Get the count of active pieces in a dataset (excludes removed pieces)
-   * @param dataSetId - The PDPVerifier data set ID
+   * @param options - Options for the data set
+   * @param options.dataSetId - The PDPVerifier data set ID
    * @returns The number of active pieces
    */
-  async getActivePieceCount(dataSetId: bigint): Promise<bigint> {
-    return PDPVerifier.getActivePieceCount(this._client, { dataSetId })
+  async getActivePieceCount(options: { dataSetId: bigint }): Promise<bigint> {
+    return PDPVerifier.getActivePieceCount(this._client, { dataSetId: options.dataSetId })
   }
 
   // ========== Metadata Operations ==========
 
   /**
    * Get all metadata for a data set
-   * @param dataSetId - The data set ID
+   *
+   * @param options - Options for the data set
+   * @param options.dataSetId - The data set ID
    * @returns Object with metadata key-value pairs
    */
-  async getDataSetMetadata(dataSetId: bigint): Promise<MetadataObject> {
-    return getAllDataSetMetadata(this._client, { dataSetId })
+  async getDataSetMetadata(options: { dataSetId: bigint }): Promise<MetadataObject> {
+    return getAllDataSetMetadata(this._client, { dataSetId: options.dataSetId })
   }
 
   /**
    * Get specific metadata key for a data set
-   * @param dataSetId - The data set ID
-   * @param key - The metadata key to retrieve
+   *
+   * @param options - Options for the data set
+   * @param options.dataSetId - The data set ID
+   * @param options.key - The metadata key to retrieve
    * @returns The metadata value if it exists, null otherwise
    */
-  async getDataSetMetadataByKey(dataSetId: bigint, key: string): Promise<string | null> {
+  async getDataSetMetadataByKey(options: { dataSetId: bigint; key: string }): Promise<string | null> {
     const [exists, value] = await readContract(this._client, {
       address: this._chain.contracts.fwssView.address,
       abi: this._chain.contracts.fwssView.abi,
       functionName: 'getDataSetMetadata',
-      args: [dataSetId, key],
+      args: [options.dataSetId, options.key],
     })
     return exists ? value : null
   }
 
   /**
    * Get all metadata for a piece in a data set
-   * @param dataSetId - The data set ID
-   * @param pieceId - The piece ID
+   *
+   * @param options - Options for the piece
+   * @param options.dataSetId - The data set ID
+   * @param options.pieceId - The piece ID
    * @returns Object with metadata key-value pairs
    */
-  async getPieceMetadata(dataSetId: bigint, pieceId: bigint): Promise<MetadataObject> {
-    return getAllPieceMetadata(this._client, { dataSetId, pieceId })
+  async getPieceMetadata(options: { dataSetId: bigint; pieceId: bigint }): Promise<MetadataObject> {
+    return getAllPieceMetadata(this._client, options)
   }
 
   /**
    * Get specific metadata key for a piece in a data set
-   * @param dataSetId - The data set ID
-   * @param pieceId - The piece ID
-   * @param key - The metadata key to retrieve
+   *
+   * @param options - Options for the piece
+   * @param options.dataSetId - The data set ID
+   * @param options.pieceId - The piece ID
+   * @param options.key - The metadata key to retrieve
    * @returns The metadata value if it exists, null otherwise
    */
-  async getPieceMetadataByKey(dataSetId: bigint, pieceId: bigint, key: string): Promise<string | null> {
+  async getPieceMetadataByKey(options: { dataSetId: bigint; pieceId: bigint; key: string }): Promise<string | null> {
     const [exists, value] = await readContract(this._client, {
       address: this._chain.contracts.fwssView.address,
       abi: this._chain.contracts.fwssView.abi,
       functionName: 'getPieceMetadata',
-      args: [dataSetId, pieceId, key],
+      args: [options.dataSetId, options.pieceId, options.key],
     })
     return exists ? value : null
   }
@@ -327,11 +319,12 @@ export class WarmStorageService {
 
   /**
    * Calculate storage costs for a given size
-   * @param sizeInBytes - Size of data to store in bytes
+   * @param options - Options for the storage cost
+   * @param options.sizeInBytes - Size of data to store in bytes
    * @returns Cost estimates per epoch, day, and month
    * @remarks CDN costs are usage-based (egress pricing), so withCDN field reflects base storage cost only
    */
-  async calculateStorageCost(sizeInBytes: number): Promise<{
+  async calculateStorageCost(options: { sizeInBytes: bigint }): Promise<{
     perEpoch: bigint
     perDay: bigint
     perMonth: bigint
@@ -344,9 +337,8 @@ export class WarmStorageService {
     const servicePriceInfo = await this.getServicePrice()
 
     // Calculate price per byte per epoch (base storage cost)
-    const sizeInBytesBigint = BigInt(sizeInBytes)
     const pricePerEpoch =
-      (servicePriceInfo.pricePerTiBPerMonthNoCDN * sizeInBytesBigint) /
+      (servicePriceInfo.pricePerTiBPerMonthNoCDN * options.sizeInBytes) /
       (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
 
     const costs = {
@@ -365,18 +357,21 @@ export class WarmStorageService {
 
   /**
    * Check if user has sufficient allowances for a storage operation and calculate costs
-   * @param sizeInBytes - Size of data to store
-   * @param withCDN - Whether CDN is enabled
-   * @param paymentsService - PaymentsService instance to check allowances
-   * @param lockupDays - Number of days for lockup period (defaults to 10)
+   * @param options - Options for the allowance check
+   * @param options.sizeInBytes - Size of data to store
+   * @param options.withCDN - Whether CDN is enabled
+   * @param options.address - Address of the account to check allowances for (optional, defaults to the client account address)
+   * @param options.operator - Address of the operator to check allowances for (optional, defaults to the WarmStorage contract address)
+   * @param options.lockupDays - Number of days for lockup period (defaults to 30)
    * @returns Allowance requirement details and storage costs
    */
-  async checkAllowanceForStorage(
-    sizeInBytes: number,
-    withCDN: boolean,
-    paymentsService: PaymentsService,
-    lockupDays?: number
-  ): Promise<{
+  async checkAllowanceForStorage(options: {
+    sizeInBytes: bigint
+    withCDN: boolean
+    address?: Address
+    operator?: Address
+    lockupDays?: bigint
+  }): Promise<{
     rateAllowanceNeeded: bigint
     lockupAllowanceNeeded: bigint
     currentRateAllowance: bigint
@@ -394,16 +389,18 @@ export class WarmStorageService {
   }> {
     // Get current allowances and calculate costs in parallel
     const [approval, costs] = await Promise.all([
-      paymentsService.serviceApproval(this._chain.contracts.fwss.address, TOKENS.USDFC),
-      this.calculateStorageCost(sizeInBytes),
+      Pay.operatorApprovals(this._client, {
+        address: options.address ?? this._client.account.address,
+        operator: options.operator,
+      }),
+      this.calculateStorageCost({ sizeInBytes: options.sizeInBytes }),
     ])
 
-    const selectedCosts = withCDN ? costs.withCDN : costs
+    const selectedCosts = options.withCDN ? costs.withCDN : costs
     const rateNeeded = selectedCosts.perEpoch
 
-    // Calculate lockup period based on provided days (default: 10)
-    const lockupPeriod =
-      BigInt(lockupDays ?? Number(TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS)) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
+    // Calculate lockup period based on provided days (default: 30)
+    const lockupPeriod = (options.lockupDays ?? TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS) * TIME_CONSTANTS.EPOCHS_PER_DAY
     const lockupNeeded = rateNeeded * lockupPeriod
 
     // Calculate required allowances (current usage + new requirement)
@@ -457,7 +454,9 @@ export class WarmStorageService {
    * @param options - Configuration options for the storage upload
    * @param options.dataSize - Size of data to store in bytes
    * @param options.withCDN - Whether to enable CDN for faster retrieval (optional, defaults to false)
-   * @param paymentsService - Instance of PaymentsService for handling payment operations
+   * @param options.address - Address of the account to check allowances for (optional, defaults to the client account address)
+   * @param options.operator - Address of the operator to check allowances for (optional, defaults to the WarmStorage contract address)
+   * @param options.lockupDays - Number of days for lockup period (defaults to 30)
    *
    * @returns Object containing:
    *   - estimatedCost: Breakdown of storage costs (per epoch, day, and month)
@@ -467,8 +466,7 @@ export class WarmStorageService {
    * @example
    * ```typescript
    * const prep = await warmStorageService.prepareStorageUpload(
-   *   { dataSize: Number(SIZE_CONSTANTS.GiB), withCDN: true },
-   *   paymentsService
+   *   { dataSize: SIZE_CONSTANTS.GiB, withCDN: true, address: '0x...' },
    * )
    *
    * if (prep.actions.length > 0) {
@@ -479,13 +477,13 @@ export class WarmStorageService {
    * }
    * ```
    */
-  async prepareStorageUpload(
-    options: {
-      dataSize: number
-      withCDN?: boolean
-    },
-    paymentsService: PaymentsService
-  ): Promise<{
+  async prepareStorageUpload(options: {
+    dataSize: bigint
+    withCDN?: boolean
+    address?: Address
+    operator?: Address
+    lockupDays?: bigint
+  }): Promise<{
     estimatedCost: {
       perEpoch: bigint
       perDay: bigint
@@ -501,10 +499,17 @@ export class WarmStorageService {
       execute: () => Promise<Hash>
     }>
   }> {
+    const address = options.address ?? this._client.account.address
     // Parallelize cost calculation and allowance check
     const [costs, allowanceCheck] = await Promise.all([
-      this.calculateStorageCost(options.dataSize),
-      this.checkAllowanceForStorage(options.dataSize, options.withCDN ?? false, paymentsService),
+      this.calculateStorageCost({ sizeInBytes: options.dataSize }),
+      this.checkAllowanceForStorage({
+        sizeInBytes: options.dataSize,
+        withCDN: options.withCDN ?? false,
+        address: options.address,
+        operator: options.operator,
+        lockupDays: options.lockupDays,
+      }),
     ])
 
     // Select the appropriate costs based on CDN option
@@ -517,7 +522,7 @@ export class WarmStorageService {
     }> = []
 
     // Check if deposit is needed
-    const accountInfo = await paymentsService.accountInfo(TOKENS.USDFC)
+    const accountInfo = await Pay.accounts(this._client, { address })
     const requiredBalance = selectedCosts.perMonth // Require at least 1 month of funds
 
     if (accountInfo.availableFunds < requiredBalance) {
@@ -525,7 +530,7 @@ export class WarmStorageService {
       actions.push({
         type: 'deposit',
         description: `Deposit ${depositAmount} USDFC to payments contract`,
-        execute: async () => await paymentsService.deposit(depositAmount, TOKENS.USDFC),
+        execute: async () => await Pay.deposit(this._client, { amount: depositAmount }),
       })
     }
 
@@ -535,13 +540,9 @@ export class WarmStorageService {
         type: 'approveService',
         description: `Approve service with rate allowance ${allowanceCheck.rateAllowanceNeeded} and lockup allowance ${allowanceCheck.lockupAllowanceNeeded}`,
         execute: async () =>
-          await paymentsService.approveService(
-            this._chain.contracts.fwss.address,
-            allowanceCheck.rateAllowanceNeeded,
-            allowanceCheck.lockupAllowanceNeeded,
-            TIME_CONSTANTS.EPOCHS_PER_MONTH, // 30 days max lockup period
-            TOKENS.USDFC
-          ),
+          await Pay.setOperatorApproval(this._client, {
+            approve: true,
+          }),
       })
     }
 
@@ -565,48 +566,42 @@ export class WarmStorageService {
 
   /**
    * Terminate a data set with given ID
-   * @param client - Wallet client to terminate the data set
-   * @param dataSetId  - ID of the data set to terminate
+   * @param options - Options for the data set termination
+   * @param options.dataSetId - ID of the data set to terminate
    * @returns Transaction receipt
    */
-  async terminateDataSet(client: Client<Transport, Chain, Account>, dataSetId: bigint): Promise<Hash> {
-    return terminateService(client, { dataSetId })
+  async terminateDataSet(options: { dataSetId: bigint }): Promise<Hash> {
+    return terminateService(this._client, { dataSetId: options.dataSetId })
   }
 
   // ========== Service Provider Approval Operations ==========
 
   /**
    * Add an approved provider by ID (owner only)
-   * @param client - Wallet client to add the approved provider
-   * @param providerId - Provider ID from registry
+   * @param options - Options for the approved provider addition
+   * @param options.providerId - Provider ID from registry
    * @returns Transaction response
    */
-  async addApprovedProvider(
-    client: Client<Transport, Chain, Account>,
-    providerId: bigint
-  ): Promise<addApprovedProvider.OutputType> {
-    return addApprovedProvider(client, { providerId })
+  async addApprovedProvider(options: { providerId: bigint }): Promise<addApprovedProvider.OutputType> {
+    return addApprovedProvider(this._client, { providerId: options.providerId })
   }
 
   /**
    * Remove an approved provider by ID (owner only)
-   * @param client - Wallet client to remove the approved provider
-   * @param providerId - Provider ID from registry
+   * @param options - Options for the approved provider removal
+   * @param options.providerId - Provider ID from registry
    * @returns Transaction response
    */
-  async removeApprovedProvider(
-    client: Client<Transport, Chain, Account>,
-    providerId: bigint
-  ): Promise<removeApprovedProvider.OutputType> {
+  async removeApprovedProvider(options: { providerId: bigint }): Promise<removeApprovedProvider.OutputType> {
     // First, we need to find the index of this provider in the array
-    const approvedIds = await getApprovedProviders(client)
-    const index = approvedIds.indexOf(providerId)
+    const approvedIds = await getApprovedProviders(this._client)
+    const index = approvedIds.indexOf(options.providerId)
 
     if (index === -1) {
-      throw new Error(`Provider ${providerId} is not in the approved list`)
+      throw new Error(`Provider ${options.providerId} is not in the approved list`)
     }
 
-    return removeApprovedProvider(client, { providerId, index: BigInt(index) })
+    return removeApprovedProvider(this._client, { providerId: options.providerId, index: BigInt(index) })
   }
 
   /**
@@ -619,15 +614,16 @@ export class WarmStorageService {
 
   /**
    * Check if a provider ID is approved
-   * @param providerId - Provider ID to check
+   * @param options - Options for the provider ID approval check
+   * @param options.providerId - Provider ID to check
    * @returns Whether the provider is approved
    */
-  async isProviderIdApproved(providerId: bigint): Promise<boolean> {
+  async isProviderIdApproved(options: { providerId: bigint }): Promise<boolean> {
     return readContract(this._client, {
       address: this._chain.contracts.fwssView.address,
       abi: this._chain.contracts.fwssView.abi,
       functionName: 'isProviderApproved',
-      args: [providerId],
+      args: [options.providerId],
     })
   }
 
@@ -645,12 +641,13 @@ export class WarmStorageService {
 
   /**
    * Check if an address is the contract owner
-   * @param address - Address to check
+   * @param options - Options for the owner check
+   * @param options.address - Address to check
    * @returns Whether the address is the owner
    */
-  async isOwner(address: Address): Promise<boolean> {
+  async isOwner(options: { address: Address }): Promise<boolean> {
     const ownerAddress = await this.getOwner()
-    return isAddressEqual(address, ownerAddress)
+    return isAddressEqual(options.address, ownerAddress)
   }
 
   /**
@@ -690,27 +687,26 @@ export class WarmStorageService {
    * @param cacheMissAmountToAdd - Amount to add to the cache miss rail lockup
    * @returns Transaction response
    */
-  async topUpCDNPaymentRails(
-    client: Client<Transport, Chain, Account>,
-    dataSetId: bigint,
-    cdnAmountToAdd: bigint,
+  async topUpCDNPaymentRails(options: {
+    dataSetId: bigint
+    cdnAmountToAdd: bigint
     cacheMissAmountToAdd: bigint
-  ): Promise<Hash> {
-    if (cdnAmountToAdd < 0n || cacheMissAmountToAdd < 0n) {
+  }): Promise<Hash> {
+    if (options.cdnAmountToAdd < 0n || options.cacheMissAmountToAdd < 0n) {
       throw new Error('Top up amounts must be positive')
     }
-    if (cdnAmountToAdd === 0n && cacheMissAmountToAdd === 0n) {
+    if (options.cdnAmountToAdd === 0n && options.cacheMissAmountToAdd === 0n) {
       throw new Error('At least one top up amount must be >0')
     }
 
-    const { request } = await simulateContract(client, {
+    const { request } = await simulateContract(this._client, {
       address: this._chain.contracts.fwss.address,
       abi: this._chain.contracts.fwss.abi,
       functionName: 'topUpCDNPaymentRails',
-      args: [dataSetId, cdnAmountToAdd, cacheMissAmountToAdd],
+      args: [options.dataSetId, options.cdnAmountToAdd, options.cacheMissAmountToAdd],
     })
 
-    const hash = await writeContract(client, request)
+    const hash = await writeContract(this._client, request)
 
     return hash
   }

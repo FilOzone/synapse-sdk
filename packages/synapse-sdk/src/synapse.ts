@@ -1,4 +1,4 @@
-import { asChain, type Chain, calibration } from '@filoz/synapse-core/chains'
+import { asChain, type Chain } from '@filoz/synapse-core/chains'
 import {
   type Account,
   type Address,
@@ -25,6 +25,7 @@ import type {
   SynapseFromClientOptions,
   SynapseOptions,
 } from './types.ts'
+import { DEFAULT_CHAIN } from './utils/constants.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
 /**
@@ -49,7 +50,7 @@ export class Synapse {
   static create(options: SynapseOptions) {
     const client = createClient({
       // todo: change to mainnet chain for GA
-      chain: options.chain ?? calibration,
+      chain: options.chain ?? DEFAULT_CHAIN,
       // todo: add better fallback transport
       transport: options.transport ?? http(),
       account: options.account,
@@ -70,8 +71,8 @@ export class Synapse {
     this._withCDN = options.withCDN ?? false
     this._providers = new SPRegistryService(options.client)
     this._filbeamService = new FilBeamService(this._chain)
-    this._warmStorageService = new WarmStorageService(options.client)
-    this._payments = new PaymentsService(options.client)
+    this._warmStorageService = new WarmStorageService({ client: options.client })
+    this._payments = new PaymentsService({ client: options.client })
 
     // Initialize StorageManager
     this._storageManager = new StorageManager(

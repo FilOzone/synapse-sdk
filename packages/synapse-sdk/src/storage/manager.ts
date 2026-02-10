@@ -161,7 +161,6 @@ export class StorageManager {
             withCDN: options?.withCDN,
             withIpni: options?.withIpni,
             count: 1, // single context by default for now - this will be changed in a future version
-            dev: options?.dev,
             uploadBatchSize: options?.uploadBatchSize,
             forceCreateDataSets: options?.forceCreateDataSet,
             metadata: options?.metadata,
@@ -284,7 +283,7 @@ export class StorageManager {
     }
 
     // Use the static method from StorageContext for core logic
-    return await StorageContext.performPreflightCheck(this._warmStorageService, this._synapse.payments, size, withCDN)
+    return await StorageContext.performPreflightCheck(this._warmStorageService, size, withCDN)
   }
 
   /**
@@ -451,7 +450,7 @@ export class StorageManager {
    */
   async findDataSets(clientAddress?: Address): Promise<EnhancedDataSetInfo[]> {
     const address = clientAddress ?? this._synapse.client.account.address
-    return await this._warmStorageService.getClientDataSetsWithDetails(address)
+    return await this._warmStorageService.getClientDataSetsWithDetails({ address })
   }
 
   /**
@@ -461,7 +460,7 @@ export class StorageManager {
    * @returns Transaction hash
    */
   async terminateDataSet(dataSetId: bigint): Promise<Hash> {
-    return this._warmStorageService.terminateDataSet(this._synapse.client, dataSetId)
+    return this._warmStorageService.terminateDataSet({ dataSetId })
   }
 
   /**
@@ -475,7 +474,7 @@ export class StorageManager {
       // Helper function to get allowances with error handling
       const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {
         try {
-          const approval = await this._synapse.payments.serviceApproval(chain.contracts.fwss.address, TOKENS.USDFC)
+          const approval = await this._synapse.payments.serviceApproval()
           return {
             service: chain.contracts.fwss.address,
             // Forward whether operator is approved so callers can react accordingly

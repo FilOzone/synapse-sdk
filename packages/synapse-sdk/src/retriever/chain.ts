@@ -43,7 +43,7 @@ export class ChainRetriever implements PieceRetriever {
     // Multiple provider case - need data sets to find providers
 
     // Get client's data sets with details
-    const dataSets = await this.warmStorageService.getClientDataSetsWithDetails(client)
+    const dataSets = await this.warmStorageService.getClientDataSetsWithDetails({ address: client })
 
     // Filter for live data sets with pieces
     const validDataSets = dataSets.filter((ds) => ds.isLive && ds.activePieceCount > 0)

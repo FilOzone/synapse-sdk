@@ -127,7 +127,10 @@ export class StorageContext {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'getClientDataSetId', 'Data set not found')
     }
-    const dataSetInfo = await this._warmStorageService.getDataSet(this.dataSetId)
+    const dataSetInfo = await this._warmStorageService.getDataSet({ dataSetId: this.dataSetId })
+    if (dataSetInfo == null) {
+      throw createError('StorageContext', 'getClientDataSetId', 'Data set not found')
+    }
     this._clientDataSetId = dataSetInfo.clientDataSetId
     return this._clientDataSetId
   }
@@ -208,7 +211,6 @@ export class StorageContext {
           StorageContext.resolveByDataSetId(dataSetId, warmStorageService, spRegistry, clientAddress, {
             withCDN: options.withCDN,
             withIpni: options.withIpni,
-            dev: options.dev,
             metadata: options.metadata,
           })
         )
@@ -400,13 +402,20 @@ export class StorageContext {
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
     const [dataSetInfo, dataSetMetadata] = await Promise.all([
-      warmStorageService.getDataSet(dataSetId).then(async (dataSetInfo) => {
+      warmStorageService.getDataSet({ dataSetId }).then(async (dataSetInfo) => {
+        if (dataSetInfo == null) {
+          return null
+        }
         await StorageContext.validateDataSetConsistency(dataSetInfo, options, spRegistry)
         return dataSetInfo
       }),
-      warmStorageService.getDataSetMetadata(dataSetId),
-      warmStorageService.validateDataSet(dataSetId),
+      warmStorageService.getDataSetMetadata({ dataSetId }),
+      warmStorageService.validateDataSet({ dataSetId }),
     ])
+
+    if (dataSetInfo == null) {
+      throw createError('StorageContext', 'resolveByDataSetId', `Data set ${dataSetId} does not exist`)
+    }
 
     if (dataSetInfo.payer.toLowerCase() !== clientAddress.toLowerCase()) {
       throw createError(
@@ -504,7 +513,7 @@ export class StorageContext {
     // Fetch provider (always) and dataSets (only if not forcing) in parallel
     const [provider, dataSets] = await Promise.all([
       spRegistry.getProvider(providerId),
-      forceCreateDataSet ? Promise.resolve([]) : warmStorageService.getClientDataSets(clientAddress),
+      forceCreateDataSet ? Promise.resolve([]) : warmStorageService.getClientDataSets({ address: clientAddress }),
     ])
 
     if (provider == null) {
@@ -548,9 +557,9 @@ export class StorageContext {
           const dataSetId = dataSet.dataSetId
           try {
             const [dataSetMetadata, activePieceCount] = await Promise.all([
-              warmStorageService.getDataSetMetadata(dataSetId),
-              warmStorageService.getActivePieceCount(dataSetId),
-              warmStorageService.validateDataSet(dataSetId),
+              warmStorageService.getDataSetMetadata({ dataSetId }),
+              warmStorageService.getActivePieceCount({ dataSetId }),
+              warmStorageService.validateDataSet({ dataSetId }),
             ])
 
             if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
@@ -662,7 +671,7 @@ export class StorageContext {
     // 2. If no existing data sets, find a healthy provider
 
     // Get client's data sets
-    const dataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress)
+    const dataSets = await warmStorageService.getClientDataSetsWithDetails({ address: clientAddress })
 
     const skipProviderIds = new Set<bigint>(excludeProviderIds)
     // Filter for managed data sets with matching metadata
@@ -723,7 +732,9 @@ export class StorageContext {
           // Fall through to select from all approved providers below
         } else {
           // Fetch metadata for existing data set
-          const dataSetMetadata = await warmStorageService.getDataSetMetadata(matchingDataSet.pdpVerifierDataSetId)
+          const dataSetMetadata = await warmStorageService.getDataSetMetadata({
+            dataSetId: matchingDataSet.pdpVerifierDataSetId,
+          })
 
           return {
             provider: selectedProvider,
@@ -843,7 +854,6 @@ export class StorageContext {
    */
   static async performPreflightCheck(
     warmStorageService: WarmStorageService,
-    paymentsService: PaymentsService,
     size: number,
     withCDN: boolean
   ): Promise<PreflightInfo> {
@@ -851,7 +861,7 @@ export class StorageContext {
     StorageContext.validateRawSize(size, 'preflightUpload')
 
     // Check allowances and get costs in a single call
-    const allowanceCheck = await warmStorageService.checkAllowanceForStorage(size, withCDN, paymentsService)
+    const allowanceCheck = await warmStorageService.checkAllowanceForStorage({ sizeInBytes: BigInt(size), withCDN })
 
     // Return preflight info
     return {
@@ -876,12 +886,7 @@ export class StorageContext {
    */
   async preflightUpload(size: number): Promise<PreflightInfo> {
     // Use the static method for core logic
-    const preflightResult = await StorageContext.performPreflightCheck(
-      this._warmStorageService,
-      this._synapse.payments,
-      size,
-      this._withCDN
-    )
+    const preflightResult = await StorageContext.performPreflightCheck(this._warmStorageService, size, this._withCDN)
 
     // Return preflight info with provider and dataSet specifics
     return preflightResult
@@ -1024,7 +1029,7 @@ export class StorageContext {
 
       if (this.dataSetId) {
         const [, clientDataSetId] = await Promise.all([
-          this._warmStorageService.validateDataSet(this.dataSetId),
+          this._warmStorageService.validateDataSet({ dataSetId: this.dataSetId }),
           this.getClientDataSetId(),
         ])
         // Add pieces to the data set

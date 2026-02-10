@@ -4,7 +4,8 @@ import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import { createPublicClient, http as viemHttp, zeroAddress } from 'viem'
+import { createWalletClient, http as viemHttp, zeroAddress } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { METADATA_KEYS } from '../utils/constants.ts'
 import { metadataMatches } from '../utils/metadata.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
@@ -225,15 +226,16 @@ describe('Metadata-based Data Set Selection', () => {
 
       server.use(Mocks.JSONRPC(customPreset))
 
-      const publicClient = createPublicClient({
+      const client = createWalletClient({
         chain: calibration,
         transport: viemHttp(),
+        account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
       })
-      warmStorageService = new WarmStorageService(publicClient)
+      warmStorageService = new WarmStorageService({ client })
     })
 
     it('should fetch metadata for each data set', async () => {
-      const dataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
+      const dataSets = await warmStorageService.getClientDataSetsWithDetails({ address: Mocks.ADDRESSES.client1 })
 
       assert.equal(dataSets.length, 3)
 
@@ -254,7 +256,7 @@ describe('Metadata-based Data Set Selection', () => {
     })
 
     it('should prefer data sets with matching metadata', async () => {
-      const dataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
+      const dataSets = await warmStorageService.getClientDataSetsWithDetails({ address: Mocks.ADDRESSES.client1 })
 
       // Filter for data sets with withIPFSIndexing
       const withIndexing = dataSets.filter((ds) =>
