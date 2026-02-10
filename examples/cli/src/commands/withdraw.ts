@@ -28,7 +28,9 @@ export const withdraw: Command = command(
     const spinner = p.spinner()
     spinner.start('Withdrawing funds...')
     try {
-      const hash = await synapse.payments.withdraw(parseUnits(argv._.amount))
+      const hash = await synapse.payments.withdraw({
+        amount: parseUnits(argv._.amount),
+      })
 
       spinner.message(`Waiting for tx ${hashLink(hash, chain)} to be mined...`)
 

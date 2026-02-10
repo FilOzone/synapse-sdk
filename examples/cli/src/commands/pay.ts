@@ -30,7 +30,9 @@ export const pay: Command = command(
       })
 
       const filBalance = await synapse.payments.walletBalance()
-      const usdfcBalance = await synapse.payments.walletBalance('USDFC')
+      const usdfcBalance = await synapse.payments.walletBalance({
+        token: 'USDFC',
+      })
       const paymentsBalance = await synapse.payments.accountInfo()
 
       spinner.stop('Balances')

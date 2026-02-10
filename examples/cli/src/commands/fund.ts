@@ -36,7 +36,9 @@ export const fund: Command = command(
 
       spinner.stop('Balances')
       const filBalance = await synapse.payments.walletBalance()
-      const usdfcBalance = await synapse.payments.walletBalance('USDFC')
+      const usdfcBalance = await synapse.payments.walletBalance({
+        token: 'USDFC',
+      })
       p.log.info(`FIL balance: ${formatBalance({ value: filBalance })}`)
       p.log.info(`USDFC balance: ${formatBalance({ value: usdfcBalance })}`)
     } catch (error) {

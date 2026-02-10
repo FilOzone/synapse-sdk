@@ -28,7 +28,7 @@ export const datasets: Command = command(
     spinner.start('Listing data sets...')
     try {
       const dataSets = await getPdpDataSets(client, {
-        client: client.account.address,
+        address: client.account.address,
       })
       spinner.stop('Data sets:')
       dataSets.forEach(async (dataSet) => {
