@@ -21,6 +21,7 @@
  */
 
 import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
+import type { UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { randIndex } from '@filoz/synapse-core/utils'
 import { type Address, type Hash, zeroAddress } from 'viem'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -125,7 +126,7 @@ export class StorageManager {
    * only support Uint8Array. For streaming uploads with multiple contexts, convert your
    * stream to Uint8Array first or use stream forking (future feature).
    */
-  async upload(data: Blob, options?: StorageManagerUploadOptions): Promise<UploadResult> {
+  async upload(data: UploadPieceStreamingData, options?: StorageManagerUploadOptions): Promise<UploadResult> {
     // Validate options - if context is provided, no other options should be set
     if (options?.context != null || options?.contexts != null) {
       const invalidOptions = []
@@ -172,6 +173,9 @@ export class StorageManager {
 
     // Multi-context upload handling
     if (contexts.length > 1) {
+      if (data instanceof ReadableStream) {
+        throw createError('StorageManager', 'upload', 'Streaming uploads are not supported for multiple contexts')
+      }
       // Upload to all contexts with the same pieceCid
       return Promise.all(
         contexts.map((context) =>

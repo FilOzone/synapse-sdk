@@ -17,6 +17,7 @@ import * as Piece from '../piece.ts'
 import type * as TypedData from '../typed-data/index.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { createPieceUrlPDP } from '../utils/piece-url.ts'
+import { isUint8Array } from '../utils/streams.ts'
 
 export namespace createDataSet {
   /**
@@ -235,12 +236,13 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
   }
 }
 
+export type UploadPieceStreamingData = Uint8Array | ReadableStream | import('node:stream/web').ReadableStream
 export namespace uploadPieceStreaming {
   export type OptionsType = {
     /** The service URL of the PDP API. */
     serviceURL: string
     /** The data to upload. */
-    data: Blob
+    data: UploadPieceStreamingData
     /** The size of the data. If defined, it will be used to set the Content-Length header. */
     size?: number
     /** The progress callback. */
@@ -273,9 +275,6 @@ export namespace uploadPieceStreaming {
 export async function uploadPieceStreaming(
   options: uploadPieceStreaming.OptionsType
 ): Promise<uploadPieceStreaming.OutputType> {
-  if (options.data.size < SIZE_CONSTANTS.MIN_UPLOAD_SIZE || options.data.size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
-    throw new InvalidUploadSizeError(options.data.size)
-  }
   // Create upload session (POST /pdp/piece/uploads)
   const createResponse = await request.post(new URL('pdp/piece/uploads', options.serviceURL), {
     timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
@@ -316,20 +315,46 @@ export async function uploadPieceStreaming(
     getPieceCID = result.getPieceCID
   }
 
-  const dataStream = options.data.stream()
+  const dataStream = isUint8Array(options.data)
+    ? new Blob([options.data as Uint8Array<ArrayBuffer>]).stream()
+    : (options.data as ReadableStream) // ReadableStream types dont match between browsers and Node.js
+
+  const size = isUint8Array(options.data) ? options.data.length : options.size
 
   // Add size tracking and progress reporting
   let bytesUploaded = 0
-  const trackingStream = new TransformStream<Uint8Array, Uint8Array>({
+  const trackingStream = new TransformStream<unknown, Uint8Array>({
     transform(chunk, controller) {
-      bytesUploaded += chunk.length
+      let bytes: Uint8Array | undefined
+
+      if (isUint8Array(chunk)) {
+        bytes = chunk
+      } else if (ArrayBuffer.isView(chunk)) {
+        bytes = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength)
+      } else {
+        controller.error('Invalid chunk type only Uint8Array and TypedArray are supported')
+        return
+      }
+
+      bytesUploaded += bytes.length
+
+      if (bytesUploaded > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
+        controller.error(new InvalidUploadSizeError(bytesUploaded))
+        return
+      }
 
       // Report progress if callback provided
       if (options.onProgress) {
         options.onProgress(bytesUploaded)
       }
 
-      controller.enqueue(chunk)
+      controller.enqueue(bytes)
+    },
+    flush(controller) {
+      if (bytesUploaded < SIZE_CONSTANTS.MIN_UPLOAD_SIZE) {
+        controller.error(new InvalidUploadSizeError(bytesUploaded))
+        return
+      }
     },
   })
 
@@ -341,7 +366,7 @@ export async function uploadPieceStreaming(
   // PUT /pdp/piece/uploads/{uuid} with streaming body
   const headers: Record<string, string> = {
     'Content-Type': 'application/octet-stream',
-    'Content-Length': options.data.size.toString(),
+    ...(size != null ? { 'Content-Length': size.toString() } : {}),
   }
 
   const uploadResponse = await request.put(new URL(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL), {

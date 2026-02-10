@@ -25,7 +25,7 @@ export interface PieceMetadataCapture {
 }
 
 export function createAndAddPiecesHandler(txHash: Hex, options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
   return http.post(`${baseUrl}/pdp/data-sets/create-and-add`, () => {
     return new HttpResponse(null, {
       status: 201,
@@ -49,7 +49,7 @@ export function dataSetCreationStatusHandler(
   },
   options: PDPMockOptions = {}
 ) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
 
   return http.get(`${baseUrl}/pdp/data-sets/created/:txHash`, ({ params }) => {
     if (params.txHash !== txHash) {
@@ -69,7 +69,7 @@ export function pieceAdditionStatusHandler(
   response: any,
   options: PDPMockOptions = {}
 ) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
 
   return http.get(`${baseUrl}/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
     if (params.id !== dataSetId.toString() || params.txHash !== txHash) {
@@ -84,7 +84,7 @@ export function pieceAdditionStatusHandler(
  * Creates a handler for finding pieces
  */
 export function findPieceHandler(pieceCid: string, found: boolean, options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
 
   return http.get(`${baseUrl}/pdp/piece`, ({ request }) => {
     const url = new URL(request.url)
@@ -102,7 +102,7 @@ export function findPieceHandler(pieceCid: string, found: boolean, options: PDPM
 }
 
 export function findAnyPieceHandler(found: boolean, options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
   return http.get(`${baseUrl}/pdp/piece`, ({ request }) => {
     const url = new URL(request.url)
     const queryCid = url.searchParams.get('pieceCid')
@@ -119,7 +119,7 @@ export function findAnyPieceHandler(found: boolean, options: PDPMockOptions = {}
  * Returns a UUID for 201, or a CID for 200
  */
 export function postPieceHandler(pieceCid: string, uuid?: string, options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
   return http.post<Record<string, never>, { pieceCid: string }>(`${baseUrl}/pdp/piece`, async ({ request }) => {
     const body = await request.json()
     assert(body != null, 'Body should be defined')
@@ -142,7 +142,7 @@ export function postPieceHandler(pieceCid: string, uuid?: string, options: PDPMo
 }
 
 export function uploadPieceHandler(uuid: string, options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
   return http.put(`${baseUrl}/pdp/piece/upload/${uuid}`, async () => {
     return HttpResponse.text('No Content', {
       status: 204,
@@ -156,7 +156,7 @@ export function uploadPieceHandler(uuid: string, options: PDPMockOptions = {}) {
  * Note: This endpoint doesn't require a request body
  */
 export function postPieceUploadsHandler(uuid: string, options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
   return http.post(`${baseUrl}/pdp/piece/uploads`, async () => {
     // Create upload session, return UUID in Location header
     return HttpResponse.text('Created', {
@@ -173,7 +173,7 @@ export function postPieceUploadsHandler(uuid: string, options: PDPMockOptions = 
  * PUT /pdp/piece/uploads/:uuid - streams piece data
  */
 export function uploadPieceStreamingHandler(uuid: string, options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
   return http.put(`${baseUrl}/pdp/piece/uploads/${uuid}`, async ({ request }) => {
     await request.arrayBuffer()
     return HttpResponse.text('No Content', {
@@ -187,7 +187,7 @@ export function uploadPieceStreamingHandler(uuid: string, options: PDPMockOption
  * POST /pdp/piece/uploads/:uuid - finalize with PieceCID
  */
 export function finalizePieceUploadHandler(uuid: string, expectedPieceCid?: string, options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
   return http.post<{ uuid: string }, { pieceCid: string }>(
     `${baseUrl}/pdp/piece/uploads/${uuid}`,
     async ({ request }) => {
@@ -211,7 +211,7 @@ export function finalizePieceUploadHandler(uuid: string, expectedPieceCid?: stri
  * Returns array of handlers for: POST /pdp/piece/uploads, PUT /pdp/piece/uploads/:uuid, POST /pdp/piece/uploads/:uuid
  */
 export function streamingUploadHandlers(options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
   let uploadCounter = 0
 
   return [
@@ -288,7 +288,7 @@ export function createDataSetWithMetadataCapture(
   captureCallback: (metadata: MetadataCapture) => void,
   options: PDPMockOptions = {}
 ) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
 
   return http.post(`${baseUrl}/pdp/data-sets`, async ({ request }) => {
     const body = (await request.json()) as any
@@ -330,7 +330,7 @@ export function addPiecesWithMetadataCapture(
   captureCallback: (metadata: PieceMetadataCapture) => void,
   options: PDPMockOptions = {}
 ) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
 
   return http.post<{ id: string }, addPieces.RequestBody>(
     `${baseUrl}/pdp/data-sets/:id/pieces`,

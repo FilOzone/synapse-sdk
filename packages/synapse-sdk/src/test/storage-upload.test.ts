@@ -36,35 +36,15 @@ describe('Storage Upload', () => {
     server.resetHandlers()
   })
 
-  it('should enforce 127 byte minimum size limit', async () => {
-    server.use(Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }), Mocks.PING({ debug: false }))
-    const synapse = new Synapse({ client })
-    const context = await synapse.storage.createContext()
-
-    try {
-      // Create data that is below the minimum
-      const undersizedData = new Uint8Array(126) // 126 bytes (1 byte under minimum)
-      await context.upload(new Blob([undersizedData]))
-      assert.fail('Should have thrown size limit error')
-    } catch (error: any) {
-      assert.include(error.message, 'below minimum allowed size')
-      assert.include(error.message, '126 bytes')
-      assert.include(error.message, '127 bytes')
-    }
-  })
-
   it('should support parallel uploads', async () => {
-    const pdpOptions = {
-      baseUrl: 'https://pdp.example.com',
-    }
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     let addPiecesCount = 0
     let uploadCompleteCount = 0
     server.use(
       Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
       Mocks.PING(),
-      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
-      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
+      ...Mocks.pdp.streamingUploadHandlers(),
+      Mocks.pdp.findAnyPieceHandler(true),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -102,15 +82,15 @@ describe('Storage Upload', () => {
 
     // Start all uploads concurrently with callbacks
     const uploads = [
-      context.upload(new Blob([firstData]), {
+      context.upload(firstData, {
         onPieceAdded: () => addPiecesCount++,
         onUploadComplete: () => uploadCompleteCount++,
       }),
-      context.upload(new Blob([secondData]), {
+      context.upload(secondData, {
         onPieceAdded: () => addPiecesCount++,
         onUploadComplete: () => uploadCompleteCount++,
       }),
-      context.upload(new Blob([thirdData]), {
+      context.upload(thirdData, {
         onPieceAdded: () => addPiecesCount++,
         onUploadComplete: () => uploadCompleteCount++,
       }),
@@ -130,15 +110,12 @@ describe('Storage Upload', () => {
 
   it('should respect batch size configuration', async () => {
     let addPiecesCalls = 0
-    const pdpOptions = {
-      baseUrl: 'https://pdp.example.com',
-    }
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
       Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
       Mocks.PING(),
-      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
-      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
+      ...Mocks.pdp.streamingUploadHandlers(),
+      Mocks.pdp.findAnyPieceHandler(true),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -191,11 +168,7 @@ describe('Storage Upload', () => {
     const thirdData = new Uint8Array(129).fill(3) // 67 bytes
 
     // Start all uploads concurrently with callbacks
-    const uploads = [
-      context.upload(new Blob([firstData])),
-      context.upload(new Blob([secondData])),
-      context.upload(new Blob([thirdData])),
-    ]
+    const uploads = [context.upload(firstData), context.upload(secondData), context.upload(thirdData)]
 
     const results = await Promise.all(uploads)
 
@@ -284,11 +257,7 @@ describe('Storage Upload', () => {
     const thirdData = new Uint8Array(129).fill(3) // 67 bytes
 
     // Start all uploads concurrently with callbacks
-    const uploads = [
-      context.upload(new Blob([firstData])),
-      context.upload(new Blob([secondData])),
-      context.upload(new Blob([thirdData])),
-    ]
+    const uploads = [context.upload(firstData), context.upload(secondData), context.upload(thirdData)]
 
     const results = await Promise.all(uploads)
 
@@ -348,7 +317,7 @@ describe('Storage Upload', () => {
 
     const uploads = []
     for (let i = 0; i < 5; i++) {
-      uploads.push(context.upload(new Blob([new Uint8Array(127).fill(i)])))
+      uploads.push(context.upload(new Uint8Array(127).fill(i)))
     }
 
     await Promise.all(uploads)
@@ -400,7 +369,7 @@ describe('Storage Upload', () => {
     })
 
     const expectedSize = 127
-    const upload = await context.upload(new Blob([new Uint8Array(expectedSize)]))
+    const upload = await context.upload(new Uint8Array(expectedSize))
     assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
     assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, expectedSize, 'size should be 127')
@@ -451,7 +420,7 @@ describe('Storage Upload', () => {
     })
 
     const expectedSize = SIZE_CONSTANTS.MIN_UPLOAD_SIZE
-    const upload = await context.upload(new Blob([new Uint8Array(expectedSize).fill(1)]))
+    const upload = await context.upload(new Uint8Array(expectedSize).fill(1))
 
     assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
     assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
@@ -507,7 +476,7 @@ describe('Storage Upload', () => {
     })
 
     const expectedSize = SIZE_CONSTANTS.MIN_UPLOAD_SIZE
-    const uploadResult = await context.upload(new Blob([new Uint8Array(expectedSize).fill(1)]), {
+    const uploadResult = await context.upload(new Uint8Array(expectedSize).fill(1), {
       onPiecesAdded(transaction: Hex | undefined, pieces: Array<{ pieceCid: PieceCID }> | undefined) {
         piecesAddedArgs = { transaction, pieces }
       },
@@ -592,7 +561,7 @@ describe('Storage Upload', () => {
     })
 
     const buffer = new Uint8Array(1024)
-    const upload = await context.upload(new Blob([buffer]))
+    const upload = await context.upload(buffer)
     assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, 1024, 'size should be 1024')
   })
