@@ -10,7 +10,7 @@ import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
 import { signErc20Permit } from '../typed-data/sign-erc20-permit.ts'
-import { LOCKUP_PERIOD } from '../utils/constants.ts'
+import { LOCKUP_PERIOD, TIME_CONSTANTS } from '../utils/constants.ts'
 
 export type DepositAndApproveOptions = {
   /**
@@ -93,7 +93,7 @@ export async function depositAndApprove(client: Client<Transport, Chain, Account
     throw new InsufficientBalanceError(balance, options.amount)
   }
 
-  const deadline = options.deadline ?? BigInt(Math.floor(Date.now() / 1000) + 3600) // 1 hour
+  const deadline = options.deadline ?? BigInt(Math.floor(Date.now() / 1000) + TIME_CONSTANTS.PERMIT_DEADLINE_DURATION)
 
   const structuredSignature = parseSignature(
     await signErc20Permit(client, {

@@ -18,7 +18,7 @@ import type { DataSetInfo } from './types.ts'
 export namespace getClientDataSets {
   export type OptionsType = {
     /** Client address to fetch data sets for. */
-    client: Address
+    address: Address
     /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
     contractAddress?: Address
   }
@@ -71,7 +71,7 @@ export async function getClientDataSets(
     client,
     getClientDataSetsCall({
       chain: client.chain,
-      client: options.client,
+      address: options.address,
       contractAddress: options.contractAddress,
     })
   )
@@ -121,6 +121,6 @@ export function getClientDataSetsCall(options: getClientDataSetsCall.OptionsType
     abi: chain.contracts.fwssView.abi,
     address: options.contractAddress ?? chain.contracts.fwssView.address,
     functionName: 'getClientDataSets',
-    args: [options.client],
+    args: [options.address],
   } satisfies getClientDataSetsCall.OutputType
 }

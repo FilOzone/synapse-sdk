@@ -26,6 +26,12 @@ export const TIME_CONSTANTS = {
    * Default lockup period in days
    */
   DEFAULT_LOCKUP_DAYS: 30n,
+
+  /**
+   * Default expiry time for EIP-2612 permit signatures (in seconds)
+   * Permits are time-limited approvals that expire after this duration
+   */
+  PERMIT_DEADLINE_DURATION: 3600, // 1 hour
 } as const
 
 /**

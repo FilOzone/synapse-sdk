@@ -30,7 +30,7 @@ describe('getPdpDataSets', () => {
       })
 
       const dataSets = await getPdpDataSets(client, {
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.ok(dataSets.length > 0)
@@ -87,7 +87,7 @@ describe('getPdpDataSets', () => {
       })
 
       const dataSets = await getPdpDataSets(client, {
-        client: emptyClientAddress,
+        address: emptyClientAddress,
       })
 
       assert.ok(Array.isArray(dataSets))
@@ -103,7 +103,7 @@ describe('getPdpDataSets', () => {
       })
 
       const dataSets = await getPdpDataSets(client, {
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
         contractAddress: calibration.contracts.fwssView.address,
       })
 
