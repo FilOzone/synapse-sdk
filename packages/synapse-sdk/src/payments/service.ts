@@ -307,7 +307,7 @@ export class PaymentsService {
    * @returns Transaction hash {@link Hash}
    * @throws Errors {@link Pay.setOperatorApproval.ErrorType}
    */
-  async revokeService(options: { service?: Address; token?: TokenIdentifier }): Promise<Hash> {
+  async revokeService(options: { service?: Address; token?: TokenIdentifier } = {}): Promise<Hash> {
     const { service, token = TOKENS.USDFC } = options
     if (token !== TOKENS.USDFC) {
       throw createError(
@@ -434,10 +434,12 @@ export class PaymentsService {
    * This method creates an EIP-712 typed-data signature for the USDFC token's permit,
    * then calls the Payments contract `depositWithPermit` to pull funds and credit the account.
    *
-   * @param amount - Amount of USDFC to deposit (in base units)
-   * @param token - Token identifier (currently only USDFC is supported)
-   * @param deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
-   * @returns Transaction response object
+   * @param options - Options for the deposit with permit {@link DepositWithPermitOptions}
+   * @param options.amount - Amount of USDFC to deposit (in base units)
+   * @param options.token - Token identifier (currently only USDFC is supported)
+   * @param options.deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
+   * @returns Transaction response object {@link Hash}
+   * @throws Errors {@link ERC20.balanceForPermit.ErrorType} | {@link ERC20.permit.ErrorType} | {@link Pay.depositWithPermit.ErrorType}
    */
   async depositWithPermit(options: { amount: TokenAmount; token?: TokenIdentifier; deadline?: bigint }): Promise<Hash> {
     const { amount, token = TOKENS.USDFC, deadline } = options
@@ -506,14 +508,16 @@ export class PaymentsService {
    * This signs an EIP-712 permit for the USDFC token and calls the Payments contract
    * function `depositWithPermitAndApproveOperator` which both deposits and sets operator approval.
    *
-   * @param amount - Amount of USDFC to deposit (in base units)
-   * @param operator - Service/operator address to approve
-   * @param rateAllowance - Max payment rate per epoch operator can set
-   * @param lockupAllowance - Max lockup amount operator can set
-   * @param maxLockupPeriod - Max lockup period in epochs operator can set
-   * @param token - Token identifier (currently only USDFC supported)
-   * @param deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
-   * @returns Transaction hash
+   * @param options - Options for the deposit with permit and approve operator
+   * @param options.amount - Amount of USDFC to deposit (in base units)
+   * @param options.operator - Service/operator address to approve
+   * @param options.rateAllowance - Max payment rate per epoch operator can set
+   * @param options.lockupAllowance - Max lockup amount operator can set
+   * @param options.maxLockupPeriod - Max lockup period in epochs operator can set
+   * @param options.token - Token identifier (currently only USDFC supported)
+   * @param options.deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
+   * @returns Transaction hash {@link Hash}
+   * @throws Errors {@link ERC20.balanceForPermit.ErrorType} | {@link ERC20.permit.ErrorType} | {@link Pay.depositWithPermitAndApproveOperator.ErrorType}
    */
   async depositWithPermitAndApproveOperator(options: {
     amount: TokenAmount
@@ -685,9 +689,10 @@ export class PaymentsService {
    * - For terminated rails: calls settleTerminatedRail()
    * - For active rails: calls settle() with optional untilEpoch
    *
-   * @param railId - The rail ID to settle
-   * @param untilEpoch - The epoch to settle up to (must be <= current epoch for active rails; ignored for terminated rails)
-   * @returns Transaction response object
+   * @param options - Options for the settle auto
+   * @param options.railId - The rail ID to settle
+   * @param options.untilEpoch - The epoch to settle up to (must be <= current epoch for active rails; ignored for terminated rails)
+   * @returns Transaction response object {@link Hash}
    * @throws Error if rail doesn't exist (contract reverts with RailInactiveOrSettled) or other settlement errors
    *
    * @example

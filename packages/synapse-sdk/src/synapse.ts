@@ -68,19 +68,19 @@ export class Synapse {
     this._payments = new PaymentsService({ client: options.client })
 
     // Initialize StorageManager
-    this._storageManager = new StorageManager(
-      this,
-      this._warmStorageService,
-      new FilBeamRetriever({
+    this._storageManager = new StorageManager({
+      synapse: this,
+      warmStorageService: this._warmStorageService,
+      pieceRetriever: new FilBeamRetriever({
         baseRetriever: new ChainRetriever({
           warmStorageService: this._warmStorageService,
           spRegistry: this._providers,
         }),
         chain: this._chain,
       }),
-      this._withCDN,
-      options.withIpni
-    )
+      withCDN: this._withCDN,
+      withIpni: options.withIpni,
+    })
   }
 
   get client(): Client<Transport, Chain, Account, PublicRpcSchema, PublicActions<Transport, Chain>> {

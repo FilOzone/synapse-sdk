@@ -10,6 +10,8 @@ import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { Account, Address, Client, Hex, Transport } from 'viem'
+import type { Synapse } from './synapse.ts'
+import type { WarmStorageService } from './warm-storage/service.ts'
 
 // Re-export PieceCID and PDPProvider types
 export type { PieceCID, PDPProvider }
@@ -306,7 +308,6 @@ export interface CreateContextsOptions {
   /** Whether to enable CDN services */
   withCDN?: boolean
   withIpni?: boolean
-  dev?: boolean
   /**
    * Custom metadata for the data sets (key-value pairs)
    * When smart-selecting data sets, this metadata will be used to match.
@@ -318,6 +319,13 @@ export interface CreateContextsOptions {
   callbacks?: StorageContextCallbacks
   /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
   uploadBatchSize?: number
+}
+
+export interface ContextCreateContextsOptions extends CreateContextsOptions {
+  /** The Synapse instance */
+  synapse: Synapse
+  /** The WarmStorageService instance */
+  warmStorageService: WarmStorageService
 }
 
 /**
@@ -350,6 +358,13 @@ export interface StorageServiceOptions {
   callbacks?: StorageContextCallbacks
   /** Custom metadata for the data set (key-value pairs) */
   metadata?: Record<string, string>
+}
+
+export interface StorageContextCreateOptions extends StorageServiceOptions {
+  /** The Synapse instance */
+  synapse: Synapse
+  /** The WarmStorageService instance */
+  warmStorageService: WarmStorageService
 }
 
 /**

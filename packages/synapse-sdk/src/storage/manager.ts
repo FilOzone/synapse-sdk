@@ -9,7 +9,7 @@
  * ```typescript
  * // Simple usage - auto-manages context
  * await synapse.storage.upload(data)
- * await synapse.storage.download(pieceCid)
+ * await synapse.storage.download({ pieceCid })
  *
  * // Explicit context
  * const context = await synapse.storage.createContext({ providerId: 1 })
@@ -90,6 +90,19 @@ export interface StorageManagerDownloadOptions extends DownloadOptions {
   providerAddress?: Address
 }
 
+export interface StorageManagerOptions {
+  /** The Synapse instance */
+  synapse: Synapse
+  /** The WarmStorageService instance */
+  warmStorageService: WarmStorageService
+  /** The PieceRetriever instance */
+  pieceRetriever: PieceRetriever
+  /** Whether to enable CDN services */
+  withCDN: boolean
+  /** Whether to enable IPNI services */
+  withIpni?: boolean
+}
+
 export class StorageManager {
   private readonly _synapse: Synapse
   private readonly _warmStorageService: WarmStorageService
@@ -98,18 +111,16 @@ export class StorageManager {
   private readonly _withIpni: boolean | undefined
   private _defaultContexts?: StorageContext[]
 
-  constructor(
-    synapse: Synapse,
-    warmStorageService: WarmStorageService,
-    pieceRetriever: PieceRetriever,
-    withCDN: boolean,
-    withIpni?: boolean
-  ) {
-    this._synapse = synapse
-    this._warmStorageService = warmStorageService
-    this._pieceRetriever = pieceRetriever
-    this._withCDN = withCDN
-    this._withIpni = withIpni
+  /**
+   * Creates a new StorageManager
+   * @param options - The options for the StorageManager {@link StorageManagerOptions}
+   */
+  constructor(options: StorageManagerOptions) {
+    this._synapse = options.synapse
+    this._warmStorageService = options.warmStorageService
+    this._pieceRetriever = options.pieceRetriever
+    this._withCDN = options.withCDN
+    this._withIpni = options.withIpni
   }
 
   /**
@@ -238,7 +249,9 @@ export class StorageManager {
     if (this._defaultContexts != null && !withCDN && finalProviderAddress == null) {
       // from the default contexts, select a random storage provider that has the piece
       const contextsWithoutCDN = this._defaultContexts.filter((context) => context.withCDN === false)
-      const contextsHavePiece = await Promise.all(contextsWithoutCDN.map((context) => context.hasPiece(parsedPieceCID)))
+      const contextsHavePiece = await Promise.all(
+        contextsWithoutCDN.map((context) => context.hasPiece({ pieceCid: parsedPieceCID }))
+      )
       const defaultContextsWithPiece = contextsWithoutCDN.filter((_context, i) => contextsHavePiece[i])
       if (defaultContextsWithPiece.length > 0) {
         finalProviderAddress =
@@ -261,14 +274,17 @@ export class StorageManager {
 
   /**
    * Run preflight checks for an upload without creating a context
-   * @param size - The size of data to upload in bytes
-   * @param options - Optional settings including withCDN flag and/or metadata
+   * @param options - The options for the preflight upload
+   * @param options.size - The size of data to upload in bytes
+   * @param options.withCDN - Whether to enable CDN services
+   * @param options.metadata - The metadata for the preflight upload
    * @returns Preflight information including costs and allowances
    */
-  async preflightUpload(
-    size: number,
-    options?: { withCDN?: boolean; metadata?: Record<string, string> }
-  ): Promise<PreflightInfo> {
+  async preflightUpload(options: {
+    size: number
+    withCDN?: boolean
+    metadata?: Record<string, string>
+  }): Promise<PreflightInfo> {
     // Determine withCDN from metadata if provided, otherwise use option > manager default
     let withCDN = options?.withCDN ?? this._withCDN
 
@@ -284,7 +300,11 @@ export class StorageManager {
     }
 
     // Use the static method from StorageContext for core logic
-    return await StorageContext.performPreflightCheck(this._warmStorageService, size, withCDN)
+    return await StorageContext.performPreflightCheck({
+      warmStorageService: this._warmStorageService,
+      size: options.size,
+      withCDN,
+    })
   }
 
   /**
@@ -356,7 +376,9 @@ export class StorageManager {
       }
     }
 
-    const contexts = await StorageContext.createContexts(this._synapse, this._warmStorageService, {
+    const contexts = await StorageContext.createContexts({
+      synapse: this._synapse,
+      warmStorageService: this._warmStorageService,
       ...options,
       withCDN,
       withIpni: options?.withIpni ?? this._withIpni,
@@ -425,7 +447,9 @@ export class StorageManager {
     }
 
     // Create a new context with specific options
-    const context = await StorageContext.create(this._synapse, this._warmStorageService, {
+    const context = await StorageContext.create({
+      synapse: this._synapse,
+      warmStorageService: this._warmStorageService,
       ...options,
       withCDN: effectiveWithCDN,
       withIpni: options?.withIpni ?? this._withIpni,
@@ -446,22 +470,24 @@ export class StorageManager {
 
   /**
    * Query data sets for this client
-   * @param clientAddress - Optional client address, defaults to current signer
+   * @param options - The options for the find data sets
+   * @param options.address - The client address, defaults to current signer
    * @returns Array of enhanced data set information including management status
    */
-  async findDataSets(clientAddress?: Address): Promise<EnhancedDataSetInfo[]> {
-    const address = clientAddress ?? this._synapse.client.account.address
+  async findDataSets(options: { address?: Address } = {}): Promise<EnhancedDataSetInfo[]> {
+    const { address = this._synapse.client.account.address } = options
     return await this._warmStorageService.getClientDataSetsWithDetails({ address })
   }
 
   /**
    * Terminate a data set with given ID that belongs to the synapse signer.
    * This will also result in the removal of all pieces in the data set.
-   * @param dataSetId - The ID of the data set to terminate
+   * @param options - The options for the terminate data set
+   * @param options.dataSetId - The ID of the data set to terminate
    * @returns Transaction hash
    */
-  async terminateDataSet(dataSetId: bigint): Promise<Hash> {
-    return this._warmStorageService.terminateDataSet({ dataSetId })
+  async terminateDataSet(options: { dataSetId: bigint }): Promise<Hash> {
+    return this._warmStorageService.terminateDataSet(options)
   }
 
   /**

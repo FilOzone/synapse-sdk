@@ -64,7 +64,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService)
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       // Should have selected one of the providers
       assert.isTrue(
@@ -89,7 +89,9 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       // Create storage service without specifying providerId
-      const service = await StorageContext.create(synapse, warmStorageService, {
+      const service = await StorageContext.create({
+        synapse,
+        warmStorageService,
         withIpni: true,
       })
 
@@ -114,7 +116,9 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
 
       // Create storage service with specific providerId
-      const service = await StorageContext.create(synapse, warmStorageService, {
+      const service = await StorageContext.create({
+        synapse,
+        warmStorageService,
         providerId: Mocks.PROVIDERS.provider1.providerId,
       })
 
@@ -144,7 +148,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const context = await StorageContext.create(synapse, warmStorageService, {
+      const context = await StorageContext.create({
+        synapse,
+        warmStorageService,
         providerId: Mocks.PROVIDERS.provider1.providerId,
         forceCreateDataSet: true,
       })
@@ -176,9 +182,10 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const context = await StorageContext.create(synapse, warmStorageService, {
+      const context = await StorageContext.create({
+        synapse,
+        warmStorageService,
         providerAddress: Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
-        forceCreateDataSet: true,
       })
 
       assert.equal(
@@ -210,7 +217,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const context = await StorageContext.create(synapse, warmStorageService, {
+      const context = await StorageContext.create({
+        synapse,
+        warmStorageService,
         providerId: Mocks.PROVIDERS.provider1.providerId,
       })
       // Should have reused existing data set (not created new one)
@@ -234,7 +243,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
 
       try {
-        await StorageContext.create(synapse, warmStorageService)
+        await StorageContext.create({ synapse, warmStorageService })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'No approved service providers available')
@@ -263,9 +272,7 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       try {
-        await StorageContext.create(synapse, warmStorageService, {
-          providerId: 999n,
-        })
+        await StorageContext.create({ synapse, warmStorageService, providerId: 999n })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Provider ID 999 not found in registry')
@@ -294,7 +301,9 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
 
-      const service = await StorageContext.create(synapse, warmStorageService, {
+      const service = await StorageContext.create({
+        synapse,
+        warmStorageService,
         providerId: Mocks.PROVIDERS.provider1.providerId,
       })
 
@@ -365,9 +374,7 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
 
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        providerId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, providerId: 1n })
 
       // Should select the data set with pieces
       assert.equal(service.dataSetId, 2n)
@@ -394,7 +401,9 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
 
-      await StorageContext.create(synapse, warmStorageService, {
+      await StorageContext.create({
+        synapse,
+        warmStorageService,
         providerId: Mocks.PROVIDERS.provider1.providerId,
         callbacks: {
           onProviderSelected: (provider) => {
@@ -465,9 +474,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 2n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 2n })
       assert.equal(service.dataSetId, 2n)
       assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
     })
@@ -494,7 +501,9 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
 
-      const service = await StorageContext.create(synapse, warmStorageService, {
+      const service = await StorageContext.create({
+        synapse,
+        warmStorageService,
         providerAddress: Mocks.PROVIDERS.provider2.providerInfo.serviceProvider,
       })
 
@@ -517,9 +526,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
 
       try {
-        await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 999n,
-        })
+        await StorageContext.create({ synapse, warmStorageService, dataSetId: 999n })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Data set 999 does not exist')
@@ -549,10 +556,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
 
       try {
-        await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 1n,
-          providerId: 2n, // Conflicts with actual owner
-        })
+        await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n, providerId: 2n })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'belongs to provider ID 1')
@@ -570,7 +574,9 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       try {
-        await StorageContext.create(synapse, warmStorageService, {
+        await StorageContext.create({
+          synapse,
+          warmStorageService,
           providerAddress: '0x6666666666666666666666666666666666666666',
         })
         assert.fail('Should have thrown error')
@@ -640,15 +646,11 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
 
       // Test with CDN = false
-      const serviceNoCDN = await StorageContext.create(synapse, warmStorageService, {
-        withCDN: false,
-      })
+      const serviceNoCDN = await StorageContext.create({ synapse, warmStorageService, withCDN: false })
       assert.equal(serviceNoCDN.dataSetId, 1n, 'Should select non-CDN data set')
 
       // Test with CDN = true
-      const serviceWithCDN = await StorageContext.create(synapse, warmStorageService, {
-        withCDN: true,
-      })
+      const serviceWithCDN = await StorageContext.create({ synapse, warmStorageService, withCDN: true })
       assert.equal(serviceWithCDN.dataSetId, 2n, 'Should select CDN data set')
     })
 
@@ -663,7 +665,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
 
       // Should create new data set since existing one is not managed
-      const service = await StorageContext.create(synapse, warmStorageService, {})
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       // Should have selected a provider but no existing data set
       assert.exists(service.serviceProvider)
@@ -703,9 +705,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
 
       try {
-        await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 1n,
-        })
+        await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         // Provider 999 is not in the registry, so we'll get a "not found in registry" error
@@ -749,9 +749,7 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       try {
-        await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 1n,
-        })
+        await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Data set 1 does not exist or is not live')
@@ -791,9 +789,11 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
 
       try {
-        await StorageContext.create(synapse, warmStorageService, {
+        await StorageContext.create({
+          synapse,
+          warmStorageService,
           dataSetId: 1n,
-          providerAddress: '0x9999888877776666555544443333222211110000', // Different address
+          providerAddress: '0x9999888877776666555544443333222211110000',
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
@@ -848,7 +848,7 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
 
-      const service = await StorageContext.create(synapse, warmStorageService, {})
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       // Should successfully match by provider ID despite different payee
       assert.equal(service.dataSetId, 1n)
@@ -871,11 +871,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        withCDN: false,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, withCDN: false })
 
-      const preflight = await service.preflightUpload(Number(SIZE_CONSTANTS.MiB)) // 1 MiB
+      const preflight = await service.preflightUpload({ size: Number(SIZE_CONSTANTS.MiB) }) // 1 MiB
 
       assert.equal(preflight.estimatedCost.perEpoch, 22075794n)
       assert.equal(preflight.estimatedCost.perDay, 63578286720n)
@@ -896,11 +894,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        withCDN: true,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, withCDN: true })
 
-      const preflight = await service.preflightUpload(Number(SIZE_CONSTANTS.MiB)) // 1 MiB
+      const preflight = await service.preflightUpload({ size: Number(SIZE_CONSTANTS.MiB) }) // 1 MiB
 
       // Should use CDN costs
       assert.equal(preflight.estimatedCost.perEpoch, 22075794n)
@@ -918,11 +914,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        withCDN: true,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, withCDN: true })
 
-      const preflight = await service.preflightUpload(Number(100n * SIZE_CONSTANTS.MiB)) // 100 MiB
+      const preflight = await service.preflightUpload({ size: Number(100n * SIZE_CONSTANTS.MiB) }) // 100 MiB
 
       assert.isFalse(preflight.allowanceCheck.sufficient)
       assert.include(preflight.allowanceCheck.message, 'Insufficient rate and lockup allowances')
@@ -937,12 +931,10 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        withCDN: true,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, withCDN: true })
 
       try {
-        await service.preflightUpload(126) // 126 bytes (1 under minimum)
+        await service.preflightUpload({ size: 126 }) // 126 bytes (1 under minimum)
         assert.fail('Should have thrown size limit error')
       } catch (error: any) {
         assert.include(error.message, 'below minimum allowed size')
@@ -960,13 +952,11 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        withCDN: true,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, withCDN: true })
 
       try {
         // 1 GiB + 1 byte exceeds the 1 GiB limit
-        await service.preflightUpload(SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1)
+        await service.preflightUpload({ size: SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1 })
         assert.fail('Should have thrown size limit error')
       } catch (error: any) {
         assert.include(error.message, 'exceeds maximum allowed size')
@@ -997,9 +987,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        withCDN: true,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, withCDN: true })
 
       const downloaded = await service.download({ pieceCid: testPieceCID })
       assert.deepEqual(downloaded, testData)
@@ -1021,7 +1009,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService)
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       try {
         await service.download({ pieceCid: testPieceCID })
@@ -1047,7 +1035,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService)
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       // Test with and without empty options object
       const downloaded1 = await service.download({ pieceCid: testPieceCID })
@@ -1077,7 +1065,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService)
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       // Create 3 uploads
       const uploads = [
@@ -1116,7 +1104,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService)
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       // Create minimal data but mock length to simulate oversized data
       // This tests validation without allocating 1+ GiB
@@ -1149,7 +1137,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService)
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       try {
         await service.upload(testData)
@@ -1218,7 +1206,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService)
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       try {
         await service.upload(testData)
@@ -1286,7 +1274,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService)
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       try {
         await service.upload(testData)
@@ -1312,7 +1300,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService)
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       try {
         await service.upload(testData)
@@ -1341,9 +1329,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
       try {
         await service.upload(testData)
@@ -1371,7 +1357,7 @@ describe('StorageService', () => {
         )
         const synapse = new Synapse({ client })
         const warmStorageService = new WarmStorageService({ client })
-        const service = await StorageContext.create(synapse, warmStorageService)
+        const service = await StorageContext.create({ synapse, warmStorageService })
         // Should have selected the second provider (first one failed ping)
         assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider2.providerInfo.serviceProvider)
       })
@@ -1395,7 +1381,7 @@ describe('StorageService', () => {
         const warmStorageService = new WarmStorageService({ client })
 
         try {
-          await StorageContext.create(synapse, warmStorageService)
+          await StorageContext.create({ synapse, warmStorageService })
           assert.fail('Should have thrown error')
         } catch (error: any) {
           assert.include(error.message, 'StorageContext selectProviderWithPing failed')
@@ -1418,7 +1404,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService)
+      const service = await StorageContext.create({ synapse, warmStorageService })
 
       const providerInfo = await service.getProviderInfo()
 
@@ -1485,9 +1471,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
       const result = await service.getDataSetPieces()
 
@@ -1513,9 +1497,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
       const result = await service.getDataSetPieces()
 
@@ -1540,9 +1522,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
       // The new implementation should throw an error when trying to decode invalid CID data
       try {
@@ -1572,9 +1552,7 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
       // Mock getActivePieces to throw an error
 
       try {
@@ -1609,11 +1587,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus(mockPieceCID)
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isFalse(status.exists)
       assert.isNull(status.retrievalUrl)
@@ -1648,11 +1624,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus(mockPieceCID)
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
@@ -1687,10 +1661,8 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
-      const status = await service.pieceStatus(mockPieceCID)
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       // During challenge window
@@ -1725,11 +1697,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus(mockPieceCID)
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       assert.isTrue(status.isProofOverdue)
@@ -1762,11 +1732,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus(mockPieceCID)
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       assert.isNull(status.dataSetLastProven) // No challenge means no proof data
@@ -1801,11 +1769,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus(mockPieceCID)
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       // Should not have double slash
@@ -1824,12 +1790,10 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
       try {
-        await service.pieceStatus('invalid-pieceCid')
+        await service.pieceStatus({ pieceCid: 'invalid-pieceCid' })
         assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error: any) {
         assert.include(error.message, 'Invalid PieceCID provided')
@@ -1863,11 +1827,9 @@ describe('StorageService', () => {
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus(mockPieceCID)
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       assert.isFalse(status.inChallengeWindow) // Not yet in challenge window
@@ -1889,9 +1851,7 @@ describe('StorageService', () => {
 
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const context = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
       const scheduledRemovals = await context.getScheduledRemovals()
 
@@ -1903,9 +1863,7 @@ describe('StorageService', () => {
 
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const context = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
       ;(context as any)._dataSetId = undefined
 
@@ -1948,9 +1906,7 @@ describe('StorageService', () => {
 
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const context = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
       // Test getPieces - should collect all pages
       const allPieces = []
@@ -1983,9 +1939,7 @@ describe('StorageService', () => {
 
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const context = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
       const allPieces = []
       for await (const piece of context.getPieces()) {
@@ -2024,9 +1978,7 @@ describe('StorageService', () => {
 
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
-      const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1n,
-      })
+      const context = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
       // Test the async generator
       const pieces = []

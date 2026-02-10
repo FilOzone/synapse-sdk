@@ -682,10 +682,11 @@ export class WarmStorageService {
    * This method tops up the prepaid balance for CDN services by adding to the existing
    * lockup amounts. Both CDN and cache miss rails can be incremented independently.
    *
-   * @param dataSetId - The ID of the data set
-   * @param cdnAmountToAdd - Amount to add to the CDN rail lockup
-   * @param cacheMissAmountToAdd - Amount to add to the cache miss rail lockup
-   * @returns Transaction response
+   * @param options - Options for the top up CDN payment rails
+   * @param options.dataSetId - The ID of the data set
+   * @param options.cdnAmountToAdd - Amount to add to the CDN rail lockup
+   * @param options.cacheMissAmountToAdd - Amount to add to the cache miss rail lockup
+   * @returns Transaction response {@link Hash}
    */
   async topUpCDNPaymentRails(options: {
     dataSetId: bigint

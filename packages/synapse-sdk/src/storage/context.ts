@@ -42,7 +42,7 @@ import { getBlockNumber } from 'viem/actions'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
-  CreateContextsOptions,
+  ContextCreateContextsOptions,
   DataSetInfo,
   DownloadOptions,
   PDPProvider,
@@ -51,6 +51,7 @@ import type {
   PieceStatus,
   PreflightInfo,
   ProviderSelectionResult,
+  StorageContextCreateOptions,
   StorageServiceOptions,
   UploadCallbacks,
   UploadOptions,
@@ -61,6 +62,21 @@ import { combineMetadata, metadataMatches } from '../utils/metadata.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
 const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
+
+export interface StorageContextOptions {
+  /** The Synapse instance */
+  synapse: Synapse
+  /** The WarmStorageService instance */
+  warmStorageService: WarmStorageService
+  /** The provider */
+  provider: PDPProvider
+  /** The data set ID */
+  dataSetId: bigint | undefined
+  /** The options for the storage context */
+  options: StorageServiceOptions
+  /** The data set metadata */
+  dataSetMetadata: Record<string, string>
+}
 
 export class StorageContext {
   private readonly _client: Client<Transport, Chain, Account>
@@ -136,11 +152,13 @@ export class StorageContext {
 
   /**
    * Validate data size against minimum and maximum limits
-   * @param sizeBytes - Size of data in bytes
-   * @param context - Context for error messages (e.g., 'upload', 'preflightUpload')
+   * @param options - The options for the validate raw size
+   * @param options.sizeBytes - Size of data in bytes
+   * @param options.context - Context for error messages (e.g., 'upload', 'preflightUpload')
    * @throws Error if size is outside allowed limits
    */
-  private static validateRawSize(sizeBytes: number, context: string): void {
+  private static validateRawSize(options: { sizeBytes: number; context: string }): void {
+    const { sizeBytes, context } = options
     if (sizeBytes < SIZE_CONSTANTS.MIN_UPLOAD_SIZE) {
       throw createError(
         'StorageContext',
@@ -166,48 +184,38 @@ export class StorageContext {
     }
   }
 
-  constructor(
-    synapse: Synapse,
-    warmStorageService: WarmStorageService,
-    provider: PDPProvider,
-    dataSetId: bigint | undefined,
-    options: StorageServiceOptions,
-    dataSetMetadata: Record<string, string>
-  ) {
-    this._client = synapse.client
+  /**
+   * Creates a new StorageContext
+   * @param options - The options for the StorageContext {@link StorageContextOptions}
+   */
+  constructor(options: StorageContextOptions) {
+    this._client = options.synapse.client
     this._chain = asChain(this._client.chain)
-    this._synapse = synapse
-    this._provider = provider
-    this._withCDN = options.withCDN ?? false
-    this._warmStorageService = warmStorageService
-    this._uploadBatchSize = Math.max(1, options.uploadBatchSize ?? SIZE_CONSTANTS.DEFAULT_UPLOAD_BATCH_SIZE)
-    this._dataSetMetadata = dataSetMetadata
-
-    // Set public properties
-    this._dataSetId = dataSetId
-    this.serviceProvider = provider.serviceProvider
-
-    this._pdpEndpoint = provider.pdp.serviceURL
+    this._synapse = options.synapse
+    this._provider = options.provider
+    this._withCDN = options.options.withCDN ?? false
+    this._warmStorageService = options.warmStorageService
+    this._uploadBatchSize = Math.max(1, options.options.uploadBatchSize ?? SIZE_CONSTANTS.DEFAULT_UPLOAD_BATCH_SIZE)
+    this._dataSetMetadata = options.dataSetMetadata
+    this._dataSetId = options.dataSetId
+    this.serviceProvider = options.provider.serviceProvider
+    this._pdpEndpoint = options.provider.pdp.serviceURL
   }
 
   /**
    * Creates new storage contexts with specified options
    * Each context corresponds to a different data set
    */
-  static async createContexts(
-    synapse: Synapse,
-    warmStorageService: WarmStorageService,
-    options: CreateContextsOptions
-  ): Promise<StorageContext[]> {
+  static async createContexts(options: ContextCreateContextsOptions): Promise<StorageContext[]> {
     const count = options?.count ?? 2
     const resolutions: ProviderSelectionResult[] = []
-    const clientAddress = synapse.client.account.address
-    const spRegistry = new SPRegistryService({ client: synapse.client })
+    const clientAddress = options.synapse.client.account.address
+    const spRegistry = new SPRegistryService({ client: options.synapse.client })
     if (options.dataSetIds) {
       const selections = []
       for (const dataSetId of new Set(options.dataSetIds)) {
         selections.push(
-          StorageContext.resolveByDataSetId(dataSetId, warmStorageService, spRegistry, clientAddress, {
+          StorageContext.resolveByDataSetId(dataSetId, options.warmStorageService, spRegistry, clientAddress, {
             withCDN: options.withCDN,
             withIpni: options.withIpni,
             metadata: options.metadata,
@@ -232,7 +240,7 @@ export class StorageContext {
               clientAddress,
               providerId,
               options.metadata ?? {},
-              warmStorageService,
+              options.warmStorageService,
               spRegistry,
               options.forceCreateDataSets
             )
@@ -252,10 +260,10 @@ export class StorageContext {
           const resolution = await StorageContext.smartSelectProvider(
             clientAddress,
             options.metadata ?? {},
-            warmStorageService,
+            options.warmStorageService,
             spRegistry,
             excludeProviderIds,
-            resolutions.length === 0 ? await getProviderIds(synapse.client) : new Set<bigint>(),
+            resolutions.length === 0 ? await getProviderIds(options.synapse.client) : new Set<bigint>(),
             options.forceCreateDataSets ?? false,
             options.withIpni ?? false
           )
@@ -272,7 +280,12 @@ export class StorageContext {
     return await Promise.all(
       resolutions.map(
         async (resolution) =>
-          await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)
+          await StorageContext.createWithSelectedProvider(
+            resolution,
+            options.synapse,
+            options.warmStorageService,
+            options
+          )
       )
     )
   }
@@ -281,18 +294,24 @@ export class StorageContext {
    * Static factory method to create a StorageContext
    * Handles provider selection and data set selection/creation
    */
-  static async create(
-    synapse: Synapse,
-    warmStorageService: WarmStorageService,
-    options: StorageServiceOptions = {}
-  ): Promise<StorageContext> {
+  static async create(options: StorageContextCreateOptions): Promise<StorageContext> {
     // Create SPRegistryService
-    const spRegistry = new SPRegistryService({ client: synapse.client })
+    const spRegistry = new SPRegistryService({ client: options.synapse.client })
 
     // Resolve provider and data set based on options
-    const resolution = await StorageContext.resolveProviderAndDataSet(synapse, warmStorageService, spRegistry, options)
+    const resolution = await StorageContext.resolveProviderAndDataSet(
+      options.synapse,
+      options.warmStorageService,
+      spRegistry,
+      options
+    )
 
-    return await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)
+    return await StorageContext.createWithSelectedProvider(
+      resolution,
+      options.synapse,
+      options.warmStorageService,
+      options
+    )
   }
 
   private static async createWithSelectedProvider(
@@ -317,14 +336,14 @@ export class StorageContext {
       })
     }
 
-    return new StorageContext(
+    return new StorageContext({
       synapse,
       warmStorageService,
-      resolution.provider,
-      resolution.dataSetId === -1n ? undefined : resolution.dataSetId,
+      provider: resolution.provider,
+      dataSetId: resolution.dataSetId === -1n ? undefined : resolution.dataSetId,
       options,
-      resolution.dataSetMetadata
-    )
+      dataSetMetadata: resolution.dataSetMetadata,
+    })
   }
 
   /**
@@ -845,19 +864,20 @@ export class StorageContext {
 
   /**
    * Static method to perform preflight checks for an upload
-   * @param size - The size of data to upload in bytes
-   * @param withCDN - Whether CDN is enabled
-   * @param warmStorageService - WarmStorageService instance
-   * @param paymentsService - PaymentsService instance
+   * @param options - Options for the preflight check
+   * @param options.size - The size of data to upload in bytes
+   * @param options.withCDN - Whether CDN is enabled
+   * @param options.warmStorageService - WarmStorageService instance
    * @returns Preflight check results without provider/dataSet specifics
    */
-  static async performPreflightCheck(
-    warmStorageService: WarmStorageService,
-    size: number,
+  static async performPreflightCheck(options: {
+    size: number
     withCDN: boolean
-  ): Promise<PreflightInfo> {
+    warmStorageService: WarmStorageService
+  }): Promise<PreflightInfo> {
+    const { size, withCDN, warmStorageService } = options
     // Validate size before proceeding
-    StorageContext.validateRawSize(size, 'preflightUpload')
+    StorageContext.validateRawSize({ sizeBytes: options.size, context: 'preflightUpload' })
 
     // Check allowances and get costs in a single call
     const allowanceCheck = await warmStorageService.checkAllowanceForStorage({ sizeInBytes: BigInt(size), withCDN })
@@ -880,12 +900,18 @@ export class StorageContext {
 
   /**
    * Run preflight checks for an upload
-   * @param size - The size of data to upload in bytes
+   *
+   * @param options - Options for the preflight upload
+   * @param options.size - The size of data to upload in bytes
    * @returns Preflight information including costs and allowances
    */
-  async preflightUpload(size: number): Promise<PreflightInfo> {
+  async preflightUpload(options: { size: number }): Promise<PreflightInfo> {
     // Use the static method for core logic
-    const preflightResult = await StorageContext.performPreflightCheck(this._warmStorageService, size, this._withCDN)
+    const preflightResult = await StorageContext.performPreflightCheck({
+      size: options.size,
+      withCDN: this._withCDN,
+      warmStorageService: this._warmStorageService,
+    })
 
     // Return preflight info with provider and dataSet specifics
     return preflightResult
@@ -1113,9 +1139,11 @@ export class StorageContext {
 
   /**
    * Download data from this specific service provider
-   * @param pieceCid - The PieceCID identifier
+   *
    * @param options - Download options
-   * @returns The downloaded data
+   * @param options.pieceCid - The PieceCID identifier
+   * @param options.withCDN - Whether to enable CDN retrieval
+   * @returns The downloaded data {@link Uint8Array}
    */
   async download(options: DownloadOptions): Promise<Uint8Array> {
     return this._synapse.storage.download({
@@ -1169,7 +1197,7 @@ export class StorageContext {
    * @param options.batchSize - The batch size for each pagination call (default: 100)
    * @yields Object with pieceCid and pieceId - the piece ID is needed for certain operations like deletion
    */
-  async *getPieces(options?: { batchSize?: bigint }): AsyncGenerator<PieceRecord> {
+  async *getPieces(options: { batchSize?: bigint } = {}): AsyncGenerator<PieceRecord> {
     if (this._dataSetId == null) {
       return
     }
@@ -1219,10 +1247,13 @@ export class StorageContext {
 
   /**
    * Delete a piece with given CID from this data set
-   * @param piece - The PieceCID identifier or a piece number to delete by pieceID
+   *
+   * @param options - Options for the delete operation
+   * @param options.piece - The PieceCID identifier or a piece number to delete by pieceID
    * @returns Transaction hash of the delete operation
    */
-  async deletePiece(piece: string | PieceCID | bigint): Promise<Hash> {
+  async deletePiece(options: { piece: string | PieceCID | bigint }): Promise<Hash> {
+    const { piece } = options
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'deletePiece', 'Data set not found')
     }
@@ -1241,10 +1272,12 @@ export class StorageContext {
 
   /**
    * Check if a piece exists on this service provider.
-   * @param pieceCid - The PieceCID (piece CID) to check
+   * @param options - Options for the has piece operation
+   * @param options.pieceCid - The PieceCID (piece CID) to check
    * @returns True if the piece exists on this provider, false otherwise
    */
-  async hasPiece(pieceCid: string | PieceCID): Promise<boolean> {
+  async hasPiece(options: { pieceCid: string | PieceCID }): Promise<boolean> {
+    const { pieceCid } = options
     const parsedPieceCID = asPieceCID(pieceCid)
     if (parsedPieceCID == null) {
       return false
@@ -1270,14 +1303,15 @@ export class StorageContext {
    * returned reflects when the data set (containing this piece) was last proven and when the next
    * proof is due.
    *
-   * @param pieceCid - The PieceCID (piece CID) to check
+   * @param options - Options for the piece status
+   * @param options.pieceCid - The PieceCID (piece CID) to check
    * @returns Status information including existence, data set timing, and retrieval URL
    */
-  async pieceStatus(pieceCid: string | PieceCID): Promise<PieceStatus> {
+  async pieceStatus(options: { pieceCid: string | PieceCID }): Promise<PieceStatus> {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'pieceStatus', 'Data set not found')
     }
-    const parsedPieceCID = asPieceCID(pieceCid)
+    const parsedPieceCID = asPieceCID(options.pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageContext', 'pieceStatus', 'Invalid PieceCID provided')
     }
@@ -1285,7 +1319,7 @@ export class StorageContext {
     // Run multiple operations in parallel for better performance
     const [exists, dataSetData, currentEpoch] = await Promise.all([
       // Check if piece exists on provider
-      this.hasPiece(parsedPieceCID),
+      this.hasPiece({ pieceCid: parsedPieceCID }),
       // Get data set data
       SP.getDataSet({
         serviceURL: this._pdpEndpoint,
@@ -1397,6 +1431,6 @@ export class StorageContext {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'terminate', 'Data set not found')
     }
-    return this._synapse.storage.terminateDataSet(this.dataSetId)
+    return this._synapse.storage.terminateDataSet({ dataSetId: this.dataSetId })
   }
 }

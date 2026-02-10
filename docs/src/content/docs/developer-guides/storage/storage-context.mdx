@@ -233,7 +233,7 @@ const conversationId = "1234567890";
 
 const data = new TextEncoder().encode("Deep research on decentralization...")
 
-const preflight = await storageContext.preflightUpload(data.length);
+const preflight = await storageContext.preflightUpload({ size: data.length });
 
 console.log("Estimated costs:", preflight.estimatedCost);
 console.log("Allowance sufficient:", preflight.allowanceCheck.sufficient);
@@ -265,7 +265,7 @@ const { pieceCid, size, pieceId } = await storageContext.upload(data, {
   },
 });
 
-const receivedData = await storageContext.download(pieceCid);
+const receivedData = await storageContext.download({ pieceCid });
 
 console.log(`Received data: ${new TextDecoder().decode(receivedData)}`);
 
@@ -274,7 +274,7 @@ const pieceCids = await storageContext.getDataSetPieces();
 console.log(`Piece CIDs: ${pieceCids.map((cid) => cid.toString()).join(", ")}`);
 
 // Check the status of a piece on the service provider
-const status = await storageContext.pieceStatus(pieceCid);
+const status = await storageContext.pieceStatus({ pieceCid });
 console.log(`Piece exists: ${status.exists}`);
 console.log(`Data set last proven: ${status.dataSetLastProven}`);
 console.log(`Data set next proof due: ${status.dataSetNextProofDue}`);
@@ -361,7 +361,7 @@ for await (const piece of storageContext.getPieces()) {
 }
 
 // Delete the first piece
-await storageContext.deletePiece(pieces[0].pieceId);
+await storageContext.deletePiece({ piece: pieces[0].pieceId });
 console.log(
   `Piece ${pieces[0].pieceCid} (ID: ${pieces[0].pieceId}) deleted successfully`
 );

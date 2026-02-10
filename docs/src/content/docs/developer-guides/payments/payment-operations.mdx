@@ -49,7 +49,7 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 import { TOKENS } from "@filoz/synapse-sdk";
 
 const amount = parseUnits("100");
-const hash = await synapse.payments.depositWithPermit(amount);
+const hash = await synapse.payments.depositWithPermit({amount});
 await synapse.client.waitForTransactionReceipt({ hash });
 ```
 
@@ -63,7 +63,7 @@ If you cannot use permit-based deposits, you can use the traditional two-transac
 await usdfc.approve(paymentAddress, depositAmount);
 
 // 2. Deposit
-await synapse.payments.deposit(depositAmount);
+await synapse.payments.deposit({amount});
 ```
 
 This requires two transactions and higher gas costs. Use `depositWithPermit` instead.
@@ -101,7 +101,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const info = await synapse.payments.accountInfo();
-await synapse.payments.withdraw(info.availableFunds);
+await synapse.payments.withdraw({amount: info.availableFunds});
 ```
 
 ## Approving Operators
@@ -134,12 +134,7 @@ const rateAllowance = monthlyPricePerTiB / TIME_CONSTANTS.EPOCHS_PER_MONTH;
 const lockupAllowance = monthlyPricePerTiB * months;
 const maxLockupPeriod = TIME_CONSTANTS.EPOCHS_PER_MONTH;
 
-await synapse.payments.approveService(
-  calibration.contracts.fwss.address,
-  rateAllowance,
-  lockupAllowance,
-  maxLockupPeriod
-);
+await synapse.payments.approveService();
 ```
 
 ### Revoking an Operator
@@ -152,7 +147,7 @@ import { Synapse, calibration } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
-await synapse.payments.revokeService(calibration.contracts.fwss.address);
+await synapse.payments.revokeService();
 ```
 
 ### Checking Operator Approvals
@@ -163,7 +158,7 @@ import { Synapse, calibration } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
-const approval = await synapse.payments.serviceApproval(calibration.contracts.fwss.address);
+const approval = await synapse.payments.serviceApproval();
 
 console.log("Approved:", approval.isApproved);
 console.log(

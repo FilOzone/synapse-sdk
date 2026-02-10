@@ -116,7 +116,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const railId = null as unknown as bigint;
 // ---cut---
-const railInfo = await synapse.payments.getRail(railId);
+const railInfo = await synapse.payments.getRail({railId});
 console.log("Rail details:", {
   from: railInfo.from,
   to: railInfo.to,
@@ -150,12 +150,12 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const railId = 1n;
 // ---cut---
 // Automatically handles both active and terminated rails
-const hash1 = await synapse.payments.settleAuto(railId);
+const hash1 = await synapse.payments.settleAuto({railId});
 await synapse.client.waitForTransactionReceipt({ hash: hash1 });
 console.log("Rail settled successfully");
 
 // For active rails, you can specify the epoch to settle up to
-const hash2 = await synapse.payments.settleAuto(railId, 1000n);
+const hash2 = await synapse.payments.settleAuto({railId, untilEpoch: 1000n});
 await synapse.client.waitForTransactionReceipt({ hash: hash2 });
 console.log("Rail settled successfully up to epoch 1000");
 ```
@@ -176,7 +176,7 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const railId = 1n;
 // ---cut---
 // Settle a specific rail (requires settlement fee)
-const hash = await synapse.payments.settle(railId);
+const hash = await synapse.payments.settle({railId});
 await synapse.client.waitForTransactionReceipt({ hash });
 console.log("Rail settled successfully");
 ```
@@ -197,7 +197,7 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const railId = 1n;
 // ---cut---
 const targetEpoch = 1000n; // Ensure it's not in the future
-const hash = await synapse.payments.settle(railId, targetEpoch);
+const hash = await synapse.payments.settle({railId, untilEpoch: targetEpoch});
 await synapse.client.waitForTransactionReceipt({ hash });
 ```
 
@@ -220,11 +220,11 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const railId = 1n;
 // ---cut---
 // Check if rail is terminated
-const railInfo = await synapse.payments.getRail(railId);
+const railInfo = await synapse.payments.getRail({railId});
 if (railInfo.endEpoch > 0) {
   console.log(`Rail terminated at epoch ${railInfo.endEpoch}`);
   // Settle the terminated rail
-  const hash = await synapse.payments.settleTerminatedRail(railId);
+  const hash = await synapse.payments.settleTerminatedRail({railId});
   await synapse.client.waitForTransactionReceipt({ hash });
   console.log("Terminated rail settled and closed");
 }
@@ -244,7 +244,7 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const railId = 1n;
 // ---cut---
 // Preview settlement to current epoch
-const amounts = await synapse.payments.getSettlementAmounts(railId);
+const amounts = await synapse.payments.getSettlementAmounts({railId});
 const totalSettledAmount = formatUnits(amounts.totalSettledAmount);
 const totalNetPayeeAmount = formatUnits(amounts.totalNetPayeeAmount);
 const totalOperatorCommission = formatUnits(amounts.totalOperatorCommission);
@@ -259,14 +259,11 @@ console.log(`  Settled up to epoch: ${finalSettledEpoch}`);
 console.log(`  Note: ${note}`);
 
 // Preview partial settlement to a specific past epoch
-const targetEpoch = 1000n; // Must be less than or equal to current epoch
-const partialAmounts = await synapse.payments.getSettlementAmounts(
-  railId,
-  targetEpoch
-);
+const untilEpoch = 1000n; // Must be less than or equal to current epoch
+const partialAmounts = await synapse.payments.getSettlementAmounts({ railId, untilEpoch });
 const partialTotalSettledAmount = formatUnits(partialAmounts.totalSettledAmount);
 console.log(
-  `Partial settlement to epoch ${targetEpoch} -`,
+  `Partial settlement to epoch ${untilEpoch} -`,
   `would settle: ${partialTotalSettledAmount} USDFC`
 );
 ```
@@ -290,13 +287,13 @@ async function settleAllIncomingRails() {
   for (const rail of rails) {
     try {
       // Check if settlement is worthwhile
-      const amounts = await synapse.payments.getSettlementAmounts(rail.railId);
+      const amounts = await synapse.payments.getSettlementAmounts({railId: rail.railId});
 
       // Only settle if amount exceeds threshold (e.g., $10)
       const threshold = parseUnits("10"); // 10 USDFC
       if (amounts.totalNetPayeeAmount > threshold) {
         // settleAuto handles both active and terminated rails
-        const hash = await synapse.payments.settleAuto(rail.railId);
+        const hash = await synapse.payments.settleAuto({railId: rail.railId});
         await synapse.client.waitForTransactionReceipt({ hash });
         console.log(
           `Settled rail ${rail.railId} for ${formatUnits(amounts.totalNetPayeeAmount)} USDFC`
@@ -328,7 +325,7 @@ async function prepareForWithdrawal() {
 
   // Settle all rails to update balance (settleAuto handles both active and terminated)
   for (const rail of rails) {
-    const hash = await synapse.payments.settleAuto(rail.railId);
+    const hash = await synapse.payments.settleAuto({railId: rail.railId});
     await synapse.client.waitForTransactionReceipt({ hash });
   }
 
@@ -347,7 +344,7 @@ Common settlement errors and solutions:
 
 ```typescript
 try {
-  await synapse.payments.settle(railId);
+  await synapse.payments.settle({railId});
 } catch (error) {
   if (error.message.includes("InsufficientNativeTokenForBurn")) {
     console.error("Insufficient FIL for settlement fee (0.0013 FIL required)");
