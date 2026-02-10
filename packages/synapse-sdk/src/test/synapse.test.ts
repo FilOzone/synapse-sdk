@@ -7,7 +7,6 @@
 import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
-import { getPermissionFromTypeHash, type SessionKeyPermissions } from '@filoz/synapse-core/session-key'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -900,6 +899,18 @@ describe('Synapse', () => {
           assert.include(error.message, 'Failed to create upload session')
         }
       })
+    })
+  })
+
+  describe('Provider Filtering', () => {
+    it('should filter providers through Synapse class', async () => {
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
+
+      const synapse = new Synapse({ client })
+      // Test filtering by location
+      const filtered = await synapse.filterProviders({ location: 'US' })
+      assert.equal(filtered.length, 2) // Both providers have 'US' location in preset
+      assert.exists(filtered[0].pdp.location)
     })
   })
 })

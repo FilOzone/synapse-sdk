@@ -59,3 +59,23 @@ export interface PDPServiceInfo {
   capabilities: Record<string, string> // Object map of capability key-value pairs
   isActive: boolean
 }
+
+/** * Options for filtering providers
+ */
+export interface ProviderFilterOptions {
+  type?: keyof typeof PRODUCTS // 'PDP' etc.
+  location?: string
+
+  minPieceSizeInBytes?: number
+  maxPieceSizeInBytes?: number
+
+  ipniIpfs?: boolean
+  ipniPiece?: boolean
+
+  serviceStatus?: string // or union type below
+
+  maxStoragePricePerTibPerDay?: number
+  minProvingPeriodInEpochs?: number
+
+  randomize?: boolean
+}

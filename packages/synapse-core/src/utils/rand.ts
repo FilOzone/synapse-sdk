@@ -45,3 +45,18 @@ export function randIndex(length: number): number {
     return fallbackRandIndex(length)
   }
 }
+
+/**
+ * Shuffles an array using the Fisher-Yates algorithm
+ * @param array - The array to shuffle
+ * @returns A new array with the elements shuffled
+ */
+export function shuffle<T>(array: T[]): T[] {
+  // Fisher-Yates shuffle
+  const arr = array.slice()
+  for (let i = arr.length; i-- > 1; ) {
+    const j = randIndex(i + 1)
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
