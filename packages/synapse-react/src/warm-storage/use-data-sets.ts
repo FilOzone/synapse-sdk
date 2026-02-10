@@ -22,7 +22,7 @@ export function useDataSets(props: UseDataSetsProps) {
     queryKey: ['synapse-warm-storage-data-sets', address],
     queryFn: address
       ? async () => {
-          const dataSets = await getPdpDataSets(config.getClient(), { client: address })
+          const dataSets = await getPdpDataSets(config.getClient(), { address })
           const dataSetsWithPieces = await Promise.all(
             dataSets.map(async (dataSet) => {
               const result = await getPiecesWithMetadata(config.getClient(), {
