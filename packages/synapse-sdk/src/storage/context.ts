@@ -1068,7 +1068,6 @@ export class StorageContext {
         // Notify callbacks with transaction
         batch.forEach((item) => {
           item.callbacks?.onPiecesAdded?.(addPiecesResult.txHash as Hex, addedPieceRecords)
-          item.callbacks?.onPieceAdded?.(addPiecesResult.txHash as Hex)
         })
         const confirmation = await SP.waitForAddPieces(addPiecesResult)
 
@@ -1082,7 +1081,6 @@ export class StorageContext {
 
         batch.forEach((item) => {
           item.callbacks?.onPiecesConfirmed?.(this.dataSetId as bigint, confirmedPieceRecords)
-          item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
         })
       } else {
         // Create a new data set and add pieces to it
@@ -1097,7 +1095,6 @@ export class StorageContext {
         })
         batch.forEach((item) => {
           item.callbacks?.onPiecesAdded?.(result.txHash as Hex, addedPieceRecords)
-          item.callbacks?.onPieceAdded?.(result.txHash as Hex)
         })
         const confirmation = await SP.waitForCreateDataSetAddPieces(result)
         this._dataSetId = confirmation.dataSetId
@@ -1109,7 +1106,6 @@ export class StorageContext {
         }))
         batch.forEach((item) => {
           item.callbacks?.onPiecesConfirmed?.(this.dataSetId as bigint, confirmedPieceRecords)
-          item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
         })
       }
 
@@ -1159,23 +1155,6 @@ export class StorageContext {
    */
   async getProviderInfo(): Promise<PDPProvider> {
     return await this._synapse.getProviderInfo(this.serviceProvider)
-  }
-
-  /**
-   * Get the list of piece CIDs for this service service's data set.
-   * @returns Array of piece CIDs as PieceCID objects
-   * @deprecated Use getPieces() generator for better memory efficiency with large data sets
-   */
-  async getDataSetPieces(): Promise<PieceCID[]> {
-    if (this.dataSetId == null) {
-      return []
-    }
-
-    const pieces: PieceCID[] = []
-    for await (const { pieceCid } of this.getPieces()) {
-      pieces.push(pieceCid)
-    }
-    return pieces
   }
 
   /**

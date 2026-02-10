@@ -156,12 +156,8 @@ export interface UploadCallbacks {
   onUploadComplete?: (pieceCid: PieceCID) => void;
   /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
   onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
-  /** @deprecated Use onPiecesAdded instead */
-  onPieceAdded?: (transaction?: Hex) => void;
   /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
   onPiecesConfirmed?: (dataSetId: number, pieces: PieceRecord[]) => void;
-  /** @deprecated Use onPiecesConfirmed instead */
-  onPieceConfirmed?: (pieceIds: number[]) => void;
 }
 
 /**
@@ -270,7 +266,7 @@ const receivedData = await storageContext.download({ pieceCid });
 console.log(`Received data: ${new TextDecoder().decode(receivedData)}`);
 
 // Get the list of piece CIDs in the current data set by querying the provider
-const pieceCids = await storageContext.getDataSetPieces();
+const pieceCids = await Array.fromAsync(storageContext.getPieces());
 console.log(`Piece CIDs: ${pieceCids.map((cid) => cid.toString()).join(", ")}`);
 
 // Check the status of a piece on the service provider

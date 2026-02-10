@@ -1473,12 +1473,12 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const result = await service.getDataSetPieces()
+      const result = await Array.fromAsync(service.getPieces())
 
       assert.isArray(result)
       assert.equal(result.length, 2)
-      assert.equal(result[0].toString(), mockDataSetData.pieces[0].pieceCid)
-      assert.equal(result[1].toString(), mockDataSetData.pieces[1].pieceCid)
+      assert.equal(result[0].pieceCid.toString(), mockDataSetData.pieces[0].pieceCid)
+      assert.equal(result[1].pieceCid.toString(), mockDataSetData.pieces[1].pieceCid)
     })
 
     it('should handle empty data set pieces', async () => {
@@ -1499,7 +1499,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const result = await service.getDataSetPieces()
+      const result = await Array.fromAsync(service.getPieces())
 
       assert.isArray(result)
       assert.equal(result.length, 0)
@@ -1526,7 +1526,7 @@ describe('StorageService', () => {
 
       // The new implementation should throw an error when trying to decode invalid CID data
       try {
-        await service.getDataSetPieces()
+        await Array.fromAsync(service.getPieces())
         assert.fail('Expected an error to be thrown for invalid CID data')
       } catch (error: any) {
         // The error occurs during CID.decode(), not during PieceCID validation
@@ -1556,7 +1556,7 @@ describe('StorageService', () => {
       // Mock getActivePieces to throw an error
 
       try {
-        await service.getDataSetPieces()
+        await Array.fromAsync(service.getPieces())
         assert.fail('Should have thrown error for contract call error')
       } catch (error: any) {
         assert.include(error.message, 'Data set not found: 999')

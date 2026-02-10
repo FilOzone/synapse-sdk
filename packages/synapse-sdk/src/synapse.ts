@@ -127,37 +127,6 @@ export class Synapse {
   }
 
   /**
-   * Create a storage service instance.
-   *
-   * Automatically selects the best available service provider and creates or reuses a data set.
-   *
-   * @deprecated Use synapse.storage.createContext() instead. This method will be removed in a future version.
-   * @param options - Optional storage configuration
-   * @returns A configured StorageService instance ready for uploads/downloads
-   *
-   * @example
-   * ```typescript
-   * // Basic usage - auto-selects provider
-   * const storage = await synapse.createStorage()
-   * const result = await storage.upload(data)
-   *
-   * // With specific provider
-   * const storage = await synapse.createStorage({
-   *   providerId: 123
-   * })
-   *
-   * // With CDN enabled
-   * const storage = await synapse.createStorage({
-   *   withCDN: true
-   * })
-   * ```
-   */
-  async createStorage(options: StorageServiceOptions = {}): Promise<StorageContext> {
-    // Use StorageManager to create context
-    return await this._storageManager.createContext(options)
-  }
-
-  /**
    * Get detailed information about a specific service provider
    * @param providerAddress - The provider's address or provider ID
    * @returns Provider information including URLs and pricing
