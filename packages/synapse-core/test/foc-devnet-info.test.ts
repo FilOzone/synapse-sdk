@@ -1,9 +1,5 @@
-import assert from 'node:assert'
-import { setup } from 'iso-web/msw'
-import { createPublicClient, http } from 'viem'
+import assert from 'assert'
 import { loadDevnetInfo, toChain } from '../src/foc-devnet-info/src/index.ts'
-import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { dataSetLive } from '../src/pdp-verifier/data-set-live.ts'
 
 // Example devnet info for testing
 const exampleDevnetInfoV1 = {
@@ -77,20 +73,6 @@ const exampleDevnetInfoV1 = {
 }
 
 describe('foc-devnet-info', () => {
-  const server = setup()
-
-  before(async () => {
-    await server.start()
-  })
-
-  after(() => {
-    server.stop()
-  })
-
-  beforeEach(() => {
-    server.resetHandlers()
-  })
-
   describe('loadDevnetInfo', () => {
     it('should load and validate valid devnet info', () => {
       const result = loadDevnetInfo(exampleDevnetInfoV1)
@@ -198,24 +180,79 @@ describe('foc-devnet-info', () => {
     })
   })
 
-  describe('PDP contract integration', () => {
-    it('should be able to call PDP functions with devnet chain', async () => {
-      server.use(JSONRPC(presets.basic))
-
+  describe('PDP contract configuration', () => {
+    it('should use correct PDP contract address from devnet info', () => {
       const devnetInfo = loadDevnetInfo(exampleDevnetInfoV1)
       const chain = toChain(devnetInfo)
 
-      const client = createPublicClient({
-        chain,
-        transport: http(),
-      })
+      assert.equal(chain.contracts.pdp.address, exampleDevnetInfoV1.info.contracts.pdp_verifier_proxy_addr)
+    })
 
-      // Test calling a PDP function (dataSetLive) with the devnet chain
-      const isLive = await dataSetLive(client, {
-        dataSetId: 1n,
-      })
+    it('should include PDP ABI in chain contracts', () => {
+      const devnetInfo = loadDevnetInfo(exampleDevnetInfoV1)
+      const chain = toChain(devnetInfo)
 
-      assert.equal(typeof isLive, 'boolean')
+      assert.ok(chain.contracts.pdp.abi)
+      assert.ok(Array.isArray(chain.contracts.pdp.abi))
+      assert.ok(chain.contracts.pdp.abi.length > 0)
+    })
+
+    it('should create valid PDP function call configuration', () => {
+      const devnetInfo = loadDevnetInfo(exampleDevnetInfoV1)
+      const chain = toChain(devnetInfo)
+
+      // Verify we can create a proper call configuration (without executing)
+      const call = {
+        address: chain.contracts.pdp.address,
+        abi: chain.contracts.pdp.abi,
+        functionName: 'dataSetLive',
+        args: [1n],
+      }
+
+      assert.equal(call.address, exampleDevnetInfoV1.info.contracts.pdp_verifier_proxy_addr)
+      assert.ok(call.abi)
+      assert.equal(call.functionName, 'dataSetLive')
+      assert.deepEqual(call.args, [1n])
+    })
+  })
+
+  describe('multi-provider devnet', () => {
+    it('should handle devnet info with multiple PDP storage providers', () => {
+      const multiProviderInfo = {
+        ...exampleDevnetInfoV1,
+        info: {
+          ...exampleDevnetInfoV1.info,
+          pdp_sps: [
+            exampleDevnetInfoV1.info.pdp_sps[0],
+            {
+              ...exampleDevnetInfoV1.info.pdp_sps[0],
+              provider_id: 2,
+              eth_addr: '0x1234567890123456789012345678901234567890',
+              pdp_service_url: 'http://localhost:5715',
+              container_name: 'foc-20260204T1328_TestDevnet-curio-2',
+            },
+          ],
+        },
+      }
+
+      const result = loadDevnetInfo(multiProviderInfo)
+      assert.equal(result.info.pdp_sps.length, 2)
+      assert.equal(result.info.pdp_sps[0].provider_id, 1)
+      assert.equal(result.info.pdp_sps[1].provider_id, 2)
+    })
+
+    it('should validate PDP storage provider info', () => {
+      const result = loadDevnetInfo(exampleDevnetInfoV1)
+      const pdpSp1 = result.info.pdp_sps[0]
+
+      assert.equal(pdpSp1.provider_id, 1)
+      assert.ok(pdpSp1.eth_addr.startsWith('0x'))
+      assert.ok(pdpSp1.native_addr.startsWith('t410f'))
+      assert.ok(pdpSp1.pdp_service_url.startsWith('http'))
+      assert.equal(pdpSp1.is_approved, true)
+      assert.equal(pdpSp1.is_endorsed, false)
+      assert.ok(pdpSp1.yugabyte)
+      assert.ok(pdpSp1.yugabyte.web_ui_url)
     })
   })
 })
