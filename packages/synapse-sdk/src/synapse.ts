@@ -55,7 +55,7 @@ export class Synapse {
       throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
     }
 
-    return new Synapse({ client, withCDN: options.withCDN, withIpni: options.withIpni })
+    return new Synapse({ client, withCDN: options.withCDN })
   }
 
   public constructor(options: SynapseFromClientOptions) {
@@ -79,7 +79,6 @@ export class Synapse {
         chain: this._chain,
       }),
       withCDN: this._withCDN,
-      withIpni: options.withIpni,
     })
   }
 

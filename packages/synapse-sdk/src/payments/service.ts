@@ -26,7 +26,6 @@ export interface DepositOptions {
   to?: Address
   /** The amount to deposit */
   amount: TokenAmount
-  /** The recipient address for the deposit. If not provided, the sender's address will be used. */
   /** The token to deposit (defaults to USDFC) */
   token?: TokenIdentifier
   /** Called when checking current allowance */
@@ -170,7 +169,7 @@ export class PaymentsService {
     throw createError(
       'PaymentsService',
       'wallet balance',
-      `Token "${options.token}" is not supported. Currently only FIL and USDFC tokens are supported.`
+      `Token "${token}" is not supported. Currently only FIL and USDFC tokens are supported.`
     )
   }
 
@@ -593,11 +592,7 @@ export class PaymentsService {
    * @throws Errors {@link Pay.settleRail.ErrorType}
    */
   async settle(options: { railId: bigint; untilEpoch?: bigint }): Promise<Hash> {
-    const { railId, untilEpoch } = options
-    return Pay.settleRail(this._client, {
-      railId,
-      untilEpoch,
-    })
+    return Pay.settleRail(this._client, options)
   }
 
   /**

@@ -117,8 +117,8 @@ export class WarmStorageService {
    * Get all data sets for a client with enhanced details
    * This includes live status and management information
    * @param options - Options for the client data sets
-   * @param options.address - The client address
-   * @param options.onlyManaged - If true, only return data sets managed by this Warm Storage contract
+   * @param options.address - The client address. Defaults to the client account address.
+   * @param options.onlyManaged - If true, only return data sets managed by this Warm Storage contract. Defaults to false.
    * @returns Array of enhanced data set information {@link EnhancedDataSetInfo}
    */
   async getClientDataSetsWithDetails(options: {

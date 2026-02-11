@@ -73,32 +73,6 @@ describe('StorageService', () => {
       )
     })
 
-    it('should select a random provider but filter allow IPNI providers', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.providerIPNI]),
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.providerIPNI.products[0].offering.serviceURL,
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService({ client })
-      // Create storage service without specifying providerId
-      const service = await StorageContext.create({
-        synapse,
-        warmStorageService,
-        withIpni: true,
-      })
-
-      // Should have selected one of the providers
-      assert.isTrue(service.serviceProvider === Mocks.PROVIDERS.providerIPNI.providerInfo.serviceProvider)
-    })
-
     it('should use specific provider when providerId specified', async () => {
       server.use(
         Mocks.JSONRPC({

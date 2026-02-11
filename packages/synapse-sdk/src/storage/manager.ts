@@ -99,8 +99,6 @@ export interface StorageManagerOptions {
   pieceRetriever: PieceRetriever
   /** Whether to enable CDN services */
   withCDN: boolean
-  /** Whether to enable IPNI services */
-  withIpni?: boolean
 }
 
 export class StorageManager {
@@ -108,7 +106,6 @@ export class StorageManager {
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _withCDN: boolean
-  private readonly _withIpni: boolean | undefined
   private _defaultContexts?: StorageContext[]
 
   /**
@@ -120,7 +117,6 @@ export class StorageManager {
     this._warmStorageService = options.warmStorageService
     this._pieceRetriever = options.pieceRetriever
     this._withCDN = options.withCDN
-    this._withIpni = options.withIpni
   }
 
   /**
@@ -168,7 +164,6 @@ export class StorageManager {
         ? [options.context]
         : await this.createContexts({
             withCDN: options?.withCDN,
-            withIpni: options?.withIpni,
             count: 1, // single context by default for now - this will be changed in a future version
             uploadBatchSize: options?.uploadBatchSize,
             forceCreateDataSets: options?.forceCreateDataSet,
@@ -381,7 +376,6 @@ export class StorageManager {
       warmStorageService: this._warmStorageService,
       ...options,
       withCDN,
-      withIpni: options?.withIpni ?? this._withIpni,
     })
 
     if (canUseDefault) {
@@ -452,7 +446,6 @@ export class StorageManager {
       warmStorageService: this._warmStorageService,
       ...options,
       withCDN: effectiveWithCDN,
-      withIpni: options?.withIpni ?? this._withIpni,
     })
 
     if (canUseDefault) {

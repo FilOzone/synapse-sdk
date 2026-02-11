@@ -217,7 +217,6 @@ export class StorageContext {
         selections.push(
           StorageContext.resolveByDataSetId(dataSetId, options.warmStorageService, spRegistry, clientAddress, {
             withCDN: options.withCDN,
-            withIpni: options.withIpni,
             metadata: options.metadata,
           })
         )
@@ -264,8 +263,7 @@ export class StorageContext {
             spRegistry,
             excludeProviderIds,
             resolutions.length === 0 ? await getProviderIds(options.synapse.client) : new Set<bigint>(),
-            options.forceCreateDataSets ?? false,
-            options.withIpni ?? false
+            options.forceCreateDataSets ?? false
           )
           excludeProviderIds.push(resolution.provider.id)
           resolutions.push(resolution)
@@ -404,8 +402,7 @@ export class StorageContext {
       spRegistry,
       options.excludeProviderIds ?? [],
       new Set<bigint>(),
-      options.forceCreateDataSet ?? false,
-      options.withIpni ?? false
+      options.forceCreateDataSet ?? false
     )
   }
 
@@ -681,8 +678,7 @@ export class StorageContext {
     spRegistry: SPRegistryService,
     excludeProviderIds: bigint[],
     endorsedProviderIds: Set<bigint>,
-    forceCreateDataSet: boolean,
-    withIpni: boolean
+    forceCreateDataSet: boolean
   ): Promise<ProviderSelectionResult> {
     // Strategy:
     // 1. Try to find existing data sets first
@@ -727,10 +723,6 @@ export class StorageContext {
             continue
           }
 
-          if (withIpni && provider.pdp.ipniIpfs === false) {
-            continue
-          }
-
           yield provider
         }
       }
@@ -768,10 +760,7 @@ export class StorageContext {
     // WarmStorage, then fetch provider details.
     const approvedIds = await warmStorageService.getApprovedProviderIds()
     const approvedProviders = await spRegistry.getProviders({ providerIds: approvedIds })
-    const allProviders = approvedProviders.filter(
-      (provider: PDPProvider) =>
-        (!withIpni || provider.pdp.ipniIpfs === true) && !excludeProviderIds.includes(provider.id)
-    )
+    const allProviders = approvedProviders.filter((provider: PDPProvider) => !excludeProviderIds.includes(provider.id))
 
     if (allProviders.length === 0) {
       throw createError('StorageContext', 'smartSelectProvider', NO_REMAINING_PROVIDERS_ERROR_MESSAGE)
@@ -814,8 +803,6 @@ export class StorageContext {
   /**
    * Select a random provider from a list with ping validation
    * @param providers - Array of providers to select from
-   * @param withIpni - Filter for IPNI support
-   * @param dev - Include dev providers
    * @returns Selected provider
    */
   private static async selectRandomProvider(providers: PDPProvider[]): Promise<PDPProvider | null> {

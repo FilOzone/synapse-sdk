@@ -155,7 +155,7 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 
 // ---cut---
 // Check current USDFC balance
-const walletBalance = await synapse.payments.walletBalance({token:TOKENS.USDFC});
+const walletBalance = await synapse.payments.walletBalance({ token:TOKENS.USDFC });
 const formattedBalance = formatUnits(walletBalance);
 
 // Deposit USDFC for payment and approve Warm Storage service
@@ -245,7 +245,7 @@ const context = await synapse.storage.createContext({
 const result = await context.upload(file);
 
 // Download from this context
-const downloaded = await context.download({pieceCid: result.pieceCid});
+const downloaded = await context.download({ pieceCid: result.pieceCid });
 ```
 
 - **providerId**: By specifying `providerId`, you tell Synapse SDK to store (and later retrieve) your data specifically with that provider.

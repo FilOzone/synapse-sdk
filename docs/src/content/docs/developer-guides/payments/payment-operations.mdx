@@ -49,7 +49,7 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 import { TOKENS } from "@filoz/synapse-sdk";
 
 const amount = parseUnits("100");
-const hash = await synapse.payments.depositWithPermit({amount});
+const hash = await synapse.payments.depositWithPermit({ amount });
 await synapse.client.waitForTransactionReceipt({ hash });
 ```
 
@@ -63,7 +63,7 @@ If you cannot use permit-based deposits, you can use the traditional two-transac
 await usdfc.approve(paymentAddress, depositAmount);
 
 // 2. Deposit
-await synapse.payments.deposit({amount});
+await synapse.payments.deposit({ amount });
 ```
 
 This requires two transactions and higher gas costs. Use `depositWithPermit` instead.
@@ -101,7 +101,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const info = await synapse.payments.accountInfo();
-await synapse.payments.withdraw({amount: info.availableFunds});
+await synapse.payments.withdraw({ amount: info.availableFunds });
 ```
 
 ## Approving Operators

@@ -83,30 +83,28 @@ export class SPRegistryService {
    * @example
    * ```ts
    * const hash = await spRegistry.registerProvider({
-   *   info: {
-   *     payee: '0x...', // Address that will receive payments
-   *     name: 'My Storage Provider',
-   *     description: 'High-performance storage service',
-   *     pdpOffering: {
-   *       serviceURL: 'https://provider.example.com',
-   *       minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
-   *       maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
-   *       // ... other PDP fields
-   *     },
-   *     capabilities: { 'region': 'us-east', 'tier': 'premium' }
-   *   }
+   *   payee: '0x...', // Address that will receive payments
+   *   name: 'My Storage Provider',
+   *   description: 'High-performance storage service',
+   *   pdpOffering: {
+   *     serviceURL: 'https://provider.example.com',
+   *     minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+   *     maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
+   *     // ... other PDP fields
+   *   },
+   *   capabilities: { 'region': 'us-east', 'tier': 'premium' }
    * })
    *
    * console.log(hash)
    * ```
    */
-  async registerProvider(options: { info: ProviderRegistrationInfo }): Promise<Hash> {
+  async registerProvider(options: ProviderRegistrationInfo): Promise<Hash> {
     const hash = await SP.registerProvider(this._client, {
-      payee: options.info.payee,
-      name: options.info.name,
-      description: options.info.description,
-      pdpOffering: options.info.pdpOffering,
-      capabilities: options.info.capabilities,
+      payee: options.payee,
+      name: options.name,
+      description: options.description,
+      pdpOffering: options.pdpOffering,
+      capabilities: options.capabilities,
     })
 
     return hash

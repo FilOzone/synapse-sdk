@@ -170,22 +170,20 @@ describe('SPRegistryService', () => {
     it('should register new provider', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const hash = await service.registerProvider({
-        info: {
-          payee: walletClient.account.address,
-          name: 'New Provider',
-          description: 'Description',
-          pdpOffering: {
-            serviceURL: 'https://new-provider.example.com',
-            minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
-            maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
-            ipniPiece: true,
-            ipniIpfs: false,
-            ipniPeerId: '',
-            storagePricePerTibPerDay: BigInt(1000000),
-            minProvingPeriodInEpochs: 2880n,
-            location: 'US-EAST',
-            paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-          },
+        payee: walletClient.account.address,
+        name: 'New Provider',
+        description: 'Description',
+        pdpOffering: {
+          serviceURL: 'https://new-provider.example.com',
+          minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+          maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
+          ipniPiece: true,
+          ipniIpfs: false,
+          ipniPeerId: '',
+          storagePricePerTibPerDay: BigInt(1000000),
+          minProvingPeriodInEpochs: 2880n,
+          location: 'US-EAST',
+          paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },
       })
       assert.exists(hash, 'Transaction should exist')
