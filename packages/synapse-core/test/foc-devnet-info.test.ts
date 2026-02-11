@@ -1,0 +1,146 @@
+import assert from 'assert'
+import { toChain, validateDevnetInfo } from '../src/devnet/index.ts'
+
+// Example devnet info for testing
+const exampleDevnetInfoV1 = {
+  version: 1,
+  info: {
+    run_id: '20260204T1328_TestDevnet',
+    start_time: '2026-02-04T08:07:39.279349+00:00',
+    startup_duration: '529.06s',
+    users: [
+      {
+        name: 'USER_1',
+        evm_addr: '0x47cc9101fd026fc112d7fadf6b3c9df5be7d4a8c',
+        native_addr: 't410fi7gjcap5ajx4cewx7lpwwpe56w7h2sumb6jbvva',
+        private_key_hex: '0x1111111111111111111111111111111111111111111111111111111111111111',
+      },
+      {
+        name: 'USER_2',
+        evm_addr: '0x3a2167cc501e720fc320e4830ef779047c0179a8',
+        native_addr: 't410fhiqwptcqdzza7qza4sbq553zar6ac6niyd52bmq',
+        private_key_hex: '0x2222222222222222222222222222222222222222222222222222222222222222',
+      },
+      {
+        name: 'USER_3',
+        evm_addr: '0x1e0a344acb785694a621ff18ae73284cbbf461dc',
+        native_addr: 't410fdyfdiswlpbljjjrb74mk44zijs57iyo4tbp5rsq',
+        private_key_hex: '0x3333333333333333333333333333333333333333333333333333333333333333',
+      },
+    ],
+    contracts: {
+      multicall3_addr: '0x2e1F1424b41ad7b2E34b0a60501edFc82FEf5BE8',
+      mockusdfc_addr: '0xB514FeE11119E0923950C09A181F1fa3aa62C80b',
+      fwss_service_proxy_addr: '0x4A8a81765bFBe09D6fDd167EF954a1D3401340e5',
+      fwss_state_view_addr: '0xfcDDd1E5BC2658fB7483B8e2fa72d8368756F5A3',
+      fwss_impl_addr: '0x16C929D141821bE5bABF48Da68f30560c289DB95',
+      pdp_verifier_proxy_addr: '0xc72B3D661fcCeBfDf95d3377C2133dCE7bc5cb2e',
+      pdp_verifier_impl_addr: '0x2d59A454f3F0Bc4056ac49498Ff16C8ab8805832',
+      service_provider_registry_proxy_addr: '0x123DeEe2aD1d87757cb59eFA77b4975CbfB8be9d',
+      service_provider_registry_impl_addr: '0x3452E6B9A44F161c1B6A903A567b9F123fE90374',
+      filecoin_pay_v1_addr: '0xFD61fA68CB8F70dfC35a4AB244703e39BaB9F352',
+      endorsements_addr: '0x583456fB91a637807d480d1B6E37029805C1978E',
+      session_key_registry_addr: '0x1234567890123456789012345678901234567890',
+    },
+    lotus: {
+      host_rpc_url: 'http://localhost:5701/rpc/v1',
+      container_id: 'b2e5f928ecb2383e19e3c88fa6eeaa6a81896788c5317759747d33568f30164a',
+      container_name: 'foc-20260204T1328_TestDevnet-lotus',
+    },
+    lotus_miner: {
+      container_id: '05e5d28a2b1e898d6f04ff035f72e198cce5e99cc77f64d766c6b38446ce14f3',
+      container_name: 'foc-20260204T1328_TestDevnet-lotus-miner',
+      api_port: 5703,
+    },
+    pdp_sps: [
+      {
+        provider_id: 1,
+        eth_addr: '0x446339ae7245e3cd1fed701b685c196c69af695e',
+        native_addr: 't410firrttltsixr42h7noanwqxaznru262k6scjx6gi',
+        pdp_service_url: 'http://localhost:5714',
+        container_id: '8c4e3b15aed9f2280ffcdcc749ba264f745144aacbf8685b36988a43184d254c',
+        container_name: 'foc-20260204T1328_TestDevnet-curio-1',
+        is_approved: true,
+        is_endorsed: false,
+        yugabyte: {
+          web_ui_url: 'http://localhost:5710',
+          master_rpc_port: 5706,
+          ysql_port: 5704,
+        },
+      },
+    ],
+  },
+}
+
+describe('foc-devnet-info', () => {
+  describe('validateDevnetInfo', () => {
+    it('should validate valid devnet info', () => {
+      const result = validateDevnetInfo(exampleDevnetInfoV1)
+
+      assert.equal(result.version, 1)
+      assert.ok(result.info)
+      assert.equal(result.info.run_id, '20260204T1328_TestDevnet')
+      assert.equal(result.info.users.length, 3)
+      assert.equal(result.info.pdp_sps.length, 1)
+    })
+
+    it('should throw on invalid data', () => {
+      assert.throws(() => {
+        validateDevnetInfo({ version: 1, info: {} })
+      }, /DevNet info schema validation failed/)
+    })
+  })
+
+  describe('toChain', () => {
+    it('should create chain object with correct properties', () => {
+      const devnetInfo = validateDevnetInfo(exampleDevnetInfoV1)
+      const chain = toChain(devnetInfo)
+
+      assert.equal(chain.id, 31415926)
+      assert.equal(chain.name, 'FOC DevNet')
+      assert.equal(chain.nativeCurrency.symbol, 'FIL')
+      assert.equal(chain.nativeCurrency.decimals, 18)
+      assert.equal(chain.testnet, true)
+    })
+
+    it('should include all required contracts with ABIs', () => {
+      const devnetInfo = validateDevnetInfo(exampleDevnetInfoV1)
+      const chain = toChain(devnetInfo)
+
+      assert.ok(chain.contracts.usdfc)
+      assert.ok(chain.contracts.usdfc.abi)
+      assert.equal(chain.contracts.usdfc.address, devnetInfo.info.contracts.mockusdfc_addr)
+
+      assert.ok(chain.contracts.filecoinPay)
+      assert.ok(chain.contracts.filecoinPay.abi)
+      assert.equal(chain.contracts.filecoinPay.address, devnetInfo.info.contracts.filecoin_pay_v1_addr)
+
+      assert.ok(chain.contracts.fwss)
+      assert.ok(chain.contracts.fwss.abi)
+      assert.equal(chain.contracts.fwss.address, devnetInfo.info.contracts.fwss_service_proxy_addr)
+
+      assert.ok(chain.contracts.fwssView)
+      assert.ok(chain.contracts.fwssView.abi)
+      assert.equal(chain.contracts.fwssView.address, devnetInfo.info.contracts.fwss_state_view_addr)
+
+      assert.ok(chain.contracts.serviceProviderRegistry)
+      assert.ok(chain.contracts.serviceProviderRegistry.abi)
+      assert.equal(
+        chain.contracts.serviceProviderRegistry.address,
+        devnetInfo.info.contracts.service_provider_registry_proxy_addr
+      )
+
+      assert.ok(chain.contracts.pdp)
+      assert.ok(chain.contracts.pdp.abi)
+      assert.equal(chain.contracts.pdp.address, devnetInfo.info.contracts.pdp_verifier_proxy_addr)
+
+      assert.ok(chain.contracts.endorsements)
+      assert.ok(chain.contracts.endorsements.abi)
+      assert.equal(chain.contracts.endorsements.address, devnetInfo.info.contracts.endorsements_addr)
+
+      assert.ok(chain.contracts.sessionKeyRegistry)
+      assert.ok(chain.contracts.sessionKeyRegistry.abi)
+      assert.equal(chain.contracts.sessionKeyRegistry.address, devnetInfo.info.contracts.session_key_registry_addr)
+    })
+  })
+})

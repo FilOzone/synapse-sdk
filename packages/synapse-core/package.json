@@ -97,9 +97,9 @@
       "types": "./dist/src/endorsements/index.d.ts",
       "default": "./dist/src/endorsements/index.js"
     },
-    "./foc-devnet-info": {
-      "types": "./dist/src/foc-devnet-info/src/index.d.ts",
-      "default": "./dist/src/foc-devnet-info/src/index.js"
+    "./devnet": {
+      "types": "./dist/src/devnet/index.d.ts",
+      "default": "./dist/src/devnet/index.js"
     }
   },
   "typesVersions": {
@@ -155,8 +155,8 @@
       "endorsements": [
         "./dist/src/endorsements/index"
       ],
-      "foc-devnet-info": [
-        "./dist/src/foc-devnet-info/src/index"
+      "devnet": [
+        "./dist/src/devnet/index"
       ]
     }
   },

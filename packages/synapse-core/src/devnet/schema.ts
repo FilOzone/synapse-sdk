@@ -1,11 +1,12 @@
 /**
- * @module @filoz/synapse-core/foc-devnet-info/schema
+ * @module @filoz/synapse-core/devnet/schema
  *
  * Zod schema for validating DevNet info exports.
  *
- * This schema ensures strict type checking and validates that all required
- * fields are present with correct types. It's used by the library to
- * validate the exported devnet-info.json file.
+ * This schema validates that all required fields are present with correct
+ * types in a DevNet info export. Additional or unknown fields may be
+ * ignored according to Zod's default object parsing behavior. It's used by
+ * the library to validate the exported devnet-info.json file.
  */
 
 import { z } from 'zod'

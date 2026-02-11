@@ -1,13 +1,13 @@
 /**
- * @module @filoz/synapse-core/foc-devnet-info
+ * @module @filoz/synapse-core/devnet
  *
- * Library for validating and transforming FOC devnet configuration exports.
- * Environment-agnostic - works in both Node.js and browsers.
+ * Validates and transforms foc-devnet's devnet-info.json into Synapse-compatible configuration.
+ * See https://github.com/FilOzone/foc-devnet for the export format.
  */
 
-import * as Abis from '../../abis/index.ts'
-import type { Chain } from '../../chains.ts'
-import { type VersionedDevnetInfo, validateDevnetInfo } from './schema.ts'
+import * as Abis from '../abis/index.ts'
+import type { Chain } from '../chains.ts'
+import type { VersionedDevnetInfo } from './schema.ts'
 
 /**
  * Environment variables generated from devnet info
@@ -29,54 +29,12 @@ export interface DevnetEnvVars {
 }
 
 /**
- * Load and validate devnet info from parsed JSON data.
- *
- * @param data - The parsed devnet-info.json data
- * @returns Validated devnet info: { version: number, info: DevnetInfoV1 }
- * @throws {Error} If validation fails
- *
- * @example
- * // In Node.js
- * import { readFileSync } from 'fs';
- * import { loadDevnetInfo } from '@filoz/synapse-core/foc-devnet-info';
- *
- * const data = JSON.parse(readFileSync('devnet-info.json', 'utf8'));
- * const devnetInfo = loadDevnetInfo(data);
- *
- * @example
- * // In browser
- * import { loadDevnetInfo } from '@filoz/synapse-core/foc-devnet-info';
- *
- * const response = await fetch('/devnet-info.json');
- * const data = await response.json();
- * const devnetInfo = loadDevnetInfo(data);
- */
-export function loadDevnetInfo(data: unknown): VersionedDevnetInfo {
-  return validateDevnetInfo(data)
-}
-
-/**
  * Create a Synapse Chain object from devnet info.
  * This is compatible with viem and includes all ABIs needed by the Synapse SDK.
  *
- * @param devnetInfo - The devnet info from loadDevnetInfo()
+ * @param devnetInfo - The devnet info from validateDevnetInfo()
  * @returns Synapse Chain object with contract ABIs and addresses
  *
- * @example
- * import { loadDevnetInfo, toChain } from '@filoz/synapse-core/foc-devnet-info';
- * import { Synapse } from '@filoz/synapse-sdk';
- * import { createWalletClient, http } from 'viem';
- * import { privateKeyToAccount } from 'viem/accounts';
- *
- * const data = JSON.parse(await (await fetch('/devnet-info.json')).text());
- * const devnetInfo = loadDevnetInfo(data);
- * const chain = toChain(devnetInfo);
- *
- * const synapse = Synapse.create({
- *   chain,
- *   transport: http(),
- *   account: privateKeyToAccount(devnetInfo.info.users[0].private_key_hex),
- * });
  */
 export function toChain(devnetInfo: VersionedDevnetInfo): Chain {
   const { info } = devnetInfo
@@ -148,11 +106,6 @@ export function toChain(devnetInfo: VersionedDevnetInfo): Chain {
     genesisTimestamp: 0,
   }
 }
-
-/**
- * @deprecated Use {@link toChain} instead. This function returns a plain viem Chain without ABIs.
- */
-export const toViemChain = toChain
 
 export type {
   ContractsInfo,
