@@ -87,7 +87,7 @@ export async function readPdpDataSetInfo(
   }
 ): Promise<PdpDataSetInfo> {
   const chain = asChain(client.chain)
-  const [live, listener, metadata, _pdpProvider] = await multicall(client, {
+  const [live, listener, _metadata, _pdpProvider] = await multicall(client, {
     allowFailure: false,
     contracts: [
       dataSetLiveCall({
@@ -110,12 +110,13 @@ export async function readPdpDataSetInfo(
   })
 
   const pdpProvider = parsePDPProvider(_pdpProvider)
+  const metadata = parseAllDataSetMetadata(_metadata)
 
   return {
     live,
     managed: isAddressEqual(listener, chain.contracts.fwss.address),
-    cdn: options.dataSetInfo.cdnRailId !== 0n,
-    metadata: parseAllDataSetMetadata(metadata),
+    cdn: options.dataSetInfo.cdnRailId > 0n && 'withCDN' in metadata,
+    metadata,
     provider: pdpProvider,
   }
 }

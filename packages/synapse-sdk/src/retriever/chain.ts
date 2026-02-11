@@ -8,32 +8,52 @@
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { Address } from 'viem'
 import type { SPRegistryService } from '../sp-registry/index.ts'
-import type { PieceCID, PieceRetriever } from '../types.ts'
+import type { PieceFetchOptions, PieceRetriever } from '../types.ts'
 import { createError } from '../utils/index.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { fetchPiecesFromProviders } from './utils.ts'
+
+export interface ChainRetrieverConstructorOptions {
+  warmStorageService: WarmStorageService
+  spRegistry: SPRegistryService
+  childRetriever?: PieceRetriever
+}
+
+interface FindProvidersOptions {
+  client: Address
+  providerAddress?: Address
+}
 
 export class ChainRetriever implements PieceRetriever {
   private readonly warmStorageService: WarmStorageService
   private readonly childRetriever?: PieceRetriever
   private readonly spRegistry: SPRegistryService
 
-  constructor(warmStorageService: WarmStorageService, spRegistry: SPRegistryService, childRetriever?: PieceRetriever) {
-    this.warmStorageService = warmStorageService
-    this.spRegistry = spRegistry
-    this.childRetriever = childRetriever
+  /**
+   * @param options - Constructor options
+   * @param options.warmStorageService - Warm storage service instance
+   * @param options.spRegistry - Service provider registry instance
+   * @param options.childRetriever - Optional fallback retriever
+   */
+  constructor(options: ChainRetrieverConstructorOptions) {
+    this.warmStorageService = options.warmStorageService
+    this.spRegistry = options.spRegistry
+    this.childRetriever = options.childRetriever
   }
 
   /**
    * Find providers that can serve pieces for a client
-   * @param client - The client address
-   * @param providerAddress - Optional specific provider to use
+   * @param options - Provider discovery options
+   * @param options.client - The client address
+   * @param options.providerAddress - Optional specific provider to use
    * @returns List of provider info
    */
-  private async findProviders(client: Address, providerAddress?: Address): Promise<PDPProvider[]> {
+  private async findProviders(options: FindProvidersOptions): Promise<PDPProvider[]> {
+    const { client, providerAddress } = options
+
     if (providerAddress != null) {
       // Direct provider case - skip data set lookup entirely
-      const provider = await this.spRegistry.getProviderByAddress(providerAddress)
+      const provider = await this.spRegistry.getProviderByAddress({ address: providerAddress })
       if (provider == null) {
         throw createError('ChainRetriever', 'findProviders', `Provider ${providerAddress} not found in registry`)
       }
@@ -43,7 +63,7 @@ export class ChainRetriever implements PieceRetriever {
     // Multiple provider case - need data sets to find providers
 
     // Get client's data sets with details
-    const dataSets = await this.warmStorageService.getClientDataSetsWithDetails(client)
+    const dataSets = await this.warmStorageService.getClientDataSetsWithDetails({ address: client })
 
     // Filter for live data sets with pieces
     const validDataSets = dataSets.filter((ds) => ds.isLive && ds.activePieceCount > 0)
@@ -56,7 +76,7 @@ export class ChainRetriever implements PieceRetriever {
     const uniqueProviderIds = [...new Set(validDataSets.map((ds) => ds.providerId))]
 
     // Batch fetch provider info for all unique provider IDs
-    const providerInfos = await this.spRegistry.getProviders(uniqueProviderIds)
+    const providerInfos = await this.spRegistry.getProviders({ providerIds: uniqueProviderIds })
 
     // Filter out null values (providers not found in registry)
     const validProviderInfos = providerInfos.filter((info): info is PDPProvider => info != null)
@@ -72,19 +92,23 @@ export class ChainRetriever implements PieceRetriever {
     return validProviderInfos
   }
 
-  async fetchPiece(
-    pieceCid: PieceCID,
-    client: Address,
-    options?: {
-      providerAddress?: Address
-      withCDN?: boolean
-      signal?: AbortSignal
-    }
-  ): Promise<Response> {
+  /**
+   * Fetch a piece from on-chain discovered providers.
+   * @param options - Piece retrieval options
+   * @param options.pieceCid - The piece identifier
+   * @param options.client - The client address requesting the piece
+   * @param options.providerAddress - Optional provider address override
+   * @param options.withCDN - Optional CDN hint passed to child retrievers
+   * @param options.signal - Optional AbortSignal for request cancellation
+   * @returns A response containing the piece data
+   */
+  async fetchPiece(options: PieceFetchOptions): Promise<Response> {
+    const { pieceCid, client, providerAddress, withCDN, signal } = options
+
     // Helper function to try child retriever or throw error
     const tryChildOrThrow = async (reason: string, cause?: unknown): Promise<Response> => {
       if (this.childRetriever !== undefined) {
-        return await this.childRetriever.fetchPiece(pieceCid, client, options)
+        return await this.childRetriever.fetchPiece({ pieceCid, client, providerAddress, withCDN, signal })
       }
       throw createError(
         'ChainRetriever',
@@ -97,7 +121,7 @@ export class ChainRetriever implements PieceRetriever {
     // Find providers
     let providersToTry: PDPProvider[] = []
     try {
-      providersToTry = await this.findProviders(client, options?.providerAddress)
+      providersToTry = await this.findProviders({ client, providerAddress })
     } catch (error) {
       // Provider discovery failed - this is a critical error
       const message = error instanceof Error ? error.message : 'Provider discovery failed'
@@ -111,7 +135,7 @@ export class ChainRetriever implements PieceRetriever {
 
     // Try to fetch from providers
     try {
-      return await fetchPiecesFromProviders(providersToTry, pieceCid, 'ChainRetriever', options?.signal)
+      return await fetchPiecesFromProviders(providersToTry, pieceCid, 'ChainRetriever', signal)
     } catch (error) {
       // All provider attempts failed
       return await tryChildOrThrow(

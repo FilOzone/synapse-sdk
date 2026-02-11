@@ -55,10 +55,10 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const data = new Uint8Array([1, 2, 3, 4, 5]);
 
-const result = await synapse.storage.upload(data);
-const downloaded = await synapse.storage.download(result.pieceCid);
+const { pieceCid } = await synapse.storage.upload(data);
+const downloaded = await synapse.storage.download({ pieceCid });
 
-console.log("Uploaded:", result.pieceCid);
+console.log("Uploaded:", pieceCid);
 console.log("Downloaded:", downloaded.length, "bytes");
 ```
 
@@ -158,12 +158,13 @@ Access custom metadata attached to individual pieces for organization and filter
 ```ts twoslash
 // @lib: esnext,dom
 import { WarmStorageService } from "@filoz/synapse-sdk/warm-storage";
+import { privateKeyToAccount } from 'viem/accounts'
 const dataSetId = 1n;
 const piece = null as unknown as { pieceCid: string; pieceId: bigint };
 // ---cut---
-const warmStorage =  WarmStorageService.create();
+const warmStorage =  WarmStorageService.create({ account: privateKeyToAccount('0x...') });
 
-const metadata = await warmStorage.getPieceMetadata(dataSetId, piece.pieceId);
+const metadata = await warmStorage.getPieceMetadata({ dataSetId, pieceId: piece.pieceId });
 console.log("Piece metadata:", metadata);
 ```
 
@@ -193,7 +194,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
-const info = await synapse.getStorageInfo();
+const info = await synapse.storage.getStorageInfo();
 console.log("Price/TiB/month:", info.pricing.noCDN.perTiBPerMonth);
 console.log("Providers:", info.providers.length);
 

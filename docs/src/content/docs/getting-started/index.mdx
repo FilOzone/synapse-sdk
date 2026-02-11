@@ -82,10 +82,9 @@ async function main() {
   })
 
   // 2) Fund & approve (single tx)
-  const depositAmount = parseUnits("2.5")
-  const hash = await synapse.payments.depositWithPermitAndApproveOperator(
-    depositAmount, // 2.5 USDFC (covers 1TiB of storage for 30 days)
-  )
+  const hash = await synapse.payments.depositWithPermitAndApproveOperator({
+    amount: parseUnits("2.5"), // 2.5 USDFC (covers 1TiB of storage for 30 days)
+  })
   await synapse.client.waitForTransactionReceipt({ hash })
   console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
 
@@ -102,7 +101,7 @@ async function main() {
   console.log(`Size: ${size} bytes`);
 
   // 4) Download
-  const bytes = await synapse.storage.download(pieceCid)
+  const bytes = await synapse.storage.download({ pieceCid })
   const decodedText = new TextDecoder().decode(bytes);
   console.log(`✅ Download successful!`);
   console.log(`Downloaded data: ${decodedText}\n`);
@@ -156,14 +155,13 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 
 // ---cut---
 // Check current USDFC balance
-const walletBalance = await synapse.payments.walletBalance(TOKENS.USDFC);
+const walletBalance = await synapse.payments.walletBalance({ token:TOKENS.USDFC });
 const formattedBalance = formatUnits(walletBalance);
-const depositAmount = parseUnits("2.5") // 2.5 USDFC
 
 // Deposit USDFC for payment and approve Warm Storage service
-const hash = await synapse.payments.depositWithPermitAndApproveOperator(
-  depositAmount, // Deposit amount: 2.5 USDFC (covers 1TiB of storage for 30 days)
-);
+const hash = await synapse.payments.depositWithPermitAndApproveOperator({
+  amount: parseUnits("2.5"), // Deposit amount: 2.5 USDFC (covers 1TiB of storage for 30 days)
+});
 await synapse.client.waitForTransactionReceipt({ hash });
 console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
 ```
@@ -180,7 +178,7 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 // ---cut---
 // Upload data - SDK automatically selects provider and creates data set if needed
 const file = new TextEncoder().encode(
-    `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
+  `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
     Your data is safe here. 
     🌍 You need to make sure to meet the minimum size 
     requirement of 127 bytes per upload.`
@@ -188,7 +186,7 @@ const file = new TextEncoder().encode(
 const { pieceCid } = await synapse.storage.upload(file);
 
 // Download data from any provider that has it
-const downloadedData = await synapse.storage.download(pieceCid);
+const downloadedData = await synapse.storage.download({ pieceCid });
 const decodedText = new TextDecoder().decode(downloadedData);
 
 console.log(`Downloaded data: ${decodedText}`);
@@ -227,7 +225,7 @@ import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 const file = new TextEncoder().encode(
-    `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
+  `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
     Your data is safe here. 
     🌍 You need to make sure to meet the minimum size 
     requirement of 127 bytes per upload.`
@@ -247,7 +245,7 @@ const context = await synapse.storage.createContext({
 const result = await context.upload(file);
 
 // Download from this context
-const downloaded = await context.download(result.pieceCid);
+const downloaded = await context.download({ pieceCid: result.pieceCid });
 ```
 
 - **providerId**: By specifying `providerId`, you tell Synapse SDK to store (and later retrieve) your data specifically with that provider.

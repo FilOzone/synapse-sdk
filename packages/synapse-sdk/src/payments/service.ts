@@ -7,21 +7,27 @@ import {
   type Address,
   type Chain,
   type Client,
+  createClient,
   type Hash,
+  http,
   parseSignature,
   type TransactionReceipt,
   type Transport,
 } from 'viem'
 import { getBalance, getBlockNumber, simulateContract, writeContract } from 'viem/actions'
 import type { RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
-import { createError, TIMING_CONSTANTS, TOKENS } from '../utils/index.ts'
+import { createError, DEFAULT_CHAIN, TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
 
 /**
  * Options for deposit operation
  */
 export interface DepositOptions {
-  /** Optional recipient address (defaults to signer address if not provided) */
+  /** Optional recipient address (defaults to wallet address if not provided) */
   to?: Address
+  /** The amount to deposit */
+  amount: TokenAmount
+  /** The token to deposit (defaults to USDFC) */
+  token?: TokenIdentifier
   /** Called when checking current allowance */
   onAllowanceCheck?: (current: bigint, required: bigint) => void
   /** Called when approval transaction is sent */
@@ -39,44 +45,74 @@ export class PaymentsService {
   private readonly _client: Client<Transport, Chain, Account>
 
   /**
-   * @param client - Client instance for balance checks, nonce management, and epoch calculations
+   * Create a new PaymentsService instance
    *
+   * @param options - Options for the PaymentsService
+   * @param options.client - Viem wallet client
+   * @returns A new PaymentsService instance
    */
-  constructor(client: Client<Transport, Chain, Account>) {
-    this._client = client
+  constructor(options: { client: Client<Transport, Chain, Account> }) {
+    this._client = options.client
   }
 
-  async balance(token: TokenIdentifier = TOKENS.USDFC): Promise<bigint> {
+  /**
+   * Create a new PaymentsService with pre-configured client
+   *
+   * @param options - Options for the PaymentsService
+   * @param options.transport - Viem transport (optional, defaults to http())
+   * @param options.chain - Filecoin chain (optional, defaults to {@link DEFAULT_CHAIN})
+   * @param options.account - Viem account (required)
+   * @returns A new {@link PaymentsService} instance
+   */
+  static create(options: { transport?: Transport; chain?: Chain; account: Account }): PaymentsService {
+    const client = createClient({
+      chain: options.chain ?? DEFAULT_CHAIN,
+      transport: options.transport ?? http(),
+      account: options.account,
+      name: 'PaymentsService',
+      key: 'payments-service',
+    })
+
+    if (client.account.type === 'json-rpc' && client.transport.type !== 'custom') {
+      throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
+    }
+    return new PaymentsService({ client })
+  }
+
+  /**
+   * Get the balance of the payments contract
+   * @param options - Options for the balance
+   * @param options.token - The token to get balance for (defaults to USDFC)
+   * @returns The balance of the payments contract
+   * @throws Errors {@link Pay.accounts.ErrorType}
+   */
+  async balance(options: { token?: TokenIdentifier } = { token: TOKENS.USDFC }): Promise<bigint> {
     // For now, only support USDFC balance
-    if (token !== TOKENS.USDFC) {
+    if (options.token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
         'payments contract balance check',
-        `Token "${token}" is not supported. Currently only USDFC token is supported for payments contract balance queries.`
+        `Token "${options.token}" is not supported. Currently only USDFC token is supported for payments contract balance queries.`
       )
     }
 
-    const accountInfo = await this.accountInfo(token)
+    const accountInfo = await this.accountInfo({ token: options.token })
     return accountInfo.availableFunds
   }
 
   /**
    * Get detailed account information from the payments contract
-   * @param token - The token to get account info for (defaults to USDFC)
-   * @returns Account information including funds, lockup details, and available balance
+   * @param options - Options for the account info
+   * @param options.token - The token to get account info for (defaults to USDFC)
+   * @returns Account information {@link Pay.accounts.OutputType}
+   * @throws Errors {@link Pay.accounts.ErrorType}
    */
-  async accountInfo(token: TokenIdentifier = TOKENS.USDFC): Promise<{
-    funds: bigint
-    lockupCurrent: bigint
-    lockupRate: bigint
-    lockupLastSettledAt: bigint
-    availableFunds: bigint
-  }> {
-    if (token !== TOKENS.USDFC) {
+  async accountInfo(options: { token?: TokenIdentifier } = { token: TOKENS.USDFC }): Promise<Pay.accounts.OutputType> {
+    if (options.token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
         'account info',
-        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+        `Token "${options.token}" is not supported. Currently only USDFC token is supported.`
       )
     }
 
@@ -85,9 +121,18 @@ export class PaymentsService {
     })
   }
 
-  async walletBalance(token?: TokenIdentifier): Promise<bigint> {
+  /**
+   * Get the balance of the wallet
+   *
+   * @param options - Options for the wallet balance
+   * @param options.token - The token to get wallet balance for (defaults to FIL)
+   * @returns The balance of the wallet
+   * @throws Errors {@link getBalance.ErrorType}
+   */
+  async walletBalance(options: { token?: TokenIdentifier } = {}): Promise<bigint> {
+    const { token = TOKENS.FIL } = options
     // If no token specified or FIL is requested, return native wallet balance
-    if (token == null || token === TOKENS.FIL) {
+    if (token === TOKENS.FIL) {
       try {
         const balance = await getBalance(this._client, {
           address: this._client.account.address,
@@ -128,18 +173,22 @@ export class PaymentsService {
     )
   }
 
-  decimals(_token: TokenIdentifier = TOKENS.USDFC): number {
+  decimals(): number {
     // Both FIL and USDFC use 18 decimals
     return 18
   }
 
   /**
    * Check the current ERC20 token allowance for a spender
-   * @param spender - The address to check allowance for
-   * @param token - The token to check allowance for (defaults to USDFC)
+   *
+   * @param options - Options for the allowance check
+   * @param options.spender - The address to check allowance for
+   * @param options.token - The token to check allowance for (defaults to USDFC)
    * @returns The current allowance amount as bigint
+   * @throws Errors {@link ERC20.balance.ErrorType}
    */
-  async allowance(spender: Address, token: TokenIdentifier = TOKENS.USDFC): Promise<bigint> {
+  async allowance(options: { spender: Address; token?: TokenIdentifier }): Promise<bigint> {
+    const { spender, token = TOKENS.USDFC } = options
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -166,12 +215,15 @@ export class PaymentsService {
 
   /**
    * Approve an ERC20 token spender
-   * @param spender - The address to approve as spender
-   * @param amount - The amount to approve
-   * @param token - The token to approve spending for (defaults to USDFC)
+   *
+   * @param options - Options for the approve
+   * @param options.spender - The address to approve as spender
+   * @param options.amount - The amount to approve
+   * @param options.token - The token to approve spending for (defaults to USDFC)
    * @returns Transaction response object
    */
-  async approve(spender: Address, amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<Hash> {
+  async approve(options: { spender: Address; amount: TokenAmount; token?: TokenIdentifier }): Promise<Hash> {
+    const { spender, amount, token = TOKENS.USDFC } = options
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -200,20 +252,25 @@ export class PaymentsService {
    * Approve a service contract to act as an operator for payment rails
    * This allows the service contract (such as Warm Storage) to create and manage payment rails on behalf
    * of the client
-   * @param service - The service contract address to approve
-   * @param rateAllowance - Maximum payment rate per epoch the operator can set
-   * @param lockupAllowance - Maximum lockup amount the operator can set
-   * @param maxLockupPeriod - Maximum lockup period in epochs the operator can set
-   * @param token - The token to approve for (defaults to USDFC)
-   * @returns Transaction response object
+   * @param options - Options for the approve service
+   * @param options.service - The service contract address to approve (defaults to Warm Storage contract address)
+   * @param options.rateAllowance - Maximum payment rate per epoch the operator can set (defaults to maxUint256)
+   * @param options.lockupAllowance - Maximum lockup amount the operator can set (defaults to maxUint256)
+   * @param options.maxLockupPeriod - Maximum lockup period in epochs the operator can set (defaults to 30 days in epochs)
+   * @param options.token - The token to approve for (defaults to USDFC)
+   * @returns Transaction hash {@link Hash}
+   * @throws Errors {@link Pay.setOperatorApproval.ErrorType}
    */
   async approveService(
-    service: Address,
-    rateAllowance: TokenAmount,
-    lockupAllowance: TokenAmount,
-    maxLockupPeriod: TokenAmount,
-    token: TokenIdentifier = TOKENS.USDFC
+    options: {
+      service?: Address
+      rateAllowance?: TokenAmount
+      lockupAllowance?: TokenAmount
+      maxLockupPeriod?: TokenAmount
+      token?: TokenIdentifier
+    } = {}
   ): Promise<Hash> {
+    const { service, rateAllowance, lockupAllowance, maxLockupPeriod, token = TOKENS.USDFC } = options
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -221,7 +278,6 @@ export class PaymentsService {
         `Token "${token}" is not supported. Currently only USDFC token is supported.`
       )
     }
-
     try {
       const approveTx = await Pay.setOperatorApproval(this._client, {
         operator: service,
@@ -243,11 +299,15 @@ export class PaymentsService {
 
   /**
    * Revoke a service contract's operator approval
-   * @param service - The service contract address to revoke
-   * @param token - The token to revoke approval for (defaults to USDFC)
-   * @returns Transaction response object
+   *
+   * @param options - Options for the revoke service
+   * @param options.service - The service contract address to revoke (defaults to Warm Storage contract address)
+   * @param options.token - The token to revoke approval for (defaults to USDFC)
+   * @returns Transaction hash {@link Hash}
+   * @throws Errors {@link Pay.setOperatorApproval.ErrorType}
    */
-  async revokeService(service: Address, token: TokenIdentifier = TOKENS.USDFC): Promise<Hash> {
+  async revokeService(options: { service?: Address; token?: TokenIdentifier } = {}): Promise<Hash> {
+    const { service, token = TOKENS.USDFC } = options
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -274,14 +334,17 @@ export class PaymentsService {
 
   /**
    * Get the operator approval status and allowances for a service
-   * @param service - The service contract address to check
-   * @param token - The token to check approval for (defaults to USDFC)
+   *
+   * @param options - Options for the service approval
+   * @param options.service - The service contract address to check (defaults to Warm Storage contract address)
+   * @param options.token - The token to check approval for (defaults to USDFC)
    * @returns Approval status and allowances {@link Pay.operatorApprovals.OutputType}
+   * @throws Errors {@link Pay.operatorApprovals.ErrorType}
    */
   async serviceApproval(
-    service: Address,
-    token: TokenIdentifier = TOKENS.USDFC
+    options: { service?: Address; token?: TokenIdentifier } = {}
   ): Promise<Pay.operatorApprovals.OutputType> {
+    const { service, token = TOKENS.USDFC } = options
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -306,7 +369,15 @@ export class PaymentsService {
     }
   }
 
-  async deposit(amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC, options?: DepositOptions): Promise<Hash> {
+  /**
+   * Deposit funds into the payments contract
+   *
+   * @param options - Options for the deposit {@link DepositOptions}
+   * @returns Transaction hash {@link Hash}
+   * @throws Errors {@link ERC20.balance.ErrorType} | {@link ERC20.approve.ErrorType} | {@link Pay.deposit.ErrorType}
+   */
+  async deposit(options: DepositOptions): Promise<Hash> {
+    const { amount, token = TOKENS.USDFC } = options
     const chain = asChain(this._client.chain)
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
@@ -346,8 +417,6 @@ export class PaymentsService {
       options?.onApprovalConfirmed?.(receipt)
     }
 
-    // Check if account has sufficient available balance (no frozen account check needed for deposits)
-
     // Notify that deposit is starting
     options?.onDepositStarting?.()
 
@@ -364,16 +433,15 @@ export class PaymentsService {
    * This method creates an EIP-712 typed-data signature for the USDFC token's permit,
    * then calls the Payments contract `depositWithPermit` to pull funds and credit the account.
    *
-   * @param amount - Amount of USDFC to deposit (in base units)
-   * @param token - Token identifier (currently only USDFC is supported)
-   * @param deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
-   * @returns Transaction response object
+   * @param options - Options for the deposit with permit {@link DepositWithPermitOptions}
+   * @param options.amount - Amount of USDFC to deposit (in base units)
+   * @param options.token - Token identifier (currently only USDFC is supported)
+   * @param options.deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
+   * @returns Transaction response object {@link Hash}
+   * @throws Errors {@link ERC20.balanceForPermit.ErrorType} | {@link ERC20.permit.ErrorType} | {@link Pay.depositWithPermit.ErrorType}
    */
-  async depositWithPermit(
-    amount: TokenAmount,
-    token: TokenIdentifier = TOKENS.USDFC,
-    deadline?: bigint
-  ): Promise<Hash> {
+  async depositWithPermit(options: { amount: TokenAmount; token?: TokenIdentifier; deadline?: bigint }): Promise<Hash> {
+    const { amount, token = TOKENS.USDFC, deadline } = options
     const chain = asChain(this._client.chain)
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
@@ -386,7 +454,7 @@ export class PaymentsService {
 
     // Calculate deadline
     const permitDeadline: bigint =
-      deadline == null ? BigInt(Math.floor(Date.now() / 1000) + TIMING_CONSTANTS.PERMIT_DEADLINE_DURATION) : deadline
+      deadline == null ? BigInt(Math.floor(Date.now() / 1000) + TIME_CONSTANTS.PERMIT_DEADLINE_DURATION) : deadline
 
     const balance = await ERC20.balanceForPermit(this._client, {
       address: this._client.account.address,
@@ -439,24 +507,35 @@ export class PaymentsService {
    * This signs an EIP-712 permit for the USDFC token and calls the Payments contract
    * function `depositWithPermitAndApproveOperator` which both deposits and sets operator approval.
    *
-   * @param amount - Amount of USDFC to deposit (in base units)
-   * @param operator - Service/operator address to approve
-   * @param rateAllowance - Max payment rate per epoch operator can set
-   * @param lockupAllowance - Max lockup amount operator can set
-   * @param maxLockupPeriod - Max lockup period in epochs operator can set
-   * @param token - Token identifier (currently only USDFC supported)
-   * @param deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
-   * @returns Transaction hash
+   * @param options - Options for the deposit with permit and approve operator
+   * @param options.amount - Amount of USDFC to deposit (in base units)
+   * @param options.operator - Service/operator address to approve
+   * @param options.rateAllowance - Max payment rate per epoch operator can set
+   * @param options.lockupAllowance - Max lockup amount operator can set
+   * @param options.maxLockupPeriod - Max lockup period in epochs operator can set
+   * @param options.token - Token identifier (currently only USDFC supported)
+   * @param options.deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
+   * @returns Transaction hash {@link Hash}
+   * @throws Errors {@link ERC20.balanceForPermit.ErrorType} | {@link ERC20.permit.ErrorType} | {@link Pay.depositWithPermitAndApproveOperator.ErrorType}
    */
-  async depositWithPermitAndApproveOperator(
-    amount: TokenAmount,
-    operator?: Address,
-    rateAllowance?: TokenAmount,
-    lockupAllowance?: TokenAmount,
-    maxLockupPeriod?: bigint,
-    deadline?: bigint,
-    token: TokenIdentifier = TOKENS.USDFC
-  ): Promise<Hash> {
+  async depositWithPermitAndApproveOperator(options: {
+    amount: TokenAmount
+    operator?: Address
+    rateAllowance?: TokenAmount
+    lockupAllowance?: TokenAmount
+    maxLockupPeriod?: bigint
+    deadline?: bigint
+    token?: TokenIdentifier
+  }): Promise<Hash> {
+    const {
+      amount,
+      operator,
+      rateAllowance,
+      lockupAllowance,
+      maxLockupPeriod,
+      deadline,
+      token = TOKENS.USDFC,
+    } = options
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'depositWithPermitAndApproveOperator', `Unsupported token: ${token}`)
@@ -482,75 +561,50 @@ export class PaymentsService {
     }
   }
 
-  async withdraw(amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<Hash> {
+  /**
+   * Withdraw funds from the payments contract
+   *
+   * @param options - Options for the withdraw
+   * @param options.amount - The amount to withdraw
+   * @param options.token - The token to withdraw (defaults to USDFC)
+   * @returns Transaction hash {@link Hash}
+   * @throws Errors {@link Pay.withdraw.ErrorType}
+   */
+  async withdraw(options: { amount: TokenAmount; token?: TokenIdentifier }): Promise<Hash> {
+    const { amount, token = TOKENS.USDFC } = options
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'withdraw', `Unsupported token: ${token}`)
     }
 
-    if (amount <= 0n) {
-      throw createError('PaymentsService', 'withdraw', 'Invalid amount')
-    }
-
-    // Check balance using the corrected accountInfo method
-    const accountInfo = await this.accountInfo(token)
-
-    if (accountInfo.availableFunds < amount) {
-      throw createError(
-        'PaymentsService',
-        'withdraw',
-        `Insufficient available balance: have ${accountInfo.availableFunds.toString()}, need ${amount.toString()}`
-      )
-    }
-
-    const hash = await Pay.withdraw(this._client, {
+    return Pay.withdraw(this._client, {
       amount,
     })
-
-    return hash
   }
 
   /**
    * Settle a payment rail up to a specific epoch (sends a transaction)
    *
-   * @param railId - The rail ID to settle
-   * @param untilEpoch - The epoch to settle up to (must be <= current epoch; defaults to current).
-   *                     Can be used for partial settlements to a past epoch.
-   * @returns Transaction response object
-   * @throws Error if untilEpoch is in the future (contract reverts with CannotSettleFutureEpochs)
+   * @param options - Options for the settle
+   * @param options.railId - The rail ID to settle
+   * @param options.untilEpoch - The epoch to settle up to (must be <= current epoch; defaults to current). Can be used for partial settlements to a past epoch.
+   * @returns Transaction hash {@link Hash}
+   * @throws Errors {@link Pay.settleRail.ErrorType}
    */
-  async settle(railId: bigint, untilEpoch?: bigint): Promise<Hash> {
-    const _untilEpoch =
-      untilEpoch ??
-      (await getBlockNumber(this._client, {
-        cacheTime: 0,
-      }))
-
-    try {
-      const hash = await Pay.settleRail(this._client, {
-        railId,
-        untilEpoch: _untilEpoch,
-      })
-      return hash
-    } catch (error) {
-      throw createError(
-        'PaymentsService',
-        'settle',
-        `Failed to settle rail ${railId.toString()} up to epoch ${_untilEpoch.toString()}`,
-        error
-      )
-    }
+  async settle(options: { railId: bigint; untilEpoch?: bigint }): Promise<Hash> {
+    return Pay.settleRail(this._client, options)
   }
 
   /**
    * Get the expected settlement amounts for a rail (read-only simulation)
    *
-   * @param railId - The rail ID to check
-   * @param untilEpoch - The epoch to settle up to (must be <= current epoch; defaults to current).
-   *                     Can be used to preview partial settlements to a past epoch.
-   * @returns Settlement result with amounts and details
+   * @param options - Options for the get settlement amounts
+   * @param options.railId - The rail ID to check
+   * @param options.untilEpoch - The epoch to settle up to (must be <= current epoch; defaults to current). Can be used to preview partial settlements to a past epoch.
+   * @returns Settlement result with amounts and details {@link SettlementResult}
    */
-  async getSettlementAmounts(railId: bigint, untilEpoch?: bigint): Promise<SettlementResult> {
+  async getSettlementAmounts(options: { railId: bigint; untilEpoch?: bigint }): Promise<SettlementResult> {
+    const { railId, untilEpoch } = options
     const _untilEpoch =
       untilEpoch ??
       (await getBlockNumber(this._client, {
@@ -590,57 +644,37 @@ export class PaymentsService {
    * Emergency settlement for terminated rails only - bypasses service contract validation
    * This ensures payment even if the validator contract is buggy or unresponsive (pays in full)
    * Can only be called by the client after the max settlement epoch has passed
-   * @param railId - The rail ID to settle
-   * @returns Transaction response object
+   * @param options - Options for the settle terminated rail
+   * @param options.railId - The rail ID to settle
+   * @returns Transaction hash {@link Hash}
+   * @throws Errors {@link Pay.settleTerminatedRailWithoutValidation.ErrorType}
    */
-  async settleTerminatedRail(railId: bigint): Promise<Hash> {
-    try {
-      const hash = await Pay.settleTerminatedRailWithoutValidation(this._client, {
-        railId,
-      })
-      return hash
-    } catch (error) {
-      throw createError(
-        'PaymentsService',
-        'settleTerminatedRail',
-        `Failed to settle terminated rail ${railId.toString()}`,
-        error
-      )
-    }
+  async settleTerminatedRail(options: { railId: bigint }): Promise<Hash> {
+    return Pay.settleTerminatedRailWithoutValidation(this._client, options)
   }
 
   /**
    * Get detailed information about a specific rail
-   * @param railId - The rail ID to query
-   * @returns Rail information including all parameters and current state
-   * @throws Error if the rail doesn't exist or is inactive (contract reverts with RailInactiveOrSettled)
+   * @param options - Options for the get rail
+   * @param options.railId - The rail ID to query
+   * @returns Rail information including all parameters and current state {@link Pay.getRail.OutputType}
+   * @throws When the rail does not exist or is inactive
    */
-  async getRail(railId: bigint): Promise<{
-    token: Address
-    from: Address
-    to: Address
-    operator: Address
-    validator: Address
-    paymentRate: bigint
-    lockupPeriod: bigint
-    lockupFixed: bigint
-    settledUpTo: bigint
-    endEpoch: bigint
-    commissionRateBps: bigint
-    serviceFeeRecipient: Address
-  }> {
+  async getRail(options: { railId: bigint }): Promise<Pay.getRail.OutputType> {
     try {
-      const rail = await Pay.getRail(this._client, {
-        railId,
-      })
+      const rail = await Pay.getRail(this._client, options)
 
       return rail
     } catch (error: any) {
       // Contract reverts with RailInactiveOrSettled error if rail doesn't exist
       if (error.message?.includes('RailInactiveOrSettled')) {
-        throw createError('PaymentsService', 'getRail', `Rail ${railId.toString()} does not exist or is inactive`)
+        throw createError(
+          'PaymentsService',
+          'getRail',
+          `Rail ${options.railId.toString()} does not exist or is inactive`
+        )
       }
-      throw createError('PaymentsService', 'getRail', `Failed to get rail ${railId.toString()}`, error)
+      throw createError('PaymentsService', 'getRail', `Failed to get rail ${options.railId.toString()}`, error)
     }
   }
 
@@ -650,41 +684,43 @@ export class PaymentsService {
    * - For terminated rails: calls settleTerminatedRail()
    * - For active rails: calls settle() with optional untilEpoch
    *
-   * @param railId - The rail ID to settle
-   * @param untilEpoch - The epoch to settle up to (must be <= current epoch for active rails; ignored for terminated rails)
-   * @returns Transaction response object
+   * @param options - Options for the settle auto
+   * @param options.railId - The rail ID to settle
+   * @param options.untilEpoch - The epoch to settle up to (must be <= current epoch for active rails; ignored for terminated rails)
+   * @returns Transaction response object {@link Hash}
    * @throws Error if rail doesn't exist (contract reverts with RailInactiveOrSettled) or other settlement errors
    *
    * @example
-   * ```javascript
+   * ```ts
    * // Automatically detect and settle appropriately
-   * const tx = await synapse.payments.settleAuto(railId)
-   * await tx.wait()
+   * const hash = await synapse.payments.settleAuto({ railId })
    *
    * // For active rails, can specify epoch
-   * const tx = await synapse.payments.settleAuto(railId, specificEpoch)
+   * const hash = await synapse.payments.settleAuto({ railId, untilEpoch: specificEpoch })
    * ```
    */
-  async settleAuto(railId: bigint, untilEpoch?: bigint): Promise<Hash> {
+  async settleAuto(options: { railId: bigint; untilEpoch?: bigint }): Promise<Hash> {
     // Get rail information to check if terminated
-    const rail = await this.getRail(railId)
+    const rail = await this.getRail(options)
 
     // Check if rail is terminated (endEpoch > 0 means terminated)
     if (rail.endEpoch > 0n) {
       // Rail is terminated, use settleTerminatedRail
-      return await this.settleTerminatedRail(railId)
+      return await this.settleTerminatedRail(options)
     } else {
       // Rail is active, use regular settle (requires settlement fee)
-      return await this.settle(railId, untilEpoch)
+      return await this.settle(options)
     }
   }
 
   /**
    * Get all rails where the wallet is the payer
-   * @param token - The token to filter by (defaults to USDFC)
-   * @returns Array of rail information
+   * @param options - Options for the get rails as payer
+   * @param options.token - The token to filter by (defaults to USDFC)
+   * @returns Array of rail information {@link RailInfo[]}
    */
-  async getRailsAsPayer(token: TokenIdentifier = TOKENS.USDFC): Promise<RailInfo[]> {
+  async getRailsAsPayer(options: { token?: TokenIdentifier } = {}): Promise<RailInfo[]> {
+    const { token = TOKENS.USDFC } = options
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -706,10 +742,12 @@ export class PaymentsService {
 
   /**
    * Get all rails where the wallet is the payee
-   * @param token - The token to filter by (defaults to USDFC)
-   * @returns Array of rail information
+   * @param options - Options for the get rails as payee
+   * @param options.token - The token to filter by (defaults to USDFC)
+   * @returns Array of rail information {@link RailInfo[]}
    */
-  async getRailsAsPayee(token: TokenIdentifier = TOKENS.USDFC): Promise<RailInfo[]> {
+  async getRailsAsPayee(options: { token?: TokenIdentifier } = {}): Promise<RailInfo[]> {
+    const { token = TOKENS.USDFC } = options
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',

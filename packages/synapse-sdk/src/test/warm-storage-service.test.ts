@@ -10,24 +10,21 @@ import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { type Address, createWalletClient, parseUnits, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { PaymentsService } from '../payments/index.ts'
 import { SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 
 // mock server for testing
 const server = setup()
-const walletClient = createWalletClient({
+const client = createWalletClient({
   chain: calibration,
   transport: viemHttp(),
   account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
 })
 
 describe('WarmStorageService', () => {
-  let paymentsService: PaymentsService
-
   // Helper to create WarmStorageService with factory pattern
   const createWarmStorageService = async () => {
-    return new WarmStorageService(walletClient)
+    return new WarmStorageService({ client })
   }
 
   before(async () => {
@@ -39,7 +36,6 @@ describe('WarmStorageService', () => {
   })
 
   beforeEach(() => {
-    paymentsService = new PaymentsService(walletClient)
     server.resetHandlers()
   })
 
@@ -58,7 +54,7 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
       const dataSetId = 1n
 
-      const result = await warmStorageService.getDataSet(dataSetId)
+      const result = await warmStorageService.getDataSet({ dataSetId })
       assert.exists(result)
       assert.equal(result?.pdpRailId, 1n)
       assert.equal(result?.cacheMissRailId, 0n)
@@ -73,17 +69,13 @@ describe('WarmStorageService', () => {
       assert.equal(result?.dataSetId, 1n)
     })
 
-    it('should throw for non-existent data set', async () => {
+    it('should return undefined for non-existent data set', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const warmStorageService = await createWarmStorageService()
       const dataSetId = 999n
 
-      try {
-        await warmStorageService.getDataSet(dataSetId)
-        assert.fail('Should have thrown error for non-existent data set')
-      } catch (error: any) {
-        assert.include(error.message, 'Data set 999 does not exist')
-      }
+      const result = await warmStorageService.getDataSet({ dataSetId })
+      assert.isUndefined(result, 'Should return undefined for non-existent data set')
     })
 
     it('should handle contract revert gracefully', async () => {
@@ -102,7 +94,7 @@ describe('WarmStorageService', () => {
       const dataSetId = 999n
 
       try {
-        await warmStorageService.getDataSet(dataSetId)
+        await warmStorageService.getDataSet({ dataSetId })
         assert.fail('Should have thrown error for contract revert')
       } catch (error: any) {
         assert.include(error.message, 'contract reverted')
@@ -121,7 +113,7 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const dataSets = await warmStorageService.getClientDataSets(Mocks.ADDRESSES.client1)
+      const dataSets = await warmStorageService.getClientDataSets({ address: Mocks.ADDRESSES.client1 })
       assert.isArray(dataSets)
       assert.lengthOf(dataSets, 0)
     })
@@ -168,7 +160,7 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
 
-      const dataSets = await warmStorageService.getClientDataSets(Mocks.ADDRESSES.client1)
+      const dataSets = await warmStorageService.getClientDataSets({ address: Mocks.ADDRESSES.client1 })
 
       assert.isArray(dataSets)
       assert.lengthOf(dataSets, 2)
@@ -204,7 +196,7 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
 
       try {
-        await warmStorageService.getClientDataSets(Mocks.ADDRESSES.client1)
+        await warmStorageService.getClientDataSets({ address: Mocks.ADDRESSES.client1 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'contract reverted')
@@ -245,7 +237,9 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
+      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails({
+        address: Mocks.ADDRESSES.client1,
+      })
 
       assert.lengthOf(detailedDataSets, 1)
       assert.equal(detailedDataSets[0].pdpRailId, 48n)
@@ -316,11 +310,17 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
 
       // Get all data sets
-      const allDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1, false)
+      const allDataSets = await warmStorageService.getClientDataSetsWithDetails({
+        address: Mocks.ADDRESSES.client1,
+        onlyManaged: false,
+      })
       assert.lengthOf(allDataSets, 2)
 
       // Get only managed data sets
-      const managedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1, true)
+      const managedDataSets = await warmStorageService.getClientDataSetsWithDetails({
+        address: Mocks.ADDRESSES.client1,
+        onlyManaged: true,
+      })
       assert.lengthOf(managedDataSets, 1)
       assert.equal(managedDataSets[0].pdpRailId, 48n)
       assert.isTrue(managedDataSets[0].isManaged)
@@ -362,7 +362,9 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
+      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails({
+        address: Mocks.ADDRESSES.client1,
+      })
 
       assert.lengthOf(detailedDataSets, 1)
       assert.equal(detailedDataSets[0].cdnRailId, 51n)
@@ -405,7 +407,9 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
+      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails({
+        address: Mocks.ADDRESSES.client1,
+      })
 
       assert.lengthOf(detailedDataSets, 1)
       assert.equal(detailedDataSets[0].cdnRailId, 51n)
@@ -428,7 +432,7 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
 
       try {
-        await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
+        await warmStorageService.getClientDataSetsWithDetails({ address: Mocks.ADDRESSES.client1 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to get details for data set')
@@ -453,7 +457,7 @@ describe('WarmStorageService', () => {
       const dataSetId = 48n
 
       // Should not throw
-      await warmStorageService.validateDataSet(dataSetId)
+      await warmStorageService.validateDataSet({ dataSetId })
     })
 
     it('should throw error if data set is not managed by this WarmStorage', async () => {
@@ -471,7 +475,7 @@ describe('WarmStorageService', () => {
       const dataSetId = 48n
 
       try {
-        await warmStorageService.validateDataSet(dataSetId)
+        await warmStorageService.validateDataSet({ dataSetId })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'is not managed by this WarmStorage contract')
@@ -524,7 +528,7 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const isApproved = await warmStorageService.isProviderIdApproved(4n)
+      const isApproved = await warmStorageService.isProviderIdApproved({ providerId: 4n })
       assert.isTrue(isApproved)
     })
 
@@ -539,7 +543,7 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const isApproved = await warmStorageService.isProviderIdApproved(99n)
+      const isApproved = await warmStorageService.isProviderIdApproved({ providerId: 99n })
       assert.isFalse(isApproved)
     })
 
@@ -572,7 +576,7 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
 
-      const isOwner = await warmStorageService.isOwner(signerAddress)
+      const isOwner = await warmStorageService.isOwner({ address: signerAddress })
       assert.isTrue(isOwner)
     })
 
@@ -590,16 +594,8 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
 
-      const isOwner = await warmStorageService.isOwner(signerAddress)
+      const isOwner = await warmStorageService.isOwner({ address: signerAddress })
       assert.isFalse(isOwner)
-    })
-
-    it('should get service provider registry address', async () => {
-      server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const warmStorageService = await createWarmStorageService()
-      const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-      // The mock returns this default address for spRegistry
-      assert.equal(registryAddress, Mocks.ADDRESSES.calibration.spRegistry)
     })
 
     it('should add approved provider (mock transaction)', async () => {
@@ -610,7 +606,7 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
 
-      const tx = await warmStorageService.addApprovedProvider(walletClient, 4n)
+      const tx = await warmStorageService.addApprovedProvider({ providerId: 4n })
       assert.equal(tx, '0x43471ce4a501b1701aab800e10ea29882944dc1b4bfb85aa3fab7a82c5dba343')
     })
 
@@ -618,7 +614,7 @@ describe('WarmStorageService', () => {
       server.use(Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }))
       const warmStorageService = await createWarmStorageService()
 
-      const tx = await warmStorageService.terminateDataSet(walletClient, 4n)
+      const tx = await warmStorageService.terminateDataSet({ dataSetId: 4n })
       assert.equal(tx, '0xe1a356b6152a11ea58ac7bfb00498d1f9dbf47d6755207a5691a3a8f4a7f6d35')
     })
 
@@ -634,7 +630,7 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
 
-      const tx = await warmStorageService.removeApprovedProvider(walletClient, 4n)
+      const tx = await warmStorageService.removeApprovedProvider({ providerId: 4n })
       assert.equal(tx, '0xfa867814246175591c887b2fc918c006f258ce141128c9a3fbcdde5a64de1e89')
     })
 
@@ -650,7 +646,7 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
       try {
-        await warmStorageService.removeApprovedProvider(walletClient, 99n)
+        await warmStorageService.removeApprovedProvider({ providerId: 99n })
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.include(error.message, 'Provider 99 is not in the approved list')
@@ -667,8 +663,8 @@ describe('WarmStorageService', () => {
           })
         )
         const warmStorageService = await createWarmStorageService()
-        const sizeInBytes = Number(SIZE_CONSTANTS.GiB) // 1 GiB
-        const costs = await warmStorageService.calculateStorageCost(sizeInBytes)
+        const sizeInBytes = SIZE_CONSTANTS.GiB // 1 GiB
+        const costs = await warmStorageService.calculateStorageCost({ sizeInBytes })
 
         assert.exists(costs.perEpoch)
         assert.exists(costs.perDay)
@@ -697,8 +693,10 @@ describe('WarmStorageService', () => {
         )
         const warmStorageService = await createWarmStorageService()
 
-        const costs1GiB = await warmStorageService.calculateStorageCost(Number(SIZE_CONSTANTS.GiB))
-        const costs10GiB = await warmStorageService.calculateStorageCost(Number(10n * SIZE_CONSTANTS.GiB))
+        const costs1GiB = await warmStorageService.calculateStorageCost({ sizeInBytes: SIZE_CONSTANTS.GiB })
+        const costs10GiB = await warmStorageService.calculateStorageCost({
+          sizeInBytes: 10n * SIZE_CONSTANTS.GiB,
+        })
 
         // 10 GiB should cost approximately 10x more than 1 GiB
         // Allow for small rounding differences in bigint division
@@ -737,7 +735,7 @@ describe('WarmStorageService', () => {
           })
         )
         const warmStorageService = await createWarmStorageService()
-        await warmStorageService.calculateStorageCost(Number(SIZE_CONSTANTS.GiB))
+        await warmStorageService.calculateStorageCost({ sizeInBytes: SIZE_CONSTANTS.GiB })
         assert.isTrue(getServicePriceCalled, 'Should have called getServicePrice on WarmStorage contract')
       })
     })
@@ -751,11 +749,10 @@ describe('WarmStorageService', () => {
         )
         const warmStorageService = await createWarmStorageService()
 
-        const check = await warmStorageService.checkAllowanceForStorage(
-          Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
-          false,
-          paymentsService
-        )
+        const check = await warmStorageService.checkAllowanceForStorage({
+          sizeInBytes: 10n * SIZE_CONSTANTS.GiB, // 10 GiB
+          withCDN: false,
+        })
 
         assert.exists(check.rateAllowanceNeeded)
         assert.exists(check.lockupAllowanceNeeded)
@@ -794,11 +791,10 @@ describe('WarmStorageService', () => {
         )
         const warmStorageService = await createWarmStorageService()
 
-        const check = await warmStorageService.checkAllowanceForStorage(
-          Number(SIZE_CONSTANTS.MiB), // 1 MiB - small amount
-          false,
-          paymentsService
-        )
+        const check = await warmStorageService.checkAllowanceForStorage({
+          sizeInBytes: SIZE_CONSTANTS.MiB, // 1 MiB - small amount
+          withCDN: false,
+        })
 
         assert.isTrue(check.sufficient)
 
@@ -821,11 +817,10 @@ describe('WarmStorageService', () => {
         )
         const warmStorageService = await createWarmStorageService()
 
-        const check = await warmStorageService.checkAllowanceForStorage(
-          Number(SIZE_CONSTANTS.GiB), // 1 GiB
-          false,
-          paymentsService
-        )
+        const check = await warmStorageService.checkAllowanceForStorage({
+          sizeInBytes: SIZE_CONSTANTS.GiB, // 1 GiB
+          withCDN: false,
+        })
 
         // Verify lockupAllowanceNeeded and depositAmountNeeded are present and reasonable
         assert.exists(check.lockupAllowanceNeeded)
@@ -849,23 +844,21 @@ describe('WarmStorageService', () => {
 
         // Test with custom lockup period of 60 days
         const customLockupDays = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * 2n
-        const check = await warmStorageService.checkAllowanceForStorage(
-          Number(SIZE_CONSTANTS.GiB), // 1 GiB
-          false,
-          paymentsService,
-          Number(customLockupDays)
-        )
+        const check = await warmStorageService.checkAllowanceForStorage({
+          sizeInBytes: SIZE_CONSTANTS.GiB, // 1 GiB
+          withCDN: false,
+          lockupDays: customLockupDays,
+        })
 
         // Verify depositAmountNeeded uses custom lockup period
         const expectedDeposit = check.costs.perEpoch * customLockupDays * TIME_CONSTANTS.EPOCHS_PER_DAY
         assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
 
         // Compare with default (30 days) to ensure they're different
-        const defaultCheck = await warmStorageService.checkAllowanceForStorage(
-          Number(SIZE_CONSTANTS.GiB), // 1 GiB
-          false,
-          paymentsService
-        )
+        const defaultCheck = await warmStorageService.checkAllowanceForStorage({
+          sizeInBytes: SIZE_CONSTANTS.GiB, // 1 GiB
+          withCDN: false,
+        })
 
         // Custom should be exactly 2x default (60 days vs 30 days)
         assert.equal(check.depositAmountNeeded.toString(), (defaultCheck.depositAmountNeeded * 2n).toString())
@@ -880,40 +873,11 @@ describe('WarmStorageService', () => {
           })
         )
         const warmStorageService = await createWarmStorageService()
-        let approveServiceCalled = false
 
-        // Create a mock PaymentsService
-        const mockPaymentsService: any = {
-          serviceApproval: async () => ({
-            isApproved: false,
-            rateAllowance: 0n,
-            lockupAllowance: 0n,
-            rateUsage: 0n,
-            lockupUsage: 0n,
-          }),
-          accountInfo: async () => ({
-            funds: parseUnits('10000', 18),
-            lockupCurrent: 0n,
-            lockupRate: 0n,
-            lockupLastSettledAt: 1000000,
-            availableFunds: parseUnits('10000', 18),
-          }),
-          approveService: async (serviceAddress: string, rateAllowance: bigint, lockupAllowance: bigint) => {
-            assert.strictEqual(serviceAddress, Mocks.ADDRESSES.calibration.warmStorage)
-            assert.isTrue(rateAllowance > 0n)
-            assert.isTrue(lockupAllowance > 0n)
-            approveServiceCalled = true
-            return '0xmocktxhash'
-          },
-        }
-
-        const prep = await warmStorageService.prepareStorageUpload(
-          {
-            dataSize: Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
-            withCDN: false,
-          },
-          mockPaymentsService
-        )
+        const prep = await warmStorageService.prepareStorageUpload({
+          dataSize: 10n * SIZE_CONSTANTS.GiB, // 10 GiB
+          withCDN: false,
+        })
 
         assert.exists(prep.estimatedCost)
         assert.exists(prep.estimatedCost.perEpoch)
@@ -930,51 +894,44 @@ describe('WarmStorageService', () => {
         assert.include(approvalAction.description, 'Approve service')
         assert.isFunction(approvalAction.execute)
 
-        // Execute the action and verify it was called
-        await approvalAction.execute()
-        assert.isTrue(approveServiceCalled)
+        // Execute the action and verify it executes successfully
+        const txHash = await approvalAction.execute()
+        assert.exists(txHash)
       })
 
       it('should include deposit action when balance insufficient', async () => {
         server.use(
           Mocks.JSONRPC({
             ...Mocks.presets.basic,
+            payments: {
+              ...Mocks.presets.basic.payments,
+              accounts: () => [
+                parseUnits('0.001', 18), // Very low balance
+                0n, // lockupCurrent
+                0n, // lockupRate
+                1000000n, // lockupLastSettledAt
+              ],
+              operatorApprovals: () => [
+                false, // isApproved
+                0n, // rateAllowance
+                0n, // lockupAllowance
+                0n, // rateUsed
+                0n, // lockupUsed
+                86400n, // maxLockupPeriod
+              ],
+            },
+            erc20: {
+              ...Mocks.presets.basic.erc20,
+              allowance: () => [parseUnits('1000', 18)], // Sufficient allowance for deposit
+            },
           })
         )
         const warmStorageService = await createWarmStorageService()
-        let depositCalled = false
 
-        // Create a mock PaymentsService with low balance
-        const mockPaymentsService: any = {
-          serviceApproval: async () => ({
-            isApproved: false,
-            rateAllowance: 0n,
-            lockupAllowance: 0n,
-            rateUsage: 0n,
-            lockupUsage: 0n,
-          }),
-          accountInfo: async () => ({
-            funds: parseUnits('0.001', 18), // Very low balance
-            lockupCurrent: 0n,
-            lockupRate: 0n,
-            lockupLastSettledAt: 1000000,
-            availableFunds: parseUnits('0.001', 18),
-          }),
-          deposit: async (amount: bigint) => {
-            assert.isTrue(amount > 0n)
-            depositCalled = true
-            return '0xmockdeposittxhash'
-          },
-          approveService: async () => '0xmocktxhash',
-        }
-
-        const prep = await warmStorageService.prepareStorageUpload(
-          {
-            dataSize: Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
-            withCDN: false,
-          },
-          mockPaymentsService
-        )
+        const prep = await warmStorageService.prepareStorageUpload({
+          dataSize: 10n * SIZE_CONSTANTS.GiB, // 10 GiB
+          withCDN: false,
+        })
 
         // Should have both deposit and approval actions
         assert.isAtLeast(prep.actions.length, 2)
@@ -987,43 +944,40 @@ describe('WarmStorageService', () => {
         const approvalAction = prep.actions.find((a) => a.type === 'approveService')
         assert.exists(approvalAction)
 
-        // Execute deposit action and verify
-        await depositAction.execute()
-        assert.isTrue(depositCalled)
+        // Execute deposit action and verify it executes successfully
+        const txHash = await depositAction.execute()
+        assert.exists(txHash)
       })
 
       it('should return no actions when everything is ready', async () => {
         server.use(
           Mocks.JSONRPC({
             ...Mocks.presets.basic,
+            payments: {
+              ...Mocks.presets.basic.payments,
+              accounts: () => [
+                parseUnits('10000', 18), // Sufficient balance
+                0n, // lockupCurrent
+                0n, // lockupRate
+                1000000n, // lockupLastSettledAt
+              ],
+              operatorApprovals: () => [
+                true, // isApproved
+                parseUnits('1000', 18), // rateAllowance
+                parseUnits('100000', 18), // lockupAllowance
+                0n, // rateUsed
+                0n, // lockupUsed
+                86400n, // maxLockupPeriod
+              ],
+            },
           })
         )
         const warmStorageService = await createWarmStorageService()
-        // Create a mock PaymentsService with sufficient balance and allowances
-        const mockPaymentsService: any = {
-          serviceApproval: async () => ({
-            isApproved: true,
-            rateAllowance: parseUnits('1000', 18),
-            lockupAllowance: parseUnits('100000', 18),
-            rateUsage: 0n,
-            lockupUsage: 0n,
-          }),
-          accountInfo: async () => ({
-            funds: parseUnits('10000', 18),
-            lockupCurrent: 0n,
-            lockupRate: 0n,
-            lockupLastSettledAt: 1000000,
-            availableFunds: parseUnits('10000', 18),
-          }),
-        }
 
-        const prep = await warmStorageService.prepareStorageUpload(
-          {
-            dataSize: Number(SIZE_CONSTANTS.MiB), // 1 MiB - small amount
-            withCDN: false,
-          },
-          mockPaymentsService
-        )
+        const prep = await warmStorageService.prepareStorageUpload({
+          dataSize: SIZE_CONSTANTS.MiB, // 1 MiB - small amount
+          withCDN: false,
+        })
 
         assert.lengthOf(prep.actions, 0)
         assert.isTrue(prep.allowanceCheck.sufficient)
@@ -1098,7 +1052,11 @@ describe('WarmStorageService', () => {
       const dataSetId = 49n
       const warmStorageService = await createWarmStorageService()
 
-      const tx = await warmStorageService.topUpCDNPaymentRails(walletClient, dataSetId, 1n, 1n)
+      const tx = await warmStorageService.topUpCDNPaymentRails({
+        dataSetId,
+        cdnAmountToAdd: 1n,
+        cacheMissAmountToAdd: 1n,
+      })
       assert.equal(tx, '0x8a743df561386558f7e9468beb4538cd0afc41297e54959359cb96e3ca36b822')
     })
   })

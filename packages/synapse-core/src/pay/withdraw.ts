@@ -72,6 +72,10 @@ export async function withdraw(
   client: Client<Transport, Chain, Account>,
   options: withdraw.OptionsType
 ): Promise<Hash> {
+  if (options.amount <= 0n) {
+    throw new ValidationError('Withdraw amount must be greater than 0')
+  }
+
   const account = await accounts(client, {
     address: client.account.address,
     token: options.token,

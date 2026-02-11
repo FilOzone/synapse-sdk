@@ -36,7 +36,7 @@ export const pieces: Command = command(
     spinner.start('Fetching data sets...')
     try {
       const dataSets = await getPdpDataSets(client, {
-        client: client.account.address,
+        address: client.account.address,
       })
       spinner.stop('Fetching data sets complete')
       let pieces: Piece[] = []
@@ -127,7 +127,7 @@ export const pieces: Command = command(
         const context = await synapse.storage.createContext({
           dataSetId: group.dataSetId,
         })
-        const txHash = await context.deletePiece(piece.cid)
+        const txHash = await context.deletePiece({ piece: piece.cid })
         spinner.message('Waiting for transaction to be mined...')
         await waitForTransactionReceipt(publicClient, { hash: txHash as Hex })
         spinner.stop('Piece deleted')

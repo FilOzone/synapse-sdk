@@ -24,7 +24,7 @@ describe('getClientDataSets', () => {
     it('should create call with calibration chain defaults', () => {
       const call = getClientDataSetsCall({
         chain: calibration,
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.equal(call.functionName, 'getClientDataSets')
@@ -36,7 +36,7 @@ describe('getClientDataSets', () => {
     it('should create call with mainnet chain defaults', () => {
       const call = getClientDataSetsCall({
         chain: mainnet,
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.equal(call.functionName, 'getClientDataSets')
@@ -49,7 +49,7 @@ describe('getClientDataSets', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
       const call = getClientDataSetsCall({
         chain: calibration,
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
         contractAddress: customAddress,
       })
 
@@ -67,7 +67,7 @@ describe('getClientDataSets', () => {
       })
 
       const dataSets = await getClientDataSets(client, {
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.ok(dataSets.length > 0)

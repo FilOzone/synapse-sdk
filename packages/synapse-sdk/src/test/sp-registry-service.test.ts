@@ -5,7 +5,7 @@ import { ZodValidationError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import { type Client, createPublicClient, createWalletClient, type Transport, http as viemHttp } from 'viem'
+import { type Client, createWalletClient, type Transport, http as viemHttp } from 'viem'
 import { type Account, privateKeyToAccount } from 'viem/accounts'
 import { SPRegistryService } from '../sp-registry/service.ts'
 import { PRODUCTS } from '../sp-registry/types.ts'
@@ -16,7 +16,6 @@ const server = setup()
 
 describe('SPRegistryService', () => {
   let service: SPRegistryService
-  let publicClient: Client<Transport, Chain>
   let walletClient: Client<Transport, Chain, Account>
 
   before(async () => {
@@ -29,22 +28,18 @@ describe('SPRegistryService', () => {
 
   beforeEach(() => {
     server.resetHandlers()
-    publicClient = createPublicClient({
-      chain: calibration,
-      transport: viemHttp(),
-    })
     walletClient = createWalletClient({
       chain: calibration,
       transport: viemHttp(),
       account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
     })
-    service = new SPRegistryService(publicClient)
+    service = new SPRegistryService({ client: walletClient })
   })
 
   describe('Constructor', () => {
     it('should create instance with provider and address', () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const instance = new SPRegistryService(publicClient)
+      const instance = new SPRegistryService({ client: walletClient })
       assert.exists(instance)
     })
   })
@@ -52,7 +47,7 @@ describe('SPRegistryService', () => {
   describe('Provider Read Operations', () => {
     it('should get provider by ID', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1n)
+      const provider = await service.getProvider({ providerId: 1n })
       assert.exists(provider)
       assert.equal(provider?.id, 1n)
       assert.equal(provider?.serviceProvider, Mocks.ADDRESSES.serviceProvider1)
@@ -71,13 +66,13 @@ describe('SPRegistryService', () => {
           },
         })
       )
-      const provider = await service.getProvider(999n)
+      const provider = await service.getProvider({ providerId: 999n })
       assert.isNull(provider)
     })
 
     it('should get provider by address', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProviderByAddress(Mocks.ADDRESSES.serviceProvider1)
+      const provider = await service.getProviderByAddress({ address: Mocks.ADDRESSES.serviceProvider1 })
       assert.exists(provider)
       assert.equal(provider.id, 1n)
       assert.equal(provider.serviceProvider, Mocks.ADDRESSES.serviceProvider1)
@@ -104,13 +99,13 @@ describe('SPRegistryService', () => {
           },
         })
       )
-      const provider = await service.getProviderByAddress(Mocks.ADDRESSES.zero)
+      const provider = await service.getProviderByAddress({ address: Mocks.ADDRESSES.zero })
       assert.isNull(provider)
     })
 
     it('should get provider ID by address', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const id = await service.getProviderIdByAddress(Mocks.ADDRESSES.serviceProvider1)
+      const id = await service.getProviderIdByAddress({ address: Mocks.ADDRESSES.serviceProvider1 })
       assert.equal(id, 1n)
     })
 
@@ -124,13 +119,13 @@ describe('SPRegistryService', () => {
           },
         })
       )
-      const id = await service.getProviderIdByAddress(Mocks.ADDRESSES.zero)
+      const id = await service.getProviderIdByAddress({ address: Mocks.ADDRESSES.zero })
       assert.equal(id, 0n)
     })
 
     it('should check if provider is active', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const isActive = await service.isProviderActive(1n)
+      const isActive = await service.isProviderActive({ providerId: 1n })
       assert.isTrue(isActive)
 
       server.use(
@@ -142,13 +137,13 @@ describe('SPRegistryService', () => {
           },
         })
       )
-      const isInactive = await service.isProviderActive(999n)
+      const isInactive = await service.isProviderActive({ providerId: 999n })
       assert.isFalse(isInactive)
     })
 
     it('should check if address is registered provider', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const isRegistered = await service.isRegisteredProvider(Mocks.ADDRESSES.serviceProvider1)
+      const isRegistered = await service.isRegisteredProvider({ address: Mocks.ADDRESSES.serviceProvider1 })
       assert.isTrue(isRegistered)
 
       server.use(
@@ -160,7 +155,7 @@ describe('SPRegistryService', () => {
           },
         })
       )
-      const isNotRegistered = await service.isRegisteredProvider(Mocks.ADDRESSES.zero)
+      const isNotRegistered = await service.isRegisteredProvider({ address: Mocks.ADDRESSES.zero })
       assert.isFalse(isNotRegistered)
     })
 
@@ -174,7 +169,7 @@ describe('SPRegistryService', () => {
   describe('Provider Write Operations', () => {
     it('should register new provider', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const hash = await service.registerProvider(walletClient, {
+      const hash = await service.registerProvider({
         payee: walletClient.account.address,
         name: 'New Provider',
         description: 'Description',
@@ -197,14 +192,17 @@ describe('SPRegistryService', () => {
 
     it('should update provider info', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const hash = await service.updateProviderInfo(walletClient, 'Updated Name', 'Updated Description')
+      const hash = await service.updateProviderInfo({
+        name: 'Updated Name',
+        description: 'Updated Description',
+      })
       assert.exists(hash)
       assert.ok(hash.startsWith('0x'))
     })
 
     it('should remove provider', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const hash = await service.removeProvider(walletClient)
+      const hash = await service.removeProvider()
       assert.exists(hash)
       assert.ok(hash.startsWith('0x'))
     })
@@ -213,7 +211,7 @@ describe('SPRegistryService', () => {
   describe('Product Operations', () => {
     it('should get provider products', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1n)
+      const provider = await service.getProvider({ providerId: 1n })
       assert.exists(provider)
       assert.exists(provider.pdp)
 
@@ -224,7 +222,7 @@ describe('SPRegistryService', () => {
 
     it('should decode PDP product data', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1n)
+      const provider = await service.getProvider({ providerId: 1n })
       const product = provider?.pdp
 
       assert.exists(product)
@@ -251,7 +249,7 @@ describe('SPRegistryService', () => {
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
       } as const
 
-      const hash = await service.addPDPProduct(walletClient, pdpData)
+      const hash = await service.addPDPProduct({ pdpOffering: pdpData })
       assert.exists(hash)
       assert.ok(hash.startsWith('0x'))
     })
@@ -271,14 +269,14 @@ describe('SPRegistryService', () => {
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
       } as const
 
-      const hash = await service.updatePDPProduct(walletClient, pdpData)
+      const hash = await service.updatePDPProduct({ pdpOffering: pdpData })
       assert.exists(hash)
       assert.ok(hash.startsWith('0x'))
     })
 
     it('should remove product', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const hash = await service.removeProduct(walletClient, PRODUCTS.PDP)
+      const hash = await service.removeProduct({ productType: PRODUCTS.PDP })
       assert.exists(hash)
       assert.ok(hash.startsWith('0x'))
     })
@@ -287,7 +285,7 @@ describe('SPRegistryService', () => {
   describe('Batch Operations', () => {
     it('should get multiple providers in batch', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const providers = await service.getProviders([1n, 2n, 3n])
+      const providers = await service.getProviders({ providerIds: [1n, 2n, 3n] })
       assert.isArray(providers)
       assert.equal(providers.length, 2) // Only IDs 1 and 2 exist in our mock
       assert.exists(providers[0]) // ID 1 exists
@@ -298,7 +296,7 @@ describe('SPRegistryService', () => {
 
     it('should handle empty provider ID list', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const providers = await service.getProviders([])
+      const providers = await service.getProviders({ providerIds: [] })
       assert.isArray(providers)
       assert.equal(providers.length, 0)
     })
@@ -307,7 +305,7 @@ describe('SPRegistryService', () => {
   describe('Provider Info Conversion', () => {
     it('should extract serviceURL from first PDP product', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1n)
+      const provider = await service.getProvider({ providerId: 1n })
       assert.exists(provider)
       assert.equal(provider?.pdp?.serviceURL, 'https://pdp.example.com')
     })
@@ -329,7 +327,7 @@ describe('SPRegistryService', () => {
       )
 
       try {
-        const provider = await service.getProvider(1n)
+        const provider = await service.getProvider({ providerId: 1n })
         assert.isNull(provider)
       } catch (error: any) {
         assert.include((error as Error).message, 'Contract call failed')
@@ -365,7 +363,7 @@ describe('SPRegistryService', () => {
         })
       )
       try {
-        await service.getProvider(1n)
+        await service.getProvider({ providerId: 1n })
       } catch (error: any) {
         assert.instanceOf(error, ZodValidationError)
         assert.include(error.details, 'Invalid hex value')

@@ -38,7 +38,6 @@ describe('Storage Upload', () => {
 
   it('should support parallel uploads', async () => {
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-    let addPiecesCount = 0
     let uploadCompleteCount = 0
     server.use(
       Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
@@ -83,15 +82,12 @@ describe('Storage Upload', () => {
     // Start all uploads concurrently with callbacks
     const uploads = [
       context.upload(firstData, {
-        onPieceAdded: () => addPiecesCount++,
         onUploadComplete: () => uploadCompleteCount++,
       }),
       context.upload(secondData, {
-        onPieceAdded: () => addPiecesCount++,
         onUploadComplete: () => uploadCompleteCount++,
       }),
       context.upload(thirdData, {
-        onPieceAdded: () => addPiecesCount++,
         onUploadComplete: () => uploadCompleteCount++,
       }),
     ]
@@ -104,7 +100,6 @@ describe('Storage Upload', () => {
 
     assert.deepEqual(resultSizes, [127, 128, 129], 'Should have one result for each data size')
     assert.deepEqual(resultPieceIds, [0n, 1n, 2n], 'The set of assigned piece IDs should be {0, 1, 2}')
-    assert.strictEqual(addPiecesCount, 3, 'addPieces should be called 3 times')
     assert.strictEqual(uploadCompleteCount, 3, 'uploadComplete should be called 3 times')
   })
 
@@ -428,8 +423,6 @@ describe('Storage Upload', () => {
   })
 
   it('should handle new server with transaction tracking', async () => {
-    let pieceAddedCallbackFired = false
-    let pieceConfirmedCallbackFired = false
     let piecesAddedArgs: { transaction?: Hex; pieces?: Array<{ pieceCid: PieceCID }> } | null = null
     let piecesConfirmedArgs: { dataSetId?: bigint; pieces?: PieceRecord[] } | null = null
     let uploadCompleteCallbackFired = false
@@ -483,19 +476,11 @@ describe('Storage Upload', () => {
       onPiecesConfirmed(dataSetId: bigint, pieces: PieceRecord[]) {
         piecesConfirmedArgs = { dataSetId, pieces }
       },
-      onPieceAdded() {
-        pieceAddedCallbackFired = true
-      },
-      onPieceConfirmed() {
-        pieceConfirmedCallbackFired = true
-      },
       onUploadComplete() {
         uploadCompleteCallbackFired = true
       },
     })
 
-    assert.isTrue(pieceAddedCallbackFired, 'pieceAddedCallback should have been called')
-    assert.isTrue(pieceConfirmedCallbackFired, 'pieceConfirmedCallback should have been called')
     assert.isTrue(uploadCompleteCallbackFired, 'uploadCompleteCallback should have been called')
     assert.isNotNull(piecesAddedArgs, 'onPiecesAdded args should be captured')
     assert.isNotNull(piecesConfirmedArgs, 'onPiecesConfirmed args should be captured')

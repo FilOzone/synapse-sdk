@@ -4,7 +4,8 @@ import { asPieceCID } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
-import { createPublicClient, http as viemHttp } from 'viem'
+import { createWalletClient, http as viemHttp } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { ChainRetriever } from '../retriever/chain.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { PieceCID, PieceRetriever } from '../types.ts'
@@ -18,11 +19,7 @@ const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitc
 
 // Mock child retriever
 const mockChildRetriever: PieceRetriever = {
-  fetchPiece: async (
-    _pieceCid: PieceCID,
-    _client: string,
-    _options?: { providerAddress?: string; signal?: AbortSignal }
-  ): Promise<Response> => {
+  fetchPiece: async (_options): Promise<Response> => {
     return new Response('data from child', { status: 200 })
   },
 }
@@ -43,12 +40,13 @@ describe('ChainRetriever', () => {
     server.resetHandlers()
     // Set up basic JSON-RPC handler before creating services
     server.use(Mocks.JSONRPC(Mocks.presets.basic))
-    const publicClient = createPublicClient({
+    const client = createWalletClient({
       chain: calibration,
       transport: viemHttp(),
+      account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
     })
-    warmStorage = new WarmStorageService(publicClient)
-    spRegistry = await SPRegistryService.create(publicClient)
+    warmStorage = new WarmStorageService({ client })
+    spRegistry = new SPRegistryService({ client })
   })
 
   describe('fetchPiece with specific provider', () => {
@@ -73,8 +71,10 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
-      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1, {
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
+      const response = await retriever.fetchPiece({
+        pieceCid: mockPieceCID,
+        client: Mocks.ADDRESSES.client1,
         providerAddress: Mocks.ADDRESSES.serviceProvider1,
       })
 
@@ -106,8 +106,14 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1, {
+      const retriever = new ChainRetriever({
+        warmStorageService: warmStorage,
+        spRegistry,
+        childRetriever: mockChildRetriever,
+      })
+      const response = await retriever.fetchPiece({
+        pieceCid: mockPieceCID,
+        client: Mocks.ADDRESSES.client1,
         providerAddress: '0xNotApproved',
       })
       assert.equal(response.status, 200)
@@ -137,10 +143,12 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
 
       try {
-        await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1, {
+        await retriever.fetchPiece({
+          pieceCid: mockPieceCID,
+          client: Mocks.ADDRESSES.client1,
           providerAddress: Mocks.ADDRESSES.client1,
         })
         assert.fail('Should have thrown')
@@ -216,8 +224,8 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
-      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
+      const response = await retriever.fetchPiece({ pieceCid: mockPieceCID, client: Mocks.ADDRESSES.client1 })
 
       // Should get response from provider 2 even though provider 1 failed first
       assert.equal(response.status, 200)
@@ -257,8 +265,8 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
-      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
+      const response = await retriever.fetchPiece({ pieceCid: mockPieceCID, client: Mocks.ADDRESSES.client1 })
 
       assert.isTrue(provider1Called || provider2Called, 'At least one provider should be called')
       assert.equal(response.status, 200)
@@ -306,8 +314,12 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
+      const retriever = new ChainRetriever({
+        warmStorageService: warmStorage,
+        spRegistry,
+        childRetriever: mockChildRetriever,
+      })
+      const response = await retriever.fetchPiece({ pieceCid: mockPieceCID, client: Mocks.ADDRESSES.client1 })
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
@@ -353,9 +365,9 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
       try {
-        await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
+        await retriever.fetchPiece({ pieceCid: mockPieceCID, client: Mocks.ADDRESSES.client1 })
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'All provider retrieval attempts failed')
@@ -373,8 +385,12 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
+      const retriever = new ChainRetriever({
+        warmStorageService: warmStorage,
+        spRegistry,
+        childRetriever: mockChildRetriever,
+      })
+      const response = await retriever.fetchPiece({ pieceCid: mockPieceCID, client: Mocks.ADDRESSES.client1 })
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
     })
@@ -390,10 +406,10 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
 
       try {
-        await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
+        await retriever.fetchPiece({ pieceCid: mockPieceCID, client: Mocks.ADDRESSES.client1 })
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'No active data sets with data found')
@@ -415,10 +431,10 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
 
       try {
-        await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
+        await retriever.fetchPiece({ pieceCid: mockPieceCID, client: Mocks.ADDRESSES.client1 })
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'Database connection failed')
@@ -459,10 +475,10 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
 
       try {
-        await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
+        await retriever.fetchPiece({ pieceCid: mockPieceCID, client: Mocks.ADDRESSES.client1 })
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'Failed to retrieve piece')
@@ -532,8 +548,8 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
-      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
+      const response = await retriever.fetchPiece({ pieceCid: mockPieceCID, client: Mocks.ADDRESSES.client1 })
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'success from provider2')
@@ -584,10 +600,10 @@ describe('ChainRetriever', () => {
         })
       )
 
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
 
       try {
-        await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
+        await retriever.fetchPiece({ pieceCid: mockPieceCID, client: Mocks.ADDRESSES.client1 })
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'No active data sets with data found')
@@ -647,8 +663,12 @@ describe('ChainRetriever', () => {
       )
 
       const controller = new AbortController()
-      const retriever = new ChainRetriever(warmStorage, spRegistry)
-      await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1, { signal: controller.signal })
+      const retriever = new ChainRetriever({ warmStorageService: warmStorage, spRegistry })
+      await retriever.fetchPiece({
+        pieceCid: mockPieceCID,
+        client: Mocks.ADDRESSES.client1,
+        signal: controller.signal,
+      })
 
       assert.isTrue(signalPassed, 'AbortSignal should be passed to fetch')
     })

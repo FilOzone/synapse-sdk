@@ -9,7 +9,7 @@
  * ```typescript
  * // Simple usage - auto-manages context
  * await synapse.storage.upload(data)
- * await synapse.storage.download(pieceCid)
+ * await synapse.storage.download({ pieceCid })
  *
  * // Explicit context
  * const context = await synapse.storage.createContext({ providerId: 1 })
@@ -47,7 +47,6 @@ import {
   metadataMatches,
   SIZE_CONSTANTS,
   TIME_CONSTANTS,
-  TOKENS,
 } from '../utils/index.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
@@ -89,7 +88,17 @@ export interface StorageManagerUploadOptions extends StorageServiceOptions {
 export interface StorageManagerDownloadOptions extends DownloadOptions {
   context?: StorageContext
   providerAddress?: Address
-  withCDN?: boolean
+}
+
+export interface StorageManagerOptions {
+  /** The Synapse instance */
+  synapse: Synapse
+  /** The WarmStorageService instance */
+  warmStorageService: WarmStorageService
+  /** The PieceRetriever instance */
+  pieceRetriever: PieceRetriever
+  /** Whether to enable CDN services */
+  withCDN: boolean
 }
 
 export class StorageManager {
@@ -97,21 +106,17 @@ export class StorageManager {
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _withCDN: boolean
-  private readonly _withIpni: boolean | undefined
   private _defaultContexts?: StorageContext[]
 
-  constructor(
-    synapse: Synapse,
-    warmStorageService: WarmStorageService,
-    pieceRetriever: PieceRetriever,
-    withCDN: boolean,
-    withIpni?: boolean
-  ) {
-    this._synapse = synapse
-    this._warmStorageService = warmStorageService
-    this._pieceRetriever = pieceRetriever
-    this._withCDN = withCDN
-    this._withIpni = withIpni
+  /**
+   * Creates a new StorageManager
+   * @param options - The options for the StorageManager {@link StorageManagerOptions}
+   */
+  constructor(options: StorageManagerOptions) {
+    this._synapse = options.synapse
+    this._warmStorageService = options.warmStorageService
+    this._pieceRetriever = options.pieceRetriever
+    this._withCDN = options.withCDN
   }
 
   /**
@@ -159,9 +164,7 @@ export class StorageManager {
         ? [options.context]
         : await this.createContexts({
             withCDN: options?.withCDN,
-            withIpni: options?.withIpni,
             count: 1, // single context by default for now - this will be changed in a future version
-            dev: options?.dev,
             uploadBatchSize: options?.uploadBatchSize,
             forceCreateDataSets: options?.forceCreateDataSet,
             metadata: options?.metadata,
@@ -204,7 +207,7 @@ export class StorageManager {
    * If context is provided, routes to context.download()
    * Otherwise performs SP-agnostic download
    */
-  async download(pieceCid: string | PieceCID, options?: StorageManagerDownloadOptions): Promise<Uint8Array> {
+  async download(options: StorageManagerDownloadOptions): Promise<Uint8Array> {
     // Validate options - if context is provided, no other options should be set
     if (options?.context != null) {
       const invalidOptions = []
@@ -220,39 +223,44 @@ export class StorageManager {
       }
 
       // Route to specific context
-      return await options.context.download(pieceCid, options)
+      return await options.context.download({
+        pieceCid: options.pieceCid,
+        withCDN: options.withCDN ?? this._withCDN,
+      })
     }
 
     // SP-agnostic download with fast path optimization
-    const parsedPieceCID = asPieceCID(pieceCid)
+    const parsedPieceCID = asPieceCID(options.pieceCid)
     if (parsedPieceCID == null) {
-      throw createError('StorageManager', 'download', `Invalid PieceCID: ${String(pieceCid)}`)
+      throw createError('StorageManager', 'download', `Invalid PieceCID: ${String(options.pieceCid)}`)
     }
 
     // Use withCDN setting: option > manager default > synapse default
     const withCDN = options?.withCDN ?? this._withCDN
 
+    let finalProviderAddress: Address | undefined = options?.providerAddress
     // Fast path: If we have a default context with CDN disabled and no specific provider requested,
     // check if the piece exists on the default context's provider first
-    if (this._defaultContexts != null && !withCDN && options?.providerAddress == null) {
+    if (this._defaultContexts != null && !withCDN && finalProviderAddress == null) {
       // from the default contexts, select a random storage provider that has the piece
       const contextsWithoutCDN = this._defaultContexts.filter((context) => context.withCDN === false)
-      const contextsHavePiece = await Promise.all(contextsWithoutCDN.map((context) => context.hasPiece(parsedPieceCID)))
+      const contextsHavePiece = await Promise.all(
+        contextsWithoutCDN.map((context) => context.hasPiece({ pieceCid: parsedPieceCID }))
+      )
       const defaultContextsWithPiece = contextsWithoutCDN.filter((_context, i) => contextsHavePiece[i])
       if (defaultContextsWithPiece.length > 0) {
-        options = {
-          ...options,
-          providerAddress:
-            defaultContextsWithPiece[randIndex(defaultContextsWithPiece.length)].provider.serviceProvider,
-        }
+        finalProviderAddress =
+          defaultContextsWithPiece[randIndex(defaultContextsWithPiece.length)].provider.serviceProvider
       }
     }
 
     const clientAddress = this._synapse.client.account.address
 
     // Use piece retriever to fetch
-    const response = await this._pieceRetriever.fetchPiece(parsedPieceCID, clientAddress, {
-      providerAddress: options?.providerAddress,
+    const response = await this._pieceRetriever.fetchPiece({
+      pieceCid: parsedPieceCID,
+      client: clientAddress,
+      providerAddress: finalProviderAddress,
       withCDN,
     })
 
@@ -261,14 +269,17 @@ export class StorageManager {
 
   /**
    * Run preflight checks for an upload without creating a context
-   * @param size - The size of data to upload in bytes
-   * @param options - Optional settings including withCDN flag and/or metadata
+   * @param options - The options for the preflight upload
+   * @param options.size - The size of data to upload in bytes
+   * @param options.withCDN - Whether to enable CDN services
+   * @param options.metadata - The metadata for the preflight upload
    * @returns Preflight information including costs and allowances
    */
-  async preflightUpload(
-    size: number,
-    options?: { withCDN?: boolean; metadata?: Record<string, string> }
-  ): Promise<PreflightInfo> {
+  async preflightUpload(options: {
+    size: number
+    withCDN?: boolean
+    metadata?: Record<string, string>
+  }): Promise<PreflightInfo> {
     // Determine withCDN from metadata if provided, otherwise use option > manager default
     let withCDN = options?.withCDN ?? this._withCDN
 
@@ -284,7 +295,11 @@ export class StorageManager {
     }
 
     // Use the static method from StorageContext for core logic
-    return await StorageContext.performPreflightCheck(this._warmStorageService, this._synapse.payments, size, withCDN)
+    return await StorageContext.performPreflightCheck({
+      warmStorageService: this._warmStorageService,
+      size: options.size,
+      withCDN,
+    })
   }
 
   /**
@@ -356,10 +371,11 @@ export class StorageManager {
       }
     }
 
-    const contexts = await StorageContext.createContexts(this._synapse, this._warmStorageService, {
+    const contexts = await StorageContext.createContexts({
+      synapse: this._synapse,
+      warmStorageService: this._warmStorageService,
       ...options,
       withCDN,
-      withIpni: options?.withIpni ?? this._withIpni,
     })
 
     if (canUseDefault) {
@@ -425,10 +441,11 @@ export class StorageManager {
     }
 
     // Create a new context with specific options
-    const context = await StorageContext.create(this._synapse, this._warmStorageService, {
+    const context = await StorageContext.create({
+      synapse: this._synapse,
+      warmStorageService: this._warmStorageService,
       ...options,
       withCDN: effectiveWithCDN,
-      withIpni: options?.withIpni ?? this._withIpni,
     })
 
     if (canUseDefault) {
@@ -446,22 +463,24 @@ export class StorageManager {
 
   /**
    * Query data sets for this client
-   * @param clientAddress - Optional client address, defaults to current signer
+   * @param options - The options for the find data sets
+   * @param options.address - The client address, defaults to current signer
    * @returns Array of enhanced data set information including management status
    */
-  async findDataSets(clientAddress?: Address): Promise<EnhancedDataSetInfo[]> {
-    const address = clientAddress ?? this._synapse.client.account.address
-    return await this._warmStorageService.getClientDataSetsWithDetails(address)
+  async findDataSets(options: { address?: Address } = {}): Promise<EnhancedDataSetInfo[]> {
+    const { address = this._synapse.client.account.address } = options
+    return await this._warmStorageService.getClientDataSetsWithDetails({ address })
   }
 
   /**
    * Terminate a data set with given ID that belongs to the synapse signer.
    * This will also result in the removal of all pieces in the data set.
-   * @param dataSetId - The ID of the data set to terminate
+   * @param options - The options for the terminate data set
+   * @param options.dataSetId - The ID of the data set to terminate
    * @returns Transaction hash
    */
-  async terminateDataSet(dataSetId: bigint): Promise<Hash> {
-    return this._warmStorageService.terminateDataSet(this._synapse.client, dataSetId)
+  async terminateDataSet(options: { dataSetId: bigint }): Promise<Hash> {
+    return this._warmStorageService.terminateDataSet(options)
   }
 
   /**
@@ -475,7 +494,7 @@ export class StorageManager {
       // Helper function to get allowances with error handling
       const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {
         try {
-          const approval = await this._synapse.payments.serviceApproval(chain.contracts.fwss.address, TOKENS.USDFC)
+          const approval = await this._synapse.payments.serviceApproval()
           return {
             service: chain.contracts.fwss.address,
             // Forward whether operator is approved so callers can react accordingly
@@ -492,7 +511,7 @@ export class StorageManager {
       }
 
       // Create SPRegistryService to get providers
-      const spRegistry = new SPRegistryService(this._synapse.client)
+      const spRegistry = new SPRegistryService({ client: this._synapse.client })
 
       // Fetch all data in parallel for performance
       const [pricingData, approvedIds, allowances] = await Promise.all([
@@ -502,7 +521,7 @@ export class StorageManager {
       ])
 
       // Get provider details for approved IDs
-      const providers = await spRegistry.getProviders(approvedIds)
+      const providers = await spRegistry.getProviders({ providerIds: approvedIds })
 
       // Calculate pricing per different time units
       const epochsPerMonth = BigInt(pricingData.epochsPerMonth)

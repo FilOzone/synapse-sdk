@@ -8,6 +8,12 @@
  * ```
  */
 
+export type { StorageContextOptions } from './context.ts'
 export { StorageContext } from './context.ts'
-export type { CombinedCallbacks, StorageManagerDownloadOptions, StorageManagerUploadOptions } from './manager.ts'
+export type {
+  CombinedCallbacks,
+  StorageManagerDownloadOptions,
+  StorageManagerOptions,
+  StorageManagerUploadOptions,
+} from './manager.ts'
 export { StorageManager } from './manager.ts'

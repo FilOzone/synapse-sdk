@@ -1,6 +1,6 @@
 import * as p from '@clack/prompts'
 import { formatBalance } from '@filoz/synapse-core/utils'
-import { Synapse } from '@filoz/synapse-sdk'
+import { Synapse, TOKENS } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
@@ -30,7 +30,9 @@ export const pay: Command = command(
       })
 
       const filBalance = await synapse.payments.walletBalance()
-      const usdfcBalance = await synapse.payments.walletBalance('USDFC')
+      const usdfcBalance = await synapse.payments.walletBalance({
+        token: TOKENS.USDFC,
+      })
       const paymentsBalance = await synapse.payments.accountInfo()
 
       spinner.stop('Balances')

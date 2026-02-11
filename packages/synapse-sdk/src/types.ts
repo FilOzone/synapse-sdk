@@ -10,6 +10,8 @@ import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { Account, Address, Client, Hex, Transport } from 'viem'
+import type { Synapse } from './synapse.ts'
+import type { WarmStorageService } from './warm-storage/service.ts'
 
 // Re-export PieceCID and PDPProvider types
 export type { PieceCID, PDPProvider }
@@ -58,8 +60,6 @@ export interface SynapseOptions {
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
-  /** Whether to filter providers by IPNI availability */
-  withIpni?: boolean
 }
 
 export interface SynapseFromClientOptions {
@@ -73,8 +73,6 @@ export interface SynapseFromClientOptions {
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
-  /** Whether to filter providers by IPNI availability */
-  withIpni?: boolean
 }
 
 /**
@@ -104,8 +102,18 @@ export interface UploadTask {
  * Currently empty, reserved for future options
  */
 
-// biome-ignore lint/complexity/noBannedTypes: future proofing
-export type DownloadOptions = {}
+export type DownloadOptions = {
+  withCDN?: boolean
+  pieceCid: string | PieceCID
+}
+
+export interface PieceFetchOptions {
+  pieceCid: PieceCID // Internal interface uses PieceCID type for validation
+  client: Address
+  providerAddress?: Address // Restrict to specific provider
+  withCDN?: boolean // Enable CDN retrieval attempts
+  signal?: AbortSignal // Optional AbortSignal for request cancellation
+}
 
 /**
  * PieceRetriever interface for fetching pieces from various sources
@@ -114,82 +122,15 @@ export type DownloadOptions = {}
 export interface PieceRetriever {
   /**
    * Fetch a piece from available sources
-   * @param pieceCid - The PieceCID identifier of the piece (validated internally)
-   * @param client - The client address requesting the piece
-   * @param options - Optional retrieval parameters
+   * @param options - Retrieval parameters
+   * @param options.pieceCid - The PieceCID identifier of the piece (validated internally)
+   * @param options.client - The client address requesting the piece
+   * @param options.providerAddress - Restrict retrieval to a specific provider
+   * @param options.withCDN - Enable CDN retrieval attempts
+   * @param options.signal - Optional AbortSignal for request cancellation
    * @returns A Response object that can be processed for the piece data
    */
-  fetchPiece: (
-    pieceCid: PieceCID, // Internal interface uses PieceCID type for validation
-    client: Address,
-    options?: {
-      providerAddress?: Address // Restrict to specific provider
-      withCDN?: boolean // Enable CDN retrieval attempts
-      signal?: AbortSignal // Optional AbortSignal for request cancellation
-    }
-  ) => Promise<Response>
-}
-
-/**
- * Configuration for the SubgraphService, determining how to connect to a
- * Synapse-compatible subgraph for provider discovery.
- */
-export interface SubgraphConfig {
-  /** Direct GraphQL endpoint URL. Takes precedence if provided. */
-  endpoint?: string
-  /** Configuration for Goldsky subgraphs. Used if 'endpoint' is not provided. */
-  goldsky?: {
-    projectId: string
-    subgraphName: string
-    version: string
-  }
-  /** Optional API key for authenticated subgraph access */
-  apiKey?: string
-}
-
-/**
- * Defines the contract for a service that can retrieve provider information from a data source,
- * typically a Synapse-compatible subgraph.
- *
- * This interface allows for custom implementations to be provided in place of the default
- * SubgraphService. Any service that implements this interface can be used with the
- * Synapse SDK by passing it via the `subgraphService` option when creating a Synapse instance.
- *
- * This enables integration with alternative data sources or custom implementations
- * while maintaining compatibility with the SDK's retrieval system.
- */
-export interface SubgraphRetrievalService {
-  /**
-   * Finds providers that have registered a specific data segment (PieceCID).
-   *
-   * @param pieceCid - The PieceCID of the data segment.
-   * @returns A promise that resolves to an array of `ProviderInfo` objects.
-   */
-  getApprovedProvidersForPieceCID: (pieceCid: PieceCID) => Promise<PDPProvider[]>
-
-  /**
-   * Retrieves details for a specific provider by their address.
-   *
-   * @param address - The unique address (ID) of the provider.
-   * @returns A promise that resolves to `PDPProvider` if found, otherwise `null`.
-   */
-  getProviderByAddress: (address: Address) => Promise<PDPProvider | null>
-}
-
-/**
- * Signature data for authenticated operations
- */
-export interface AuthSignature {
-  /** The full signature string (0x-prefixed) */
-  signature: string
-  /** Recovery parameter */
-  v: number
-  /** R component of signature */
-  r: string
-  /** S component of signature */
-  s: string
-  /** The ABI-encoded data that was signed (for verification) */
-  signedData: string
+  fetchPiece: (options: PieceFetchOptions) => Promise<Response>
 }
 
 /**
@@ -300,8 +241,6 @@ export interface CreateContextsOptions {
   excludeProviderIds?: bigint[]
   /** Whether to enable CDN services */
   withCDN?: boolean
-  withIpni?: boolean
-  dev?: boolean
   /**
    * Custom metadata for the data sets (key-value pairs)
    * When smart-selecting data sets, this metadata will be used to match.
@@ -313,6 +252,13 @@ export interface CreateContextsOptions {
   callbacks?: StorageContextCallbacks
   /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
   uploadBatchSize?: number
+}
+
+export interface ContextCreateContextsOptions extends CreateContextsOptions {
+  /** The Synapse instance */
+  synapse: Synapse
+  /** The WarmStorageService instance */
+  warmStorageService: WarmStorageService
 }
 
 /**
@@ -336,9 +282,6 @@ export interface StorageServiceOptions {
   dataSetId?: bigint
   /** Whether to enable CDN services */
   withCDN?: boolean
-  withIpni?: boolean
-  /** Whether to include providers with serviceStatus=dev in the capabilities list (default: false) */
-  dev?: boolean
   /** Force creation of a new data set, even if a candidate exists */
   forceCreateDataSet?: boolean
   /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
@@ -347,6 +290,13 @@ export interface StorageServiceOptions {
   callbacks?: StorageContextCallbacks
   /** Custom metadata for the data set (key-value pairs) */
   metadata?: Record<string, string>
+}
+
+export interface StorageContextCreateOptions extends StorageServiceOptions {
+  /** The Synapse instance */
+  synapse: Synapse
+  /** The WarmStorageService instance */
+  warmStorageService: WarmStorageService
 }
 
 /**
@@ -388,12 +338,8 @@ export interface UploadCallbacks {
   onUploadComplete?: (pieceCid: PieceCID) => void
   /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
   onPiecesAdded?: (transaction: Hex, pieces?: { pieceCid: PieceCID }[]) => void
-  /** @deprecated Use onPiecesAdded instead */
-  onPieceAdded?: (transaction?: Hex) => void
   /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
   onPiecesConfirmed?: (dataSetId: bigint, pieces: PieceRecord[]) => void
-  /** @deprecated Use onPiecesConfirmed instead */
-  onPieceConfirmed?: (pieceIds: bigint[]) => void
 }
 
 /**

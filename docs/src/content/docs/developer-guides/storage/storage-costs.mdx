@@ -121,9 +121,10 @@ import {
   calibration
 } from "@filoz/synapse-sdk"
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
+import { privateKeyToAccount } from 'viem/accounts'
 // ---cut---
 // Get pricing structure
-const warmStorageService = WarmStorageService.create()
+const warmStorageService = WarmStorageService.create({ account: privateKeyToAccount('0x...') })
 
 const { minimumPricePerMonth, epochsPerMonth, pricePerTiBPerMonthNoCDN } =
   await warmStorageService.getServicePrice()
@@ -187,8 +188,8 @@ if (newCDNDataSetNeeded) {
 
 // Get current approval status (what's already being used)
 const [approval, accountInfo] = await Promise.all([
-  synapse.payments.serviceApproval(calibration.contracts.fwss.address),
-  synapse.payments.accountInfo(TOKENS.USDFC),
+  synapse.payments.serviceApproval(),
+  synapse.payments.accountInfo(),
 ]);
 
 // Calculate cumulative allowances: existing usage + new requirements
@@ -207,14 +208,14 @@ Check balances, calculate deposit amount, and execute the appropriate transactio
 
 ```ts twoslash
 // @lib: esnext,dom
-import { Synapse, TOKENS, TIME_CONSTANTS, calibration } from "@filoz/synapse-sdk";
+import { Synapse, TIME_CONSTANTS, calibration, TOKENS } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const totalCostNeeded = null as unknown as bigint;
 const rateAllowanceNeeded = null as unknown as bigint;
 const lockupAllowanceNeeded = null as unknown as bigint;
-const approval = await synapse.payments.serviceApproval(calibration.contracts.fwss.address);
-const accountInfo = await synapse.payments.accountInfo(TOKENS.USDFC);
+const approval = await synapse.payments.serviceApproval();
+const accountInfo = await synapse.payments.accountInfo();
 // ---cut---
 // Calculate deposit amount needed
 const depositAmountNeeded =
@@ -228,7 +229,7 @@ const sufficient =
   lockupAllowanceNeeded <= approval.lockupAllowance;
 
 // Verify wallet balance
-const walletBalance = await synapse.payments.walletBalance(TOKENS.USDFC);
+const walletBalance = await synapse.payments.walletBalance({ token: TOKENS.USDFC });
 if (walletBalance < depositAmountNeeded) {
   throw new Error("Insufficient USDFC balance in wallet");
 }
@@ -236,27 +237,13 @@ if (walletBalance < depositAmountNeeded) {
 // Execute appropriate transaction
 if (!sufficient && depositAmountNeeded > 0n) {
   // Need both deposit and approval
-  await synapse.payments.depositWithPermitAndApproveOperator(
-    depositAmountNeeded,
-    calibration.contracts.fwss.address,
-    rateAllowanceNeeded,
-    lockupAllowanceNeeded,
-    TIME_CONSTANTS.EPOCHS_PER_MONTH
-  );
+  await synapse.payments.depositWithPermitAndApproveOperator({ amount: depositAmountNeeded });
 } else if (!sufficient) {
   // Only need approval update
-  await synapse.payments.approveService(
-    calibration.contracts.fwss.address,
-    rateAllowanceNeeded,
-    lockupAllowanceNeeded,
-    TIME_CONSTANTS.EPOCHS_PER_MONTH
-  );
+  await synapse.payments.approveService();
 } else if (depositAmountNeeded > 0n) {
   // Only need deposit
-  await synapse.payments.depositWithPermit(
-    depositAmountNeeded,
-    calibration.contracts.fwss.address
-  );
+  await synapse.payments.depositWithPermit({ amount: depositAmountNeeded });
 }
 
 console.log("Account funded successfully");

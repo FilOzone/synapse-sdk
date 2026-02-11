@@ -9,35 +9,128 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ---
 
-## `@filoz/synapse-sdk` 0.37.0
+## 0.37.0
 
-<!-- Check out the [changelog](/changelog-sdk/version/0-37-0/) for more information. -->
+`synapse-sdk` moved to a viem-first API, removed deprecated modules/methods, and standardized method signatures around options objects plus `bigint` identifiers.
 
-The main entrypoint `@filoz/synapse-sdk` no longer export all the other modules, from this version onwards it will only export the `Synapse` class, constants and types. Check [reference](/reference/filoz/synapse-sdk/synapse/toc/) for the current exports.
-
-### Action: Change `import` statements
+### Action: Migrate from `ethers` setup to `viem` setup
 
 ```ts
-// before 
-import { 
-  PaymentService, 
-  PDPAuthHelper, 
-  PDPServer, 
-  PDPVerifier,
-  SessionKey,
-  StorageContext,
-  StorageManager,
-  WarmStorageService
-} from '@filoz/synapse-sdk'
+// before
+import { Synapse } from '@filoz/synapse-sdk'
 
-// after 
-import { PaymentService } from '@filoz/synapse-sdk/payments'
-import { PDPAuthHelper, PDPServer, PDPVerifier } from '@filoz/synapse-sdk/pdp'
-import { SessionKey } from '@filoz/synapse-sdk/session'
-import { StorageContext, StorageManager } from '@filoz/synapse-sdk/manager'
-import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
+const synapse = await Synapse.create({
+  privateKey: PRIVATE_KEY,
+  rpcURL: 'https://api.calibration.node.glif.io/rpc/v1'
+})
 
+// after
+import { calibration } from '@filoz/synapse-sdk'
+import { privateKeyToAccount } from 'viem/accounts'
+import { http } from 'viem'
+import { Synapse } from '@filoz/synapse-sdk'
+
+const synapse = Synapse.create({
+  account: privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`),
+  chain: calibration, // optional
+  transport: http() // optional
+})
 ```
+
+### Action: Remove deprecated SDK module imports
+
+The following subpath exports were removed from `@filoz/synapse-sdk`:
+
+- `@filoz/synapse-sdk/pdp`
+- `@filoz/synapse-sdk/subgraph`
+- `@filoz/synapse-sdk/telemetry`
+
+```ts
+// before
+import { PDPAuthHelper, PDPServer, PDPVerifier } from '@filoz/synapse-sdk/pdp'
+import { SubgraphService } from '@filoz/synapse-sdk/subgraph'
+import { getGlobalTelemetry } from '@filoz/synapse-sdk/telemetry'
+
+// after
+import { Synapse } from '@filoz/synapse-sdk'
+import { PaymentsService } from '@filoz/synapse-sdk/payments'
+import { SPRegistryService } from '@filoz/synapse-sdk/sp-registry'
+import { StorageContext, StorageManager } from '@filoz/synapse-sdk/storage'
+import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
+```
+
+### Action: Convert positional parameters to object parameters
+
+Most service methods now take an options object. IDs are now `bigint` in the public API.
+
+```ts
+// before
+await synapse.storage.download(pieceCid, { withCDN: true })
+await synapse.payments.allowance(spender)
+await synapse.payments.settle(12, 5000)
+await synapse.providers.getProvider(1)
+
+// after
+await synapse.storage.download({ pieceCid, withCDN: true })
+await synapse.payments.allowance({ spender })
+await synapse.payments.settle({ railId: 12n, untilEpoch: 5000n })
+await synapse.providers.getProvider({ providerId: 1n })
+```
+
+This change applies broadly across:
+
+- `PaymentsService`
+- `WarmStorageService`
+- `SPRegistryService`
+- retrievers and storage download APIs
+
+### Action: Replace removed deprecated methods
+
+Deprecated methods that were previously shimmed were removed from `Synapse`.
+
+```ts
+// before
+const storage = await synapse.createStorage({ providerId: 1 })
+const data = await synapse.download(pieceCid)
+const info = await synapse.getStorageInfo()
+
+// after
+const context = await synapse.storage.createContext({ providerId: 1n })
+const data = await synapse.storage.download({ pieceCid })
+const info = await synapse.storage.getStorageInfo()
+```
+
+### Action: Update dataset and callback assumptions
+
+```ts
+// before
+if (dataSet.currentPieceCount > 0) {
+  // ...
+}
+
+callbacks: {
+  onPieceAdded: () => {},
+  onPieceConfirmed: () => {}
+}
+
+// after
+if (dataSet.activePieceCount > 0n) {
+  // ...
+}
+
+callbacks: {
+  onPiecesAdded: (txHash, pieces) => {},
+  onPiecesConfirmed: (dataSetId, pieces) => {}
+}
+```
+
+### Migration checklist for this range
+
+1. Replace `ethers`-based initialization (`privateKey`/`provider`/`signer`) with viem (`account` + `transport` + `chain`).
+2. Remove imports from `@filoz/synapse-sdk/pdp`, `@filoz/synapse-sdk/subgraph`, and `@filoz/synapse-sdk/telemetry`.
+3. Migrate method calls to options-object style and switch numeric IDs to `bigint`.
+4. Replace removed deprecated methods (`synapse.createStorage`, `synapse.download`, `synapse.getStorageInfo`) with `synapse.storage.*`.
+5. Update dataset field usage (`currentPieceCount` -> `activePieceCount`) and callback names (`onPieceAdded`/`onPieceConfirmed` -> plural callbacks).
 
 ## 0.24.0+
 
