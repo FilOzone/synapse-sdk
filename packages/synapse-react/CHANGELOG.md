@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.2.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.4...synapse-react-v0.2.0) (2026-02-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* change params to options object and remove withIpni ([#601](https://github.com/FilOzone/synapse-sdk/issues/601))
+* transition from ethers to viem ([#555](https://github.com/FilOzone/synapse-sdk/issues/555))
+
+### Features
+
+* change params to options object and remove withIpni ([#601](https://github.com/FilOzone/synapse-sdk/issues/601)) ([0d529e2](https://github.com/FilOzone/synapse-sdk/commit/0d529e269332dc83f0bd43e14fe68f6602c0b90f))
+* transition from ethers to viem ([#555](https://github.com/FilOzone/synapse-sdk/issues/555)) ([3741241](https://github.com/FilOzone/synapse-sdk/commit/37412415eba0b1204b6b14d00bac68aaf35afca1))
+
+
+### Bug Fixes
+
+* update to next core version ([43c0fe9](https://github.com/FilOzone/synapse-sdk/commit/43c0fe966d1bc6bfe9185a3d8ddc1630f82c530a))
+
+
+### Chores
+
+* pnpm security and catalog ([123b89c](https://github.com/FilOzone/synapse-sdk/commit/123b89c178f2597a35168e7ebddb440d1dda0816))
+* update viem/wagmi and markdown lint ([#478](https://github.com/FilOzone/synapse-sdk/issues/478)) ([3f023f6](https://github.com/FilOzone/synapse-sdk/commit/3f023f6bb426a67afca917b73d41ac063d158487))
+
 ## [0.1.4](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.3...synapse-react-v0.1.4) (2025-12-04)
 
 
