@@ -5,7 +5,8 @@
  * Environment-agnostic - works in both Node.js and browsers.
  */
 
-import type { Chain } from 'viem'
+import * as Abis from '../../abis/index.ts'
+import type { Chain } from '../../chains.ts'
 import { type VersionedDevnetInfo, validateDevnetInfo } from './schema.ts'
 
 /**
@@ -55,26 +56,29 @@ export function loadDevnetInfo(data: unknown): VersionedDevnetInfo {
 }
 
 /**
- * Create a viem Chain object from devnet info.
- * This is compatible with viem and can be used with Synapse SDK.
+ * Create a Synapse Chain object from devnet info.
+ * This is compatible with viem and includes all ABIs needed by the Synapse SDK.
  *
  * @param devnetInfo - The devnet info from loadDevnetInfo()
- * @returns viem Chain object
+ * @returns Synapse Chain object with contract ABIs and addresses
  *
  * @example
- * import { loadDevnetInfo, toViemChain } from '@filoz/synapse-core/foc-devnet-info';
- * import { createPublicClient, http } from 'viem';
+ * import { loadDevnetInfo, toChain } from '@filoz/synapse-core/foc-devnet-info';
+ * import { Synapse } from '@filoz/synapse-sdk';
+ * import { createWalletClient, http } from 'viem';
+ * import { privateKeyToAccount } from 'viem/accounts';
  *
  * const data = JSON.parse(await (await fetch('/devnet-info.json')).text());
  * const devnetInfo = loadDevnetInfo(data);
- * const chain = toViemChain(devnetInfo);
+ * const chain = toChain(devnetInfo);
  *
- * const client = createPublicClient({
+ * const synapse = Synapse.create({
  *   chain,
- *   transport: http()
+ *   transport: http(),
+ *   account: privateKeyToAccount(devnetInfo.info.users[0].private_key_hex),
  * });
  */
-export function toViemChain(devnetInfo: VersionedDevnetInfo): Chain {
+export function toChain(devnetInfo: VersionedDevnetInfo): Chain {
   const { info } = devnetInfo
   const contracts = info.contracts
 
@@ -101,49 +105,54 @@ export function toViemChain(devnetInfo: VersionedDevnetInfo): Chain {
         address: contracts.multicall3_addr as `0x${string}`,
         blockCreated: 0,
       },
-      fwss: {
-        address: contracts.fwss_service_proxy_addr as `0x${string}`,
-        blockCreated: 0,
-      },
-      fwssStateView: {
-        address: contracts.fwss_state_view_addr as `0x${string}`,
-        blockCreated: 0,
-      },
-      fwssImpl: {
-        address: contracts.fwss_impl_addr as `0x${string}`,
-        blockCreated: 0,
-      },
-      pdpVerifier: {
-        address: contracts.pdp_verifier_proxy_addr as `0x${string}`,
-        blockCreated: 0,
-      },
-      pdpVerifierImpl: {
-        address: contracts.pdp_verifier_impl_addr as `0x${string}`,
-        blockCreated: 0,
-      },
-      serviceProviderRegistry: {
-        address: contracts.service_provider_registry_proxy_addr as `0x${string}`,
-        blockCreated: 0,
-      },
-      serviceProviderRegistryImpl: {
-        address: contracts.service_provider_registry_impl_addr as `0x${string}`,
-        blockCreated: 0,
+      usdfc: {
+        address: contracts.mockusdfc_addr as `0x${string}`,
+        abi: Abis.erc20WithPermit,
       },
       filecoinPay: {
         address: contracts.filecoin_pay_v1_addr as `0x${string}`,
-        blockCreated: 0,
+        abi: Abis.filecoinPay,
+      },
+      fwss: {
+        address: contracts.fwss_service_proxy_addr as `0x${string}`,
+        abi: Abis.fwss,
+      },
+      fwssView: {
+        address: contracts.fwss_state_view_addr as `0x${string}`,
+        abi: Abis.fwssView,
+      },
+      serviceProviderRegistry: {
+        address: contracts.service_provider_registry_proxy_addr as `0x${string}`,
+        abi: Abis.serviceProviderRegistry,
+      },
+      sessionKeyRegistry: {
+        address: contracts.session_key_registry_addr as `0x${string}`,
+        abi: Abis.sessionKeyRegistry,
+      },
+      pdp: {
+        address: contracts.pdp_verifier_proxy_addr as `0x${string}`,
+        abi: Abis.pdp,
       },
       endorsements: {
         address: contracts.endorsements_addr as `0x${string}`,
-        blockCreated: 0,
-      },
-      usdfc: {
-        address: contracts.mockusdfc_addr as `0x${string}`,
-        blockCreated: 0,
+        abi: Abis.providerIdSet,
       },
     },
+    filbeam: null,
+    testnet: true,
+    /**
+     * Devnet genesis: Set to 0 as placeholder. Epoch<>Date conversions
+     * will return incorrect results on devnet. Core contract operations
+     * are unaffected as they use epochs directly.
+     */
+    genesisTimestamp: 0,
   }
 }
+
+/**
+ * @deprecated Use {@link toChain} instead. This function returns a plain viem Chain without ABIs.
+ */
+export const toViemChain = toChain
 
 export type {
   ContractsInfo,
