@@ -47,7 +47,7 @@ export function useUpload(props: UseUploadProps) {
       const rsp = await SP.waitForAddPieces(uploadRsp)
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', account.address],
+        queryKey: ['synapse-warm-storage-data-sets', account.address, config.getClient().chain.id],
       })
       return rsp
     },

@@ -52,7 +52,7 @@ export function useDeletePiece(props: UseDeletePieceProps) {
       const rsp = await waitForTransactionReceipt(client, deletePieceRsp)
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', account.address],
+        queryKey: ['synapse-warm-storage-data-sets', account.address, config.getClient().chain.id],
       })
       return rsp
     },

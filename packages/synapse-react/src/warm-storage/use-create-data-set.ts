@@ -50,10 +50,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
       const dataSet = await SP.waitForCreateDataSet({ statusUrl })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', account.address],
-      })
-      queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-providers-with-data-sets', account.address],
+        queryKey: ['synapse-warm-storage-data-sets', account.address, config.getClient().chain.id],
       })
       return dataSet
     },

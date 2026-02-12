@@ -19,7 +19,7 @@ export function useDataSets(props: UseDataSetsProps) {
   const config = useConfig()
   const address = props.address
   return useQuery({
-    queryKey: ['synapse-warm-storage-data-sets', address],
+    queryKey: ['synapse-warm-storage-data-sets', address, config.getClient().chain.id],
     queryFn: address
       ? async () => {
           const dataSets = await getPdpDataSets(config.getClient(), { address })
