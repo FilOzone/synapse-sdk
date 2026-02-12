@@ -25,7 +25,7 @@ export function useServicePrice(props?: UseServicePriceProps) {
 
   return useQuery({
     ...props?.query,
-    queryKey: ['synapse-warm-storage-get-service-price'],
+    queryKey: ['synapse-warm-storage-get-service-price', config.getClient().chain.id],
     queryFn: async () => {
       const result = await getServicePrice(config.getClient())
       return result

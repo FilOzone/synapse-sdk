@@ -13,7 +13,7 @@ export function useProviders(props?: UseProvidersProps) {
 
   return useQuery({
     ...props?.query,
-    queryKey: ['synapse-warm-storage-providers'],
+    queryKey: ['synapse-warm-storage-providers', config.getClient().chain.id],
     queryFn: () => {
       return getApprovedPDPProviders(config.getClient())
     },
