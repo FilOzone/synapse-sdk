@@ -7,7 +7,7 @@
 import assert from 'assert'
 import { HttpResponse, http } from 'msw'
 import { decodeAbiParameters, type Hex } from 'viem'
-import type { addPieces } from '../sp/sp.ts'
+import type { addPieces, PullPieceInput, PullResponse, PullStatus } from '../sp/sp.ts'
 
 export interface PDPMockOptions {
   baseUrl?: string
@@ -364,4 +364,148 @@ export function addPiecesWithMetadataCapture(
       })
     }
   )
+}
+
+// =============================================================================
+// SP-to-SP Piece Pull Handlers
+// =============================================================================
+
+export interface PullRequestCapture {
+  extraData: string
+  recordKeeper: string
+  dataSetId?: number
+  pieces: PullPieceInput[]
+}
+
+/**
+ * Creates a handler for the pull pieces endpoint that returns a fixed response
+ */
+export function pullPiecesHandler(response: PullResponse, options: PDPMockOptions = {}) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+
+  return http.post(`${baseUrl}/pdp/piece/pull`, async () => {
+    if (options.debug) {
+      console.debug('SP Pull Mock: returning response', response)
+    }
+    return HttpResponse.json(response, { status: 200 })
+  })
+}
+
+/**
+ * Creates a handler that captures the request body and returns a response
+ */
+export function pullPiecesWithCaptureHandler(
+  response: PullResponse,
+  captureCallback: (request: PullRequestCapture) => void,
+  options: PDPMockOptions = {}
+) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+
+  return http.post(`${baseUrl}/pdp/piece/pull`, async ({ request }) => {
+    const body = (await request.json()) as PullRequestCapture
+
+    captureCallback(body)
+
+    if (options.debug) {
+      console.debug('SP Pull Mock: captured request', body)
+    }
+
+    return HttpResponse.json(response, { status: 200 })
+  })
+}
+
+/**
+ * Creates a handler that returns an error response
+ */
+export function pullPiecesErrorHandler(errorMessage: string, statusCode = 500, options: PDPMockOptions = {}) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+
+  return http.post(`${baseUrl}/pdp/piece/pull`, async () => {
+    if (options.debug) {
+      console.debug('SP Pull Mock: returning error', errorMessage)
+    }
+    return HttpResponse.text(errorMessage, { status: statusCode })
+  })
+}
+
+/**
+ * Creates a handler that simulates polling, returns pending status N times,
+ * then returns the final response
+ */
+export function pullPiecesPollingHandler(
+  pendingCount: number,
+  finalResponse: PullResponse,
+  options: PDPMockOptions = {}
+) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  let callCount = 0
+
+  return http.post(`${baseUrl}/pdp/piece/pull`, async () => {
+    callCount++
+
+    if (options.debug) {
+      console.debug(`SP Pull Mock: poll attempt ${callCount}/${pendingCount + 1}`)
+    }
+
+    if (callCount <= pendingCount) {
+      const pendingResponse: PullResponse = {
+        status: 'pending',
+        pieces: finalResponse.pieces.map((p) => ({
+          pieceCid: p.pieceCid,
+          status: 'pending' as PullStatus,
+        })),
+      }
+      return HttpResponse.json(pendingResponse, { status: 200 })
+    }
+
+    return HttpResponse.json(finalResponse, { status: 200 })
+  })
+}
+
+/**
+ * Creates a handler that simulates a progression through statuses
+ */
+export function pullPiecesProgressionHandler(
+  statusProgression: PullStatus[],
+  pieces: Array<{ pieceCid: string }>,
+  options: PDPMockOptions = {}
+) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  let callCount = 0
+
+  return http.post(`${baseUrl}/pdp/piece/pull`, async () => {
+    const statusIndex = Math.min(callCount, statusProgression.length - 1)
+    const currentStatus = statusProgression[statusIndex]
+    callCount++
+
+    if (options.debug) {
+      console.debug(`SP Pull Mock: returning status ${currentStatus} (call ${callCount})`)
+    }
+
+    const response: PullResponse = {
+      status: currentStatus,
+      pieces: pieces.map((p) => ({
+        pieceCid: p.pieceCid,
+        status: currentStatus,
+      })),
+    }
+
+    return HttpResponse.json(response, { status: 200 })
+  })
+}
+
+/**
+ * Helper to create a complete PullResponse
+ */
+export function createPullResponse(
+  status: PullStatus,
+  pieces: Array<{ pieceCid: string; status?: PullStatus }>
+): PullResponse {
+  return {
+    status,
+    pieces: pieces.map((p) => ({
+      pieceCid: p.pieceCid,
+      status: p.status ?? status,
+    })),
+  }
 }

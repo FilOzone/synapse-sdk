@@ -12,6 +12,7 @@ import {
   PostPieceError,
   UploadPieceError,
 } from '../errors/pdp.ts'
+import { PullError } from '../errors/pull.ts'
 import type { PieceCID } from '../piece.ts'
 import * as Piece from '../piece.ts'
 import type * as TypedData from '../typed-data/index.ts'
@@ -641,4 +642,216 @@ export async function downloadPiece(options: downloadPiece.OptionsType): Promise
     throw response.error
   }
   return await Piece.downloadAndValidate(response.result, options.pieceCid)
+}
+
+// =============================================================================
+// SP-to-SP Piece Pull Operations
+// =============================================================================
+
+/**
+ * Status of a pull operation or individual piece.
+ *
+ * Status progression:
+ * - `pending`: Piece is queued but download hasn't started
+ * - `inProgress`: Download task is actively running (first attempt)
+ * - `retrying`: Download task is running after one or more failures
+ * - `complete`: Piece successfully downloaded and verified
+ * - `failed`: Piece permanently failed after exhausting retries
+ *
+ * Overall response status reflects the worst-case across all pieces:
+ * failed > retrying > inProgress > pending > complete
+ */
+export type PullStatus = 'pending' | 'inProgress' | 'retrying' | 'complete' | 'failed'
+
+/**
+ * Input piece for a pull request.
+ */
+export type PullPieceInput = {
+  /** PieceCIDv2 format (encodes both CommP and raw size) */
+  pieceCid: string
+  /** HTTPS URL to pull the piece from (must end in /piece/{pieceCid}) */
+  sourceUrl: string
+}
+
+/**
+ * Status of a single piece in a pull response.
+ */
+export type PullPieceStatus = {
+  /** PieceCIDv2 of the piece */
+  pieceCid: string
+  /** Current status of this piece */
+  status: PullStatus
+}
+
+/**
+ * Response from a pull request.
+ */
+export type PullResponse = {
+  /** Overall status (worst-case across all pieces) */
+  status: PullStatus
+  /** Per-piece status */
+  pieces: PullPieceStatus[]
+}
+
+export namespace pullPieces {
+  /**
+   * Options for pulling pieces from external SPs.
+   */
+  export type OptionsType = {
+    /** The service URL of the PDP API. */
+    serviceURL: string
+    /** The record keeper contract address (e.g., FWSS). */
+    recordKeeper: Address
+    /** EIP-712 signed extraData for authorization. */
+    extraData: Hex
+    /** Optional target dataset ID (omit or 0n to create new). */
+    dataSetId?: bigint
+    /** Pieces to pull with their source URLs. */
+    pieces: PullPieceInput[]
+    /** Optional AbortSignal to cancel the request. */
+    signal?: AbortSignal
+  }
+
+  export type ReturnType = PullResponse
+
+  export type ErrorType = PullError | TimeoutError | NetworkError | AbortError
+
+  export type RequestBody = {
+    extraData: Hex
+    recordKeeper: Address
+    pieces: PullPieceInput[]
+    dataSetId?: number
+  }
+}
+
+/**
+ * Build the JSON request body for a pull request.
+ */
+function buildPullRequestBody(options: pullPieces.OptionsType): string {
+  const body: pullPieces.RequestBody = {
+    extraData: options.extraData,
+    recordKeeper: options.recordKeeper,
+    pieces: options.pieces,
+  }
+
+  // Only include dataSetId if specified and non-zero
+  if (options.dataSetId != null && options.dataSetId > 0n) {
+    body.dataSetId = Number(options.dataSetId)
+  }
+
+  return JSON.stringify(body)
+}
+
+/**
+ * Initiate a piece pull request or get status of an existing one.
+ *
+ * POST /pdp/piece/pull
+ *
+ * This endpoint is idempotent - calling with the same extraData returns
+ * the status of the existing pull rather than creating duplicates.
+ * This allows safe retries and status polling using the same request.
+ *
+ * @param options - {@link pullPieces.OptionsType}
+ * @returns The current status of the pull operation. {@link pullPieces.ReturnType}
+ * @throws Errors {@link pullPieces.ErrorType}
+ */
+export async function pullPieces(options: pullPieces.OptionsType): Promise<pullPieces.ReturnType> {
+  const response = await request.post(new URL('pdp/piece/pull', options.serviceURL), {
+    body: buildPullRequestBody(options),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
+    signal: options.signal,
+  })
+
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      throw new PullError(await response.error.response.text())
+    }
+    throw response.error
+  }
+
+  return (await response.result.json()) as pullPieces.ReturnType
+}
+
+export namespace waitForPullStatus {
+  /**
+   * Options for polling pull status.
+   */
+  export type OptionsType = pullPieces.OptionsType & {
+    /** Callback invoked on each poll with current status. */
+    onStatus?: (response: PullResponse) => void
+    /** The timeout in milliseconds. Defaults to 5 minutes. */
+    timeout?: number
+    /** The polling interval in milliseconds. Defaults to 4 seconds. */
+    pollInterval?: number
+  }
+
+  export type ReturnType = PullResponse
+
+  export type ErrorType = PullError | TimeoutError | NetworkError | AbortError
+}
+
+/**
+ * Wait for pull completion.
+ *
+ * Repeatedly calls the pull endpoint until all pieces are complete or any piece fails.
+ * Since the endpoint is idempotent, this effectively polls for status updates.
+ *
+ * @param options - {@link waitForPullStatus.OptionsType}
+ * @returns The final status when complete or failed. {@link waitForPullStatus.ReturnType}
+ * @throws Errors {@link waitForPullStatus.ErrorType}
+ */
+export async function waitForPullStatus(options: waitForPullStatus.OptionsType): Promise<waitForPullStatus.ReturnType> {
+  const url = new URL('pdp/piece/pull', options.serviceURL)
+  const body = buildPullRequestBody(options)
+  const headers = { 'Content-Type': 'application/json' }
+
+  // Custom fetch that creates a fresh Request each time to avoid body consumption issues
+  // (iso-web creates Request once and reuses it, but POST bodies can only be read once)
+  const fetchWithFreshRequest: typeof globalThis.fetch = (input, init) => {
+    // iso-web passes the Request object as input, extract signal from it
+    const signal = input instanceof Request ? input.signal : init?.signal
+    return globalThis.fetch(url, { method: 'POST', body, headers, signal })
+  }
+
+  const response = await request.post(url, {
+    body,
+    headers,
+    fetch: fetchWithFreshRequest,
+    async onResponse(response) {
+      if (response.ok) {
+        const data = (await response.clone().json()) as PullResponse
+
+        // Invoke status callback if provided
+        if (options.onStatus) {
+          options.onStatus(data)
+        }
+
+        // Stop polling when complete or failed
+        if (data.status === 'complete' || data.status === 'failed') {
+          return response
+        }
+        throw new Error('Pull not complete')
+      }
+    },
+    retry: {
+      shouldRetry: (ctx) => ctx.error.message === 'Pull not complete',
+      retries: RETRY_CONSTANTS.RETRIES,
+      factor: RETRY_CONSTANTS.FACTOR,
+      minTimeout: options.pollInterval ?? RETRY_CONSTANTS.DELAY_TIME,
+    },
+    timeout: options.timeout ?? RETRY_CONSTANTS.MAX_RETRY_TIME,
+    signal: options.signal,
+  })
+
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      throw new PullError(await response.error.response.text())
+    }
+    throw response.error
+  }
+
+  return (await response.result.json()) as waitForPullStatus.ReturnType
 }
