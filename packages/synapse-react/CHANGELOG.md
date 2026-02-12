@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.2.0...synapse-react-v0.2.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* add chain id to query keys ([#605](https://github.com/FilOzone/synapse-sdk/issues/605)) ([a49b95a](https://github.com/FilOzone/synapse-sdk/commit/a49b95a21864383e716772480d9b790fb5d0cd6b))
+
 ## [0.2.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.4...synapse-react-v0.2.0) (2026-02-11)
 
 
