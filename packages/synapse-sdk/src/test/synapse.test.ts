@@ -7,7 +7,6 @@
 import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
-import { getPermissionFromTypeHash, type SessionKeyPermissions } from '@filoz/synapse-core/session-key'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -568,7 +567,7 @@ describe('Synapse', () => {
       assert.equal((contexts[0] as any)._dataSetId, 1n)
     })
 
-    it('force creates new data set specified by providerId even when metadata matches', async () => {
+    it('creates new data set when metadata does not fully match existing data set', async () => {
       const metadata = {
         withCDN: '',
       }
@@ -576,11 +575,10 @@ describe('Synapse', () => {
         providerIds: [Mocks.PROVIDERS.provider1.providerId],
         metadata,
         count: 1,
-        forceCreateDataSets: true,
       })
       assert.equal(contexts.length, 1)
       assert.equal(BigInt(contexts[0].provider.id), Mocks.PROVIDERS.provider1.providerId)
-      // should create new data set
+      // Existing data set has { environment: 'test', withCDN: '' } which differs from { withCDN: '' }
       assert.equal((contexts[0] as any)._dataSetId, undefined)
     })
 
@@ -661,20 +659,22 @@ describe('Synapse', () => {
       assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
     })
 
-    it('does not create multiple contexts for a specified data set when providerId also provided', async () => {
+    it('throws when both dataSetIds and providerIds are specified', async () => {
       const metadata = {
         environment: 'test',
         withCDN: '',
       }
-      const contexts = await synapse.storage.createContexts({
-        count: 2,
-        dataSetIds: [1n, 1n],
-        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider1.providerId],
-        metadata,
-      })
-      assert.equal(contexts.length, 2)
-      assert.equal((contexts[0] as any)._dataSetId, 1)
-      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
+      try {
+        await synapse.storage.createContexts({
+          count: 2,
+          dataSetIds: [1n],
+          providerIds: [Mocks.PROVIDERS.provider1.providerId],
+          metadata,
+        })
+        assert.fail('Expected createContexts to throw')
+      } catch (error: any) {
+        assert.include(error.message, "Cannot specify both 'dataSetIds' and 'providerIds'")
+      }
     })
 
     it('selects existing data set by default when metadata matches', async () => {
@@ -705,20 +705,6 @@ describe('Synapse', () => {
       assert.notEqual(contexts[0].provider.id, 1n)
     })
 
-    it('creates new data set context when forced even when metadata matches', async () => {
-      const metadata = {
-        environment: 'test',
-        withCDN: '',
-      }
-      const contexts = await synapse.storage.createContexts({
-        count: 1,
-        metadata,
-        forceCreateDataSets: true,
-      })
-      assert.equal(contexts.length, 1)
-      assert.equal((contexts[0] as any)._dataSetId, undefined)
-    })
-
     it('can select new data sets from different providers using default params', async () => {
       const contexts = await synapse.storage.createContexts()
       assert.equal(contexts.length, 2)
@@ -737,22 +723,34 @@ describe('Synapse', () => {
           endorsedProviderIds.push(BigInt(endorsedProviderId))
         })
 
-        it('falls back to other provider when endorsed provider fails ping', async () => {
+        it('throws when endorsed provider is excluded', async () => {
+          try {
+            await synapse.storage.createContexts({
+              count: 1,
+              excludeProviderIds: [BigInt(endorsedProviderId)],
+            })
+            assert.fail('Expected createContexts to throw')
+          } catch (error: any) {
+            assert.include(error.message, 'No endorsed provider available')
+          }
+        })
+
+        it('throws when endorsed provider fails ping (no fallback to non-endorsed)', async () => {
           // mock ping to fail for endorsed provider
           const endorsedProvider = providers[index]
           server.use(
             http.get(`${endorsedProvider.products[0].offering.serviceURL}/pdp/ping`, () => HttpResponse.error())
           )
 
-          const contexts = await synapse.storage.createContexts({
-            count: 1,
-            forceCreateDataSets: true,
-          })
-          assert.equal(contexts.length, 1)
-          assert.equal((contexts[0] as any)._dataSetId, undefined)
-
-          const otherProviderId = providerIds[providers.length - index - 1]
-          assert.equal(contexts[0].provider.id, otherProviderId)
+          try {
+            await synapse.storage.createContexts({
+              count: 1,
+            })
+            assert.fail('Expected createContexts to throw when no endorsed provider available')
+          } catch (error: any) {
+            assert.include(error.message, 'No endorsed provider available')
+            assert.include(error.message, 'failed health check')
+          }
         })
 
         for (const count of [1, 2]) {
@@ -764,7 +762,6 @@ describe('Synapse', () => {
             for (let i = 0; i < 5; i++) {
               const contexts = await synapse.storage.createContexts({
                 count,
-                forceCreateDataSets: true, // This prevents the defaultContexts caching
               })
               assert.equal(contexts.length, count)
               assert.equal((contexts[0] as any)._dataSetId, undefined)
@@ -855,49 +852,22 @@ describe('Synapse', () => {
         assert.equal(result.size, 1024)
       })
 
-      it('fails when one storage provider returns wrong pieceCid', async () => {
+      it('fails when primary store fails', async () => {
         const data = new Uint8Array(1024)
-        const pieceCid = Piece.calculate(data)
-        const mockUUID = '12345678-90ab-cdef-1234-567890abcdef'
-        const found = true
-        const wrongCid = 'wrongCid'
-        for (const provider of [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]) {
-          const pdpOptions = {
-            baseUrl: provider.products[0].offering.serviceURL,
-          }
-          server.use(Mocks.pdp.postPieceUploadsHandler(mockUUID, pdpOptions))
-          server.use(Mocks.pdp.uploadPieceStreamingHandler(mockUUID, pdpOptions))
-          server.use(
-            Mocks.pdp.finalizePieceUploadHandler(
-              mockUUID,
-              provider === Mocks.PROVIDERS.provider1 ? pieceCid.toString() : wrongCid,
-              pdpOptions
-            )
-          )
-          server.use(Mocks.pdp.findPieceHandler(pieceCid.toString(), found, pdpOptions))
-          server.use(Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions))
-          server.use(
-            Mocks.pdp.pieceAdditionStatusHandler(
-              DATA_SET_ID,
-              FAKE_TX_HASH,
-              {
-                txHash: FAKE_TX_HASH,
-                txStatus: 'pending',
-                dataSetId: DATA_SET_ID,
-                pieceCount: 1,
-                addMessageOk: true,
-                piecesAdded: true,
-                confirmedPieceIds: [0],
-              },
-              pdpOptions
-            )
-          )
+        const pdpOptions = {
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }
+        // Primary SP rejects upload
+        server.use(
+          http.post(`${pdpOptions.baseUrl}/pdp/piece/uploads`, async () => {
+            return HttpResponse.error()
+          })
+        )
         try {
           await synapse.storage.upload(data, { contexts })
-          assert.fail('Expected upload to fail when one provider returns wrong pieceCid')
+          assert.fail('Expected upload to fail when primary store fails')
         } catch (error: any) {
-          assert.include(error.message, 'Failed to create upload session')
+          assert.include(error.message, 'Failed to store piece on service provider')
         }
       })
     })

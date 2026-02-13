@@ -7,14 +7,15 @@
 
 import type { Chain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
+import type { PullStatus } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { Account, Address, Client, Hex, Transport } from 'viem'
 import type { Synapse } from './synapse.ts'
 import type { WarmStorageService } from './warm-storage/service.ts'
 
-// Re-export PieceCID and PDPProvider types
-export type { PieceCID, PDPProvider }
+// Re-export PieceCID, PDPProvider, and PullStatus types
+export type { PieceCID, PDPProvider, PullStatus }
 export type PrivateKey = string
 export type TokenAmount = bigint
 export type DataSetId = bigint
@@ -202,12 +203,22 @@ export interface SettlementResult {
 // ============================================================================
 // Storage Context Creation Types
 // ============================================================================
-// These types are used when creating or selecting storage contexts
-// (provider + data set pairs)
+//
+// BaseContextOptions contains shared fields: withCDN, metadata, callbacks.
+//
+// StorageServiceOptions extends BaseContextOptions with singular fields
+// (providerId, dataSetId) for single-context creation via createContext().
+//
+// CreateContextsOptions extends BaseContextOptions with plural fields
+// (providerIds, dataSetIds, count, excludeProviderIds) for createContexts().
+//
+// StorageManagerUploadOptions (in manager.ts) extends CreateContextsOptions
+// with upload-specific fields (contexts, pieceCid, pieceMetadata, signal).
+//
 // ============================================================================
 
 /**
- * Callbacks for storage service creation process
+ * Callbacks for storage context creation process
  *
  * These callbacks provide visibility into the context creation process,
  * including provider and data set selection.
@@ -226,32 +237,45 @@ export interface StorageContextCallbacks {
   onDataSetResolved?: (info: { isExisting: boolean; dataSetId: bigint; provider: PDPProvider }) => void
 }
 
-export interface CreateContextsOptions {
+/**
+ * Base options shared by all context creation methods
+ *
+ * Contains fields common to both single and multi-context creation:
+ * CDN enablement, metadata matching, and creation callbacks.
+ */
+export interface BaseContextOptions {
+  /** Whether to enable CDN services */
+  withCDN?: boolean
+
+  /**
+   * Custom metadata for data sets (key-value pairs).
+   * Used to match existing data sets during provider selection.
+   */
+  metadata?: Record<string, string>
+
+  /** Callbacks for creation process */
+  callbacks?: StorageContextCallbacks
+}
+
+/**
+ * Options for creating multiple storage contexts via createContexts()
+ *
+ * Extends BaseContextOptions with plural provider/dataset selection
+ * and count for multi-provider redundancy.
+ */
+export interface CreateContextsOptions extends BaseContextOptions {
   /** Number of contexts to create (optional, defaults to 2) */
   count?: number
   /**
-   * Specific data set IDs to use
+   * Specific data set IDs to use (mutually exclusive with providerIds)
    */
   dataSetIds?: bigint[]
   /**
-   * Specific provider IDs to use
+   * Specific provider IDs to use (mutually exclusive with dataSetIds)
    */
   providerIds?: bigint[]
   /** Do not select any of these providers */
   excludeProviderIds?: bigint[]
-  /** Whether to enable CDN services */
-  withCDN?: boolean
-  /**
-   * Custom metadata for the data sets (key-value pairs)
-   * When smart-selecting data sets, this metadata will be used to match.
-   */
-  metadata?: Record<string, string>
-  /** Create new data sets, even if candidates exist */
-  forceCreateDataSets?: boolean
-  /** Callbacks for creation process (will need to change to handle multiples) */
-  callbacks?: StorageContextCallbacks
-  /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
-  uploadBatchSize?: number
 }
 
 export interface ContextCreateContextsOptions extends CreateContextsOptions {
@@ -262,34 +286,17 @@ export interface ContextCreateContextsOptions extends CreateContextsOptions {
 }
 
 /**
- * Options for creating or selecting a storage context
+ * Options for creating or selecting a single storage context via createContext()
  *
- * Used by StorageManager.createContext() and indirectly by StorageManager.upload()
- * when auto-creating contexts. Allows specification of:
- * - Provider selection (by ID or address)
- * - Data set selection or creation
- * - CDN enablement and metadata
- * - Creation process callbacks
+ * Extends BaseContextOptions with singular provider/dataset selection.
  */
-export interface StorageServiceOptions {
+export interface StorageServiceOptions extends BaseContextOptions {
   /** Specific provider ID to use (optional) */
   providerId?: bigint
   /** Do not select any of these providers */
   excludeProviderIds?: bigint[]
-  /** Specific provider address to use (optional) */
-  providerAddress?: Address
   /** Specific data set ID to use (optional) */
   dataSetId?: bigint
-  /** Whether to enable CDN services */
-  withCDN?: boolean
-  /** Force creation of a new data set, even if a candidate exists */
-  forceCreateDataSet?: boolean
-  /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
-  uploadBatchSize?: number
-  /** Callbacks for creation process */
-  callbacks?: StorageContextCallbacks
-  /** Custom metadata for the data set (key-value pairs) */
-  metadata?: Record<string, string>
 }
 
 export interface StorageContextCreateOptions extends StorageServiceOptions {
@@ -334,12 +341,18 @@ export interface PreflightInfo {
 export interface UploadCallbacks {
   /** Called periodically during upload with bytes uploaded so far */
   onProgress?: (bytesUploaded: number) => void
-  /** Called when upload to service provider completes */
-  onUploadComplete?: (pieceCid: PieceCID) => void
-  /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
-  onPiecesAdded?: (transaction: Hex, pieces?: { pieceCid: PieceCID }[]) => void
-  /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
-  onPiecesConfirmed?: (dataSetId: bigint, pieces: PieceRecord[]) => void
+  /** Called when piece data has been stored on a provider (before on-chain commit) */
+  onStored?: (providerId: bigint, pieceCid: PieceCID) => void
+  /** Called when the addPieces transaction has been submitted for a provider */
+  onPiecesAdded?: (transaction: Hex, providerId: bigint, pieces: { pieceCid: PieceCID }[]) => void
+  /** Called when the addPieces transaction is confirmed on-chain for a provider */
+  onPiecesConfirmed?: (dataSetId: bigint, providerId: bigint, pieces: PieceRecord[]) => void
+  /** Called when a secondary copy completes successfully */
+  onCopyComplete?: (providerId: bigint, pieceCid: PieceCID) => void
+  /** Called when a secondary copy fails */
+  onCopyFailed?: (providerId: bigint, pieceCid: PieceCID, error: Error) => void
+  /** Called with pull status updates during SP-to-SP transfer */
+  onPullProgress?: (providerId: bigint, pieceCid: PieceCID, status: PullStatus) => void
 }
 
 /**
@@ -359,13 +372,41 @@ export interface PieceRecord {
  * Used by StorageContext.upload() for uploading data to a specific provider
  * and data set that has already been created/selected.
  */
-export interface UploadOptions extends UploadCallbacks {
+export interface UploadOptions extends StoreOptions, UploadCallbacks {
   /** Custom metadata for this specific piece (key-value pairs) */
-  metadata?: MetadataObject
-  /** Optional pre-calculated PieceCID to skip CommP calculation (BYO PieceCID) */
-  pieceCid?: PieceCID
-  /** Optional AbortSignal to cancel the upload */
-  signal?: AbortSignal
+  pieceMetadata?: MetadataObject
+}
+
+/**
+ * Result for a single successful copy of data on a provider
+ */
+export interface CopyResult {
+  /** Provider ID that holds this copy */
+  providerId: bigint
+  /** Data set ID on this provider */
+  dataSetId: bigint
+  /** Piece ID within the data set */
+  pieceId: bigint
+  /** Whether this is the primary (store) or secondary (pull) copy */
+  role: 'primary' | 'secondary'
+  /** URL where this copy can be retrieved */
+  retrievalUrl: string
+  /** Whether a new data set was created for this copy */
+  isNewDataSet: boolean
+}
+
+/**
+ * Record of a failed copy attempt
+ */
+export interface FailedCopy {
+  /** Provider ID that failed */
+  providerId: bigint
+  /** Role of the failed copy */
+  role: 'primary' | 'secondary'
+  /** Error description */
+  error: string
+  /** Whether the provider was explicitly specified (no auto-retry for explicit) */
+  explicit: boolean
 }
 
 /**
@@ -376,8 +417,96 @@ export interface UploadResult {
   pieceCid: PieceCID
   /** Size of the original data */
   size: number
-  /** Piece ID in the data set */
-  pieceId?: bigint
+  /** Successful copies across providers */
+  copies: CopyResult[]
+  /** Failed copy attempts (individual failures don't throw; check copies.length) */
+  failures: FailedCopy[]
+}
+
+// ============================================================================
+// Split Operation Types
+// ============================================================================
+// The upload flow can be decomposed into: store → pull → commit
+// These types support that split flow for advanced use cases.
+// ============================================================================
+
+/**
+ * Options for storing data on a provider without on-chain commit
+ */
+export interface StoreOptions {
+  /** Optional pre-calculated PieceCID to skip CommP calculation */
+  pieceCid?: PieceCID
+  /** Optional AbortSignal to cancel the store */
+  signal?: AbortSignal
+  /** Progress callback for upload bytes */
+  onProgress?: (bytesUploaded: number) => void
+}
+
+/**
+ * Result of a store operation
+ */
+export interface StoreResult {
+  /** PieceCID of the stored data */
+  pieceCid: PieceCID
+  /** Size of the original data in bytes */
+  size: number
+}
+
+/**
+ * Source for pulling pieces from another provider
+ */
+export type PullSource = string | { getPieceUrl: (pieceCid: PieceCID) => string }
+
+/**
+ * Options for pulling pieces from a source provider
+ */
+export interface PullOptions {
+  /** Pieces to pull */
+  pieces: PieceCID[]
+  /** Source provider to pull from (URL or context with getPieceUrl) */
+  from: PullSource
+  /** Optional AbortSignal */
+  signal?: AbortSignal
+  /** Pull progress callback */
+  onProgress?: (pieceCid: PieceCID, status: PullStatus) => void
+  /** Pre-built signed extraData (avoids double wallet prompts) */
+  extraData?: Hex
+}
+
+/**
+ * Result of a pull operation
+ */
+export interface PullResult {
+  /** Overall status */
+  status: 'complete' | 'failed'
+  /** Per-piece status */
+  pieces: Array<{ pieceCid: PieceCID; status: 'complete' | 'failed' }>
+}
+
+/**
+ * Options for committing pieces on-chain
+ */
+export interface CommitOptions {
+  /** Pieces to commit with optional per-piece metadata */
+  pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>
+  /** Pre-built signed extraData (avoids re-signing) */
+  extraData?: Hex
+  /** Called when the commit transaction is submitted (before on-chain confirmation) */
+  onSubmitted?: (txHash: Hex) => void
+}
+
+/**
+ * Result of a commit operation
+ */
+export interface CommitResult {
+  /** Transaction hash */
+  txHash: Hex
+  /** Piece IDs assigned by the contract */
+  pieceIds: bigint[]
+  /** Data set ID (may be newly created) */
+  dataSetId: bigint
+  /** Whether a new data set was created */
+  isNewDataSet: boolean
 }
 
 /**

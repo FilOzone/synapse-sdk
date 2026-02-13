@@ -3,60 +3,315 @@
 /**
  * Example: End-to-End Storage Upload and Download
  *
- * This example demonstrates:
- * 1. Creating a Synapse instance with credentials
- * 2. Using the synapse.storage API for uploads and downloads
- * 3. Uploading a file to PDP storage with callbacks
- * 4. Downloading the file back and verifying contents
+ * Demonstrates uploading files to Filecoin storage via the Synapse SDK and
+ * downloading them back to verify the round-trip.
  *
- * Required environment variables:
- * - PRIVATE_KEY: Your Ethereum private key (with 0x prefix)
- * - RPC_URL: Filecoin RPC endpoint (defaults to calibration)
- *
- * Optional environment variables (for devnet):
- * - WARM_STORAGE_ADDRESS: Warm Storage service contract address (uses default for network)
- * - MULTICALL3_ADDRESS: Multicall3 address (required for devnet)
- * - USDFC_ADDRESS: USDFC token address (optional)
+ * Two upload paths are shown:
+ *   - Single file:   upload() with streaming — handles everything automatically
+ *   - Multiple files: split operations (store → pull → commit) — batches on-chain
+ *     transactions for efficiency (1 tx per provider instead of N)
  *
  * Usage:
- *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] [file-path3] ...
+ *   PRIVATE_KEY=0x... node utils/example-storage-e2e.js <file-path> [file-path2] ...
+ *   NETWORK=devnet node utils/example-storage-e2e.js <file-path> ...
+ *   NETWORK=mainnet PRIVATE_KEY=0x... node utils/example-storage-e2e.js <file-path> ...
+ *
+ * See resolveConfig() at the bottom of this file for all environment variables.
  */
 
-import { ethers } from 'ethers'
+import fs from 'fs'
 import fsPromises from 'fs/promises'
-import { SIZE_CONSTANTS, Synapse, TIME_CONSTANTS } from '../packages/synapse-sdk/src/index.ts'
-import {
-  ADD_PIECES_TYPEHASH,
-  CREATE_DATA_SET_TYPEHASH,
-  PDP_PERMISSION_NAMES,
-} from '../packages/synapse-sdk/src/session/index.ts'
+import { Readable } from 'stream'
+import { http as viemHttp } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration, devnet, mainnet } from '../packages/synapse-core/src/chains.ts'
+import { SIZE_CONSTANTS, Synapse } from '../packages/synapse-sdk/src/index.ts'
 
-// Configuration from environment
-const PRIVATE_KEY = process.env.PRIVATE_KEY
-const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
-const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
-const MULTICALL3_ADDRESS = process.env.MULTICALL3_ADDRESS // Required for devnet
-const USDFC_ADDRESS = process.env.USDFC_ADDRESS // Optional
-const ENDORSEMENTS_ADDRESS = process.env.ENDORSEMENTS_ADDRESS // Required for devnet
+async function main() {
+  const { chain, privateKey, filePaths } = await resolveConfig()
 
-function printUsageAndExit() {
-  console.error('Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] ...')
-  process.exit(1)
+  console.log('=== Synapse SDK Storage E2E Example ===\n')
+
+  // Validate files and collect metadata
+  console.log(`Reading file${filePaths.length !== 1 ? 's' : ''}...`)
+  const files = []
+  let totalSize = 0
+
+  for (const filePath of filePaths) {
+    const stat = await fsPromises.stat(filePath)
+    if (!stat.isFile()) {
+      throw new Error(`Path is not a file: ${filePath}`)
+    }
+    if (stat.size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
+      throw new Error(
+        `File exceeds maximum size of ${formatBytes(SIZE_CONSTANTS.MAX_UPLOAD_SIZE)}: ${filePath} (${formatBytes(stat.size)})`
+      )
+    }
+    console.log(`  ${filePath} (${formatBytes(stat.size)})`)
+    files.push({ path: filePath, length: stat.size })
+    totalSize += stat.size
+  }
+
+  // Create Synapse instance
+  console.log('\n--- Initializing Synapse SDK ---')
+  console.log(`Network: ${chain.name}`)
+  console.log(`RPC URL: ${chain.rpcUrls.default.http[0]}`)
+
+  const account = privateKeyToAccount(privateKey)
+  console.log(`Wallet address: ${account.address}`)
+
+  const synapse = Synapse.create({
+    chain,
+    transport: viemHttp(),
+    account,
+  })
+
+  console.log('Synapse instance created')
+
+  // Check balances
+  console.log('\n--- Checking Balances ---')
+  const filBalance = await synapse.payments.walletBalance()
+  const usdfcBalance = await synapse.payments.walletBalance('USDFC')
+  console.log(`FIL balance: ${Number(filBalance) / 1e18} FIL`)
+  console.log(`USDFC balance: ${formatUSDFC(usdfcBalance)}`)
+
+  // Preflight checks
+  console.log('\n--- Preflight Upload Check ---')
+  const preflight = await synapse.storage.preflightUpload({ size: totalSize })
+
+  console.log('Estimated costs:')
+  console.log(`  Per epoch (30s): ${formatUSDFC(preflight.estimatedCost.perEpoch)}`)
+  console.log(`  Per day: ${formatUSDFC(preflight.estimatedCost.perDay)}`)
+  console.log(`  Per month: ${formatUSDFC(preflight.estimatedCost.perMonth)}`)
+
+  if (!preflight.allowanceCheck.sufficient) {
+    console.error(`\nInsufficient allowances: ${preflight.allowanceCheck.message}`)
+    console.error('\nPlease ensure you have:')
+    console.error('1. Sufficient USDFC balance')
+    console.error('2. Approved USDFC spending for the Payments contract')
+    console.error('3. Approved the Warm Storage service as an operator')
+    process.exit(1)
+  }
+
+  console.log('Sufficient allowances available')
+
+  // Upload files — single vs multi-file paths
+  console.log('\n--- Uploading ---')
+
+  // uploadResults is built by either the single-file or multi-file path
+  const uploadResults = []
+
+  if (files.length === 1) {
+    // -----------------------------------------------------------------
+    // Single file: upload() handles everything — provider selection,
+    // data transfer, SP-to-SP replication, and on-chain commitment.
+    // Uses streaming to avoid buffering the entire file in memory.
+    // -----------------------------------------------------------------
+    const file = files[0]
+    const fileStream = Readable.toWeb(fs.createReadStream(file.path))
+    console.log(`Uploading ${file.path} (${formatBytes(file.length)}) via stream...\n`)
+
+    const PROGRESS_CHUNK_SIZE = 10 * 1024 * 1024 // 10 MiB
+    let lastReportedBytes = 0
+
+    const result = await synapse.storage.upload(fileStream, {
+      callbacks: {
+        onProviderSelected: (provider) => {
+          console.log(`  Selected provider: ${provider.serviceProvider}`)
+        },
+        onDataSetResolved: (info) => {
+          const verb = info.isExisting ? 'Using existing' : 'Created new'
+          console.log(`  ${verb} data set: ${info.dataSetId}`)
+        },
+        onProgress: (bytesUploaded) => {
+          if (bytesUploaded - lastReportedBytes >= PROGRESS_CHUNK_SIZE || bytesUploaded === file.length) {
+            const pct = file.length > 0 ? ` (${((bytesUploaded / file.length) * 100).toFixed(1)}%)` : ''
+            console.log(`  Upload progress: ${formatBytes(bytesUploaded)}${pct}`)
+            lastReportedBytes = bytesUploaded
+          }
+        },
+        onStored: (providerId, pieceCid) => {
+          console.log(`  Stored on provider ${providerId}: ${pieceCid}`)
+        },
+        onPiecesAdded: (transaction, providerId, pieces) => {
+          console.log(`  Pieces added for provider ${providerId}, tx: ${transaction}`)
+          for (const { pieceCid } of pieces) {
+            console.log(`    ${pieceCid}`)
+          }
+        },
+        onPiecesConfirmed: (dataSetId, providerId, pieces) => {
+          console.log(`  Data set ${dataSetId} confirmed on provider ${providerId}`)
+          for (const { pieceCid, pieceId } of pieces) {
+            console.log(`    ${pieceCid} -> pieceId ${pieceId}`)
+          }
+        },
+      },
+    })
+
+    uploadResults.push({ file, result })
+  } else {
+    // -----------------------------------------------------------------
+    // Multiple files: orchestrate store -> pull -> commit manually.
+    //
+    // More efficient than calling upload() per file because all pieces
+    // are committed in a single on-chain transaction per provider,
+    // rather than one transaction per file.
+    // -----------------------------------------------------------------
+    console.log(`Uploading ${files.length} files using split operations...\n`)
+
+    // Create storage contexts — primary (endorsed) + secondaries
+    const contexts = await synapse.storage.createContexts({
+      callbacks: {
+        onProviderSelected: (provider) => {
+          console.log(`  Selected provider: ${provider.serviceProvider}`)
+        },
+        onDataSetResolved: (info) => {
+          const verb = info.isExisting ? 'Using existing' : 'Created new'
+          console.log(`  ${verb} data set: ${info.dataSetId}`)
+        },
+      },
+    })
+
+    const [primary, ...secondaries] = contexts
+    console.log(`Primary: SP ${primary.provider.id}`)
+    for (const sec of secondaries) {
+      console.log(`Secondary: SP ${sec.provider.id}`)
+    }
+
+    // Store all files on the primary provider in parallel using streaming
+    const stored = await Promise.all(
+      files.map(async (file) => {
+        const fileStream = Readable.toWeb(fs.createReadStream(file.path))
+        console.log(`\nStoring ${file.path} (${formatBytes(file.length)}) on SP ${primary.provider.id}...`)
+        const storeResult = await primary.store(fileStream)
+        console.log(`  Stored: ${storeResult.pieceCid}`)
+        return { file, pieceCid: storeResult.pieceCid, size: storeResult.size }
+      })
+    )
+
+    // Pull all pieces to each secondary via SP-to-SP transfer.
+    // Pre-sign extraData per secondary so the same signature covers both
+    // the pull (estimateGas validation) and commit (on-chain submission).
+    const pieceCids = stored.map((s) => s.pieceCid)
+    const pieceInputs = stored.map((s) => ({ pieceCid: s.pieceCid }))
+    const successfulSecondaries = []
+
+    for (const secondary of secondaries) {
+      console.log(`\nPulling ${pieceCids.length} piece(s) to SP ${secondary.provider.id}...`)
+      try {
+        const extraData = await secondary.presignForCommit(pieceInputs)
+        const pullResult = await secondary.pull({ pieces: pieceCids, from: primary, extraData })
+
+        if (pullResult.status === 'complete') {
+          console.log('  Pull complete')
+          successfulSecondaries.push({ context: secondary, extraData })
+        } else {
+          const failedPieces = pullResult.pieces.filter((p) => p.status === 'failed')
+          console.log(`  Pull failed for ${failedPieces.length} piece(s)`)
+        }
+      } catch (error) {
+        console.log(`  Pull failed: ${error.message}`)
+      }
+    }
+
+    // Commit all pieces on each provider in a single transaction.
+    // Primary commits without extraData (signs internally); secondaries
+    // reuse the extraData signed during the pull step.
+    console.log(`\nCommitting ${stored.length} piece(s) on ${1 + successfulSecondaries.length} provider(s)...`)
+
+    const primaryCommit = await primary.commit({ pieces: pieceInputs })
+    console.log(`  Committed on SP ${primary.provider.id} (tx: ${primaryCommit.txHash.slice(0, 18)}...)`)
+
+    const secondaryCommits = []
+    for (const { context, extraData } of successfulSecondaries) {
+      try {
+        const result = await context.commit({ pieces: pieceInputs, extraData })
+        console.log(`  Committed on SP ${context.provider.id} (tx: ${result.txHash.slice(0, 18)}...)`)
+        secondaryCommits.push({ context, result })
+      } catch (error) {
+        console.log(`  Commit failed on SP ${context.provider.id}: ${error.message}`)
+      }
+    }
+
+    // Build upload results (same shape as upload() returns)
+    for (const { file, pieceCid, size } of stored) {
+      const i = stored.findIndex((s) => s.pieceCid === pieceCid)
+      const copies = [
+        {
+          providerId: primary.provider.id,
+          dataSetId: primaryCommit.dataSetId,
+          pieceId: primaryCommit.pieceIds[i],
+          role: 'primary',
+        },
+        ...secondaryCommits.map(({ context, result }) => ({
+          providerId: context.provider.id,
+          dataSetId: result.dataSetId,
+          pieceId: result.pieceIds[i],
+          role: 'secondary',
+        })),
+      ]
+      uploadResults.push({ file, result: { pieceCid, size, copies, failures: [] } })
+    }
+  }
+
+  // Upload summary
+  console.log('\n--- Upload Summary ---')
+  for (const { file, result } of uploadResults) {
+    console.log(`\nFile: ${file.path}`)
+    console.log(`  PieceCID: ${result.pieceCid}`)
+    console.log(`  Size: ${formatBytes(result.size)}`)
+
+    for (const copy of result.copies) {
+      const roleLabel = copy.role === 'primary' ? '[Primary]  ' : '[Secondary]'
+      console.log(`  ${roleLabel} Provider ${copy.providerId} - pieceId: ${copy.pieceId}, dataSetId: ${copy.dataSetId}`)
+    }
+
+    if (result.failures.length > 0) {
+      for (const failure of result.failures) {
+        console.log(`  Failed: provider ${failure.providerId} - ${failure.error.message}`)
+      }
+    }
+  }
+
+  // Download and verify
+  console.log('\n--- Downloading and Verifying ---')
+
+  let allMatch = true
+  for (const { file, result } of uploadResults) {
+    console.log(`\nDownloading ${result.pieceCid}...`)
+    const downloadedData = await synapse.storage.download({ pieceCid: result.pieceCid })
+
+    if (downloadedData == null) {
+      console.error('  FAILED: Could not download')
+      allMatch = false
+      continue
+    }
+
+    const originalData = await fsPromises.readFile(file.path)
+    const matches = Buffer.from(originalData).equals(Buffer.from(downloadedData))
+
+    if (matches) {
+      console.log(`  VERIFIED: ${formatBytes(downloadedData.length)} matches original`)
+    } else {
+      console.error('  MISMATCH: Downloaded data does not match original!')
+      allMatch = false
+    }
+  }
+
+  if (!allMatch) {
+    console.error('\nERROR: One or more files failed verification!')
+    process.exit(1)
+  }
+
+  console.log('\n=== SUCCESS: All files uploaded, replicated, and verified ===')
+  console.log('The service provider(s) will periodically prove they still have your data.')
+  console.log('You are being charged based on the storage size and duration.')
 }
 
-// Validate inputs
-if (!PRIVATE_KEY) {
-  console.error('ERROR: PRIVATE_KEY environment variable is required')
-  printUsageAndExit()
-}
+// ────────────────────────────────────────────────────────────
+// Configuration and helpers
+// ────────────────────────────────────────────────────────────
 
-const filePaths = process.argv.slice(2)
-if (filePaths.length === 0) {
-  console.error('ERROR: At least one file path argument is required')
-  printUsageAndExit()
-}
-
-// Helper to format bytes for display
 function formatBytes(bytes) {
   if (bytes === 0) return '0 Bytes'
   const k = 1024
@@ -65,373 +320,125 @@ function formatBytes(bytes) {
   return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
 }
 
-// Helper to format USDFC amounts (18 decimals)
 function formatUSDFC(amount) {
   const usdfc = Number(amount) / 1e18
   return `${usdfc.toFixed(6)} USDFC`
 }
 
-async function main() {
-  try {
-    console.log('=== Synapse SDK Storage E2E Example ===\n')
-
-    // Read all files to upload
-    console.log(`Reading file${filePaths.length !== 1 ? 's' : ''}...`)
-    const files = []
-    let totalSize = 0
-
-    // Currently we deal in Uint8Array blobs, so we have to read files into memory
-    for (const filePath of filePaths) {
-      console.log(`  Reading file: ${filePath}`)
-      const stat = await fsPromises.stat(filePath)
-      if (!stat.isFile()) {
-        throw new Error(`Path is not a file: ${filePath}`)
-      }
-      if (stat.size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
-        throw new Error(
-          `File exceeds maximum size of ${formatBytes(
-            SIZE_CONSTANTS.MAX_UPLOAD_SIZE
-          )}: ${filePath} (${formatBytes(stat.size)})`
-        )
-      }
-      const fh = await fsPromises.open(filePath, 'r')
-
-      files.push({ path: filePath, handle: fh, length: stat.size })
-      totalSize += stat.size
-    }
-
-    // Create Synapse instance
-    console.log('\n--- Initializing Synapse SDK ---')
-    console.log(`RPC URL: ${RPC_URL}`)
-
-    const synapseOptions = {
-      multicall3Address: MULTICALL3_ADDRESS,
-      privateKey: PRIVATE_KEY,
-      rpcURL: RPC_URL,
-      usdfcAddress: USDFC_ADDRESS,
-      warmStorageAddress: WARM_STORAGE_ADDRESS,
-      endorsementsAddress: ENDORSEMENTS_ADDRESS,
-    }
-
-    if (WARM_STORAGE_ADDRESS) {
-      console.log(`Warm Storage Address: ${WARM_STORAGE_ADDRESS}`)
-    }
-    if (MULTICALL3_ADDRESS) {
-      console.log(`Multicall3 Address: ${MULTICALL3_ADDRESS}`)
-    }
-    if (USDFC_ADDRESS) {
-      console.log(`USDFC Address: ${USDFC_ADDRESS}`)
-    }
-    if (ENDORSEMENTS_ADDRESS) {
-      console.log(`Endorsements Address: ${ENDORSEMENTS_ADDRESS}`)
-    }
-
-    const synapse = await Synapse.create(synapseOptions)
-    console.log('✓ Synapse instance created')
-
-    // Get wallet info
-    const signer = synapse.getSigner()
-    const address = await signer.getAddress()
-    console.log(`Wallet address: ${address}`)
-
-    // Check balances
-    console.log('\n--- Checking Balances ---')
-    const filBalance = await synapse.payments.walletBalance()
-    const usdfcBalance = await synapse.payments.walletBalance('USDFC')
-    console.log(`FIL balance: ${Number(filBalance) / 1e18} FIL`)
-    console.log(`USDFC balance: ${formatUSDFC(usdfcBalance)}`)
-
-    // Check session keys
-    if (process.env.SESSION_KEY) {
-      let sessionPrivateKey = process.env.SESSION_KEY
-      if (!sessionPrivateKey.startsWith('0x')) {
-        sessionPrivateKey = `0x${sessionPrivateKey}`
-      }
-      const sessionKeyWallet = new ethers.Wallet(sessionPrivateKey, synapse.getProvider())
-      const sessionKey = synapse.createSessionKey(sessionKeyWallet)
-      synapse.setSession(sessionKey)
-      const permissions = [CREATE_DATA_SET_TYPEHASH, ADD_PIECES_TYPEHASH]
-      const expiries = await sessionKey.fetchExpiries(permissions)
-      const sessionKeyAddress = await sessionKeyWallet.getAddress()
-
-      console.log('\n--- SessionKey Login ---')
-      console.log(`Session Key: ${sessionKeyAddress})`)
-      // Check the existing expiry of the permissions for this session key,
-      // if it's not far enough in the future update them with a new login()
-      const permissionsToRefresh = []
-      const day = TIME_CONSTANTS.EPOCHS_PER_DAY * BigInt(TIME_CONSTANTS.EPOCH_DURATION)
-      const soon = BigInt(Date.now()) / BigInt(1000) + day / BigInt(6)
-      const refresh = soon + day
-      for (const permission of permissions) {
-        if (expiries[permission] < soon) {
-          console.log(`  refreshing ${PDP_PERMISSION_NAMES[permission]}: ${expiries[permission]} to ${refresh}`)
-          permissionsToRefresh.push(permission)
-        }
-      }
-      if (permissionsToRefresh.length > 0) {
-        // Use login() to reset the expiry of existing permissions to the new value
-        const loginTx = await sessionKey.login(refresh, permissionsToRefresh)
-        console.log(`  tx: ${loginTx.hash}`)
-        const loginReceipt = await loginTx.wait()
-        if (loginReceipt.status === 1) {
-          console.log('✓ login successful')
-        } else {
-          throw new Error('Login failed')
-        }
-      } else {
-        console.log('✓ session active')
-      }
-    }
-
-    // Create storage context (optional - synapse.storage.upload() will auto-create if needed)
-    // We create it explicitly here to show provider selection and data set creation callbacks.
-    //
-    // Currently we create a single context, but multiple can be created for multi-provider uploads.
-    // Multi-provider uploads is currently an experimental feature. A single context can also be
-    // created using the synapse.storage.createContext() method.
-    console.log('\n--- Setting Up Storage Context ---')
-    const contexts = await synapse.storage.createContexts({
-      // providerId: 1, // Optional: specify provider ID
-      count: 1,
-      withCDN: false, // Set to true if you want CDN support
-      callbacks: {
-        onProviderSelected: (provider) => {
-          console.log(`✓ Selected service provider: ${provider.serviceProvider}`)
-        },
-        onDataSetResolved: (info) => {
-          if (info.isExisting) {
-            console.log(`✓ Using existing data set: ${info.dataSetId}`)
-          } else {
-            console.log(`✓ Created new data set: ${info.dataSetId}`)
-          }
-        },
-      },
-    })
-
-    for (const [index, storageContext] of contexts.entries()) {
-      const providerLabel = contexts.length > 1 ? ` #${index + 1}` : ''
-      if (storageContext.dataSetId === undefined) {
-        console.log(`Data set not yet created`)
-      } else {
-        console.log(`Data set ID: ${storageContext.dataSetId}`)
-      }
-      const pieceCids = await storageContext.getDataSetPieces()
-      console.log(`Data set contains ${pieceCids.length} piece CIDs`)
-      /* Uncomment to see piece CIDs
-      for (const cid of pieceCids) {
-        console.log(`  - Piece CID: ${cid}`)
-      }
-      */
-
-      // Get detailed provider information
-      console.log(`\n--- Service Provider${providerLabel} Details ---`)
-      const providerInfo = await storageContext.getProviderInfo()
-      console.log(`Provider ID: ${providerInfo.id}`)
-      console.log(`Provider Address: ${providerInfo.serviceProvider}`)
-      console.log(`Provider Name: ${providerInfo.name}`)
-      console.log(`Active: ${providerInfo.active}`)
-      if (providerInfo.products.PDP?.data.serviceURL) {
-        console.log(`PDP Service URL: ${providerInfo.products.PDP.data.serviceURL}`)
-      }
-    }
-
-    // Run preflight checks, using total size since we care about our ability to pay
-    console.log('\n--- Preflight Upload Check ---')
-    const preflight = await synapse.storage.preflightUpload(totalSize)
-
-    console.log('Estimated costs:')
-    console.log(`  Per epoch (30s): ${formatUSDFC(preflight.estimatedCost.perEpoch)}`)
-    console.log(`  Per day: ${formatUSDFC(preflight.estimatedCost.perDay)}`)
-    console.log(`  Per month: ${formatUSDFC(preflight.estimatedCost.perMonth)}`)
-
-    if (!preflight.allowanceCheck.sufficient) {
-      console.error(`\n❌ Insufficient allowances: ${preflight.allowanceCheck.message}`)
-      console.error('\nPlease ensure you have:')
-      console.error('1. Sufficient USDFC balance')
-      console.error('2. Approved USDFC spending for the Payments contract')
-      console.error('3. Approved the Warm Storage service as an operator')
-      process.exit(1)
-    }
-
-    console.log('✓ Sufficient allowances available')
-
-    // Upload all files in parallel
-    console.log('\n--- Uploading ---')
-    const providerText = contexts.length > 1 ? `${contexts.length} service providers` : 'service provider'
-    if (files.length > 1) {
-      console.log(`Uploading files to ${providerText} in parallel...\n`)
-    } else {
-      console.log(`Uploading file to ${providerText}...\n`)
-    }
-
-    // Start all uploads without waiting (collect promises and not block with await)
-    const uploadPromises = files.map(async (file, index) => {
-      let pfx = ''
-      if (files.length > 1) {
-        pfx = `[File ${index + 1}/${files.length}] `
-      }
-
-      // Track progress in chunks
-      const PROGRESS_CHUNK_SIZE = 10 * 1024 * 1024 // 10 MiB
-      let lastReportedBytes = 0
-      let data
-      if (contexts.length !== 1) {
-        // Streaming currently unsupported for multiple providers, collect into a buffer
-        data = await file.handle.readFile()
-      } else {
-        data = file.handle.readableWebStream()
-      }
-
-      return synapse.storage.upload(data, {
-        contexts,
-        callbacks: {
-          onProgress: (bytesUploaded) => {
-            if (bytesUploaded - lastReportedBytes >= PROGRESS_CHUNK_SIZE || bytesUploaded === file.length) {
-              let progressMsg = ''
-              if (file.length !== -1) {
-                const percent = ((bytesUploaded / file.length) * 100).toFixed(1)
-                progressMsg = `${formatBytes(bytesUploaded)} / ${formatBytes(file.length)} (${percent}%)`
-              } else {
-                progressMsg = `${formatBytes(bytesUploaded)}`
-              }
-              console.log(`  ${pfx}Upload progress: ${progressMsg}`)
-              lastReportedBytes = bytesUploaded
-            }
-          },
-          onUploadComplete: (pieceCid) => {
-            console.log(`✓ ${pfx}Upload complete! PieceCID: ${pieceCid}`)
-          },
-          onPieceAdded: (transactionHash) => {
-            console.log(`✓ ${pfx}Piece addition transaction: ${transactionHash}`)
-          },
-          onPieceConfirmed: (pieceIds) => {
-            console.log(`✓ ${pfx}Piece addition confirmed! ID(s): ${pieceIds.join(', ')}`)
-          },
-        },
-      })
-    })
-
-    // Wait for all uploads to complete in parallel
-    const uploadResults = await Promise.all(uploadPromises)
-
-    // Close all file handles
-    await Promise.all(files.map((file) => file.handle.close()))
-
-    console.log('\n--- Upload Summary ---')
-    uploadResults.forEach((fileResult, fileIndex) => {
-      console.log(`File ${fileIndex + 1}: ${files[fileIndex].path}`)
-      console.log(`    PieceCID: ${fileResult.pieceCid}`)
-      console.log(`    Size: ${formatBytes(fileResult.size)}`)
-      console.log(`    Piece ID: ${fileResult.pieceId}`)
-    })
-
-    // Download all files back in parallel
-    console.log('\n--- Downloading Files ---')
-    console.log(`Downloading file${files.length !== 1 ? 's in parallel' : ''}...\n`)
-
-    // Start all downloads without waiting (collect promises)
-    const downloadPromises = uploadResults.map((fileResult, index) => {
-      console.log(`  Downloading file ${index + 1}: ${fileResult.pieceCid}`)
-      // Use synapse.storage.download for SP-agnostic download (finds any provider with the piece)
-      // Could also use storageContext.download() to download from the specific provider
-      return synapse.storage.download(fileResult.pieceCid)
-    })
-
-    // Wait for all downloads to complete in parallel
-    const downloadedFiles = await Promise.all(downloadPromises)
-
-    console.log(`\n✓ Downloaded ${downloadedFiles.length} file${files.length !== 1 ? 's' : ''} successfully`)
-
-    // Verify all files
-    console.log('\n--- Verifying Data ---')
-    let allMatch = true
-
-    for (let i = 0; i < files.length; i++) {
-      const downloadedData = downloadedFiles[i]
-      if (downloadedData == null) {
-        console.warn(`Skipped File ${i + 1} (${files[i].path})`)
-        continue
-      }
-
-      // This isn't pretty (or recommended), but just to demonstrate that our verified download
-      // verified the data correctly, we'll do a direct comparison of the bytes
-      const originalData = await fsPromises.readFile(files[i].path)
-      const matches = Buffer.from(originalData).equals(Buffer.from(downloadedData))
-
-      console.log(
-        `File ${i + 1} (${files[i].path}): ${matches ? '✅ MATCH' : '❌ MISMATCH'} (${formatBytes(downloadedData.length)})`
-      )
-
-      if (!matches) {
-        allMatch = false
-      }
-    }
-
-    if (!allMatch) {
-      console.error('\n❌ ERROR: One or more downloaded files do not match originals!')
-      process.exit(1)
-    }
-
-    console.log('\n✅ SUCCESS: All downloaded files match originals!')
-
-    // Check piece status for all files
-    console.log('\n--- Piece Status ---')
-
-    for (const fileResult of uploadResults) {
-      const pieceCid = fileResult.pieceCid
-
-      for (let spIndex = 0; spIndex < contexts.length; spIndex++) {
-        const storageContext = contexts[spIndex]
-        const providerLabel = contexts.length > 1 ? ` #${spIndex + 1}` : ''
-        // Check status for the first piece (data set info is shared)
-        const firstPieceStatus = await storageContext.pieceStatus(pieceCid)
-        console.log(`Data set exists on provider: ${firstPieceStatus.exists}`)
-        if (firstPieceStatus.dataSetLastProven) {
-          console.log(`Data set last proven: ${firstPieceStatus.dataSetLastProven.toLocaleString()}`)
-        }
-        if (firstPieceStatus.dataSetNextProofDue) {
-          console.log(`Data set next proof due: ${firstPieceStatus.dataSetNextProofDue.toLocaleString()}`)
-        }
-        if (firstPieceStatus.inChallengeWindow) {
-          console.log('Currently in challenge window - proof must be submitted soon')
-        } else if (firstPieceStatus.hoursUntilChallengeWindow && firstPieceStatus.hoursUntilChallengeWindow > 0) {
-          console.log(`Hours until challenge window: ${firstPieceStatus.hoursUntilChallengeWindow.toFixed(1)}`)
-        }
-
-        const providerInfo = storageContext.provider
-        // Show storage info
-        console.log(`\n--- Storage Information${providerLabel} ---`)
-        const fileText = files.length !== 1 ? 'files are' : 'file is'
-        console.log(`Your ${uploadResults.length} ${fileText} now stored on the Filecoin network:`)
-        console.log(`- Data set ID: ${storageContext.dataSetId}`)
-        console.log(`- Service provider: ${storageContext.provider.serviceProvider}`)
-
-        console.log('\nUploaded pieces:')
-        uploadResults.forEach((fileResult, fileIndex) => {
-          console.log(`\n  File ${fileIndex + 1}: ${files[fileIndex].path}`)
-          console.log(`    PieceCID: ${fileResult.pieceCid}`)
-          console.log(`    Piece ID: ${fileResult.pieceId}`)
-          console.log(`    Size: ${formatBytes(fileResult.size)}`)
-          if (providerInfo.products.PDP?.data.serviceURL) {
-            console.log(
-              `    Retrieval URL: ${providerInfo.products.PDP.data.serviceURL.replace(/\/$/, '')}/piece/${fileResult.pieceCid}`
-            )
-          }
-        })
-      }
-    }
-
-    console.log('\nThe service provider(s) will periodically prove they still have your data.')
-    console.log('You are being charged based on the storage size and duration.')
-  } catch (error) {
-    console.error('\n❌ Error:', error.message)
-    if (error.cause) {
-      console.error('Caused by:', error.cause.message)
-    }
-    console.error(error)
+/**
+ * Resolve chain, private key, and file paths from environment and CLI args.
+ *
+ * Environment variables:
+ * - PRIVATE_KEY: Ethereum private key (0x-prefixed). Required for calibnet/mainnet.
+ * - NETWORK: "mainnet" | "calibnet" | "devnet" (default: "calibnet")
+ * - RPC_URL: Override the default RPC endpoint for any network.
+ *
+ * Devnet mode (NETWORK=devnet):
+ *   Loads chain config from foc-devnet's devnet-info.json. PRIVATE_KEY is
+ *   optional — defaults to the first devnet user.
+ *   - DEVNET: Path to devnet-info.json
+ *     (default: ~/.foc-devnet/state/latest/devnet-info.json)
+ *
+ * Calibnet/mainnet address overrides (optional):
+ *   - WARM_STORAGE_ADDRESS, MULTICALL3_ADDRESS, USDFC_ADDRESS, ENDORSEMENTS_ADDRESS
+ */
+async function resolveConfig() {
+  const filePaths = process.argv.slice(2)
+  if (filePaths.length === 0) {
+    console.error('Usage: PRIVATE_KEY=0x... node utils/example-storage-e2e.js <file-path> [file-path2] ...')
+    console.error('       NETWORK=devnet node utils/example-storage-e2e.js <file-path> ...')
     process.exit(1)
   }
+
+  const NETWORK = process.env.NETWORK || 'calibnet'
+  const RPC_URL = process.env.RPC_URL
+  let privateKey = process.env.PRIVATE_KEY
+  let chain
+
+  if (NETWORK === 'devnet') {
+    const { readFileSync } = await import('fs')
+    const { homedir } = await import('os')
+    const { join } = await import('path')
+
+    const devnetInfoPath = process.env.DEVNET || join(homedir(), '.foc-devnet', 'state', 'latest', 'devnet-info.json')
+
+    console.log(`Loading devnet info from: ${devnetInfoPath}`)
+    const devnetInfo = JSON.parse(readFileSync(devnetInfoPath, 'utf8'))
+    const { info } = devnetInfo
+
+    const user = info.users[0]
+    if (!privateKey) {
+      privateKey = user.private_key_hex
+    }
+
+    const rpcUrl = RPC_URL || info.lotus.host_rpc_url
+
+    // Use devnet as base (correct chainId: 31415926) with ABIs from calibration
+    const c = calibration.contracts
+    chain = {
+      ...devnet,
+      rpcUrls: { ...devnet.rpcUrls, default: { http: [rpcUrl] } },
+      contracts: {
+        ...c,
+        fwss: { ...c.fwss, address: info.contracts.fwss_service_proxy_addr },
+        fwssView: { ...c.fwssView, address: info.contracts.fwss_state_view_addr },
+        multicall3: { ...c.multicall3, address: info.contracts.multicall3_addr },
+        usdfc: { ...c.usdfc, address: info.contracts.mockusdfc_addr },
+        filecoinPay: { ...c.filecoinPay, address: info.contracts.filecoin_pay_v1_addr },
+        serviceProviderRegistry: {
+          ...c.serviceProviderRegistry,
+          address: info.contracts.service_provider_registry_proxy_addr,
+        },
+        endorsements: { ...c.endorsements, address: info.contracts.endorsements_addr },
+        pdp: { ...c.pdp, address: info.contracts.pdp_verifier_proxy_addr },
+      },
+    }
+
+    console.log(`Devnet run: ${info.run_id}`)
+    console.log(`Using user: ${user.name} (${user.evm_addr})`)
+    console.log(`SPs available: ${info.pdp_sps.length}`)
+  } else {
+    const baseChain = NETWORK === 'mainnet' ? mainnet : calibration
+
+    chain = RPC_URL ? { ...baseChain, rpcUrls: { ...baseChain.rpcUrls, default: { http: [RPC_URL] } } } : baseChain
+
+    const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS
+    const MULTICALL3_ADDRESS = process.env.MULTICALL3_ADDRESS
+    const USDFC_ADDRESS = process.env.USDFC_ADDRESS
+    const ENDORSEMENTS_ADDRESS = process.env.ENDORSEMENTS_ADDRESS
+    if (WARM_STORAGE_ADDRESS || MULTICALL3_ADDRESS || USDFC_ADDRESS || ENDORSEMENTS_ADDRESS) {
+      chain = {
+        ...chain,
+        contracts: {
+          ...chain.contracts,
+          ...(WARM_STORAGE_ADDRESS ? { fwss: { ...chain.contracts.fwss, address: WARM_STORAGE_ADDRESS } } : {}),
+          ...(MULTICALL3_ADDRESS ? { multicall3: { address: MULTICALL3_ADDRESS, blockCreated: 0 } } : {}),
+          ...(USDFC_ADDRESS ? { usdfc: { ...chain.contracts.usdfc, address: USDFC_ADDRESS } } : {}),
+          ...(ENDORSEMENTS_ADDRESS
+            ? { endorsements: { ...chain.contracts.endorsements, address: ENDORSEMENTS_ADDRESS } }
+            : {}),
+        },
+      }
+    }
+  }
+
+  if (!privateKey) {
+    console.error('ERROR: PRIVATE_KEY environment variable is required')
+    console.error('Usage: PRIVATE_KEY=0x... node utils/example-storage-e2e.js <file-path> [file-path2] ...')
+    console.error('       NETWORK=devnet node utils/example-storage-e2e.js <file-path> ...')
+    process.exit(1)
+  }
+
+  return { chain, privateKey, filePaths }
 }
 
-// Run the example
-main().catch(console.error)
+// ────────────────────────────────────────────────────────────
+
+main().catch((error) => {
+  console.error('\nError:', error.message)
+  if (error.cause) {
+    console.error('Caused by:', error.cause.message)
+  }
+  console.error(error)
+  process.exit(1)
+})
