@@ -39,12 +39,6 @@ Track storage providers health and reliability.
 - **Mainnet**: <https://dealbot.fwss.io/>
 - **Calibration Testnet**: <https://dealbot-staging.fwss.io>
 
-## FWSS Subgraph
-
-The [FWSS Subgraph](https://github.com/FIL-Builders/fwss-subgraph) indexes on-chain data from the Filecoin Warm Storage Service contracts, making it easy to query data sets, pieces, payment rails, and provider activity using GraphQL.
-
-- **Repository**: [FIL-Builders/fwss-subgraph](https://github.com/FIL-Builders/fwss-subgraph)
-
 ## Network Information
 
 - Mainnet
