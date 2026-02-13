@@ -332,6 +332,7 @@ export function getChain(id?: number): Chain {
 
 /**
  * Convert a viem chain to a filecoin chain.
+ *
  * @param chain - The viem chain.
  * @returns The filecoin chain.
  * @throws Errors {@link asChain.ErrorType}

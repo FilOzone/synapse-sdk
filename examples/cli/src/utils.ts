@@ -1,7 +1,10 @@
 import * as p from '@clack/prompts'
 import type { Chain } from '@filoz/synapse-core/chains'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
-import { getPDPProviders } from '@filoz/synapse-core/sp-registry'
+import {
+  getApprovedPDPProviders,
+  getPDPProviders,
+} from '@filoz/synapse-core/sp-registry'
 import {
   getPdpDataSets,
   type PdpDataSet,
@@ -111,7 +114,7 @@ export async function selectProvider(
   spinner.start(`Fetching providers...`)
 
   try {
-    const { providers } = await getPDPProviders(client)
+    const providers = await getApprovedPDPProviders(client)
     spinner.stop(`Providers fetched.`)
 
     if (providers.length === 0) {

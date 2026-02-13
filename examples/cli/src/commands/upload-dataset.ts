@@ -55,6 +55,7 @@ export const uploadDataset: Command = command(
       await SP.findPiece({
         pieceCid,
         serviceURL: provider.pdp.serviceURL,
+        retry: true,
       })
 
       const rsp = await SP.createDataSetAndAddPieces(client, {
