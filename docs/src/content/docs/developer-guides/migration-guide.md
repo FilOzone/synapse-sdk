@@ -42,7 +42,7 @@ const synapse = Synapse.create({
 The following subpath exports were removed from `@filoz/synapse-sdk`:
 
 - `@filoz/synapse-sdk/pdp`
-- `@filoz/synapse-sdk/subgraph` (now maintained as a standalone project at [FIL-Builders/fwss-subgraph](https://github.com/FIL-Builders/fwss-subgraph))
+- `@filoz/synapse-sdk/subgraph`
 - `@filoz/synapse-sdk/telemetry`
 
 ```ts
