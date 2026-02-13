@@ -4,7 +4,6 @@
   "private": true,
   "description": "Synapse cdn script tag example",
   "scripts": {
-    "lint": "biome check --fix .",
     "dev": "servor --reload"
   },
   "keywords": [],
