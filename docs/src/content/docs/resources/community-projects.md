@@ -28,6 +28,12 @@ The projects listed below are developed and maintained by community members. For
 - Native Go implementation
 - Suitable for backend services and CLI tools
 
+## Tools
+
+### FWSS Subgraph
+
+**[fwss-subgraph](https://github.com/FIL-Builders/fwss-subgraph)** — Indexes on-chain data from the Filecoin Warm Storage Service contracts, making it easy to query data sets, pieces, payment rails, and provider activity using GraphQL.
+
 ## Contributing
 
 Have a project you'd like to add? Open a pull request to this page with your project details.
