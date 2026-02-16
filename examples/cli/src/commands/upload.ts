@@ -1,12 +1,13 @@
 import { open } from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
+import type { PieceCID } from '@filoz/synapse-core/piece'
 import { createPieceUrlPDP } from '@filoz/synapse-core/utils'
-import { Synapse } from '@filoz/synapse-sdk'
+import { type PieceRecord, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
+import type { Hex } from 'viem'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
-import { hashLink } from '../utils.ts'
 
 export const upload: Command = command(
   {
@@ -16,11 +17,6 @@ export const upload: Command = command(
     alias: 'u',
     flags: {
       ...globalFlags,
-      forceCreateDataSet: {
-        type: Boolean,
-        description: 'Force create a new data set',
-        default: false,
-      },
       withCDN: {
         type: Boolean,
         description: 'Enable CDN',
@@ -37,7 +33,7 @@ export const upload: Command = command(
     },
   },
   async (argv) => {
-    const { client, chain } = privateKeyClient(argv.flags.chain)
+    const { client } = privateKeyClient(argv.flags.chain)
 
     const filePath = argv._.requiredPath
     const absolutePath = path.resolve(filePath)
@@ -50,7 +46,6 @@ export const upload: Command = command(
 
       p.log.step('Creating context...')
       const context = await synapse.storage.createContext({
-        forceCreateDataSet: argv.flags.forceCreateDataSet,
         withCDN: argv.flags.withCDN,
         dataSetId: argv.flags.dataSetId,
         callbacks: {
@@ -65,24 +60,39 @@ export const upload: Command = command(
 
       const data = fileHandle.readableWebStream()
       await context.upload(data, {
-        metadata: {
+        pieceMetadata: {
           name: path.basename(absolutePath),
         },
-        onUploadComplete(pieceCid) {
+        onStored(providerId: bigint, pieceCid: PieceCID) {
           const url = createPieceUrlPDP({
             cid: pieceCid.toString(),
             serviceURL: context.provider.pdp.serviceURL,
           })
-          p.log.info(`Upload complete! ${url}`)
+          p.log.info(`Stored on provider ${providerId}! ${url}`)
         },
-        onPiecesAdded(transactionHash) {
-          p.log.info(`Pieces added in tx ${hashLink(transactionHash, chain)}`)
-        },
-        onPiecesConfirmed(dataSetId, pieces) {
-          p.log.info(`Data set ${dataSetId} confirmed`)
+        onPiecesAdded(
+          transaction: Hex,
+          providerId: bigint,
+          pieces: { pieceCid: PieceCID }[]
+        ) {
           p.log.info(
-            `Piece IDs: ${pieces.map(({ pieceId }) => pieceId).join(', ')}`
+            `Pieces added for provider ${providerId}, tx: ${transaction}`
           )
+          for (const { pieceCid } of pieces) {
+            p.log.info(`  ${pieceCid}`)
+          }
+        },
+        onPiecesConfirmed(
+          dataSetId: bigint,
+          providerId: bigint,
+          pieces: PieceRecord[]
+        ) {
+          p.log.info(
+            `Data set ${dataSetId} confirmed on provider ${providerId}`
+          )
+          for (const { pieceCid, pieceId } of pieces) {
+            p.log.info(`  ${pieceCid} → pieceId ${pieceId}`)
+          }
         },
       })
 

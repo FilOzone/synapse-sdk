@@ -81,7 +81,7 @@ Check out the [Payment Operations](/developer-guides/payments/payment-operations
 
 ### StorageManager
 
-**Purpose**: High-level, auto-managed storage operations - upload and download data to and from the Filecoin Onchain Cloud.
+**Purpose**: High-level storage operations with multi-copy durability. `upload()` stores data on multiple providers automatically. Also handles provider-agnostic downloads.
 
 **API Reference**: [StorageManager API Reference](/reference/filoz/synapse-sdk/storage/classes/storagemanager/)
 
@@ -89,11 +89,11 @@ Check out the [Storage Operations](/developer-guides/storage/storage-operations/
 
 ### StorageContext
 
-**Purpose**: Provider-specific storage operations - upload and download data to and from the Filecoin Onchain Cloud.
+**Purpose**: Provider-specific split operations (`store` → `pull` → `commit`). Used for batch uploads, custom error handling, and manual orchestration of multi-copy flows.
 
 **API Reference**: [StorageContext API Reference](/reference/filoz/synapse-sdk/storage/classes/storagecontext/)
 
-Check out the [Storage Context](/developer-guides/storage/storage-context/) guide for more details.
+Check out the [Split Operations](/developer-guides/storage/storage-context/) guide for more details.
 
 ### WarmStorageService
 
@@ -162,8 +162,8 @@ Choose your learning path based on your immediate needs:
 
 Jump straight to code with the [**Getting Started Guide →**](/getting-started/)
 
-- [**Storage Operations →**](/developer-guides/storage/storage-operations/) - Upload and download your first file
-- [**Storage Context →**](/developer-guides/storage/storage-context/) - Advanced storage operations and batch uploads
+- [**Storage Operations →**](/developer-guides/storage/storage-operations/) - Multi-copy uploads and downloads
+- [**Split Operations →**](/developer-guides/storage/storage-context/) - Manual control over store, pull, and commit
 - [**Payment Operations →**](/developer-guides/payments/payment-operations/) - Fund your account and manage payments
 - [**Rails & Settlement →**](/developer-guides/payments/rails-settlement/) - Payment mechanics and settlement strategies
 

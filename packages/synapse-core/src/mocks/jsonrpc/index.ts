@@ -244,6 +244,7 @@ function multicall3CallHandler(data: Hex, options: JSONRPCOptions): Hex {
   const results = []
 
   for (const arg of decoded.args[0] ?? []) {
+    if (typeof arg === 'string') continue
     // Handle through normal eth_call handler (which will route to appropriate contract handler)
     try {
       const result = handler(
