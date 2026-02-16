@@ -75,23 +75,22 @@ Fund your account and manage payments for Filecoin storage services.
 
 ### Storage Operations
 
-The SDK provides comprehensive storage capabilities through two main approaches:
+The SDK provides storage with multi-copy durability by default. Three tiers of increasing control:
 
-- **Auto-managed storage**: Quick and simple - the SDK handles provider selection and data set creation.
-- **Explicit control**: Full control over providers, data sets, and batch operations.
-
-To understand these storage approaches, you'll need to be familiar with several key concepts:
+- **`synapse.storage.upload(data)`** — Multi-copy upload (default: 2 providers). Handles provider selection, SP-to-SP replication, and on-chain commit automatically. Returns `{ pieceCid, size, copies, failures }`.
+- **Split operations** — Manual control over each upload phase (`store` → `pull` → `commit`) via `StorageContext`. For batch uploads, custom error handling, and pre-signing.
+- **Core library** — Direct chain queries and SP HTTP calls via `@filoz/synapse-core` for custom orchestration.
 
 #### Core Concepts
 
-- **Storage Contexts**: Manage storage lifecycle and provider connections.
-- **Data Sets**: Organize related data pieces with shared payment rails.
+- **Data Sets**: Organize related data pieces with shared payment rails per provider.
 - **PieceCIDs**: Unique content-addressed identifiers for stored data.
+- **Copies**: Each upload is stored on multiple independent providers for redundancy.
 - **Service Providers**: Infrastructure for decentralized storage with cryptographic proofs.
 
-[View Storage Operations Guide →](/developer-guides/storage/storage-operations/) - _Learn the basics in less than 10 minutes_
+[View Storage Operations Guide →](/developer-guides/storage/storage-operations/) - _Multi-copy uploads in less than 10 minutes_
 
-[View Storage Context Guide →](/developer-guides/storage/storage-context/) - _Learn the advanced storage concepts_
+[View Split Operations Guide →](/developer-guides/storage/storage-context/) - _Manual control over store, pull, and commit_
 
 [View Storage Costs Guide →](/developer-guides/storage/storage-costs/) - _Learn how to calculate your storage costs_
 

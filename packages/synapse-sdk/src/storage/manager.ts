@@ -23,7 +23,7 @@
 import * as Piece from '@filoz/synapse-core/piece'
 import type { UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { getPDPProviderByAddress } from '@filoz/synapse-core/sp-registry'
-import { randIndex } from '@filoz/synapse-core/utils'
+import { metadataMatches } from '@filoz/synapse-core/warm-storage'
 import { type Address, type Hash, type Hex, zeroAddress } from 'viem'
 import { CommitError, StoreError } from '../errors/storage.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -44,14 +44,7 @@ import type {
   UploadCallbacks,
   UploadResult,
 } from '../types.ts'
-import {
-  combineMetadata,
-  createError,
-  METADATA_KEYS,
-  metadataMatches,
-  SIZE_CONSTANTS,
-  TIME_CONSTANTS,
-} from '../utils/index.ts'
+import { combineMetadata, createError, METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/index.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
 
@@ -358,16 +351,16 @@ export class StorageManager {
     }
 
     // Explicit providers disables auto-retry on failure
-    const explicitProviders =
-      options?.contexts != null ||
+    const hasExplicitIds =
       (options?.providerIds != null && options.providerIds.length > 0) ||
       (options?.dataSetIds != null && options.dataSetIds.length > 0)
+    const explicitProviders = options?.contexts != null || hasExplicitIds
 
     const contexts =
       options?.contexts ??
       (await this.createContexts({
         withCDN: options?.withCDN,
-        count: options?.count ?? DEFAULT_COPY_COUNT,
+        count: hasExplicitIds ? options?.count : (options?.count ?? DEFAULT_COPY_COUNT),
         metadata: options?.metadata,
         excludeProviderIds: options?.excludeProviderIds,
         providerIds: options?.providerIds,
@@ -422,7 +415,7 @@ export class StorageManager {
           const providerId = currentSecondary.provider.id
           const pullResult = await currentSecondary.pull({
             pieces: pieceCids,
-            from: primary,
+            from: (pieceCid) => primary.getPieceUrl(pieceCid),
             signal: options.signal,
             extraData,
             onProgress: options.onProgress
@@ -653,7 +646,6 @@ export class StorageManager {
               if (defaultContext.dataSetId != null) {
                 try {
                   options.callbacks.onDataSetResolved?.({
-                    isExisting: true, // Always true for cached context
                     dataSetId: defaultContext.dataSetId,
                     provider: defaultContext.provider,
                   })
@@ -718,7 +710,6 @@ export class StorageManager {
           if (defaultContext.dataSetId != null) {
             try {
               options.callbacks.onDataSetResolved?.({
-                isExisting: true, // Always true for cached context
                 dataSetId: defaultContext.dataSetId,
                 provider: defaultContext.provider,
               })
