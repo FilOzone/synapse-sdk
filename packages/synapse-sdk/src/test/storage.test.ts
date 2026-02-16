@@ -559,8 +559,37 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
-            clientDataSets: () => [[1n, 2n]],
-            getAllDataSetMetadata: (args) => {
+            getClientDataSets: () => [
+              [
+                {
+                  cacheMissRailId: 0n,
+                  cdnRailId: 0n,
+                  clientDataSetId: 0n,
+                  commissionBps: 100n,
+                  dataSetId: 1n,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
+                  pdpEndEpoch: 0n,
+                  pdpRailId: 1n,
+                  providerId: 1n,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                },
+                {
+                  cacheMissRailId: 0n,
+                  cdnRailId: 1n,
+                  clientDataSetId: 0n,
+                  commissionBps: 100n,
+                  dataSetId: 2n,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
+                  pdpEndEpoch: 0n,
+                  pdpRailId: 2n,
+                  providerId: 1n,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                },
+              ],
+            ],
+            getAllDataSetMetadata: (args: any) => {
               const [dataSetId] = args
               if (dataSetId === 2n) {
                 return [
@@ -569,42 +598,6 @@ describe('StorageService', () => {
                 ]
               }
               return [[], []] // empty metadata for other data sets
-            },
-            getDataSet: (args) => {
-              const [dataSetId] = args
-              if (dataSetId === 1n) {
-                return [
-                  {
-                    cacheMissRailId: 0n,
-                    cdnRailId: 0n,
-                    clientDataSetId: 0n,
-                    commissionBps: 100n,
-                    dataSetId: 1n,
-                    payee: Mocks.ADDRESSES.serviceProvider1,
-                    payer: Mocks.ADDRESSES.client1,
-                    pdpEndEpoch: 0n,
-                    pdpRailId: 1n,
-                    providerId: 1n,
-                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                  },
-                ]
-              } else {
-                return [
-                  {
-                    cacheMissRailId: 0n,
-                    cdnRailId: 1n,
-                    clientDataSetId: 0n,
-                    commissionBps: 100n,
-                    dataSetId: 2n,
-                    payee: Mocks.ADDRESSES.serviceProvider1,
-                    payer: Mocks.ADDRESSES.client1,
-                    pdpEndEpoch: 0n,
-                    pdpRailId: 2n,
-                    providerId: 1n,
-                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                  },
-                ]
-              }
             },
           },
         }),
@@ -1350,8 +1343,8 @@ describe('StorageService', () => {
           await StorageContext.create({ synapse, warmStorageService })
           assert.fail('Should have thrown error')
         } catch (error: any) {
-          assert.include(error.message, 'StorageContext smartSelectProvider failed')
-          assert.include(error.message, 'All 2 approved provider(s) failed health check')
+          assert.include(error.message, 'StorageContext resolveProviderAndDataSet failed')
+          assert.include(error.message, 'No approved service providers available')
         }
       })
     })

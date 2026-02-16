@@ -1,108 +1,93 @@
 ---
-title: Storage Context
-description: Guides for using the Storage Context API.
+title: Split Operations
+description: Manual control over store, pull, and commit phases for advanced upload workflows.
 sidebar:
   order: 3
+  label: Split Operations
 ---
 
 :::tip[Advanced Guide]
-This guide is for developers who need fine-grained control over storage operations.
-You'll learn about explicit provider selection, batch uploads, lifecycle management, and download strategies.
+This guide is for developers who need manual control over each phase of the upload pipeline.
+For most use cases, `synapse.storage.upload()` handles everything automatically — see [Storage Operations](/developer-guides/storage/storage-operations/).
 
 **Audience**: Experienced developers building production applications
 **Prerequisites**: Complete the [Storage Operations Guide](/developer-guides/storage/storage-operations/) first
-**When to use this**: Batch operations, custom callbacks, specific provider requirements, advanced error handling
+**When to use this**: Batch uploads, custom error handling at each phase, pre-signing for wallet UX, explicit provider/dataset targeting
 :::
 
-## Storage Context Overview
+## When You Need This
 
-A Storage Context represents a connection to a specific storage provider and data set. Unlike the auto-managed approach in the [Storage Operations Guide](/developer-guides/storage/storage-operations/), contexts give you explicit control over these key capabilities:
+The high-level `upload()` handles single-piece multi-copy uploads end-to-end. Use split operations when you need:
 
-- **Provider Selection**: Choose specific providers for your data
-- **Data Set Management**: Create, reuse, and manage data sets explicitly
-- **Batch Operations**: Upload multiple pieces efficiently with progress tracking
-- **Lifecycle Control**: Terminate data sets and delete pieces when needed
-- **Download Strategies**: Choose between SP-agnostic and SP-specific retrieval
+- **Batch uploading** many files to specific providers without repeated context creation
+- **Custom error handling** at each phase — retry store failures, skip failed secondaries, recover from commit failures
+- **Signing control** to control the signing operations to avoid multiple wallet signature prompts during multi-copy uploads
+- **Greater provider/dataset targeting** for uploading to known providers
 
-This guide assumes you've already completed the [Storage Operations Guide](/developer-guides/storage/storage-operations/) and understand the basics of uploading and downloading data.
+## The Upload Pipeline
 
-### Creating a Storage Context
+Every upload goes through three phases:
 
-#### Creation Options
-
-```ts twoslash
-// @lib: esnext,dom
-import { PDPProvider } from "@filoz/synapse-sdk";
-type StorageContextCallbacks = {
-  onProviderSelected?: (provider: PDPProvider) => void;
-  onDataSetResolved?: (info: {
-    isExisting: boolean;
-    dataSetId: bigint;
-    provider: PDPProvider;
-  }) => void;
-};
-// ---cut---
-interface StorageServiceOptions {
-  providerId?: number; // Specific provider ID to use (optional)
-  excludeProviderIds?: number[]; // Do not select any of these providers (optional)
-  providerAddress?: string; // Specific provider address to use (optional)
-  dataSetId?: number; // Specific data set ID to use (optional)
-  withCDN?: boolean; // Enable CDN services (optional)
-  forceCreateDataSet?: boolean; // Force creation of a new data set, even if a candidate exists (optional)
-  callbacks?: StorageContextCallbacks; // Progress callbacks (optional)
-  metadata?: Record<string, string>; // Metadata requirements for data set selection/creation
-  uploadBatchSize?: number; // Max uploads per batch (default: 32, min: 1)
-}
+```
+store ──► pull ──► commit
+  │         │         │
+  │         │         └─ On-chain: create dataset, add piece, start payments
+  │         └─ SP-to-SP: secondary provider fetches from primary
+  └─ Upload: bytes sent to one provider (no on-chain state yet)
 ```
 
-Monitor the creation process with detailed callbacks to track progress:
+- **store**: Upload bytes to a single SP. Returns `{ pieceCid, size }`. The piece is "parked" on the SP but not yet on-chain and subject to garbage collection if not committed.
+- **pull**: SP-to-SP transfer. The destination SP fetches the piece from a source SP. No client bandwidth used.
+- **commit**: Submit an on-chain transaction to add the piece to a data set. Creates the data set and payment rail if needed.
 
-```ts twoslash
-// @lib: esnext,dom
-import { Synapse, StorageServiceOptions } from "@filoz/synapse-sdk";
-import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
-// ---cut---
-const storageContext = await synapse.storage.createContext({
-  providerAddress: "0x...", // Optional: use specific provider address
-  withCDN: true, // Optional: enable CDN for faster downloads
-  metadata: {
-    Application: "Filecoin Storage DApp",
-    Version: "1.0.0",
-    Category: "AI",
-  },
-  callbacks: {
-    onDataSetResolved: (info) => {
-      if (info.isExisting) {
-        console.log(
-          `Data set with id ${info.dataSetId}`,
-          `matches your context criteria and will be reused`
-        );
-      } else {
-        console.log(
-          `No matching data set found`,
-          `A new data set will be created in the next file upload`,
-          `In a single transaction!`
-        );
-      }
-    },
-    onProviderSelected: (provider) => {
-      console.log(
-        `Selected Provider with`,
-        ` id: ${provider.id}`,
-        ` name: ${provider.name}`,
-        ` description: ${provider.description}`,
-        ` address: ${provider.serviceProvider}`
-      );
-    },
-  },
-});
+## Creating Contexts
+
+A `StorageContext` represents a connection to a specific provider and data set. Create one for single-provider work, or multiple for multi-copy:
+
+```ts
+import { Synapse } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+
+// Single context — auto-selects provider
+const ctx = await synapse.storage.createContext({
+  metadata: { source: "my-app" },
+})
+
+// Multiple contexts for multi-copy
+const contexts = await synapse.storage.createContexts({
+  count: 2,
+  metadata: { source: "my-app" },
+})
+const [primary, secondary] = contexts
+```
+
+Context creation options:
+
+```ts
+// Single context (createContext)
+await synapse.storage.createContext({
+  providerId: 1n,           // specific provider (optional)
+  dataSetId: 42n,           // specific data set (optional)
+  metadata: { ... },        // data set metadata for matching/creation
+  withCDN: true,            // enable fast-retrieval (paid, optional)
+  excludeProviderIds: [3n], // skip specific providers (optional)
+})
+
+// Multiple contexts (createContexts)
+await synapse.storage.createContexts({
+  count: 3,                     // number of contexts (default: 2)
+  providerIds: [1n, 2n, 3n],   // specific providers (mutually exclusive with dataSetIds)
+  dataSetIds: [10n, 20n, 30n], // specific data sets (mutually exclusive with providerIds)
+  metadata: { ... },
+})
 ```
 
 ### Data Set Selection and Matching
 
 :::tip[Metadata Matching for Cost Efficiency]
-**The SDK reuses existing data sets when metadata matches exactly**, avoiding floor pricing. To maximize reuse:
+**The SDK reuses existing data sets when metadata matches exactly**, avoiding duplicate payment rails. To maximize reuse:
 
 - Use consistent metadata keys and values across uploads
 - Avoid changing metadata unnecessarily
@@ -116,7 +101,7 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 **Selection Scenarios**:
 
 1. **Explicit data set ID**: If you specify `dataSetId`, that exact data set is used (must exist and be accessible)
-2. **Specific provider**: If you specify `providerId` or `providerAddress`, the SDK searches for matching data sets only within that provider's existing data sets
+2. **Specific provider**: If you specify `providerId`, the SDK searches for matching data sets only within that provider's existing data sets
 3. **Automatic selection**: Without specific parameters, the SDK searches across all your data sets with any approved provider
 
 **Exact Metadata Matching**: In scenarios 2 and 3, the SDK will reuse an existing data set only if it has **exactly** the same metadata keys and values as requested. This ensures data sets remain organized according to your specific requirements.
@@ -128,174 +113,161 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 
 **Provider Selection** (when no matching data sets exist):
 
-- If you specify a provider (via `providerId` or `providerAddress`), that provider is used
-- Otherwise, the SDK currently uses random selection from all approved providers
+- If you specify a provider (via `providerId`), that provider is used
+- Otherwise, the SDK selects from endorsed providers for the primary copy and any approved provider for secondaries
 - Before finalizing selection, the SDK verifies the provider is reachable via a ping test
 - If a provider fails the ping test, the SDK tries the next candidate
-- After the provider is selected, the SDK will automatically create a new data set in the next file upload in a single transaction.
+- A new data set will be created automatically during the first commit
 
-**API Design**:
+## Store Phase
 
-```ts twoslash
-// @lib: esnext,dom
-import {
-  PieceCID,
-  PieceRecord,
-  UploadResult,
-  PDPProvider,
-  PreflightInfo,
-  PieceStatus,
-} from "@filoz/synapse-sdk";
-import { Hash } from 'viem'
-type Transaction = Promise<Hash>;
-type Hex = `0x${string}`;
-export interface UploadCallbacks {
-  /** Called periodically during upload with bytes uploaded so far */
-  onProgress?: (bytesUploaded: number) => void;
-  /** Called when upload to service provider completes */
-  onUploadComplete?: (pieceCid: PieceCID) => void;
-  /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
-  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
-  /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
-  onPiecesConfirmed?: (dataSetId: number, pieces: PieceRecord[]) => void;
-}
+Upload data to a provider without committing on-chain:
 
-/**
- * Options for uploading individual pieces to an existing storage context
- * @param metadata - Custom metadata for this specific piece (key-value pairs)
- * @param onUploadComplete - Called when upload to service provider completes
- * @param onPiecesAdded - Called when the service provider has added the piece(s) and submitted the transaction to the chain
- * @param onPiecesConfirmed - Called when the service provider agrees that the piece addition(s) are confirmed on-chain and provides the dataSetId
- */
-type UploadOptions = {
-  metadata?: Record<string, string>;
-  onUploadComplete?: (pieceCid: PieceCID) => void;
-  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
-  onPiecesConfirmed?: (dataSetId: number, pieces: PieceRecord[]) => void;
-};
-// ---cut---
-interface StorageContextAPI {
-  // Properties
-  readonly provider: PDPProvider;
-  readonly serviceProvider: string;
-  readonly withCDN: boolean;
-  readonly dataSetId: number | undefined;
-  readonly dataSetMetadata: Record<string, string>;
+```ts
+const { pieceCid, size } = await ctx.store(data, {
+  pieceCid: preCalculatedCid,       // skip expensive PieceCID (hash digest) calculation (optional)
+  signal: abortController.signal,   // cancellation (optional)
+  onProgress: (bytes) => {          // progress callback (optional)
+    console.log(`Uploaded ${bytes} bytes`)
+  },
+})
 
-  // Upload & Download
-  upload(
-    data: File,
-    options?: UploadOptions
-  ): Promise<UploadResult>;
-  download(pieceCid: string | PieceCID): Promise<Uint8Array>;
+console.log(`Stored: ${pieceCid}, ${size} bytes`)
+```
 
-  // Piece Queries
-  hasPiece(pieceCid: string | PieceCID): Promise<boolean>;
-  pieceStatus(pieceCid: string | PieceCID): Promise<PieceStatus>;
-  getDataSetPieces(): Promise<PieceCID[]>;
+`store()` accepts `Uint8Array` or `ReadableStream<Uint8Array>`. Use streaming for large files to minimize memory.
 
-  // Piece Management
-  deletePiece(piece: string | PieceCID | number): Promise<string>;
+After store completes, the piece is parked on the SP and can be:
+- Retrieved via the context's `getPieceUrl(pieceCid)`
+- Pulled to other providers via `pull()`
+- Committed on-chain via `commit()`
 
-  // Info & Preflight
-  getProviderInfo(): Promise<PDPProvider>;
-  preflightUpload(size: number): Promise<PreflightInfo>;
+## Pull Phase (SP-to-SP Transfer)
 
-  // Lifecycle
-  terminate(): Transaction;
+Request a secondary provider to fetch pieces from the primary:
+
+```ts
+// Pre-sign to avoid double wallet prompts during pull + commit
+const extraData = await secondary.presignForCommit([{ pieceCid }])
+
+const pullResult = await secondary.pull({
+  pieces: [pieceCid],
+  from: primary,                  // source context (or URL string)
+  extraData,                      // pre-signed auth (optional, reused for commit)
+  signal: abortController.signal, // cancellation (optional)
+  onProgress: (cid, status) => {  // status callback (optional)
+    console.log(`${cid}: ${status}`)
+  },
+})
+
+if (pullResult.status !== "complete") {
+  for (const piece of pullResult.pieces) {
+    if (piece.status === "failed") {
+      console.error(`Failed to pull ${piece.pieceCid}`)
+    }
+  }
 }
 ```
 
-### Storage Context Methods
+The `from` parameter accepts either a `StorageContext` (extracts the provider URL automatically) or a URL string.
 
-```ts twoslash
-// @lib: esnext,dom
-import { Synapse } from "@filoz/synapse-sdk";
-import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
-// ---cut---
-const storageContext = await synapse.storage.createContext({
-  providerAddress: "0x...", // Optional: use specific provider address
-  withCDN: true, // Optional: enable CDN for faster downloads
-  metadata: {
-    Application: "Filecoin Storage DApp",
-    Version: "1.0.0",
-    Category: "AI",
+**Pre-signing**: `presignForCommit()` creates an EIP-712 signature that can be reused for both `pull()` and `commit()`. This avoids prompting the wallet twice. Pass the same `extraData` to both calls.
+
+## Commit Phase
+
+Add pieces to an on-chain data set. Creates the data set and payment rail if one doesn't exist:
+
+```ts
+const commitResult = await ctx.commit({
+  pieces: [{ pieceCid, pieceMetadata: { filename: "doc.pdf" } }],
+  extraData,          // pre-signed auth from presignForCommit() (optional)
+  onSubmitted: (txHash) => {
+    console.log(`Transaction submitted: ${txHash}`)
   },
-});
+})
 
-const llmModel = "sonnnet-4.5";
-const conversationId = "1234567890";
-
-const data = new TextEncoder().encode("Deep research on decentralization...")
-
-const preflight = await storageContext.preflightUpload({ size: data.length });
-
-console.log("Estimated costs:", preflight.estimatedCost);
-console.log("Allowance sufficient:", preflight.allowanceCheck.sufficient);
-
-const { pieceCid, size, pieceId } = await storageContext.upload(data, {
-  metadata: { llmModel, conversationId },
-  onUploadComplete: (piece) => {
-    console.log(
-      `Uploaded PieceCID: ${piece.toV1().toString()} to storage provider!`
-    );
-  },
-  onPiecesAdded: (hash, pieces) => {
-    console.log(
-      `🔄 Waiting for transaction to be confirmed on chain (txHash: ${hash})`
-    );
-    console.log(
-      `Batch includes PieceCIDs: ${
-        pieces?.map(({ pieceCid }) => pieceCid.toString()).join(", ") ?? ""
-      }`
-    );
-  },
-  onPiecesConfirmed: (dataSetId, pieces) => {
-    console.log(`Data set ${dataSetId} confirmed with provider`);
-    console.log(
-      `Piece ID mapping: ${pieces
-        .map(({ pieceId, pieceCid }) => `${pieceId}:${pieceCid}`)
-        .join(", ")}`
-    );
-  },
-});
-
-const receivedData = await storageContext.download({ pieceCid });
-
-console.log(`Received data: ${new TextDecoder().decode(receivedData)}`);
-
-// Get the list of piece CIDs in the current data set by querying the provider
-const pieceCids = await Array.fromAsync(storageContext.getPieces());
-console.log(`Piece CIDs: ${pieceCids.map((cid) => cid.toString()).join(", ")}`);
-
-// Check the status of a piece on the service provider
-const status = await storageContext.pieceStatus({ pieceCid });
-console.log(`Piece exists: ${status.exists}`);
-console.log(`Data set last proven: ${status.dataSetLastProven}`);
-console.log(`Data set next proof due: ${status.dataSetNextProofDue}`);
+console.log(`Committed: dataSet=${commitResult.dataSetId}, piece=${commitResult.pieceIds[0]}`)
+console.log(`New data set: ${commitResult.isNewDataSet}`)
 ```
 
-#### Efficient Batch Uploads
+The result:
+- **`txHash`** — transaction hash
+- **`pieceIds`** — assigned piece IDs (one per input piece)
+- **`dataSetId`** — data set ID (may be newly created)
+- **`isNewDataSet`** — whether a new data set was created
 
-When uploading multiple files, the SDK automatically batches operations for efficiency. Due to blockchain transaction ordering requirements, uploads are processed sequentially. To maximize efficiency:
-The SDK batches up to 32 uploads by default (configurable via `uploadBatchSize`). If you have more than 32 files, they'll be processed in multiple batches automatically.
+## Multi-File Batch Example
 
-:::tip[Batch Upload Performance]
-**For best performance, start all uploads without awaiting** and let the SDK batch them automatically. This can significantly reduce total upload time for multiple files.
+Upload multiple files to 2 providers with full error handling:
 
-```typescript
-// ✅ Efficient: Batched automatically
-const uploads = dataArray.map((data) => context.upload(data));
-const results = await Promise.all(uploads);
+```ts
+import { Synapse } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
 
-// ❌ Slow: Forces sequential processing
-for (const data of dataArray) {
-  await context.upload(data);
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+
+const files = [
+  new TextEncoder().encode("File 1 content..."),
+  new TextEncoder().encode("File 2 content..."),
+  new TextEncoder().encode("File 3 content..."),
+]
+
+// Create contexts for 2 providers
+const [primary, secondary] = await synapse.storage.createContexts({
+  count: 2,
+  metadata: { source: "batch-upload" },
+})
+
+// Store all files on primary (note: these could be done in parallel w/ Promise.all)
+const stored = []
+for (const file of files) {
+  const result = await primary.store(file)
+  stored.push(result)
+  console.log(`Stored ${result.pieceCid}`)
+}
+
+// Pre-sign for all pieces on secondary
+const pieceCids = stored.map(s => s.pieceCid)
+const extraData = await secondary.presignForCommit(
+  pieceCids.map(cid => ({ pieceCid: cid }))
+)
+
+// Pull all pieces to secondary
+const pullResult = await secondary.pull({
+  pieces: pieceCids,
+  from: primary,
+  extraData,
+})
+
+// Commit on both providers
+const [primaryCommit, secondaryCommit] = await Promise.allSettled([
+  primary.commit({ pieces: pieceCids.map(cid => ({ pieceCid: cid })) }),
+  pullResult.status === "complete"
+    ? secondary.commit({ pieces: pieceCids.map(cid => ({ pieceCid: cid })), extraData })
+    : Promise.reject(new Error("Pull failed, skipping secondary commit")), // not advised!
+])
+
+if (primaryCommit.status === "fulfilled") {
+  console.log(`Primary: dataSet=${primaryCommit.value.dataSetId}`)
+}
+if (secondaryCommit.status === "fulfilled") {
+  console.log(`Secondary: dataSet=${secondaryCommit.value.dataSetId}`)
 }
 ```
 
-:::
+## Error Handling Patterns
+
+Each phase's errors are independent. Failures don't cascade — you can retry at any level:
+
+| Phase | Failure | Data state | Recovery |
+|-------|---------|------------|----------|
+| **store** | Upload/network error | No data on SP | Retry `store()` with same or different context |
+| **pull** | SP-to-SP transfer failed | Data on primary only | Retry `pull()`, try different secondary, or skip |
+| **commit** | On-chain transaction failed | Data on SP but not on-chain | Retry `commit()` (no re-upload needed) |
+
+The key advantage of split operations: if commit fails, data is already stored on the SP. You can retry `commit()` without re-uploading the data. With the high-level `upload()`, a `CommitError` would require re-uploading.
+
+## Lifecycle Management
 
 ### Terminating a Data Set
 
@@ -313,54 +285,41 @@ Only terminate data sets when you're certain you no longer need the data.
 To delete an entire data set and discontinue payments for the service, call `context.terminate()`.
 This method submits an on-chain transaction to initiate the termination process. Following a defined termination period, payments will cease, and the service provider will be able to delete the data set.
 
-You can also terminate a data set using `synapse.storage.terminateDataSet(dataSetId)`, in a case that creation of the context is not possible or `dataSetId` is known and creation of the context is not necessary.
+You can also terminate a data set using `synapse.storage.terminateDataSet({ dataSetId })`, when the data set ID is known and creating a context is not necessary.
 
-```ts twoslash
-// @lib: esnext,dom
-import { Synapse } from "@filoz/synapse-sdk";
-import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
-// ---cut---
-const storageContext = await synapse.storage.createContext({
-  providerAddress: "0x...", // Optional: use specific provider address
-  withCDN: true, // Optional: enable CDN for faster downloads
-});
-const hash = await storageContext.terminate();
-console.log(`Dataset termination transaction: ${hash}`);
+```ts
+// Via context
+const hash = await ctx.terminate()
+await synapse.client.waitForTransactionReceipt({ hash })
+console.log("Dataset terminated successfully")
 
-await synapse.client.waitForTransactionReceipt({ hash });
-console.log("Dataset terminated successfully");
+// Or directly by data set ID
+const hash2 = await synapse.storage.terminateDataSet({ dataSetId: 42n })
+await synapse.client.waitForTransactionReceipt({ hash: hash2 })
 ```
 
 ### Deleting a Piece
 
-To delete an individual piece from the data set, call `context.deletePiece(pieceCid)`.
+To delete an individual piece from the data set, call `context.deletePiece()`.
 This method submits an on-chain transaction to initiate the deletion process.
 
 **Important:** Piece deletion is irreversible and cannot be canceled once initiated.
 
-```ts twoslash
-// @lib: esnext,dom
-import { Synapse } from "@filoz/synapse-sdk";
-import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
-// ---cut---
-const storageContext = await synapse.storage.createContext({
-  providerAddress: "0x...", // Optional: use specific provider address
-  withCDN: true, // Optional: enable CDN for faster downloads
-});
-
-// Collect all pieces at once
-const pieces = [];
-for await (const piece of storageContext.getPieces()) {
-  pieces.push(piece);
+```ts
+// List all pieces in the data set
+const pieces = []
+for await (const piece of ctx.getPieces()) {
+  pieces.push(piece)
 }
 
-// Delete the first piece
-await storageContext.deletePiece({ piece: pieces[0].pieceId });
+// Delete by piece ID
+await ctx.deletePiece({ piece: pieces[0].pieceId })
 console.log(
   `Piece ${pieces[0].pieceCid} (ID: ${pieces[0].pieceId}) deleted successfully`
-);
+)
+
+// Delete by PieceCID
+await ctx.deletePiece({ piece: "bafkzcib..." })
 ```
 
 ### Download Options
@@ -371,70 +330,141 @@ The SDK provides flexible download options with clear semantics:
 
 Download pieces from any available provider using the StorageManager:
 
-```typescript
+```ts
 // Download from any provider that has the piece
-const data = await synapse.storage.download(pieceCid);
+const data = await synapse.storage.download({ pieceCid })
 
 // Download with CDN optimization (if available)
-const dataWithCDN = await synapse.storage.download(pieceCid, { withCDN: true });
-
-// Prefer a specific provider (falls back to others if unavailable)
-const dataFromProvider = await synapse.storage.download(pieceCid, {
-  providerAddress: "0x...",
-});
+const dataWithCDN = await synapse.storage.download({ pieceCid, withCDN: true })
 ```
 
 #### Context-Specific Download (from this provider)
 
 When using a StorageContext, downloads are automatically restricted to that specific provider:
 
-```typescript
+```ts
 // Downloads from the provider associated with this context
-const context = await synapse.storage.createContext({
-  providerAddress: "0x...",
-});
-const data = await context.download(pieceCid);
-
-// The context passes its withCDN setting to the download
-const contextWithCDN = await synapse.storage.createContext({ withCDN: true });
-const dataWithCDN = await contextWithCDN.download(pieceCid); // Uses CDN if available
+const data = await ctx.download({ pieceCid })
 ```
 
 #### CDN Option Inheritance
 
-The `withCDN` option (which is an alias for `metadata: { withCDN: '' }`) follows a clear inheritance hierarchy:
+The `withCDN` option follows a clear inheritance hierarchy:
 
 1. **Synapse level**: Default setting for all operations
 2. **StorageContext level**: Can override Synapse's default
 3. **Method level**: Can override instance settings
 
-```typescript
+```ts
 // Example of inheritance
-const synapse = await Synapse.create({ withCDN: true }); // Global default: CDN enabled
-const context = await synapse.storage.createContext({ withCDN: false }); // Context override: CDN disabled
-await synapse.storage.download(pieceCid); // Uses Synapse's withCDN: true
-await context.download(pieceCid); // Uses context's withCDN: false
-await synapse.storage.download(pieceCid, { withCDN: false }); // Method override: CDN disabled
+const synapse = Synapse.create({ account, withCDN: true }) // Global default: CDN enabled
+const ctx = await synapse.storage.createContext({ withCDN: false }) // Context override: CDN disabled
+await synapse.storage.download({ pieceCid })                // Uses Synapse's withCDN: true
+await ctx.download({ pieceCid })                            // Uses context's withCDN: false
+await synapse.storage.download({ pieceCid, withCDN: false }) // Method override: CDN disabled
 ```
 
 Note: When `withCDN: true` is set, it adds `{ withCDN: '' }` to the data set's metadata, ensuring CDN-enabled and non-CDN data sets remain separate.
 
+## Using synapse-core Directly
+
+For maximum control, use the core library functions without the SDK wrapper classes. This is useful for building custom upload pipelines, integrating into existing frameworks, or server-side applications that don't need the SDK's orchestration.
+
+### Provider Selection
+
+```ts
+import { fetchProviderSelectionInput, selectProviders } from "@filoz/synapse-core/warm-storage"
+
+// Fetch all chain data needed for selection
+const input = await fetchProviderSelectionInput(client, {
+  address: walletAddress,
+  metadata: { source: "my-app" },
+})
+
+// Primary: pass endorsedIds to restrict pool to endorsed providers only
+const [primary] = selectProviders(
+  { ...input, endorsedIds: input.endorsedIds },
+  { count: 1 }
+)
+
+// Secondary: pass empty set to allow any approved provider
+const [secondary] = selectProviders(
+  { ...input, endorsedIds: new Set() },
+  { count: 1, excludeProviderIds: new Set([primary.provider.id]) }
+)
+```
+
+`fetchProviderSelectionInput()` makes a single multicall to gather providers, endorsements, and existing data sets. `selectProviders()` is a pure function — no network calls — that applies a 2-tier preference within the eligible pool:
+
+1. Existing data set with matching metadata
+2. New data set (no matching data set found)
+
+The `endorsedIds` parameter controls which providers are eligible. When non-empty, **only** endorsed providers can be selected — there is no fallback to non-endorsed. When empty, all approved providers are eligible. The SDK's `smartSelect()` uses this to enforce endorsed-for-primary (hard constraint) while allowing any approved provider for secondaries.
+
+### Upload and Commit
+
+```ts
+import * as SP from "@filoz/synapse-core/sp"
+import { signAddPieces, signCreateDataSetAndAddPieces } from "@filoz/synapse-core/typed-data"
+
+// Upload piece to SP
+const { pieceCid, size } = await SP.uploadPieceStreaming({
+  serviceURL: provider.pdp.serviceURL,
+  data: myStream,
+})
+
+// Confirm piece is parked
+await SP.findPiece({
+  serviceURL: provider.pdp.serviceURL,
+  pieceCid,
+  retry: true,
+})
+
+// Sign and commit (new data set)
+const result = await SP.createDataSetAndAddPieces(client, {
+  cdn: false,
+  payee: provider.serviceProvider,
+  payer: client.account.address,
+  recordKeeper: chain.contracts.fwss.address,
+  pieces: [{ pieceCid }],
+  metadata: { source: "my-app" },
+  serviceURL: provider.pdp.serviceURL,
+})
+
+const confirmation = await SP.waitForCreateDataSetAddPieces(result)
+console.log(`DataSet: ${confirmation.dataSetId}`)
+```
+
+### SP-to-SP Pull
+
+```ts
+import * as SP from "@filoz/synapse-core/sp"
+
+const response = await SP.waitForPullStatus(client, {
+  serviceURL: secondaryProvider.pdp.serviceURL,
+  pieces: [{
+    pieceCid,
+    sourceUrl: `${primaryProvider.pdp.serviceURL}/pdp/piece/${pieceCid}`,
+  }],
+  payee: secondaryProvider.serviceProvider,
+  payer: client.account.address,
+  cdn: false,
+  metadata: { source: "my-app" },
+})
+```
+
+This path requires manual EIP-712 signing. The `signAddPieces` and `signCreateDataSetAndAddPieces` functions from `@filoz/synapse-core/typed-data` handle the signature creation.
+
 ## Next Steps
 
-Now that you understand Storage Context and advanced operations:
+- **[Storage Operations](/developer-guides/storage/storage-operations/)** — The high-level multi-copy upload API for most use cases.
+  _Start here if you haven't used `synapse.storage.upload()` yet._
 
-- **[Calculate Storage Costs →](/developer-guides/storage/storage-costs/)**
-  Plan your budget and fund your storage account.
+- **[Calculate Storage Costs](/developer-guides/storage/storage-costs/)** — Plan your budget and fund your storage account.
   _Use the quick calculator to estimate monthly costs._
 
-- **[Storage Operations Basics →](/developer-guides/storage/storage-operations/)**
-  Review fundamental storage concepts and auto-managed operations.
-  _Good for a refresher on the simpler approach._
-
-- **[Component Architecture →](/developer-guides/components/)**
-  Understand how StorageContext fits into the SDK design.
+- **[Component Architecture](/developer-guides/components/)** — Understand how StorageContext fits into the SDK design.
   _Deep dive into the component architecture._
 
-- **[Payment Management →](/developer-guides/payments/payment-operations/)**
-  Manage deposits, approvals, and payment rails.
+- **[Payment Management](/developer-guides/payments/payment-operations/)** — Manage deposits, approvals, and payment rails.
   _Required before your first upload._

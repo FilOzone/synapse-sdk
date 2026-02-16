@@ -627,36 +627,105 @@ describe('Synapse', () => {
       }
     })
 
-    it('does not create multiple contexts for the same data set from duplicate dataSetIds', async () => {
+    it('deduplicates dataSetIds and defaults count to deduped length', async () => {
       const metadata = {
         environment: 'test',
         withCDN: '',
       }
       const contexts = await synapse.storage.createContexts({
-        count: 2,
         dataSetIds: [1n, 1n],
         metadata,
       })
-      assert.equal(contexts.length, 2)
-      assert.equal((contexts[0] as any)._dataSetId, 1)
-      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
-      // should also use different providers in this case
-      assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+      assert.equal(contexts.length, 1)
+      assert.equal((contexts[0] as any)._dataSetId, 1n)
     })
 
-    it('does not create multiple contexts for the same data set from duplicate providerIds', async () => {
+    it('throws when count mismatches deduped dataSetIds', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      try {
+        await synapse.storage.createContexts({
+          count: 2,
+          dataSetIds: [1n, 1n],
+          metadata,
+        })
+        assert.fail('Expected createContexts to throw for count mismatch')
+      } catch (error: any) {
+        assert.include(error.message, 'Requested 2 context(s)')
+        assert.include(error.message, 'resolved to 1 after deduplication')
+      }
+    })
+
+    it('deduplicates providerIds and defaults count to deduped length', async () => {
       const metadata = {
         environment: 'test',
         withCDN: '',
       }
       const contexts = await synapse.storage.createContexts({
-        count: 2,
         providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider1.providerId],
         metadata,
       })
-      assert.equal(contexts.length, 2)
-      assert.equal((contexts[0] as any)._dataSetId, 1)
-      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
+      assert.equal(contexts.length, 1)
+      assert.equal((contexts[0] as any)._dataSetId, 1n)
+    })
+
+    it('throws when count mismatches deduped providerIds', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      try {
+        await synapse.storage.createContexts({
+          count: 2,
+          providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider1.providerId],
+          metadata,
+        })
+        assert.fail('Expected createContexts to throw for count mismatch')
+      } catch (error: any) {
+        assert.include(error.message, 'Requested 2 context(s)')
+        assert.include(error.message, 'resolved to 1 after deduplication')
+      }
+    })
+
+    it('throws when dataSetIds resolve to duplicate providers', async () => {
+      // Override getDataSet so both dataSetId 1 and 2 resolve to providerId 1
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          warmStorageView: {
+            ...Mocks.presets.basic.warmStorageView,
+            getDataSet: (args: readonly [bigint]) => {
+              const [dataSetId] = args
+              return [
+                {
+                  cacheMissRailId: 0n,
+                  cdnRailId: 0n,
+                  clientDataSetId: 0n,
+                  commissionBps: 100n,
+                  dataSetId,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
+                  pdpEndEpoch: 0n,
+                  pdpRailId: dataSetId,
+                  providerId: 1n, // Same provider for both
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                  cdnEndEpoch: 0n,
+                },
+              ]
+            },
+          },
+        })
+      )
+      try {
+        await synapse.storage.createContexts({
+          dataSetIds: [1n, 2n],
+        })
+        assert.fail('Expected error for duplicate providers')
+      } catch (error: any) {
+        assert.include(error.message, 'dataSetIds resolve to duplicate providers')
+      }
     })
 
     it('throws when both dataSetIds and providerIds are specified', async () => {
