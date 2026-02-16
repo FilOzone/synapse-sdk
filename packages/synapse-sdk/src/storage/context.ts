@@ -28,7 +28,6 @@
  */
 
 import { asChain, type Chain as FilecoinChain } from '@filoz/synapse-core/chains'
-import { getProviderIds as getEndorsedProviderIds } from '@filoz/synapse-core/endorsements'
 import { InvalidPieceCIDError } from '@filoz/synapse-core/errors'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
@@ -42,10 +41,15 @@ import {
   epochToDate,
   type MetadataObject,
   pieceMetadataObjectToEntry,
-  randIndex,
   randU256,
   timeUntilEpoch,
 } from '@filoz/synapse-core/utils'
+import {
+  fetchProviderSelectionInput,
+  metadataMatches,
+  type ResolvedLocation,
+  selectProviders,
+} from '@filoz/synapse-core/warm-storage'
 import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
 import { getBlockNumber } from 'viem/actions'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -71,7 +75,7 @@ import type {
   UploadResult,
 } from '../types.ts'
 import { createError, SIZE_CONSTANTS } from '../utils/index.ts'
-import { combineMetadata, metadataMatches } from '../utils/metadata.ts'
+import { combineMetadata } from '../utils/metadata.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
 const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
@@ -239,30 +243,38 @@ export class StorageContext {
       )
     }
 
-    // Fill remaining slots via smart selection if count exceeds explicit resolutions
-    const count = options.count ?? (resolutions.length > 0 ? resolutions.length : 2)
-    if (resolutions.length < count) {
-      const excludeProviderIds = [...(options.excludeProviderIds ?? []), ...resolutions.map((r) => r.provider.id)]
-
-      for (let i = resolutions.length; i < count; i++) {
-        try {
-          const resolution = await StorageContext.smartSelectProvider(
-            clientAddress,
-            options.metadata ?? {},
-            options.warmStorageService,
-            spRegistry,
-            excludeProviderIds,
-            resolutions.length === 0 ? await getEndorsedProviderIds(options.synapse.client) : new Set<bigint>()
+    if (resolutions.length > 0) {
+      // Explicit path — validate count matches deduped results
+      const count = options.count ?? resolutions.length
+      if (resolutions.length !== count) {
+        throw createError(
+          'StorageContext',
+          'createContexts',
+          `Requested ${count} context(s) but ${hasDataSetIds ? 'dataSetIds' : 'providerIds'}` +
+            ` resolved to ${resolutions.length} after deduplication`
+        )
+      }
+      // Multiple dataSetIds may resolve to the same provider — each context must target a unique provider
+      if (hasDataSetIds && resolutions.length > 1) {
+        const providerIds = resolutions.map((r) => r.provider.id)
+        if (new Set(providerIds).size !== providerIds.length) {
+          throw createError(
+            'StorageContext',
+            'createContexts',
+            'dataSetIds resolve to duplicate providers - each context must use a unique provider'
           )
-          excludeProviderIds.push(resolution.provider.id)
-          resolutions.push(resolution)
-        } catch (error) {
-          if (error instanceof Error && error.message.includes(NO_REMAINING_PROVIDERS_ERROR_MESSAGE)) {
-            break
-          }
-          throw error
         }
       }
+    } else {
+      // Smart selection path (neither dataSetIds nor providerIds provided)
+      const count = options.count ?? 2
+      resolutions = await StorageContext.smartSelect({
+        synapse: options.synapse,
+        metadata: options.metadata ?? {},
+        count,
+        excludeProviderIds: new Set(options.excludeProviderIds ?? []),
+        requireEndorsedPrimary: true,
+      })
     }
 
     return await Promise.all(
@@ -313,9 +325,8 @@ export class StorageContext {
       console.error('Error in onProviderSelected callback:', error)
     }
 
-    if (resolution.dataSetId !== -1n) {
+    if (resolution.dataSetId != null) {
       options.callbacks?.onDataSetResolved?.({
-        isExisting: resolution.dataSetId !== -1n,
         dataSetId: resolution.dataSetId,
         provider: resolution.provider,
       })
@@ -325,7 +336,7 @@ export class StorageContext {
       synapse,
       warmStorageService,
       provider: resolution.provider,
-      dataSetId: resolution.dataSetId === -1n ? undefined : resolution.dataSetId,
+      dataSetId: resolution.dataSetId ?? undefined,
       options,
       dataSetMetadata: resolution.dataSetMetadata,
     })
@@ -374,14 +385,17 @@ export class StorageContext {
     }
 
     // Smart selection when no specific parameters provided
-    return await StorageContext.smartSelectProvider(
-      clientAddress,
-      requestedMetadata,
-      warmStorageService,
-      spRegistry,
-      options.excludeProviderIds ?? [],
-      new Set<bigint>()
-    )
+    const results = await StorageContext.smartSelect({
+      synapse,
+      metadata: requestedMetadata,
+      count: 1,
+      excludeProviderIds: new Set(options.excludeProviderIds ?? []),
+      requireEndorsedPrimary: false,
+    })
+    if (results.length === 0) {
+      throw createError('StorageContext', 'resolveProviderAndDataSet', NO_REMAINING_PROVIDERS_ERROR_MESSAGE)
+    }
+    return results[0]
   }
 
   /**
@@ -423,20 +437,22 @@ export class StorageContext {
     return {
       provider,
       dataSetId,
-      isExisting: true,
       dataSetMetadata,
     }
   }
 
   /**
-   * Resolve the best matching DataSet for a Provider using a specific provider ID
+   * Resolve the best matching DataSet for a Provider using a specific provider ID.
    *
-   * Selection Logic:
+   * Selection logic:
    * 1. Filters for datasets belonging to this provider
    * 2. Sorts by dataSetId ascending (oldest first)
    * 3. Searches in batches for metadata match
    * 4. Prioritizes datasets with pieces > 0, then falls back to the oldest valid dataset
    * 5. Exits early as soon as a non-empty matching dataset is found
+   *
+   * The batched enrichment exists to bound RPC calls for accounts with many
+   * datasets. Before simplifying, see https://github.com/FilOzone/synapse-sdk/issues/631
    */
   private static async resolveByProviderId(
     clientAddress: Address,
@@ -470,6 +486,7 @@ export class StorageContext {
       return Number(a.dataSetId) - Number(b.dataSetId)
     })
 
+    // Batch enrichment to bound concurrent RPC calls (PR #487)
     const MIN_BATCH_SIZE = 50
     const MAX_BATCH_SIZE = 200
     const BATCH_SIZE = Math.min(MAX_BATCH_SIZE, Math.max(MIN_BATCH_SIZE, Math.ceil(sortedDataSets.length / 3), 1))
@@ -527,231 +544,110 @@ export class StorageContext {
       return {
         provider,
         dataSetId: selectedDataSet.dataSetId,
-        isExisting: true,
         dataSetMetadata: selectedDataSet.dataSetMetadata,
       }
     }
 
     return {
       provider,
-      dataSetId: -1n, // Marker for new data set
-      isExisting: false,
+      dataSetId: null,
       dataSetMetadata: requestedMetadata,
     }
   }
 
   /**
-   * Select a provider and optionally an existing data set for storage.
+   * Smart provider selection with ping-retry.
    *
-   * Selection is 2-tier per role. Tier 1 prefers existing data sets (deterministic,
-   * sorted by piece count then data set ID). Tier 2 creates a new data set with a
-   * random provider. All candidates are ping-validated before selection.
+   * Fetches chain data once, then selects up to `count` providers from the
+   * cached result, pinging each candidate and excluding failures. When
+   * requireEndorsedPrimary=true, the first slot requires an endorsed provider;
+   * remaining slots accept any approved provider.
    *
-   * Role is determined by {@link endorsedProviderIds}: non-empty restricts to endorsed
-   * providers only (primary) and throws if none reachable; empty allows any approved
-   * provider (secondary).
-   *
-   * @param clientAddress - Wallet address to look up existing data sets for
-   * @param requestedMetadata - Dataset metadata filter; only data sets with matching metadata are considered
-   * @param warmStorageService - Service for data set and provider lookups
-   * @param spRegistry - Registry for provider details and PDP endpoints
-   * @param excludeProviderIds - Provider IDs to skip (already used by other contexts)
-   * @param endorsedProviderIds - Endorsed provider IDs; non-empty = primary (endorsed-only), empty = secondary (any approved)
-   * @returns Resolved provider, data set ID (-1n if new), and metadata
-   * @throws When no eligible provider passes health check
+   * @param options - Selection parameters
+   * @returns Resolved providers with dataset info, up to `count` length
+   * @throws When requireEndorsedPrimary and no healthy endorsed provider is available
    */
-  private static async smartSelectProvider(
-    clientAddress: Address,
-    requestedMetadata: Record<string, string>,
-    warmStorageService: WarmStorageService,
-    spRegistry: SPRegistryService,
-    excludeProviderIds: bigint[],
-    endorsedProviderIds: Set<bigint>
-  ): Promise<ProviderSelectionResult> {
-    const dataSets = await warmStorageService.getClientDataSetsWithDetails({ address: clientAddress })
+  private static async smartSelect(options: {
+    synapse: Synapse
+    metadata: Record<string, string>
+    count: number
+    excludeProviderIds: Set<bigint>
+    requireEndorsedPrimary: boolean
+  }): Promise<ProviderSelectionResult[]> {
+    const { synapse, metadata, count, requireEndorsedPrimary } = options
+    const clientAddress = synapse.client.account.address
 
-    const skipProviderIds = new Set<bigint>(excludeProviderIds)
-    const managedDataSets = dataSets.filter(
-      (ps) =>
-        ps.isLive &&
-        ps.isManaged &&
-        ps.pdpEndEpoch === 0n &&
-        !skipProviderIds.has(ps.providerId) &&
-        metadataMatches(ps.metadata, requestedMetadata)
-    )
-
-    type DataSetWithDetails = (typeof managedDataSets)[number]
-    const sortDataSets = (sets: DataSetWithDetails[]): DataSetWithDetails[] =>
-      [...sets].sort((a, b) => {
-        if (a.activePieceCount > 0n && b.activePieceCount === 0n) return -1
-        if (b.activePieceCount > 0n && a.activePieceCount === 0n) return 1
-        return Number(a.pdpVerifierDataSetId - b.pdpVerifierDataSetId)
-      })
-
-    const createDataSetProviderGenerator = (sets: DataSetWithDetails[]) =>
-      async function* (): AsyncGenerator<PDPProvider> {
-        const yieldedProviders = new Set<bigint>()
-        for (const dataSet of sets) {
-          if (yieldedProviders.has(dataSet.providerId)) continue
-          yieldedProviders.add(dataSet.providerId)
-          const provider = await spRegistry.getProvider({ providerId: dataSet.providerId })
-          if (provider == null) {
-            console.warn(
-              `Provider ID ${dataSet.providerId} for data set ${dataSet.pdpVerifierDataSetId} is not currently approved`
-            )
-            continue
-          }
-          yield provider
-        }
-      }
-
-    const createResultFromDataSet = async (
-      provider: PDPProvider,
-      sets: DataSetWithDetails[]
-    ): Promise<ProviderSelectionResult> => {
-      const matchingDataSet = sets.find((ps) => ps.providerId === provider.id)
-      if (matchingDataSet == null) {
-        console.warn(
-          `Could not match selected provider ${provider.serviceProvider} (ID: ${provider.id}) ` +
-            `to existing data sets. Falling back to new data set.`
-        )
-        return {
-          provider,
-          dataSetId: -1n,
-          isExisting: false,
-          dataSetMetadata: requestedMetadata,
-        }
-      }
-      const dataSetMetadata = await warmStorageService.getDataSetMetadata({
-        dataSetId: matchingDataSet.pdpVerifierDataSetId,
-      })
-      return {
-        provider,
-        dataSetId: matchingDataSet.pdpVerifierDataSetId,
-        isExisting: true,
-        dataSetMetadata,
-      }
-    }
-
-    const createNewDataSetResult = (provider: PDPProvider): ProviderSelectionResult => ({
-      provider,
-      dataSetId: -1n,
-      isExisting: false,
-      dataSetMetadata: requestedMetadata,
+    const input = await fetchProviderSelectionInput(synapse.client, {
+      address: clientAddress,
     })
 
-    const isPrimarySelection = endorsedProviderIds.size > 0
+    // Inline ping-retry loop: select a candidate from core, ping it,
+    // exclude on failure, re-select. One outer iteration per copy needed.
+    const results: ProviderSelectionResult[] = []
+    const excludeProviderIds = new Set(options.excludeProviderIds)
 
-    // Fetch approved providers (needed for both paths)
-    const approvedIds = await warmStorageService.getApprovedProviderIds()
-    const approvedProviders = await spRegistry.getProviders({ providerIds: approvedIds })
-    const allProviders = approvedProviders.filter((p: PDPProvider) => !excludeProviderIds.includes(p.id))
+    for (let i = 0; i < count; i++) {
+      const endorsedSlot = requireEndorsedPrimary && i === 0
+      let found = false
+      let pingFailures = 0
 
-    if (isPrimarySelection) {
-      // Primary: endorsed providers only, no fallback to non-endorsed
-      const endorsedDataSets = managedDataSets.filter((ds) => endorsedProviderIds.has(ds.providerId))
+      // Keep selecting and pinging until a healthy provider is found
+      // or all candidates are exhausted
+      for (;;) {
+        const candidates = selectProviders({
+          ...input,
+          endorsedIds: endorsedSlot ? input.endorsedIds : new Set<bigint>(),
+          count: 1,
+          excludeProviderIds,
+          metadata,
+        })
 
-      // Tier 1: Existing data sets with endorsed providers
-      if (endorsedDataSets.length > 0) {
-        const sorted = sortDataSets(endorsedDataSets)
-        const provider = await StorageContext.selectProviderWithPing(createDataSetProviderGenerator(sorted)())
-        if (provider != null) {
-          return await createResultFromDataSet(provider, sorted)
+        if (candidates.length === 0) break
+
+        const candidate = candidates[0]
+        try {
+          await SP.ping(candidate.provider.pdp.serviceURL)
+          results.push(StorageContext.toProviderSelectionResult(candidate))
+          excludeProviderIds.add(candidate.provider.id)
+          found = true
+          break
+        } catch (error) {
+          console.warn(
+            `Provider ${candidate.provider.serviceProvider} (ID: ${candidate.provider.id}) failed ping:`,
+            error instanceof Error ? error.message : String(error)
+          )
+          excludeProviderIds.add(candidate.provider.id)
+          pingFailures++
         }
       }
 
-      // Tier 2: New data set with endorsed provider
-      const endorsedProviders = allProviders.filter((p: PDPProvider) => endorsedProviderIds.has(p.id))
-      if (endorsedProviders.length > 0) {
-        const provider = await StorageContext.selectRandomProvider(endorsedProviders)
-        if (provider != null) {
-          return createNewDataSetResult(provider)
-        }
-      }
-
-      // All endorsed providers exhausted, no fall back to non-endorsed, this is a FOC system-level failure for the user
-      const endorsedCount = [...endorsedProviderIds].filter((id) => !excludeProviderIds.includes(id)).length
-      throw createError(
-        'StorageContext',
-        'smartSelectProvider',
-        endorsedCount > 0
-          ? `No endorsed provider available — all ${endorsedCount} endorsed provider(s) failed health check`
-          : 'No endorsed provider available'
-      )
-    }
-
-    // Secondary: any approved provider
-    // Tier 1: Existing data sets with any approved provider
-    if (managedDataSets.length > 0) {
-      const sorted = sortDataSets(managedDataSets)
-      const provider = await StorageContext.selectProviderWithPing(createDataSetProviderGenerator(sorted)())
-      if (provider != null) {
-        return await createResultFromDataSet(provider, sorted)
-      }
-    }
-
-    // Tier 2: New data set with any approved provider
-    if (allProviders.length > 0) {
-      const provider = await StorageContext.selectRandomProvider(allProviders)
-      if (provider != null) {
-        return createNewDataSetResult(provider)
-      }
-    }
-
-    if (allProviders.length === 0) {
-      throw createError('StorageContext', 'smartSelectProvider', NO_REMAINING_PROVIDERS_ERROR_MESSAGE)
-    }
-    throw createError(
-      'StorageContext',
-      'smartSelectProvider',
-      `All ${allProviders.length} approved provider(s) failed health check`
-    )
-  }
-
-  /**
-   * Select a random provider from a list with ping validation.
-   *
-   * @param providers - Array of providers to select from
-   * @returns Selected provider
-   */
-  private static async selectRandomProvider(providers: PDPProvider[]): Promise<PDPProvider | null> {
-    if (providers.length === 0) {
-      return null
-    }
-
-    async function* generateRandomProviders(): AsyncGenerator<PDPProvider> {
-      const remaining = [...providers]
-      while (remaining.length > 0) {
-        const selected = remaining.splice(randIndex(remaining.length), 1)[0]
-        yield selected
-      }
-    }
-
-    return await StorageContext.selectProviderWithPing(generateRandomProviders())
-  }
-
-  /**
-   * Select a provider from an async iterator with ping validation.
-   * This is shared logic used by both smart selection and random selection.
-   *
-   * @param providers - Async iterable of providers to try
-   * @returns The first provider that responds
-   * @throws If all providers fail
-   */
-  private static async selectProviderWithPing(providers: AsyncIterable<PDPProvider>): Promise<PDPProvider | null> {
-    for await (const provider of providers) {
-      try {
-        await SP.ping(provider.pdp.serviceURL)
-        return provider
-      } catch (error) {
-        console.warn(
-          `Provider ${provider.serviceProvider} failed ping test:`,
-          error instanceof Error ? error.message : String(error)
+      if (endorsedSlot && !found) {
+        throw createError(
+          'StorageContext',
+          'smartSelect',
+          pingFailures > 0
+            ? `No endorsed provider available — all endorsed provider(s) failed health check`
+            : 'No endorsed provider available'
         )
       }
+
+      if (!found) {
+        break
+      }
     }
 
-    return null
+    return results
+  }
+
+  /**
+   * Map core's ResolvedLocation to SDK's ProviderSelectionResult.
+   */
+  private static toProviderSelectionResult(location: ResolvedLocation): ProviderSelectionResult {
+    return {
+      provider: location.provider,
+      dataSetId: location.dataSetId,
+      dataSetMetadata: location.dataSetMetadata,
+    }
   }
 
   /**
@@ -870,13 +766,13 @@ export class StorageContext {
     }))
 
     if (this._dataSetId) {
-      return signAddPieces(this._synapse.client, {
+      return signAddPieces(this._synapse.sessionClient ?? this._synapse.client, {
         clientDataSetId: await this.getClientDataSetId(),
         pieces: signingPieces,
       })
     }
 
-    return signCreateDataSetAndAddPieces(this._synapse.client, {
+    return signCreateDataSetAndAddPieces(this._synapse.sessionClient ?? this._synapse.client, {
       clientDataSetId: randU256(),
       payee: this._provider.serviceProvider,
       payer: this._synapse.client.account.address,
@@ -903,7 +799,7 @@ export class StorageContext {
       if (typeof from === 'string') {
         return createPieceUrlPDP({ cid: pieceCid.toString(), serviceURL: from })
       }
-      return from.getPieceUrl(pieceCid)
+      return from(pieceCid)
     }
 
     const pullPiecesInput = pieces.map((pieceCid) => ({
@@ -945,7 +841,10 @@ export class StorageContext {
             metadata: this._dataSetMetadata,
           }
 
-      const response = await SP.waitForPullStatus(this._synapse.client, pullOptions as SP.waitForPullStatus.OptionsType)
+      const response = await SP.waitForPullStatus(
+        this._synapse.sessionClient ?? this._synapse.client,
+        pullOptions as SP.waitForPullStatus.OptionsType
+      )
 
       const pieceResults = response.pieces.map((piece: { pieceCid: string; status: string }) => {
         const pieceCid = pieces.find((p) => p.toString() === piece.pieceCid)
@@ -995,7 +894,7 @@ export class StorageContext {
           this.getClientDataSetId(),
         ])
 
-        const addPiecesResult = await SP.addPieces(this._client, {
+        const addPiecesResult = await SP.addPieces(this._synapse.sessionClient ?? this._client, {
           dataSetId: this._dataSetId,
           clientDataSetId,
           pieces: pieceInputs,
@@ -1016,10 +915,10 @@ export class StorageContext {
       }
 
       // Create new data set and add pieces
-      const result = await SP.createDataSetAndAddPieces(this._client, {
+      const result = await SP.createDataSetAndAddPieces(this._synapse.sessionClient ?? this._client, {
         cdn: this._withCDN,
         payee: this._provider.serviceProvider,
-        payer: this._client.account.address,
+        payer: this._synapse.client.account.address,
         recordKeeper: this._chain.contracts.fwss.address,
         pieces: pieceInputs,
         metadata: this._dataSetMetadata,

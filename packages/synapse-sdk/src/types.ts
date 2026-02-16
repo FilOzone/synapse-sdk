@@ -236,10 +236,12 @@ export interface StorageContextCallbacks {
   onProviderSelected?: (provider: PDPProvider) => void
 
   /**
-   * Called when data set resolution is complete
-   * @param info - Information about the resolved data set
+   * Called when an existing data set is matched during provider selection.
+   * Not called when a new data set will be created (dataSetId is null on the
+   * resolution result); the data set ID is assigned during commit.
+   * @param info - The matched data set and its provider
    */
-  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: bigint; provider: PDPProvider }) => void
+  onDataSetResolved?: (info: { dataSetId: bigint; provider: PDPProvider }) => void
 }
 
 /**
@@ -458,9 +460,10 @@ export interface StoreResult {
 }
 
 /**
- * Source for pulling pieces from another provider
+ * Source for pulling pieces from another provider.
+ * Either a base URL string or a function that returns a piece URL for a given PieceCID.
  */
-export type PullSource = string | { getPieceUrl: (pieceCid: PieceCID) => string }
+export type PullSource = string | ((pieceCid: PieceCID) => string)
 
 /**
  * Options for pulling pieces from a source provider
@@ -634,10 +637,8 @@ export interface PieceStatus {
 export interface ProviderSelectionResult {
   /** Selected service provider */
   provider: PDPProvider
-  /** Selected data set ID */
-  dataSetId: bigint
-  /** Whether this is an existing data set */
-  isExisting?: boolean
+  /** Selected data set ID, or null if a new data set will be created on commit */
+  dataSetId: bigint | null
   /** Data set metadata */
   dataSetMetadata: Record<string, string>
 }

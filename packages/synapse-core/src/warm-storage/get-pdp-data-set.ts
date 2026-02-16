@@ -2,6 +2,7 @@ import { type Address, type Chain, type Client, isAddressEqual, type ReadContrac
 import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
+import { getActivePieceCountCall } from '../pdp-verifier/get-active-piece-count.ts'
 import { getDataSetListenerCall } from '../pdp-verifier/get-data-set-listener.ts'
 import { getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
 import { getAllDataSetMetadataCall, parseAllDataSetMetadata } from './get-all-data-set-metadata.ts'
@@ -87,7 +88,7 @@ export async function readPdpDataSetInfo(
   }
 ): Promise<PdpDataSetInfo> {
   const chain = asChain(client.chain)
-  const [live, listener, _metadata, _pdpProvider] = await multicall(client, {
+  const [live, listener, _metadata, _pdpProvider, activePieceCount] = await multicall(client, {
     allowFailure: false,
     contracts: [
       dataSetLiveCall({
@@ -106,6 +107,10 @@ export async function readPdpDataSetInfo(
         chain: client.chain,
         providerId: options.providerId,
       }),
+      getActivePieceCountCall({
+        chain: client.chain,
+        dataSetId: options.dataSetInfo.dataSetId,
+      }),
     ],
   })
 
@@ -118,5 +123,6 @@ export async function readPdpDataSetInfo(
     cdn: options.dataSetInfo.cdnRailId > 0n && 'withCDN' in metadata,
     metadata,
     provider: pdpProvider,
+    activePieceCount,
   }
 }

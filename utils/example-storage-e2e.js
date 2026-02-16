@@ -117,10 +117,10 @@ async function main() {
     const result = await synapse.storage.upload(fileStream, {
       callbacks: {
         onProviderSelected: (provider) => {
-          console.log(`  Selected provider: ${provider.serviceProvider}`)
+          console.log(`  Selected SP ${provider.id} (${provider.serviceProvider})`)
         },
         onDataSetResolved: (info) => {
-          const verb = info.isExisting ? 'Using existing' : 'Created new'
+          const verb = info.isExisting ? 'Using existing' : 'Creating new'
           console.log(`  ${verb} data set: ${info.dataSetId}`)
         },
         onProgress: (bytesUploaded) => {
@@ -131,16 +131,25 @@ async function main() {
           }
         },
         onStored: (providerId, pieceCid) => {
-          console.log(`  Stored on provider ${providerId}: ${pieceCid}`)
+          console.log(`  Stored on SP ${providerId}: ${pieceCid}`)
+        },
+        onPullProgress: (providerId, pieceCid, status) => {
+          console.log(`  Pulling to SP ${providerId}: ${pieceCid} (${status})`)
+        },
+        onCopyComplete: (providerId, pieceCid) => {
+          console.log(`  Copied to SP ${providerId}: ${pieceCid}`)
+        },
+        onCopyFailed: (providerId, pieceCid, error) => {
+          console.log(`  Copy failed on SP ${providerId}: ${pieceCid} - ${error.message}`)
         },
         onPiecesAdded: (transaction, providerId, pieces) => {
-          console.log(`  Pieces added for provider ${providerId}, tx: ${transaction}`)
+          console.log(`  Pieces committed on SP ${providerId}, tx: ${transaction}`)
           for (const { pieceCid } of pieces) {
             console.log(`    ${pieceCid}`)
           }
         },
         onPiecesConfirmed: (dataSetId, providerId, pieces) => {
-          console.log(`  Data set ${dataSetId} confirmed on provider ${providerId}`)
+          console.log(`  Data set ${dataSetId} confirmed on SP ${providerId}`)
           for (const { pieceCid, pieceId } of pieces) {
             console.log(`    ${pieceCid} -> pieceId ${pieceId}`)
           }
@@ -163,10 +172,10 @@ async function main() {
     const contexts = await synapse.storage.createContexts({
       callbacks: {
         onProviderSelected: (provider) => {
-          console.log(`  Selected provider: ${provider.serviceProvider}`)
+          console.log(`  Selected SP ${provider.id} (${provider.serviceProvider})`)
         },
         onDataSetResolved: (info) => {
-          const verb = info.isExisting ? 'Using existing' : 'Created new'
+          const verb = info.isExisting ? 'Using existing' : 'Creating new'
           console.log(`  ${verb} data set: ${info.dataSetId}`)
         },
       },
@@ -336,7 +345,7 @@ function formatUSDFC(amount) {
  * Devnet mode (NETWORK=devnet):
  *   Loads chain config from foc-devnet's devnet-info.json. PRIVATE_KEY is
  *   optional - defaults to the first devnet user.
- *   - DEVNET: Path to devnet-info.json
+ *   - DEVNET_INFO_PATH: Path to devnet-info.json
  *     (default: ~/.foc-devnet/state/latest/devnet-info.json)
  *   - DEVNET_USER_INDEX: Which user from devnet info (default: 0)
  *
@@ -363,7 +372,7 @@ async function resolveConfig() {
     const { validateDevnetInfo, toChain } = await import('../packages/synapse-core/src/devnet/index.ts')
 
     const devnetInfoPath =
-      process.env.DEVNET || join(homedir(), '.foc-devnet', 'state', 'latest', 'devnet-info.json')
+      process.env.DEVNET_INFO_PATH || join(homedir(), '.foc-devnet', 'state', 'latest', 'devnet-info.json')
     const userIndex = Number(process.env.DEVNET_USER_INDEX || '0')
 
     console.log(`Loading devnet info from: ${devnetInfoPath}`)
