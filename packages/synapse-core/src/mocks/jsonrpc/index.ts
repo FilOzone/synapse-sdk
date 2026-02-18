@@ -16,7 +16,7 @@ import {
   stringToHex,
   toHex,
 } from 'viem'
-import * as Piece from '../../piece.ts'
+import * as Piece from '../../piece/piece.ts'
 import { TIME_CONSTANTS } from '../../utils/constants.ts'
 import { ADDRESSES } from './constants.ts'
 import { endorsementsCallHandler } from './endorsements.ts'

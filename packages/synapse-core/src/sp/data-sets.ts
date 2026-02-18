@@ -1,6 +1,6 @@
 import type { Account, Address, Chain, Client, Transport } from 'viem'
 import { asChain, getChain } from '../chains.ts'
-import type { PieceCID } from '../piece.ts'
+import type { PieceCID } from '../piece/piece.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'

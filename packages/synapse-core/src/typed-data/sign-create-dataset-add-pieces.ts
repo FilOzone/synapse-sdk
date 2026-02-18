@@ -8,7 +8,7 @@ import {
   type Hex,
   type Transport,
 } from 'viem'
-import type { PieceCID } from '../piece.ts'
+import type { PieceCID } from '../piece/piece.ts'
 import { randU256 } from '../utils/rand.ts'
 import { signAddPieces } from './sign-add-pieces.ts'
 import { signCreateDataSet } from './sign-create-dataset.ts'
