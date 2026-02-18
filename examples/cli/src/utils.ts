@@ -1,10 +1,7 @@
 import * as p from '@clack/prompts'
 import type { Chain } from '@filoz/synapse-core/chains'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
-import {
-  getApprovedPDPProviders,
-  getPDPProviders,
-} from '@filoz/synapse-core/sp-registry'
+import { getApprovedPDPProviders } from '@filoz/synapse-core/sp-registry'
 import {
   getPdpDataSets,
   type PdpDataSet,

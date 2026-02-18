@@ -46,8 +46,7 @@ export function privateKeyClient(chainId: number) {
   const client = createWalletClient({
     account,
     chain,
-    // transport: http(),
-    transport: http('https://foc-dev.up.railway.app/ponder/evm/314159'),
+    transport: http(),
   })
   return {
     client,
