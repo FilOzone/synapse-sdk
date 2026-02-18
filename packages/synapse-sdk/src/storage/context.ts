@@ -1139,7 +1139,11 @@ export class StorageContext {
       client: this._client,
       address: this._client.account.address,
       pieceCid: parsedPieceCID,
-      resolvers: [...(withCDN ? [Piece.filbeamResolver] : []), Piece.chainResolver],
+      resolvers: [
+        Piece.providersResolver([this._provider]),
+        ...(withCDN ? [Piece.filbeamResolver] : []),
+        Piece.chainResolver,
+      ],
     })
 
     return Piece.downloadAndValidate({
