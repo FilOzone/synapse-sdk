@@ -65,6 +65,17 @@ export async function depositAndApprove(client: Client<Transport, Chain, Account
   const chain = getChain(client.chain.id)
   const token = options.token ?? chain.contracts.usdfc.address
   const operator = options.operator ?? chain.contracts.fwss.address
+
+  const isCustomOperator = options.operator !== undefined && options.operator !== chain.contracts.fwss.address
+  if (isCustomOperator) {
+    if (options.rateAllowance === undefined || options.lockupAllowance === undefined) {
+      throw new ValidationError(
+        'Custom operator requires explicit rateAllowance and lockupAllowance. ' +
+          'Defaulting to maxUint256 for untrusted operators is not allowed.'
+      )
+    }
+  }
+
   const address = options.address ?? client.account.address
   const spender = options.spender ?? chain.contracts.filecoinPay.address
   const rateAllowance = options.rateAllowance ?? maxUint256

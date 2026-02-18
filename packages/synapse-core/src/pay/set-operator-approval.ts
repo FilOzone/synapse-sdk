@@ -210,6 +210,16 @@ export function setOperatorApprovalCall(
   const token = options.token ?? chain.contracts.usdfc.address
   const operator = options.operator ?? chain.contracts.fwss.address
 
+  const isCustomOperator = options.operator !== undefined && options.operator !== chain.contracts.fwss.address
+  if (options.approve && isCustomOperator) {
+    if (options.rateAllowance === undefined || options.lockupAllowance === undefined) {
+      throw new ValidationError(
+        'Custom operator requires explicit rateAllowance and lockupAllowance. ' +
+          'Defaulting to maxUint256 for untrusted operators is not allowed.'
+      )
+    }
+  }
+
   // Defaults based on approve flag
   const rateAllowance = options.rateAllowance ?? (options.approve ? maxUint256 : 0n)
   const lockupAllowance = options.lockupAllowance ?? (options.approve ? maxUint256 : 0n)

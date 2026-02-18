@@ -119,6 +119,8 @@ describe('setOperatorApproval', () => {
         chain: calibration,
         approve: true,
         operator: customOperator,
+        rateAllowance: 1000000n,
+        lockupAllowance: 5000000n,
       })
 
       assert.equal(call.args[1], customOperator)
@@ -152,6 +154,45 @@ describe('setOperatorApproval', () => {
       assert.equal(call.args[3], 100n)
       assert.equal(call.args[4], 200n)
       assert.equal(call.args[5], 300n)
+    })
+
+    it('should throw ValidationError when custom operator is provided without allowances', () => {
+      const customOperator = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address
+      assert.throws(
+        () =>
+          setOperatorApprovalCall({
+            chain: calibration,
+            approve: true,
+            operator: customOperator,
+          }),
+        /Custom operator requires explicit rateAllowance and lockupAllowance/
+      )
+    })
+
+    it('should throw ValidationError when custom operator has only rateAllowance', () => {
+      const customOperator = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address
+      assert.throws(
+        () =>
+          setOperatorApprovalCall({
+            chain: calibration,
+            approve: true,
+            operator: customOperator,
+            rateAllowance: 1000n,
+          }),
+        /Custom operator requires explicit rateAllowance and lockupAllowance/
+      )
+    })
+
+    it('should NOT throw when revoking a custom operator without allowances', () => {
+      const customOperator = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address
+      const call = setOperatorApprovalCall({
+        chain: calibration,
+        approve: false,
+        operator: customOperator,
+      })
+
+      assert.equal(call.args[1].toLowerCase(), customOperator.toLowerCase())
+      assert.equal(call.args[2], false)
     })
   })
 
@@ -313,6 +354,8 @@ describe('setOperatorApproval', () => {
         approve: true,
         token: customToken,
         operator: customOperator,
+        rateAllowance: 1000000n,
+        lockupAllowance: 5000000n,
       })
 
       assert.ok(capturedArgs)
