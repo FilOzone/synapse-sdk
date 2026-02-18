@@ -131,6 +131,22 @@ describe('Metadata Utils', () => {
       const result = datasetMetadataObjectToEntry({ key: maxValue })
       assert.equal(result[0].value, maxValue)
     })
+
+    it('should throw when metadata value is undefined', () => {
+      // Runtime violation of Record<string, string> type — issue #606
+      const metadata = { filosign_user: undefined } as unknown as Record<string, string>
+      assert.throws(() => datasetMetadataObjectToEntry(metadata), /Metadata value must be a string/)
+    })
+
+    it('should throw when metadata value is null', () => {
+      const metadata = { key: null } as unknown as Record<string, string>
+      assert.throws(() => datasetMetadataObjectToEntry(metadata), /Metadata value must be a string/)
+    })
+
+    it('should throw when metadata value is a number', () => {
+      const metadata = { key: 42 } as unknown as Record<string, string>
+      assert.throws(() => datasetMetadataObjectToEntry(metadata), /Metadata value must be a string/)
+    })
   })
 
   describe('pieceMetadataObjectToEntry', () => {
@@ -202,6 +218,17 @@ describe('Metadata Utils', () => {
     it('should throw when value exceeds max length', () => {
       const longValue = 'a'.repeat(METADATA_LIMITS.MAX_VALUE_LENGTH + 1)
       assert.throws(() => pieceMetadataObjectToEntry({ key: longValue }), /value exceeds the maximum length/)
+    })
+
+    it('should throw when metadata value is undefined', () => {
+      // Runtime violation of Record<string, string> type — issue #606
+      const metadata = { ipfsRootCID: undefined } as unknown as Record<string, string>
+      assert.throws(() => pieceMetadataObjectToEntry(metadata), /Metadata value must be a string/)
+    })
+
+    it('should throw when metadata value is null', () => {
+      const metadata = { key: null } as unknown as Record<string, string>
+      assert.throws(() => pieceMetadataObjectToEntry(metadata), /Metadata value must be a string/)
     })
   })
 
