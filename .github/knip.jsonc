@@ -45,7 +45,7 @@
         "src/index.ts",
         "src/sp/index.ts",
         "src/chains.ts",
-        "src/piece.ts",
+        "src/piece/index.ts",
         "src/usdfc.ts",
         "src/abis/index.ts",
         "src/auction/index.ts",
