@@ -325,6 +325,9 @@ describe('Synapse', () => {
       const testData = new TextEncoder().encode('test data')
       server.use(
         Mocks.JSONRPC({ ...Mocks.presets.basic }),
+        http.head<{ cid: string; wallet: string }>(`https://:wallet.calibration.filbeam.io/:cid`, async () => {
+          return HttpResponse.text('ok', { status: 200 })
+        }),
         http.get<{ cid: string; wallet: string }>(`https://:wallet.calibration.filbeam.io/:cid`, async ({ params }) => {
           deferred.resolve(params)
           return HttpResponse.arrayBuffer(testData.buffer)
@@ -420,6 +423,8 @@ describe('Synapse', () => {
         await synapse.storage.download({ pieceCid: testPieceCid })
         assert.fail('Should have thrown')
       } catch (error: any) {
+        console.log('🚀 ~ error:', error)
+
         assert.include(
           error.message,
           'All provider retrieval attempts failed and no additional retriever method was configured'

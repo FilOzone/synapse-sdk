@@ -13,7 +13,6 @@ import {
 } from 'viem'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
-import { ChainRetriever, FilBeamRetriever } from './retriever/index.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
 import { StorageManager } from './storage/manager.ts'
 import type { PDPProvider, SynapseFromClientOptions, SynapseOptions } from './types.ts'
@@ -70,13 +69,6 @@ export class Synapse {
     this._storageManager = new StorageManager({
       synapse: this,
       warmStorageService: this._warmStorageService,
-      pieceRetriever: new FilBeamRetriever({
-        baseRetriever: new ChainRetriever({
-          warmStorageService: this._warmStorageService,
-          spRegistry: this._providers,
-        }),
-        chain: this._chain,
-      }),
       withCDN: this._withCDN,
     })
   }
