@@ -950,7 +950,7 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
         }),
         Mocks.PING(),
-        http.get(`https://${Mocks.ADDRESSES.client1}.calibration.filbeam.io/:cid`, async () => {
+        http.head(`https://${client.account.address}.calibration.filbeam.io/:cid`, async () => {
           return HttpResponse.text('Not Found', {
             status: 404,
           })

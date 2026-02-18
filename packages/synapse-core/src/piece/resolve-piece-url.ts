@@ -164,7 +164,11 @@ export function providersResolver(providers: PDPProvider[]): resolvePieceUrl.Res
     if (result == null) {
       throw new Error('No provider found')
     }
-    return result.pdp.serviceURL
+
+    return createPieceUrlPDP({
+      cid: pieceCid.toString(),
+      serviceURL: result.pdp.serviceURL,
+    })
   }
 }
 

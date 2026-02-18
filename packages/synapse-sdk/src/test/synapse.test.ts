@@ -241,7 +241,6 @@ describe('Synapse', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
-          debug: true,
           serviceRegistry: {
             ...Mocks.presets.basic.serviceRegistry,
           },
@@ -423,8 +422,6 @@ describe('Synapse', () => {
         await synapse.storage.download({ pieceCid: testPieceCid })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        console.log('🚀 ~ error:', error)
-
         assert.include(
           error.message,
           'All provider retrieval attempts failed and no additional retriever method was configured'
