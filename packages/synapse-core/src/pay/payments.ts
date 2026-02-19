@@ -1,4 +1,13 @@
-import { type Account, type Address, type Chain, type Client, maxUint256, parseSignature, type Transport } from 'viem'
+import {
+  type Account,
+  type Address,
+  type Chain,
+  type Client,
+  isAddressEqual,
+  maxUint256,
+  parseSignature,
+  type Transport,
+} from 'viem'
 import {
   type SimulateContractErrorType,
   simulateContract,
@@ -66,10 +75,15 @@ export async function depositAndApprove(client: Client<Transport, Chain, Account
   const token = options.token ?? chain.contracts.usdfc.address
   const operator = options.operator ?? chain.contracts.fwss.address
 
-  const isCustomOperator = options.operator !== undefined && options.operator !== chain.contracts.fwss.address
+  const isCustomOperator =
+    options.operator !== undefined && !isAddressEqual(options.operator, chain.contracts.fwss.address)
   if (isCustomOperator) {
-    if (options.rateAllowance === undefined || options.lockupAllowance === undefined) {
-      throw new ValidationError('Custom operator requires explicit rateAllowance and lockupAllowance')
+    if (
+      options.rateAllowance === undefined ||
+      options.lockupAllowance === undefined ||
+      options.maxLockupPeriod === undefined
+    ) {
+      throw new ValidationError('Custom operator requires explicit rateAllowance, lockupAllowance and maxLockupPeriod')
     }
   }
 

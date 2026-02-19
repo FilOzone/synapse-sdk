@@ -121,6 +121,7 @@ describe('setOperatorApproval', () => {
         operator: customOperator,
         rateAllowance: 1000000n,
         lockupAllowance: 5000000n,
+        maxLockupPeriod: 86400n,
       })
 
       assert.equal(call.args[1], customOperator)
@@ -165,11 +166,11 @@ describe('setOperatorApproval', () => {
             approve: true,
             operator: customOperator,
           }),
-        /Custom operator requires explicit rateAllowance and lockupAllowance/
+        /Custom operator requires explicit rateAllowance, lockupAllowance and maxLockupPeriod/
       )
     })
 
-    it('should throw ValidationError when custom operator has only rateAllowance', () => {
+    it('should throw ValidationError when custom operator has only rateAllowance and lockupAllowance but not maxLockupPeriod', () => {
       const customOperator = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address
       assert.throws(
         () =>
@@ -178,8 +179,9 @@ describe('setOperatorApproval', () => {
             approve: true,
             operator: customOperator,
             rateAllowance: 1000n,
+            lockupAllowance: 2000n,
           }),
-        /Custom operator requires explicit rateAllowance and lockupAllowance/
+        /Custom operator requires explicit rateAllowance, lockupAllowance and maxLockupPeriod/
       )
     })
 
@@ -356,6 +358,7 @@ describe('setOperatorApproval', () => {
         operator: customOperator,
         rateAllowance: 1000000n,
         lockupAllowance: 5000000n,
+        maxLockupPeriod: 86400n,
       })
 
       assert.ok(capturedArgs)

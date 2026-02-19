@@ -12,7 +12,7 @@ import type {
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
-import { maxUint256, parseEventLogs } from 'viem'
+import { isAddressEqual, maxUint256, parseEventLogs } from 'viem'
 import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
@@ -210,10 +210,15 @@ export function setOperatorApprovalCall(
   const token = options.token ?? chain.contracts.usdfc.address
   const operator = options.operator ?? chain.contracts.fwss.address
 
-  const isCustomOperator = options.operator !== undefined && options.operator !== chain.contracts.fwss.address
+  const isCustomOperator =
+    options.operator !== undefined && !isAddressEqual(options.operator, chain.contracts.fwss.address)
   if (options.approve && isCustomOperator) {
-    if (options.rateAllowance === undefined || options.lockupAllowance === undefined) {
-      throw new ValidationError('Custom operator requires explicit rateAllowance and lockupAllowance')
+    if (
+      options.rateAllowance === undefined ||
+      options.lockupAllowance === undefined ||
+      options.maxLockupPeriod === undefined
+    ) {
+      throw new ValidationError('Custom operator requires explicit rateAllowance, lockupAllowance and maxLockupPeriod')
     }
   }
 
