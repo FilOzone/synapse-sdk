@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.37.0...synapse-sdk-v0.37.1) (2026-02-19)
+
+
+### Chores
+
+* update biome ([#609](https://github.com/FilOzone/synapse-sdk/issues/609)) ([fe2b365](https://github.com/FilOzone/synapse-sdk/commit/fe2b3651ca17087a6f9ed31216aed64afaa756fa))
+* update msw package version to 2.12.10 in workspace and mock service worker files ([#610](https://github.com/FilOzone/synapse-sdk/issues/610)) ([c046b7a](https://github.com/FilOzone/synapse-sdk/commit/c046b7a9e36a1f8e5de2fc70bab2cc203b5ebaa2))
+
 ## [0.37.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.36.1...synapse-sdk-v0.37.0) (2026-02-11)
 
 
