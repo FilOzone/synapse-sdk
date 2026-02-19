@@ -1,6 +1,6 @@
 import type { DataSetWithPieces, UseProvidersResult } from '@filoz/synapse-react'
 import { useDeletePiece } from '@filoz/synapse-react'
-import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Globe, Info, Trash } from 'lucide-react'
+import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Info, Trash } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { toastError } from '@/lib/utils.ts'
@@ -12,6 +12,7 @@ import { Button } from '../ui/button.tsx'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item.tsx'
 import { Skeleton } from '../ui/skeleton.tsx'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip.tsx'
+import { CdnDetails } from './cdn-details.tsx'
 import { CreateDataSetDialog } from './create-data-set.tsx'
 
 export function DataSetsSection({
@@ -109,16 +110,7 @@ export function DataSetsSection({
                         ))}
                       </TooltipContent>
                     </Tooltip>
-                    {dataSet.cdn && (
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Globe className="w-4" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>This data set is using CDN</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                    {dataSet.cdn && <CdnDetails dataSetId={dataSet.dataSetId} />}
                   </p>
 
                   {dataSet.pieces.map((piece) => (

@@ -9,23 +9,10 @@
  */
 
 import { asChain, type Chain } from '@filoz/synapse-core/chains'
-import { createError } from '../utils/errors.ts'
+import { getDataSetStats as coreGetDataSetStats, type DataSetStats } from '@filoz/synapse-core/filbeam'
+import type { request } from 'iso-web/http'
 
-/**
- * Data set statistics from FilBeam.
- *
- * These quotas represent the remaining pay-per-byte allocation available for data retrieval
- * through FilBeam's trusted measurement layer. The values decrease as data is served and
- * represent how many bytes can still be retrieved before needing to add more credits.
- *
- * @interface DataSetStats
- * @property {bigint} cdnEgressQuota - The remaining CDN egress quota for cache hits (data served directly from FilBeam's cache) in bytes
- * @property {bigint} cacheMissEgressQuota - The remaining egress quota for cache misses (data retrieved from storage providers) in bytes
- */
-export interface DataSetStats {
-  cdnEgressQuota: bigint
-  cacheMissEgressQuota: bigint
-}
+export type { DataSetStats }
 
 /**
  * Service for interacting with FilBeam infrastructure and APIs.
@@ -37,9 +24,9 @@ export interface DataSetStats {
  * const stats = await synapse.filbeam.getDataSetStats(12345)
  *
  * // Monitor remaining pay-per-byte quotas
- * const service = new FilBeamService('mainnet')
+ * const service = new FilBeamService(mainnet)
  * const stats = await service.getDataSetStats(12345)
- * console.log('Remaining CDN Egress (cache hits):', stats.cdnEgressQuota)
+ * console.log('Remaining CDN Egress:', stats.cdnEgressQuota)
  * console.log('Remaining Cache Miss Egress:', stats.cacheMissEgressQuota)
  * ```
  *
@@ -50,42 +37,11 @@ export interface DataSetStats {
  */
 export class FilBeamService {
   private readonly _chain: Chain
-  private readonly _fetch: typeof fetch
+  private readonly _requestGetJson: typeof request.json.get | undefined
 
-  constructor(chain: Chain, fetchImpl: typeof fetch = globalThis.fetch) {
+  constructor(chain: Chain, requestGetJson?: typeof request.json.get) {
     this._chain = asChain(chain)
-    this._fetch = fetchImpl
-  }
-
-  /**
-   * Get the base stats URL for the current network
-   */
-  private _getStatsBaseUrl(): string {
-    return this._chain.testnet ? 'https://calibration.stats.filbeam.com' : 'https://stats.filbeam.com'
-  }
-
-  /**
-   * Validates the response from FilBeam stats API
-   */
-  private _validateStatsResponse(data: unknown): { cdnEgressQuota: string; cacheMissEgressQuota: string } {
-    if (typeof data !== 'object' || data === null) {
-      throw createError('FilBeamService', 'validateStatsResponse', 'Response is not an object')
-    }
-
-    const response = data as Record<string, unknown>
-
-    if (typeof response.cdnEgressQuota !== 'string') {
-      throw createError('FilBeamService', 'validateStatsResponse', 'cdnEgressQuota must be a string')
-    }
-
-    if (typeof response.cacheMissEgressQuota !== 'string') {
-      throw createError('FilBeamService', 'validateStatsResponse', 'cacheMissEgressQuota must be a string')
-    }
-
-    return {
-      cdnEgressQuota: response.cdnEgressQuota,
-      cacheMissEgressQuota: response.cacheMissEgressQuota,
-    }
+    this._requestGetJson = requestGetJson
   }
 
   /**
@@ -95,8 +51,8 @@ export class FilBeamService {
    * track how many bytes can still be retrieved through FilBeam's trusted measurement layer
    * before needing to add more credits:
    *
-   * - **CDN Egress Quota**: Remaining bytes that can be served from FilBeam's cache (fast, direct delivery)
-   * - **Cache Miss Egress Quota**: Remaining bytes that can be retrieved from storage providers (triggers caching)
+   * - **CDN Egress Quota**: Remaining bytes that can be served by FilBeam (both cache-hit and cache-miss requests)
+   * - **Cache Miss Egress Quota**: Remaining bytes that can be retrieved from storage providers (cache-miss requests to origin)
    *
    * Both types of egress are billed based on volume. Query current pricing via
    * {@link WarmStorageService.getServicePrice} or see https://docs.filbeam.com for rates.
@@ -123,35 +79,10 @@ export class FilBeamService {
    * ```
    */
   async getDataSetStats(dataSetId: string | number): Promise<DataSetStats> {
-    const baseUrl = this._getStatsBaseUrl()
-    const url = `${baseUrl}/data-set/${dataSetId}`
-
-    const response = await this._fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    return coreGetDataSetStats({
+      chain: this._chain,
+      dataSetId,
+      requestGetJson: this._requestGetJson,
     })
-
-    if (response.status === 404) {
-      throw createError('FilBeamService', 'getDataSetStats', `Data set not found: ${dataSetId}`)
-    }
-
-    if (response.status !== 200) {
-      const errorText = await response.text().catch(() => 'Unknown error')
-      throw createError(
-        'FilBeamService',
-        'getDataSetStats',
-        `HTTP ${response.status} ${response.statusText}: ${errorText}`
-      )
-    }
-
-    const data = await response.json()
-    const validated = this._validateStatsResponse(data)
-
-    return {
-      cdnEgressQuota: BigInt(validated.cdnEgressQuota),
-      cacheMissEgressQuota: BigInt(validated.cacheMissEgressQuota),
-    }
   }
 }

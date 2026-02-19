@@ -24,6 +24,7 @@ export class SynapseError extends Error {
   shortMessage: string
 
   constructor(message: string, options?: SynapseErrorOptions) {
+    // Use explicit details if provided, otherwise fall back to cause.message
     const details = options?.details
       ? options.details
       : options?.cause instanceof Error

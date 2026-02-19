@@ -61,6 +61,7 @@ export interface Chain extends ViemChain {
   }
   filbeam: {
     retrievalDomain: string
+    statsBaseUrl: string
   } | null
 }
 
@@ -142,6 +143,7 @@ export const mainnet: Chain = {
   },
   filbeam: {
     retrievalDomain: 'filbeam.io',
+    statsBaseUrl: 'https://stats.filbeam.com',
   },
   /**
    * Filecoin Mainnet genesis: August 24, 2020 22:00:00 UTC
@@ -227,6 +229,7 @@ export const calibration: Chain = {
   },
   filbeam: {
     retrievalDomain: 'calibration.filbeam.io',
+    statsBaseUrl: 'https://calibration.stats.filbeam.com',
   },
   testnet: true,
   /**
