@@ -213,10 +213,7 @@ export function setOperatorApprovalCall(
   const isCustomOperator = options.operator !== undefined && options.operator !== chain.contracts.fwss.address
   if (options.approve && isCustomOperator) {
     if (options.rateAllowance === undefined || options.lockupAllowance === undefined) {
-      throw new ValidationError(
-        'Custom operator requires explicit rateAllowance and lockupAllowance. ' +
-          'Defaulting to maxUint256 for untrusted operators is not allowed.'
-      )
+      throw new ValidationError('Custom operator requires explicit rateAllowance and lockupAllowance')
     }
   }
 
