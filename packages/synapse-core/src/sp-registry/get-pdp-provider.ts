@@ -3,6 +3,7 @@ import type { Address, Chain, Client, ContractFunctionReturnType, Transport } fr
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import type { ActionCallChain } from '../types.ts'
 import { decodePDPOffering } from '../utils/pdp-capabilities.ts'
+import { getProviderIdByAddress } from './get-provider-id-by-address.ts'
 import { getProviderWithProduct, getProviderWithProductCall } from './get-provider-with-product.ts'
 import { type PDPProvider, PRODUCTS } from './types.ts'
 
@@ -121,4 +122,57 @@ export function parsePDPProvider(data: getPDPProvider.ContractOutputType): PDPPr
     ...data.providerInfo,
     pdp: decodePDPOffering(data),
   }
+}
+
+export namespace getPDPProviderByAddress {
+  export type OptionsType = {
+    /** The provider address. */
+    address: Address
+    /** Service Provider Registry contract address. If not provided, the default is the contract address for the chain. */
+    contractAddress?: Address
+  }
+  export type OutputType = PDPProvider | null
+  export type ErrorType = getProviderIdByAddress.ErrorType | getPDPProvider.ErrorType
+}
+
+/**
+ * Get PDP provider by address
+ *
+ * @param client - The client to use to get the provider.
+ * @param options - {@link getPDPProviderByAddress.OptionsType}
+ * @returns The PDP provider {@link getPDPProviderByAddress.OutputType}
+ * @throws Errors {@link getPDPProviderByAddress.ErrorType}
+ *
+ * @example
+ * ```ts
+ * import { getPDPProviderByAddress } from '@filoz/synapse-core/sp-registry'
+ * import { createPublicClient, http } from 'viem'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const provider = await getPDPProviderByAddress(client, {
+ *   address: '0x1234567890123456789012345678901234567890',
+ * })
+ *
+ * console.log(provider.name)
+ * ```
+ */
+export async function getPDPProviderByAddress(
+  client: Client<Transport, Chain>,
+  options: getPDPProviderByAddress.OptionsType
+): Promise<getPDPProviderByAddress.OutputType> {
+  const providerId = await getProviderIdByAddress(client, {
+    providerAddress: options.address,
+    contractAddress: options.contractAddress,
+  })
+
+  if (providerId === 0n) {
+    return null
+  }
+
+  return getPDPProvider(client, { providerId, contractAddress: options.contractAddress })
 }

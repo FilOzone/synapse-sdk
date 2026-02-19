@@ -11,7 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import { hexToPieceCID, type PieceCID } from '../piece.ts'
+import { hexToPieceCID, type PieceCID } from '../piece/piece.ts'
 import type { ActionCallChain } from '../types.ts'
 
 export namespace getActivePieces {

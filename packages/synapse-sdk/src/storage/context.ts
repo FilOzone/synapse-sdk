@@ -24,8 +24,9 @@
 
 import { asChain, type Chain as FilecoinChain } from '@filoz/synapse-core/chains'
 import { getProviderIds } from '@filoz/synapse-core/endorsements'
+import { InvalidPieceCIDError } from '@filoz/synapse-core/errors'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
-import { asPieceCID } from '@filoz/synapse-core/piece'
+import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { schedulePieceDeletion, type UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import {
@@ -1129,10 +1130,25 @@ export class StorageContext {
    * @returns The downloaded data {@link Uint8Array}
    */
   async download(options: DownloadOptions): Promise<Uint8Array> {
-    return this._synapse.storage.download({
-      pieceCid: options.pieceCid,
-      providerAddress: this._provider.serviceProvider,
-      withCDN: options?.withCDN ?? this._withCDN,
+    const parsedPieceCID = Piece.asPieceCID(options.pieceCid)
+    if (parsedPieceCID == null) {
+      throw new InvalidPieceCIDError(options.pieceCid)
+    }
+    const withCDN = options.withCDN ?? this._withCDN
+    const pieceUrl = await Piece.resolvePieceUrl({
+      client: this._client,
+      address: this._client.account.address,
+      pieceCid: parsedPieceCID,
+      resolvers: [
+        Piece.providersResolver([this._provider]),
+        ...(withCDN ? [Piece.filbeamResolver] : []),
+        Piece.chainResolver,
+      ],
+    })
+
+    return Piece.downloadAndValidate({
+      url: pieceUrl,
+      expectedPieceCid: parsedPieceCID,
     })
   }
 
@@ -1195,7 +1211,7 @@ export class StorageContext {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'getPieceIdByCID', 'Data set not found')
     }
-    const parsedPieceCID = asPieceCID(pieceCid)
+    const parsedPieceCID = Piece.asPieceCID(pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageContext', 'deletePiece', 'Invalid PieceCID provided')
     }
@@ -1244,7 +1260,7 @@ export class StorageContext {
    */
   async hasPiece(options: { pieceCid: string | PieceCID }): Promise<boolean> {
     const { pieceCid } = options
-    const parsedPieceCID = asPieceCID(pieceCid)
+    const parsedPieceCID = Piece.asPieceCID(pieceCid)
     if (parsedPieceCID == null) {
       return false
     }
@@ -1277,7 +1293,7 @@ export class StorageContext {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'pieceStatus', 'Data set not found')
     }
-    const parsedPieceCID = asPieceCID(options.pieceCid)
+    const parsedPieceCID = Piece.asPieceCID(options.pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageContext', 'pieceStatus', 'Invalid PieceCID provided')
     }

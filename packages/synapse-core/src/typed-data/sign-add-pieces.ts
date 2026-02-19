@@ -12,7 +12,7 @@ import {
 } from 'viem'
 import { signTypedData } from 'viem/actions'
 import { asChain } from '../chains.ts'
-import type { PieceCID } from '../piece.ts'
+import type { PieceCID } from '../piece/piece.ts'
 import { randU256 } from '../utils/rand.ts'
 import { EIP712Types, getStorageDomain, type MetadataEntry } from './type-definitions.ts'
 

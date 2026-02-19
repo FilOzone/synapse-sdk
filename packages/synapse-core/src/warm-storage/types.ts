@@ -1,5 +1,5 @@
 import type { Address } from 'viem'
-import type { PieceCID } from '../piece.ts'
+import type { PieceCID } from '../piece/piece.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 

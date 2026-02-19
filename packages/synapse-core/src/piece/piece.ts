@@ -18,7 +18,6 @@ import { CID } from 'multiformats/cid'
 import * as Raw from 'multiformats/codecs/raw'
 import * as Link from 'multiformats/link'
 import { type Hex, hexToBytes } from 'viem'
-import { DownloadPieceError } from './errors/pdp.ts'
 
 /**
  * PieceCID - A constrained CID type for Piece Commitments.
@@ -34,41 +33,6 @@ import { DownloadPieceError } from './errors/pdp.ts'
 export type PieceCID = PieceCIDType
 
 /**
- * Parse a PieceCID string into a CID and validate it
- * @param pieceCidString - The PieceCID as a string (base32 or other multibase encoding)
- * @returns The parsed and validated PieceCID CID or null if invalid
- */
-function parsePieceCID(pieceCidString: string): PieceCID | null {
-  try {
-    const cid = CID.parse(pieceCidString)
-    if (isValidPieceCID(cid)) {
-      return cid as PieceCID
-    }
-  } catch {
-    // ignore error
-  }
-  return null
-}
-
-/**
- * Type guard to check if a value is a CID
- * @param value - The value to check
- * @returns True if it's a CID
- */
-function isCID(value: unknown): value is CID {
-  return typeof value === 'object' && value !== null && CID.asCID(value as CID) !== null
-}
-
-/**
- * Check if a CID is a valid PieceCID
- * @param cid - The CID to check
- * @returns True if it's a valid PieceCID
- */
-function isValidPieceCID(cid: PieceCID | CID): cid is PieceCID {
-  return cid.code === Raw.code && cid.multihash.code === Hasher.code
-}
-
-/**
  * Convert a PieceCID input (string or CID) to a validated CID
  * This is the main function to use when accepting PieceCID inputs
  * @param pieceCidInput - PieceCID as either a CID object or string
@@ -80,13 +44,15 @@ export function asPieceCID(pieceCidInput: PieceCID | CID | string | null | undef
   }
 
   if (typeof pieceCidInput === 'string') {
-    return parsePieceCID(pieceCidInput)
+    try {
+      return parse(pieceCidInput)
+    } catch {
+      return null
+    }
   }
 
-  if (isCID(pieceCidInput)) {
-    if (isValidPieceCID(pieceCidInput)) {
-      return pieceCidInput
-    }
+  if (isPieceCID(pieceCidInput)) {
+    return pieceCidInput
   }
 
   return null
@@ -151,13 +117,17 @@ export function parse(pieceCid: string): PieceCID {
 }
 
 /**
- * Check if a CID is a valid PieceCID
+ * Check if a CID is a valid PieceCIDv2
  * @param cid - The CID to check
- * @returns True if it's a valid PieceCID
+ * @returns True if it's a valid PieceCIDv2
  */
-export function isPieceCID(cid: Link.Link): cid is PieceCID {
+export function isPieceCID(cid: Link.Link | CID): cid is PieceCID {
   return (
-    typeof cid === 'object' && CID.asCID(cid) != null && cid.code === Raw.code && cid.multihash.code === Hasher.code
+    typeof cid === 'object' &&
+    CID.asCID(cid) != null &&
+    cid.code === Raw.code &&
+    cid.multihash.code === Hasher.code &&
+    cid.version === 1
   )
 }
 
@@ -262,104 +232,9 @@ export function createPieceCIDStream(): {
 export function hexToPieceCID(pieceCidHex: Hex | string): PieceCID {
   const pieceDataBytes = hexToBytes(pieceCidHex as Hex)
   const possiblePieceCID = CID.decode(pieceDataBytes)
-  const isValid = isValidPieceCID(possiblePieceCID)
+  const isValid = isPieceCID(possiblePieceCID)
   if (!isValid) {
     throw new Error(`Hex string '${pieceCidHex}' is a valid CID but not a valid PieceCID`)
   }
   return possiblePieceCID as PieceCID
-}
-
-/**
- * Download data from a Response object, validate its PieceCID, and return as Uint8Array
- *
- * This function:
- * 1. Streams data from the Response body
- * 2. Calculates PieceCID during streaming
- * 3. Collects all chunks into a Uint8Array
- * 4. Validates the calculated PieceCID matches the expected value
- *
- * @param response - The Response object from a fetch() call
- * @param expectedPieceCid - The expected PieceCID to validate against
- * @returns The downloaded data as a Uint8Array
- * @throws Error if PieceCID validation fails or download errors occur
- *
- * @example
- * ```typescript
- * const response = await fetch(url)
- * const data = await downloadAndValidate(response, 'bafkzcib...')
- * ```
- */
-export async function downloadAndValidate(
-  response: Response,
-  expectedPieceCid: string | PieceCID
-): Promise<Uint8Array> {
-  // Parse and validate the expected PieceCID
-  const parsedPieceCid = asPieceCID(expectedPieceCid)
-  if (parsedPieceCid == null) {
-    throw new DownloadPieceError(`Invalid PieceCID: ${String(expectedPieceCid)}`)
-  }
-
-  // Check response is OK
-  if (!response.ok) {
-    throw new DownloadPieceError(`Download failed: ${response.status} ${response.statusText}`)
-  }
-
-  if (response.body == null) {
-    throw new DownloadPieceError('Response body is null')
-  }
-
-  // Create PieceCID calculation stream
-  const { stream: pieceCidStream, getPieceCID } = createPieceCIDStream()
-
-  // Create a stream that collects all chunks into an array
-  const chunks: Uint8Array[] = []
-  const collectStream = new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
-      chunks.push(chunk)
-      controller.enqueue(chunk)
-    },
-  })
-
-  // Pipe the response through both streams
-  const pipelineStream = response.body.pipeThrough(pieceCidStream).pipeThrough(collectStream)
-
-  // Consume the stream to completion
-  const reader = pipelineStream.getReader()
-  try {
-    while (true) {
-      const { done } = await reader.read()
-      if (done) break
-    }
-  } finally {
-    reader.releaseLock()
-  }
-
-  if (chunks.length === 0) {
-    throw new DownloadPieceError('Response body is empty')
-  }
-
-  // Get the calculated PieceCID
-  const calculatedPieceCid = getPieceCID()
-
-  if (calculatedPieceCid == null) {
-    throw new DownloadPieceError('Failed to calculate PieceCID from stream')
-  }
-
-  // Verify the PieceCID
-  if (calculatedPieceCid.toString() !== parsedPieceCid.toString()) {
-    throw new DownloadPieceError(
-      `PieceCID verification failed. Expected: ${String(parsedPieceCid)}, Got: ${String(calculatedPieceCid)}`
-    )
-  }
-
-  // Combine all chunks into a single Uint8Array
-  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0)
-  const result = new Uint8Array(totalLength)
-  let offset = 0
-  for (const chunk of chunks) {
-    result.set(chunk, offset)
-    offset += chunk.length
-  }
-
-  return result
 }
