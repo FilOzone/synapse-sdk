@@ -1,5 +1,3 @@
-import { getChain } from '@filoz/synapse-core/chains'
-import type { SessionKey } from '@filoz/synapse-core/session-key'
 import * as SP from '@filoz/synapse-core/sp'
 import { type AddPiecesSuccess, upload } from '@filoz/synapse-core/sp'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -11,7 +9,6 @@ export interface UseUploadProps {
    * The callback to call when the hash is available.
    */
   onHash?: (hash: string) => void
-  sessionKey?: SessionKey
   mutation?: Omit<MutateOptions<AddPiecesSuccess, Error, UseUploadVariables>, 'mutationFn'>
 }
 
@@ -22,21 +19,16 @@ export interface UseUploadVariables {
 export function useUpload(props: UseUploadProps) {
   const config = useConfig()
   const chainId = useChainId({ config })
-  const chain = getChain(chainId)
   const account = useAccount({ config })
   const queryClient = useQueryClient()
-  const client = config.getClient()
 
   return useMutation({
     ...props?.mutation,
     mutationFn: async ({ files, dataSetId }: UseUploadVariables) => {
-      let connectorClient = await getConnectorClient(config, {
+      const connectorClient = await getConnectorClient(config, {
         account: account.address,
         chainId,
       })
-      if (props?.sessionKey && (await props?.sessionKey.isValid(connectorClient, 'AddPieces'))) {
-        connectorClient = props?.sessionKey.client(chain, client.transport)
-      }
 
       const uploadRsp = await upload(connectorClient, {
         dataSetId,
