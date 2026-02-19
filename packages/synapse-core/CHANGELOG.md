@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.0...synapse-core-v0.2.1) (2026-02-19)
+
+
+### Bug Fixes
+
+* **metadata:** validate metadata values are strings before length check ([#615](https://github.com/FilOzone/synapse-sdk/issues/615)) ([be6133f](https://github.com/FilOzone/synapse-sdk/commit/be6133f7c9a482ed9e06a0a45418160f13d88f65))
+* **pay:** require explicit allowances when approving custom operators ([#616](https://github.com/FilOzone/synapse-sdk/issues/616)) ([b5820c9](https://github.com/FilOzone/synapse-sdk/commit/b5820c9d2b507bbb09d14bc11ad6866097c10b6e))
+
+
+### Chores
+
+* update biome ([#609](https://github.com/FilOzone/synapse-sdk/issues/609)) ([fe2b365](https://github.com/FilOzone/synapse-sdk/commit/fe2b3651ca17087a6f9ed31216aed64afaa756fa))
+* update msw package version to 2.12.10 in workspace and mock service worker files ([#610](https://github.com/FilOzone/synapse-sdk/issues/610)) ([c046b7a](https://github.com/FilOzone/synapse-sdk/commit/c046b7a9e36a1f8e5de2fc70bab2cc203b5ebaa2))
+
 ## [0.2.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.4...synapse-core-v0.2.0) (2026-02-11)
 
 
