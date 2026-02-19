@@ -1,159 +1,217 @@
 import { TypedEventTarget } from 'iso-web/event-target'
-import type { Hex } from 'ox/Hex'
 import {
   type Chain,
   type Client,
-  createWalletClient,
-  type TransactionReceipt,
+  createClient,
+  type FallbackTransport,
+  type Hex,
+  type HttpTransport,
+  http,
   type Transport,
-  type TransportConfig,
+  type WatchContractEventReturnType,
+  type WebSocketTransport,
 } from 'viem'
-import { type Account, generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { waitForTransactionReceipt } from 'viem/actions'
-import { transportFromTransportConfig } from '../utils/viem.ts'
-import { isExpired, login } from './actions.ts'
-import type { SessionKeyPermissions } from './permissions.ts'
+import { type Account, type Address, privateKeyToAccount } from 'viem/accounts'
+import { watchContractEvent } from 'viem/actions'
+import { asChain, type Chain as SynapseChain } from '../chains.ts'
+import { getExpirations } from './authorization-expiry.ts'
+import { extractLoginEvent } from './login.ts'
+import { EMPTY_EXPIRATIONS, getPermissionFromTypeHash, type SessionKeyPermissions } from './permissions.ts'
+import type { SessionKey, SessionKeyAccount, SessionKeyEvents } from './types.ts'
 
-export interface Secp256k1SessionKeyProps {
-  privateKey: Hex
-  expiresAt: number | undefined
-  permissions: SessionKeyPermissions[]
+interface Secp256k1SessionKeyOptions {
+  client: Client<Transport, SynapseChain, SessionKeyAccount<'Secp256k1'>>
+  expirations: Record<SessionKeyPermissions, bigint>
 }
 
-export interface Secp256k1SessionKeyCreateOptions {
-  privateKey?: Hex
+/**
+ * Secp256k1SessionKey - A session key for a secp256k1 private key.
+ */
+class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements SessionKey<'Secp256k1'> {
+  #client: Client<Transport, SynapseChain, SessionKeyAccount<'Secp256k1'>>
+  #type: 'Secp256k1'
+  #expirations: Record<SessionKeyPermissions, bigint>
+  #unsubscribe: WatchContractEventReturnType | undefined
+
   /**
-   * The expiration time of the session key in seconds.
-   * @default Date.now() / 1000 + 1 hour
+   * Create a new Secp256k1SessionKey.
+   * @param options - {@link Secp256k1SessionKeyOptions}
    */
-  expiresAt?: number
-  permissions?: SessionKeyPermissions[]
-}
-
-export class Secp256k1Key extends TypedEventTarget<WalletEvents> implements SessionKey {
-  private privateKey: Hex
-  permissions: SessionKeyPermissions[]
-  expiresAt: number | undefined
-  type: 'secp256k1'
-  account: Account
-  private isConnecting: boolean = false
-  private isConnected: boolean = false
-  private connectPromise: Promise<TransactionReceipt | undefined> | undefined
-
-  constructor(props: Secp256k1SessionKeyProps) {
+  constructor(options: Secp256k1SessionKeyOptions) {
     super()
-    this.privateKey = props.privateKey
-    this.expiresAt = props.expiresAt
-    this.type = 'secp256k1'
-    this.permissions = props.permissions
-    this.account = privateKeyToAccount(this.privateKey)
+    this.#type = 'Secp256k1'
+    this.#expirations = options.expirations
+    this.#client = options.client
   }
 
-  static create(options?: Secp256k1SessionKeyCreateOptions) {
-    const key = options?.privateKey ?? generatePrivateKey()
-    return new Secp256k1Key({
-      privateKey: key,
-      expiresAt: options?.expiresAt,
-      permissions: options?.permissions ?? ['CreateDataSet', 'AddPieces', 'SchedulePieceRemovals', 'DeleteDataSet'],
-    })
+  get client() {
+    return this.#client
   }
 
-  get connecting() {
-    return this.isConnecting
+  get type() {
+    return this.#type
   }
 
-  get connected() {
-    return this.isConnected
+  get expirations() {
+    return this.#expirations
   }
 
-  async connect(client: Client<Transport, Chain, Account>) {
-    if (this.isConnecting) {
-      throw new Error('Already connecting')
-    }
-    this.isConnecting = true
-    try {
-      const _isExpired = await this.isValid(client, this.permissions[0])
-      if (_isExpired) {
-        const hash = await this.refresh(client)
-        this.connectPromise = waitForTransactionReceipt(client, { hash }).then(
-          (receipt) => {
-            this.isConnected = true
-            this.emit('connected', this.account)
-            this.connectPromise = undefined
-            return receipt
-          },
-          (error) => {
-            this.connectPromise = undefined
-            this.emit('error', new Error('Failed to wait for connect', { cause: error }))
-            return undefined
+  get address() {
+    return this.#client.account.address
+  }
+
+  get rootAddress() {
+    return this.#client.account.rootAddress
+  }
+
+  get account() {
+    return this.#client.account
+  }
+
+  async connect() {
+    await this.syncExpirations()
+
+    if (!this.#unsubscribe) {
+      this.#unsubscribe = watchContractEvent(this.client, {
+        address: this.#client.chain.contracts.sessionKeyRegistry.address,
+        abi: this.#client.chain.contracts.sessionKeyRegistry.abi,
+        eventName: 'AuthorizationsUpdated',
+        args: { identity: this.#client.account.rootAddress },
+        onLogs: (logs) => {
+          const event = extractLoginEvent(logs)
+          if (event.args.identity === this.#client.account.rootAddress) {
+            for (const hash of event.args.permissions) {
+              const permission = getPermissionFromTypeHash(hash)
+              this.expirations[permission] = event.args.expiry
+            }
+            this.emit('expirationsUpdated', this.#expirations)
           }
-        )
-      }
-    } catch (error) {
-      throw new Error('Failed to connect', { cause: error })
-    } finally {
-      this.isConnecting = false
+        },
+      })
+      this.emit('connected', this.#expirations)
     }
   }
 
   disconnect() {
-    this.isConnected = false
-    this.emit('disconnected')
-    this.connectPromise = undefined
-    return Promise.resolve()
+    if (this.#unsubscribe) {
+      this.#unsubscribe()
+      this.#unsubscribe = undefined
+      this.emit('disconnected')
+    }
   }
 
-  async refresh(client: Client<Transport, Chain, Account>) {
-    const hash = await login(client, {
-      address: this.account.address,
-      permissions: this.permissions,
-      expiresAt: this.expiresAt ? BigInt(this.expiresAt) : undefined,
-    })
-    return hash
+  /**
+   * Check if the session key has a permission.
+   *
+   * @param permission - {@link SessionKeyPermissions}
+   * @returns boolean
+   */
+  hasPermission(permission: SessionKeyPermissions) {
+    return this.expirations[permission] > BigInt(Math.floor(Date.now() / 1000))
   }
 
-  async isValid(client: Client<Transport, Chain, Account>, permission: SessionKeyPermissions) {
-    if (!this.permissions.includes(permission)) {
-      return false
-    }
-    if (this.connectPromise) {
-      await this.connectPromise
-    }
-    return isExpired(client, {
-      address: client.account.address,
-      sessionKeyAddress: this.account.address,
-      permission: permission,
+  /**
+   * Sync the expirations of the session key from the contract.
+   *
+   * @returns Promise<void>
+   * @throws Errors {@link getExpirations.ErrorType}
+   */
+  async syncExpirations() {
+    this.#expirations = await getExpirations(this.#client, {
+      address: this.#client.account.rootAddress,
+      sessionKeyAddress: this.#client.account.address,
     })
-  }
-
-  client(chain: Chain, transportConfig?: TransportConfig): Client<Transport, Chain, Account> {
-    if (!this.connected) {
-      throw new Error('Not connected')
-    }
-    return createWalletClient({
-      chain,
-      transport: transportFromTransportConfig({ transportConfig }),
-      account: this.account,
-    })
+    this.emit('expirationsUpdated', this.#expirations)
   }
 }
 
-export type WalletEvents = {
-  connected: CustomEvent<Account>
-  disconnected: CustomEvent<void>
-  connectHash: CustomEvent<Hex>
-  error: CustomEvent<Error>
+export interface FromSecp256k1Options {
+  privateKey: Hex
+  expirations?: Record<SessionKeyPermissions, bigint>
+  root: Account | Address
+  transport?: HttpTransport | WebSocketTransport | FallbackTransport
+  chain: Chain
 }
 
-export interface SessionKey extends TypedEventTarget<WalletEvents> {
-  readonly connecting: boolean
-  readonly connected: boolean
-  readonly account: Account | undefined
-  readonly type: 'secp256k1'
+/**
+ * Create a session key from a secp256k1 private key.
+ *
+ * @param options - {@link FromSecp256k1Options}
+ * @returns SessionKey {@link SessionKey}
+ *
+ * @example
+ * ```ts
+ * import { SessionKey, Account } from '@filoz/synapse-core/session-key'
+ * import { mainnet } from '@filoz/synapse-core/chains'
+ * import type { Hex } from 'viem'
+ *
+ * const account = Account.fromSecp256k1({
+ *   privateKey: '0xaa14e25eaea762df1533e72394b85e56dd0c7aa61cf6df3b1f13a842ca0361e5' as Hex,
+ *   rootAddress: '0x1234567890123456789012345678901234567890',
+ * })
+ * const sessionKey = SessionKey.fromSecp256k1({
+ *   account,
+ *   chain: mainnet,
+ * })
+ * ```
+ */
+export function fromSecp256k1(options: FromSecp256k1Options) {
+  const rootAddress = typeof options.root === 'string' ? options.root : options.root.address
 
-  connect: (client: Client<Transport, Chain, Account>) => Promise<void>
-  disconnect: () => Promise<void>
-  refresh: (client: Client<Transport, Chain, Account>) => Promise<Hex>
-  isValid: (client: Client<Transport, Chain, Account>, permission: SessionKeyPermissions) => Promise<boolean>
-  client: (chain: Chain, transportConfig?: TransportConfig) => Client<Transport, Chain, Account>
+  if (rootAddress === undefined) {
+    throw new Error('Root address is required')
+  }
+
+  const account = accountFromSecp256k1({
+    privateKey: options.privateKey,
+    rootAddress: rootAddress,
+  })
+
+  const chain = asChain(options.chain)
+
+  const client = createClient<Transport, SynapseChain, SessionKeyAccount<'Secp256k1'>>({
+    chain: chain,
+    transport: options.transport ?? http(),
+    account,
+    name: 'Secp256k1 Session Key',
+    key: 'secp256k1-session-key',
+    type: 'sessionClient',
+  })
+
+  return new Secp256k1SessionKey({
+    client: client,
+    expirations: options.expirations ?? EMPTY_EXPIRATIONS,
+  })
+}
+
+export interface AccountFromSecp256k1Options {
+  privateKey: Hex
+  rootAddress: Address
+}
+
+/**
+ * Create a session key account from a secp256k1 private key.
+ *
+ * @param options - {@link AccountFromSecp256k1Options}
+ * @returns Account {@link SessionKeyAccount}
+ *
+ * @example
+ * ```ts
+ * import { Account } from '@filoz/synapse-core/session-key'
+ * import type { Hex } from 'viem'
+ *
+ * const account = Account.fromSecp256k1({
+ *   privateKey: '0xaa14e25eaea762df1533e72394b85e56dd0c7aa61cf6df3b1f13a842ca0361e5' as Hex,
+ *   rootAddress: '0x1234567890123456789012345678901234567890',
+ * })
+ * ```
+ */
+export function accountFromSecp256k1(options: AccountFromSecp256k1Options) {
+  const account: SessionKeyAccount<'Secp256k1'> = {
+    ...privateKeyToAccount(options.privateKey),
+    source: 'sessionKey',
+    keyType: 'Secp256k1',
+    rootAddress: options.rootAddress,
+  }
+  return account
 }
