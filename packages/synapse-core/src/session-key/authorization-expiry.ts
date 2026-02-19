@@ -1,18 +1,25 @@
 import type { Simplify } from 'type-fest'
-import type {
-  Address,
-  Chain,
-  Client,
-  ContractFunctionParameters,
-  ContractFunctionReturnType,
-  ReadContractErrorType,
-  Transport,
+import {
+  type Address,
+  type Chain,
+  type Client,
+  ContractFunctionExecutionError,
+  type ContractFunctionParameters,
+  type ContractFunctionReturnType,
+  type MulticallErrorType,
+  type ReadContractErrorType,
+  type Transport,
 } from 'viem'
-import { readContract } from 'viem/actions'
+import { multicall, readContract } from 'viem/actions'
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
-import { SESSION_KEY_PERMISSIONS, type SessionKeyPermissions } from './permissions.ts'
+import {
+  ALL_PERMISSIONS,
+  EMPTY_EXPIRATIONS,
+  SESSION_KEY_PERMISSIONS,
+  type SessionKeyPermissions,
+} from './permissions.ts'
 
 export namespace authorizationExpiry {
   export type OptionsType = {
@@ -139,4 +146,87 @@ export function authorizationExpiryCall(options: authorizationExpiryCall.Options
     functionName: 'authorizationExpiry',
     args: [options.address, options.sessionKeyAddress, SESSION_KEY_PERMISSIONS[options.permission]],
   } satisfies authorizationExpiryCall.OutputType
+}
+
+export namespace isExpired {
+  export type OptionsType = Simplify<authorizationExpiry.OptionsType>
+  export type ErrorType = authorizationExpiry.ErrorType
+  export type OutputType = boolean
+}
+
+/**
+ * Check if the session key is expired.
+ *
+ * @param client - The client to use.
+ * @param options - The options to use.
+ * @returns Whether the session key is expired.
+ * @throws - {@link isExpired.ErrorType} if the read contract fails.
+ */
+export async function isExpired(
+  client: Client<Transport, Chain>,
+  options: isExpired.OptionsType
+): Promise<isExpired.OutputType> {
+  const expiry = await authorizationExpiry(client, options)
+
+  return expiry < BigInt(Math.floor(Date.now() / 1000))
+}
+
+export namespace getExpirations {
+  export type OptionsType = Simplify<Omit<authorizationExpiry.OptionsType, 'permission'>>
+  export type ErrorType = authorizationExpiry.ErrorType | MulticallErrorType
+  export type OutputType = Record<SessionKeyPermissions, bigint>
+}
+
+/**
+ * Get the expirations for all permissions.
+ *
+ * @param client - The client to use.
+ * @param options - {@link getExpirations.OptionsType}
+ * @returns The expirations as a record of {@link SessionKeyPermissions} to {@link bigint} {@link getExpirations.OutputType}
+ * @throws Errors {@link getExpirations.ErrorType}
+ *
+ * @example
+ * ```ts
+ * import { getExpirations } from '@filoz/synapse-core/session-key'
+ * import { createPublicClient, http } from 'viem'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const expirations = await getExpirations(client, {
+ *   address: '0x1234567890123456789012345678901234567890',
+ *   sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+ * })
+ *
+ * console.log(expirations)
+ */
+export async function getExpirations(client: Client<Transport, Chain>, options: getExpirations.OptionsType) {
+  const expirations: Record<SessionKeyPermissions, bigint> = EMPTY_EXPIRATIONS
+
+  try {
+    const result = await multicall(client, {
+      allowFailure: false,
+      contracts: ALL_PERMISSIONS.map((permission) =>
+        authorizationExpiryCall({
+          chain: client.chain,
+          address: options.address,
+          sessionKeyAddress: options.sessionKeyAddress,
+          permission,
+        })
+      ),
+    })
+
+    for (let i = 0; i < ALL_PERMISSIONS.length; i++) {
+      expirations[ALL_PERMISSIONS[i]] = result[i]
+    }
+  } catch (e) {
+    if (!(e instanceof ContractFunctionExecutionError && e.details.includes('actor not found'))) {
+      throw e
+    }
+  }
+
+  return expirations
 }
