@@ -1,4 +1,4 @@
-import type { Account, Address, Chain, Client, Transport } from 'viem'
+import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { asChain, getChain } from '../chains.ts'
 import type { PieceCID } from '../piece.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
@@ -74,6 +74,8 @@ export type CreateDataSetAndAddPiecesOptions = {
   metadata?: MetadataObject
   /** The pieces and metadata to add to the data set. */
   pieces: { pieceCid: PieceCID; metadata?: MetadataObject }[]
+  /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
+  extraData?: Hex
 }
 
 export namespace createDataSetAndAddPieces {
@@ -95,11 +97,9 @@ export async function createDataSetAndAddPieces(
   options: CreateDataSetAndAddPiecesOptions
 ): Promise<createDataSetAndAddPieces.ReturnType> {
   const chain = asChain(client.chain)
-
-  const { txHash, statusUrl } = await SP.createDataSetAndAddPieces({
-    serviceURL: options.serviceURL,
-    recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
-    extraData: await signCreateDataSetAndAddPieces(client, {
+  const extraData =
+    options.extraData ??
+    (await signCreateDataSetAndAddPieces(client, {
       clientDataSetId: options.clientDataSetId,
       payee: options.payee,
       payer: options.payer,
@@ -110,12 +110,12 @@ export async function createDataSetAndAddPieces(
         pieceCid: piece.pieceCid,
         metadata: pieceMetadataObjectToEntry(piece.metadata),
       })),
-    }),
+    }))
+
+  return SP.createDataSetAndAddPieces({
+    serviceURL: options.serviceURL,
+    recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
+    extraData,
     pieces: options.pieces.map((piece) => piece.pieceCid),
   })
-
-  return {
-    txHash,
-    statusUrl,
-  }
 }

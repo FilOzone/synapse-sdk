@@ -1,4 +1,4 @@
-import type { Account, Chain, Client, Transport } from 'viem'
+import type { Account, Chain, Client, Hex, Transport } from 'viem'
 import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
@@ -19,8 +19,10 @@ export namespace addPieces {
     clientDataSetId: bigint
     /** The pieces to add. */
     pieces: PieceType[]
-    /** The nonce to use for the add pieces signature. */
+    /** Optional nonce for the add pieces signature. Ignored when extraData is provided. */
     nonce?: bigint
+    /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
+    extraData?: Hex
   }
 
   export type OutputType = PDP.addPieces.OutputType
@@ -44,17 +46,20 @@ export async function addPieces(
   if (options.pieces.length === 0) {
     throw new AtLeastOnePieceRequiredError()
   }
-  return PDP.addPieces({
-    serviceURL: options.serviceURL,
-    dataSetId: options.dataSetId,
-    pieces: options.pieces.map((piece) => piece.pieceCid),
-    extraData: await signAddPieces(client, {
+  const extraData =
+    options.extraData ??
+    (await signAddPieces(client, {
       clientDataSetId: options.clientDataSetId,
       nonce: options.nonce,
       pieces: options.pieces.map((piece) => ({
         pieceCid: piece.pieceCid,
         metadata: pieceMetadataObjectToEntry(piece.metadata),
       })),
-    }),
+    }))
+  return PDP.addPieces({
+    serviceURL: options.serviceURL,
+    dataSetId: options.dataSetId,
+    pieces: options.pieces.map((piece) => piece.pieceCid),
+    extraData,
   })
 }
