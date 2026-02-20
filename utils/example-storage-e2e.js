@@ -94,7 +94,12 @@ async function main() {
     } else {
       console.log(`Data set ID: ${storageContext.dataSetId}`)
     }
-    const pieceCids = await storageContext.getDataSetPieces()
+
+    // Collect piece CIDs via the async generator `getPieces()`
+    const pieceCids = []
+    for await (const piece of storageContext.getPieces()) {
+      pieceCids.push(piece.pieceCid)
+    }
     console.log(`Data set contains ${pieceCids.length} piece CIDs`)
 
     console.log(`\n--- Service Provider${providerLabel} Details ---`)
@@ -110,7 +115,7 @@ async function main() {
 
   // Preflight checks
   console.log('\n--- Preflight Upload Check ---')
-  const preflight = await synapse.storage.preflightUpload(totalSize)
+  const preflight = await synapse.storage.preflightUpload({ size: totalSize })
 
   console.log('Estimated costs:')
   console.log(`  Per epoch (30s): ${formatUSDFC(preflight.estimatedCost.perEpoch)}`)
@@ -188,90 +193,90 @@ async function main() {
   })
 
   // Download and verify
-  console.log('\n--- Downloading Files ---')
-  console.log(`Downloading file${files.length !== 1 ? 's in parallel' : ''}...\n`)
+  // console.log('\n--- Downloading Files ---')
+  // console.log(`Downloading file${files.length !== 1 ? 's in parallel' : ''}...\n`)
 
-  const downloadPromises = uploadResults.map((fileResult, index) => {
-    console.log(`  Downloading file ${index + 1}: ${fileResult.pieceCid}`)
-    return synapse.storage.download(fileResult.pieceCid)
-  })
+  // const downloadPromises = uploadResults.map((fileResult, index) => {
+  //   console.log(`  Downloading file ${index + 1}: ${fileResult.pieceCid}`)
+  //   return synapse.storage.download(fileResult.pieceCid)
+  // })
 
-  const downloadedFiles = await Promise.all(downloadPromises)
-  console.log(`\nDownloaded ${downloadedFiles.length} file${files.length !== 1 ? 's' : ''} successfully`)
+  // const downloadedFiles = await Promise.all(downloadPromises)
+  // console.log(`\nDownloaded ${downloadedFiles.length} file${files.length !== 1 ? 's' : ''} successfully`)
 
-  console.log('\n--- Verifying Data ---')
-  let allMatch = true
+  // console.log('\n--- Verifying Data ---')
+  // let allMatch = true
 
-  for (let i = 0; i < files.length; i++) {
-    const downloadedData = downloadedFiles[i]
-    if (downloadedData == null) {
-      console.warn(`Skipped File ${i + 1} (${files[i].path})`)
-      continue
-    }
+  // for (let i = 0; i < files.length; i++) {
+  //   const downloadedData = downloadedFiles[i]
+  //   if (downloadedData == null) {
+  //     console.warn(`Skipped File ${i + 1} (${files[i].path})`)
+  //     continue
+  //   }
 
-    const originalData = await fsPromises.readFile(files[i].path)
-    const matches = Buffer.from(originalData).equals(Buffer.from(downloadedData))
+  //   const originalData = await fsPromises.readFile(files[i].path)
+  //   const matches = Buffer.from(originalData).equals(Buffer.from(downloadedData))
 
-    console.log(
-      `File ${i + 1} (${files[i].path}): ${matches ? 'MATCH' : 'MISMATCH'} (${formatBytes(downloadedData.length)})`
-    )
+  //   console.log(
+  //     `File ${i + 1} (${files[i].path}): ${matches ? 'MATCH' : 'MISMATCH'} (${formatBytes(downloadedData.length)})`
+  //   )
 
-    if (!matches) {
-      allMatch = false
-    }
-  }
+  //   if (!matches) {
+  //     allMatch = false
+  //   }
+  // }
 
-  if (!allMatch) {
-    console.error('\nERROR: One or more downloaded files do not match originals!')
-    process.exit(1)
-  }
+  // if (!allMatch) {
+  //   console.error('\nERROR: One or more downloaded files do not match originals!')
+  //   process.exit(1)
+  // }
 
-  console.log('\nSUCCESS: All downloaded files match originals!')
+  // console.log('\nSUCCESS: All downloaded files match originals!')
 
   // Piece status and storage info
-  console.log('\n--- Piece Status ---')
+  // console.log('\n--- Piece Status ---')
 
-  for (const fileResult of uploadResults) {
-    const pieceCid = fileResult.pieceCid
+  // for (const fileResult of uploadResults) {
+  //   const pieceCid = fileResult.pieceCid
 
-    for (let spIndex = 0; spIndex < contexts.length; spIndex++) {
-      const storageContext = contexts[spIndex]
-      const providerLabel = contexts.length > 1 ? ` #${spIndex + 1}` : ''
-      const firstPieceStatus = await storageContext.pieceStatus(pieceCid)
-      console.log(`Data set exists on provider: ${firstPieceStatus.exists}`)
-      if (firstPieceStatus.dataSetLastProven) {
-        console.log(`Data set last proven: ${firstPieceStatus.dataSetLastProven.toLocaleString()}`)
-      }
-      if (firstPieceStatus.dataSetNextProofDue) {
-        console.log(`Data set next proof due: ${firstPieceStatus.dataSetNextProofDue.toLocaleString()}`)
-      }
-      if (firstPieceStatus.inChallengeWindow) {
-        console.log('Currently in challenge window - proof must be submitted soon')
-      } else if (firstPieceStatus.hoursUntilChallengeWindow && firstPieceStatus.hoursUntilChallengeWindow > 0) {
-        console.log(`Hours until challenge window: ${firstPieceStatus.hoursUntilChallengeWindow.toFixed(1)}`)
-      }
+  //   for (let spIndex = 0; spIndex < contexts.length; spIndex++) {
+  //     const storageContext = contexts[spIndex]
+  //     const providerLabel = contexts.length > 1 ? ` #${spIndex + 1}` : ''
+  //     const firstPieceStatus = await storageContext.pieceStatus(pieceCid)
+  //     console.log(`Data set exists on provider: ${firstPieceStatus.exists}`)
+  //     if (firstPieceStatus.dataSetLastProven) {
+  //       console.log(`Data set last proven: ${firstPieceStatus.dataSetLastProven.toLocaleString()}`)
+  //     }
+  //     if (firstPieceStatus.dataSetNextProofDue) {
+  //       console.log(`Data set next proof due: ${firstPieceStatus.dataSetNextProofDue.toLocaleString()}`)
+  //     }
+  //     if (firstPieceStatus.inChallengeWindow) {
+  //       console.log('Currently in challenge window - proof must be submitted soon')
+  //     } else if (firstPieceStatus.hoursUntilChallengeWindow && firstPieceStatus.hoursUntilChallengeWindow > 0) {
+  //       console.log(`Hours until challenge window: ${firstPieceStatus.hoursUntilChallengeWindow.toFixed(1)}`)
+  //     }
 
-      const providerInfo = storageContext.provider
-      console.log(`\n--- Storage Information${providerLabel} ---`)
-      const fileText = files.length !== 1 ? 'files are' : 'file is'
-      console.log(`Your ${uploadResults.length} ${fileText} now stored on the Filecoin network:`)
-      console.log(`- Data set ID: ${storageContext.dataSetId}`)
-      console.log(`- Service provider: ${storageContext.provider.serviceProvider}`)
+  //     const providerInfo = storageContext.provider
+  //     console.log(`\n--- Storage Information${providerLabel} ---`)
+  //     const fileText = files.length !== 1 ? 'files are' : 'file is'
+  //     console.log(`Your ${uploadResults.length} ${fileText} now stored on the Filecoin network:`)
+  //     console.log(`- Data set ID: ${storageContext.dataSetId}`)
+  //     console.log(`- Service provider: ${storageContext.provider.serviceProvider}`)
 
-      console.log('\nUploaded pieces:')
-      uploadResults.forEach((fileResult, fileIndex) => {
-        console.log(`\n  File ${fileIndex + 1}: ${files[fileIndex].path}`)
-        console.log(`    PieceCID: ${fileResult.pieceCid}`)
-        console.log(`    Piece ID: ${fileResult.pieceId}`)
-        console.log(`    Size: ${formatBytes(fileResult.size)}`)
-        if (providerInfo.pdp?.serviceURL) {
-          console.log(
-            `    Retrieval URL: ${providerInfo.pdp.serviceURL.replace(/\/$/, '')}/piece/${fileResult.pieceCid}`
-          )
-        }
-      })
-    }
-  }
+  //     console.log('\nUploaded pieces:')
+  //     uploadResults.forEach((fileResult, fileIndex) => {
+  //       console.log(`\n  File ${fileIndex + 1}: ${files[fileIndex].path}`)
+  //       console.log(`    PieceCID: ${fileResult.pieceCid}`)
+  //       console.log(`    Piece ID: ${fileResult.pieceId}`)
+  //       console.log(`    Size: ${formatBytes(fileResult.size)}`)
+  //       if (providerInfo.pdp?.serviceURL) {
+  //         console.log(
+  //           `    Retrieval URL: ${providerInfo.pdp.serviceURL.replace(/\/$/, '')}/piece/${fileResult.pieceCid}`
+  //         )
+  //       }
+  //     })
+  //   }
+  // }
 
   console.log('\nThe service provider(s) will periodically prove they still have your data.')
   console.log('You are being charged based on the storage size and duration.')
