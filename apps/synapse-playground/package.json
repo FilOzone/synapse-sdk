@@ -71,7 +71,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "iso-ledger": "^0.1.7",
-    "lucide-react": "^0.563.0",
+    "lucide-react": "^0.574.0",
     "nanostores": "^1.0.1",
     "next-themes": "^0.4.6",
     "react": "19.2.4",
