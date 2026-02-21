@@ -25,7 +25,7 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "knip": "^5.71.0",
-    "markdownlint-cli2": "^0.20.0",
+    "markdownlint-cli2": "^0.21.0",
     "typescript": "catalog:",
     "wireit": "^0.14.12"
   },
