@@ -197,7 +197,7 @@
         </div>
         <div class="form-group">
             <label>Wallet Connection:</label>
-            <button id="connectWalletBtn">Connect MetaMask</button>
+            <button type="button" id="connectWalletBtn">Connect MetaMask</button>
             <div id="walletStatus" class="help-text">Click to connect your MetaMask wallet for signing</div>
         </div>
         <div class="form-group">
@@ -214,7 +214,7 @@
         <div class="section">
             <h2>Service Providers</h2>
             <div class="form-group">
-                <button id="listProvidersBtn">List Approved Providers</button>
+                <button type="button" id="listProvidersBtn">List Approved Providers</button>
                 <div class="help-text">View all service providers approved to use this Warm Storage service</div>
             </div>
             <div id="providersStatus" class="status info" style="display: none; margin-top: 10px;"></div>
@@ -246,9 +246,10 @@
                 <div class="help-text">Whether to enable CDN services for faster retrieval</div>
             </div>
             <div class="form-group">
-                <button id="createDataSetBtn" disabled>Create Data Set</button>
-                <button id="checkStatusBtn" disabled>Check Status</button>
-                <button id="autoMonitorBtn" disabled style="background-color: #28a745;">Auto-Monitor</button>
+                <button type="button" id="createDataSetBtn" disabled>Create Data Set</button>
+                <button type="button" id="checkStatusBtn" disabled>Check Status</button>
+                <button type="button" id="autoMonitorBtn" disabled
+                    style="background-color: #28a745;">Auto-Monitor</button>
             </div>
         </div>
         <!-- ADD PIECES SECTION -->
@@ -294,10 +295,11 @@
                         <button type="button" class="remove-piece-btn" onclick="removePieceEntry(this)">Remove</button>
                     </div>
                 </div>
-                <button type="button" class="add-piece-btn" onclick="addPieceEntry()">Add Another Piece</button>
+                <button type="button" class="add-piece-btn" onclick="addPieceEntry()" disabled>Add Another
+                    Piece</button>
             </div>
             <div class="form-group">
-                <button id="addPiecesBtn" disabled>Add Pieces</button>
+                <button type="button" id="addPiecesBtn" disabled>Add Pieces</button>
             </div>
         </div>
         <!-- MONITOR DATA SET SECTION -->
@@ -309,7 +311,7 @@
                 <div class="help-text">Enter a data set creation transaction hash to monitor its status</div>
             </div>
             <div class="form-group">
-                <button id="monitorTxBtn">Check Transaction Status</button>
+                <button type="button" id="monitorTxBtn">Check Transaction Status</button>
             </div>
         </div>
         <div id="status" class="status info" style="display: none;"></div>
