@@ -12,3 +12,6 @@ updates:
       interval: weekly
     cooldown:
       default-days: 2
+    ignore:
+      - dependency-name: "@biomejs/biome"
+        update-types: ["version-update:semver-patch"]
