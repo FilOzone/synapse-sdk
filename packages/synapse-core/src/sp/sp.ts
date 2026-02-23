@@ -12,8 +12,8 @@ import {
   PostPieceError,
   UploadPieceError,
 } from '../errors/pdp.ts'
-import type { PieceCID } from '../piece.ts'
-import * as Piece from '../piece.ts'
+import type { PieceCID } from '../piece/piece.ts'
+import * as Piece from '../piece/piece.ts'
 import type * as TypedData from '../typed-data/index.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { createPieceUrlPDP } from '../utils/piece-url.ts'
@@ -620,25 +620,4 @@ export namespace downloadPiece {
   }
   export type ReturnType = Uint8Array
   export type ErrorType = DownloadPieceError | TimeoutError | NetworkError | AbortError
-}
-
-/**
- * Download a piece and verify from the PDP API.
- *
- * GET /piece/{pieceCid}
- *
- * @param options - {@link downloadPiece.OptionsType}
- * @returns Data {@link downloadPiece.ReturnType}
- * @throws Errors {@link downloadPiece.ErrorType}
- */
-export async function downloadPiece(options: downloadPiece.OptionsType): Promise<downloadPiece.ReturnType> {
-  const url = createPieceUrlPDP({ cid: options.pieceCid.toString(), serviceURL: options.serviceURL })
-  const response = await request.get(url)
-  if (response.error) {
-    if (HttpError.is(response.error)) {
-      throw new DownloadPieceError(await response.error.response.text())
-    }
-    throw response.error
-  }
-  return await Piece.downloadAndValidate(response.result, options.pieceCid)
 }

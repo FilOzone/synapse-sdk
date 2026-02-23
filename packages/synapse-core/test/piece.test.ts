@@ -2,6 +2,11 @@
  * Basic tests for PieceCID utilities
  */
 
+import type { API } from '@web3-storage/data-segment'
+import { Size, toLink } from '@web3-storage/data-segment/piece'
+import { assert } from 'chai'
+import { CID } from 'multiformats/cid'
+import { bytesToHex } from 'viem/utils'
 import {
   asPieceCID,
   calculate,
@@ -9,12 +14,7 @@ import {
   getSizeFromPieceCID,
   hexToPieceCID,
   type PieceCID,
-} from '@filoz/synapse-core/piece'
-import type { API } from '@web3-storage/data-segment'
-import { Size, toLink } from '@web3-storage/data-segment/piece'
-import { assert } from 'chai'
-import { CID } from 'multiformats/cid'
-import { bytesToHex } from 'viem/utils'
+} from '../src/piece/index.ts'
 
 // https://github.com/filecoin-project/go-fil-commp-hashhash/blob/master/testdata/zero.txt
 const zeroPieceCidFixture = `

@@ -1,6 +1,6 @@
 import type { Account, Chain, Client, Transport } from 'viem'
 import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
-import type { PieceCID } from '../piece.ts'
+import type { PieceCID } from '../piece/piece.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import * as PDP from './sp.ts'

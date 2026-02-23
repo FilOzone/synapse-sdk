@@ -2,6 +2,7 @@ import { type Chain, calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { calculate, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
+import { NetworkError } from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -949,7 +950,7 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
         }),
         Mocks.PING(),
-        http.get(`https://${Mocks.ADDRESSES.client1}.calibration.filbeam.io/:cid`, async () => {
+        http.head(`https://${client.account.address}.calibration.filbeam.io/:cid`, async () => {
           return HttpResponse.text('Not Found', {
             status: 404,
           })
@@ -989,7 +990,7 @@ describe('StorageService', () => {
         await service.download({ pieceCid: testPieceCID })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to retrieve piece')
+        assert.instanceOf(error, NetworkError)
       }
     })
 

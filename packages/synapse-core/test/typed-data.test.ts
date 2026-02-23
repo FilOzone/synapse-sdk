@@ -2,7 +2,7 @@ import { assert } from 'chai'
 import { type Address, createWalletClient, decodeAbiParameters, type Hex, http, parseSignature } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import * as Chains from '../src/chains.ts'
-import * as Piece from '../src/piece.ts'
+import * as Piece from '../src/piece/piece.ts'
 import * as TypedData from '../src/typed-data/index.ts'
 import { getStorageDomain } from '../src/typed-data/type-definitions.ts'
 

@@ -20,9 +20,9 @@
  * ```
  */
 
-import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
+import * as Piece from '@filoz/synapse-core/piece'
 import type { UploadPieceStreamingData } from '@filoz/synapse-core/sp'
-import { randIndex } from '@filoz/synapse-core/utils'
+import { getPDPProviderByAddress } from '@filoz/synapse-core/sp-registry'
 import { type Address, type Hash, zeroAddress } from 'viem'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
@@ -32,7 +32,6 @@ import type {
   EnhancedDataSetInfo,
   PDPProvider,
   PieceCID,
-  PieceRetriever,
   PreflightInfo,
   StorageContextCallbacks,
   StorageInfo,
@@ -95,8 +94,6 @@ export interface StorageManagerOptions {
   synapse: Synapse
   /** The WarmStorageService instance */
   warmStorageService: WarmStorageService
-  /** The PieceRetriever instance */
-  pieceRetriever: PieceRetriever
   /** Whether to enable CDN services */
   withCDN: boolean
 }
@@ -104,7 +101,6 @@ export interface StorageManagerOptions {
 export class StorageManager {
   private readonly _synapse: Synapse
   private readonly _warmStorageService: WarmStorageService
-  private readonly _pieceRetriever: PieceRetriever
   private readonly _withCDN: boolean
   private _defaultContexts?: StorageContext[]
 
@@ -115,7 +111,6 @@ export class StorageManager {
   constructor(options: StorageManagerOptions) {
     this._synapse = options.synapse
     this._warmStorageService = options.warmStorageService
-    this._pieceRetriever = options.pieceRetriever
     this._withCDN = options.withCDN
   }
 
@@ -229,42 +224,49 @@ export class StorageManager {
       })
     }
 
-    // SP-agnostic download with fast path optimization
-    const parsedPieceCID = asPieceCID(options.pieceCid)
+    const parsedPieceCID = Piece.asPieceCID(options.pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageManager', 'download', `Invalid PieceCID: ${String(options.pieceCid)}`)
     }
 
-    // Use withCDN setting: option > manager default > synapse default
-    const withCDN = options?.withCDN ?? this._withCDN
+    const clientAddress = this._synapse.client.account.address
+    const withCDN = options.withCDN ?? this._withCDN
+    let pieceUrl: string
 
-    let finalProviderAddress: Address | undefined = options?.providerAddress
-    // Fast path: If we have a default context with CDN disabled and no specific provider requested,
-    // check if the piece exists on the default context's provider first
-    if (this._defaultContexts != null && !withCDN && finalProviderAddress == null) {
-      // from the default contexts, select a random storage provider that has the piece
-      const contextsWithoutCDN = this._defaultContexts.filter((context) => context.withCDN === false)
-      const contextsHavePiece = await Promise.all(
-        contextsWithoutCDN.map((context) => context.hasPiece({ pieceCid: parsedPieceCID }))
-      )
-      const defaultContextsWithPiece = contextsWithoutCDN.filter((_context, i) => contextsHavePiece[i])
-      if (defaultContextsWithPiece.length > 0) {
-        finalProviderAddress =
-          defaultContextsWithPiece[randIndex(defaultContextsWithPiece.length)].provider.serviceProvider
+    if (options.providerAddress) {
+      // Direct provider download
+      const provider = await getPDPProviderByAddress(this._synapse.client, { address: options.providerAddress })
+
+      if (provider == null) {
+        throw createError('StorageManager', 'download', `Provider ${options.providerAddress} not found`)
+      }
+      pieceUrl = Piece.createPieceUrlPDP({ cid: parsedPieceCID.toString(), serviceURL: provider.pdp.serviceURL })
+    } else {
+      // Resolve piece URL from providers
+      try {
+        pieceUrl = await Piece.resolvePieceUrl({
+          client: this._synapse.client,
+          address: clientAddress,
+          pieceCid: parsedPieceCID,
+          resolvers: [
+            ...(withCDN ? [Piece.filbeamResolver] : []),
+            Piece.chainResolver,
+            Piece.providersResolver(this._defaultContexts?.map((context) => context.provider) ?? []),
+          ],
+        })
+      } catch (error) {
+        throw createError(
+          'StorageManager',
+          'download',
+          `All provider retrieval attempts failed and no additional retriever method was configured`,
+          error
+        )
       }
     }
-
-    const clientAddress = this._synapse.client.account.address
-
-    // Use piece retriever to fetch
-    const response = await this._pieceRetriever.fetchPiece({
-      pieceCid: parsedPieceCID,
-      client: clientAddress,
-      providerAddress: finalProviderAddress,
-      withCDN,
+    return Piece.downloadAndValidate({
+      expectedPieceCid: parsedPieceCID,
+      url: pieceUrl,
     })
-
-    return await downloadAndValidate(response, parsedPieceCID)
   }
 
   /**

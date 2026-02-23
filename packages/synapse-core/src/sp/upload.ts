@@ -1,7 +1,7 @@
 import type { Account, Chain, Client, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { DataSetNotFoundError } from '../errors/warm-storage.ts'
-import * as Piece from '../piece.ts'
+import * as Piece from '../piece/piece.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'

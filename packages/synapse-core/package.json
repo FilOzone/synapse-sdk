@@ -82,8 +82,8 @@
       "default": "./dist/src/errors/index.js"
     },
     "./piece": {
-      "types": "./dist/src/piece.d.ts",
-      "default": "./dist/src/piece.js"
+      "types": "./dist/src/piece/index.d.ts",
+      "default": "./dist/src/piece/index.js"
     },
     "./utils": {
       "types": "./dist/src/utils/index.d.ts",
@@ -141,7 +141,7 @@
         "./dist/src/errors/index"
       ],
       "piece": [
-        "./dist/src/piece"
+        "./dist/src/piece/index"
       ],
       "utils": [
         "./dist/src/utils/index"
@@ -235,7 +235,9 @@
     "iso-web": "^2.1.0",
     "multiformats": "^13.4.1",
     "ox": "catalog:",
+    "p-locate": "^7.0.0",
     "p-retry": "^7.1.0",
+    "p-some": "^7.0.0",
     "zod": "catalog:"
   },
   "devDependencies": {

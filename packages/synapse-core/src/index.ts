@@ -17,7 +17,7 @@ export * as erc20 from './erc20/index.ts'
 export * as errors from './errors/index.ts'
 
 export * as pay from './pay/index.ts'
-export * as piece from './piece.ts'
+export * as piece from './piece/index.ts'
 export * as sessionKey from './session-key/index.ts'
 export * as sp from './sp/index.ts'
 export * as spRegistry from './sp-registry/index.ts'
