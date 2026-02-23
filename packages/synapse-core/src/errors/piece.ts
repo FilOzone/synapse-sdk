@@ -4,7 +4,7 @@ export class InvalidPieceCIDError extends SynapseError {
   override name: 'InvalidPieceCIDError' = 'InvalidPieceCIDError'
 
   constructor(input: unknown, options?: SynapseErrorOptions) {
-    let msg = 'Invalid piece CID.'
+    let msg = 'Invalid piece CID'
     if (typeof input === 'object' && input != null && 'toString' in input && typeof input.toString === 'function') {
       msg = `Invalid piece CID: ${input.toString()}`
     } else if (typeof input === 'string') {

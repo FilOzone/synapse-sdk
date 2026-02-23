@@ -132,7 +132,7 @@ export async function chainResolver(options: resolvePieceUrl.ResolverFnOptionsTy
   }, new Map<bigint, (typeof dataSets)[number]['provider']>())
   const providers = [...providersById.values()]
 
-  const result = await pingProviders(providers, pieceCid, signal)
+  const result = await findPieceOnProviders(providers, pieceCid, signal)
   if (result == null) {
     throw new Error('No provider found')
   }
@@ -160,7 +160,7 @@ export async function chainResolver(options: resolvePieceUrl.ResolverFnOptionsTy
 export function providersResolver(providers: PDPProvider[]): resolvePieceUrl.ResolverFnType {
   return async (options: resolvePieceUrl.ResolverFnOptionsType) => {
     const { pieceCid, signal } = options
-    const result = await pingProviders(providers, pieceCid, signal)
+    const result = await findPieceOnProviders(providers, pieceCid, signal)
     if (result == null) {
       throw new Error('No provider found')
     }
@@ -173,13 +173,14 @@ export function providersResolver(providers: PDPProvider[]): resolvePieceUrl.Res
 }
 
 /**
- * Ping the providers to find the piece URL
+ * Find the piece on the providers
+ *
  * @param providers - {@link PDPProvider[]}
  * @param pieceCid - {@link PieceCID}
  * @param signal - {@link AbortSignal}
  * @returns The piece URL
  */
-export async function pingProviders(providers: PDPProvider[], pieceCid: PieceCID, signal?: AbortSignal) {
+export async function findPieceOnProviders(providers: PDPProvider[], pieceCid: PieceCID, signal?: AbortSignal) {
   const controller = new AbortController()
   const _signal = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal
 

@@ -8,7 +8,7 @@ import * as Piece from '../src/piece/piece.ts'
 import {
   chainResolver,
   filbeamResolver,
-  pingProviders,
+  findPieceOnProviders,
   providersResolver,
   resolvePieceUrl,
 } from '../src/piece/resolve-piece-url.ts'
@@ -198,7 +198,7 @@ describe('resolve-piece-url', () => {
         })
       )
 
-      const result = await pingProviders(providers, pieceCid)
+      const result = await findPieceOnProviders(providers, pieceCid)
       assert.ok(result)
       assert.equal(result?.id, 2n)
     })
@@ -210,7 +210,7 @@ describe('resolve-piece-url', () => {
         http.get('https://missing.example.com/pdp/piece', () => HttpResponse.text('not found', { status: 404 }))
       )
 
-      const result = await pingProviders(providers, pieceCid)
+      const result = await findPieceOnProviders(providers, pieceCid)
       assert.equal(result, undefined)
     })
   })
@@ -231,7 +231,7 @@ describe('resolve-piece-url', () => {
         address: ADDRESSES.client1,
         pieceCid,
       })
-      assert.equal(result, 'https://pdp.example.com/')
+      assert.equal(result, `https://pdp.example.com/piece/${pieceCid.toString()}`)
     })
 
     it('throws when no provider has the piece', async () => {
