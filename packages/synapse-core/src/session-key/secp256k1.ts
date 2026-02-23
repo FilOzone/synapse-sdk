@@ -77,6 +77,7 @@ class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements 
         abi: this.#client.chain.contracts.sessionKeyRegistry.abi,
         eventName: 'AuthorizationsUpdated',
         args: { identity: this.#client.account.rootAddress },
+
         onLogs: (logs) => {
           const event = extractLoginEvent(logs)
           if (event.args.identity === this.#client.account.rootAddress) {
