@@ -4,7 +4,7 @@ import { createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { getActivePieces, getActivePiecesCall } from '../src/pdp-verifier/get-active-pieces.ts'
-import * as Piece from '../src/piece.ts'
+import * as Piece from '../src/piece/piece.ts'
 
 describe('getActivePieces', () => {
   const server = setup()

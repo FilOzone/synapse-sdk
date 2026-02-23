@@ -65,6 +65,9 @@ export function datasetMetadataObjectToEntry(
     if (entry.key.length > METADATA_LIMITS.MAX_KEY_LENGTH) {
       throw new Error('Metadata key exceeds the maximum length')
     }
+    if (typeof entry.value !== 'string') {
+      throw new Error(`Metadata value must be a string, got ${typeof entry.value} for key "${entry.key}"`)
+    }
     if (entry.value.length > METADATA_LIMITS.MAX_VALUE_LENGTH) {
       throw new Error('Metadata value exceeds the maximum length')
     }
@@ -100,6 +103,9 @@ export function pieceMetadataObjectToEntry(
   for (const entry of entries) {
     if (entry.key.length > METADATA_LIMITS.MAX_KEY_LENGTH) {
       throw new Error('Metadata key exceeds the maximum length')
+    }
+    if (typeof entry.value !== 'string') {
+      throw new Error(`Metadata value must be a string, got ${typeof entry.value} for key "${entry.key}"`)
     }
     if (entry.value.length > METADATA_LIMITS.MAX_VALUE_LENGTH) {
       throw new Error('Metadata value exceeds the maximum length')

@@ -179,8 +179,9 @@
             <div class="input-group">
                 <label for="contractAddressInput">WarmStorage Contract Address:</label>
                 <input type="text" id="contractAddressInput" value="" placeholder="Will auto-detect based on network">
-                <button onclick="updateContractAddress()" style="margin-top: 5px;">Update Contract</button>
-                <button onclick="resetToDefault()" style="margin-top: 5px;">Reset to Default</button>
+                <button type="button" onclick="updateContractAddress()" style="margin-top: 5px;">Update
+                    Contract</button>
+                <button type="button" onclick="resetToDefault()" style="margin-top: 5px;">Reset to Default</button>
             </div>
             <strong>Network:</strong> <span id="networkDisplay">Connect wallet to detect network</span>
         </div>
@@ -194,14 +195,14 @@
                 </select>
             </div>
             <div id="metamaskAuth">
-                <button onclick="connectMetaMask()">Connect MetaMask</button>
+                <button type="button" onclick="connectMetaMask()">Connect MetaMask</button>
             </div>
             <div id="privateKeyAuth" style="display: none;">
                 <div class="input-group">
                     <label for="privateKey">Private Key (with or without 0x prefix):</label>
                     <input type="password" id="privateKey" placeholder="Enter your private key">
                 </div>
-                <button onclick="connectPrivateKey()">Connect with Private Key</button>
+                <button type="button" onclick="connectPrivateKey()">Connect with Private Key</button>
             </div>
             <div id="connectionStatus" class="status info" style="display: none;"></div>
         </div>
@@ -253,29 +254,29 @@
             <div class="status warning">
                 <strong>Note:</strong> Registration requires a 5 FIL fee. Make sure your wallet has sufficient balance.
             </div>
-            <button onclick="registerProvider()">Register Provider (5 FIL fee)</button>
+            <button type="button" onclick="registerProvider()">Register Provider (5 FIL fee)</button>
         </div>
         <div id="queryTab" class="tab-content">
             <h2>Query Provider Information</h2>
             <div class="action-buttons">
-                <button onclick="getProviderCount()">Get Provider Count</button>
-                <button onclick="getActiveProviderCount()">Get Active Provider Count</button>
-                <button onclick="getAllProviders()">List All Active Providers</button>
+                <button type="button" onclick="getProviderCount()">Get Provider Count</button>
+                <button type="button" onclick="getActiveProviderCount()">Get Active Provider Count</button>
+                <button type="button" onclick="getAllProviders()">List All Active Providers</button>
             </div>
             <div class="input-group" style="margin-top: 20px;">
                 <label for="queryAddress">Provider Address to Query:</label>
                 <input type="text" id="queryAddress" placeholder="0x...">
             </div>
             <div class="action-buttons">
-                <button onclick="checkRegistration()">Check if Registered</button>
-                <button onclick="getProviderId()">Get Provider ID</button>
-                <button onclick="getProviderInfo()">Get Provider Info</button>
+                <button type="button" onclick="checkRegistration()">Check if Registered</button>
+                <button type="button" onclick="getProviderId()">Get Provider ID</button>
+                <button type="button" onclick="getProviderInfo()">Get Provider Info</button>
             </div>
             <div class="input-group" style="margin-top: 20px;">
                 <label for="queryId">Provider ID to Query:</label>
                 <input type="text" id="queryId" placeholder="1">
             </div>
-            <button onclick="getProviderById()">Get Provider by ID</button>
+            <button type="button" onclick="getProviderById()">Get Provider by ID</button>
         </div>
         <div id="output"></div>
     </div>

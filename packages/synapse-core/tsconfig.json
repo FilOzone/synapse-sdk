@@ -23,7 +23,7 @@
       "src/warm-storage/index.ts",
       "src/chains.ts",
       "src/index.ts",
-      "src/piece.ts",
+      "src/piece/index.ts",
       "src/sp/index.ts",
       "src/usdfc.ts"
     ]

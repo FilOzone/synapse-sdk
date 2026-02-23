@@ -1,6 +1,6 @@
 import { type Hex, isHex } from 'viem'
 import * as z from 'zod'
-import { isPieceCID, type PieceCID, parse } from '../piece.ts'
+import { isPieceCID, type PieceCID, parse } from '../piece/piece.ts'
 
 export const zHex = z.custom<Hex>((val) => {
   return typeof val === 'string' ? isHex(val) : false

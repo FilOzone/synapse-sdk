@@ -145,7 +145,7 @@
     <h1>PDP Auth Signature Demo</h1>
     <div class="container">
         <div id="status" class="status disconnected"> Not connected to MetaMask </div>
-        <button id="connectWallet" class="connect-button">Connect MetaMask</button>
+        <button type="button" id="connectWallet" class="connect-button">Connect MetaMask</button>
         <div id="accountInfo"></div>
     </div>
     <div class="container">
@@ -178,7 +178,7 @@
             <label>
                 <input type="checkbox" id="createWithCDN"> With CDN </label>
         </div>
-        <button id="signCreateDataSet">Sign Create Data Set</button>
+        <button type="button" id="signCreateDataSet">Sign Create Data Set</button>
         <div id="createDataSetResult"></div>
     </div>
     <div class="container">
@@ -196,9 +196,9 @@
         <div id="piecesContainer">
             <h3>Piece Data Entries</h3>
             <div id="pieceEntries"></div>
-            <button id="addPieceEntry">Add Piece Entry</button>
+            <button type="button" id="addPieceEntry">Add Piece Entry</button>
         </div>
-        <button id="signAddPieces">Sign Add Pieces</button>
+        <button type="button" id="signAddPieces">Sign Add Pieces</button>
         <div id="addPiecesResult"></div>
     </div>
     <div class="container">
@@ -213,7 +213,7 @@
             <label for="removePieceIds">Piece IDs (comma-separated):</label>
             <input type="text" id="removePieceIds" placeholder="1,3,5" value="1,3,5">
         </div>
-        <button id="signScheduleRemovals">Sign Schedule Removals</button>
+        <button type="button" id="signScheduleRemovals">Sign Schedule Removals</button>
         <div id="scheduleRemovalsResult"></div>
     </div>
     <div class="container">
@@ -223,7 +223,7 @@
             <label for="deleteClientDataSetId">Client Data Set ID:</label>
             <input type="text" id="deleteClientDataSetId" placeholder="12345" value="12345">
         </div>
-        <button id="signDeleteDataSet">Sign Delete Data Set</button>
+        <button type="button" id="signDeleteDataSet">Sign Delete Data Set</button>
         <div id="deleteDataSetResult"></div>
     </div>
     <!-- Load ethers and SDK -->
