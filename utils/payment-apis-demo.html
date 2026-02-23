@@ -121,7 +121,7 @@
     </div>
     <div class="section">
         <h2>Connection</h2>
-        <button id="connectBtn">Connect MetaMask</button>
+        <button type="button" id="connectBtn">Connect MetaMask</button>
         <div id="connectionResult"></div>
     </div>
     <div class="section">
@@ -129,16 +129,16 @@
         <div class="input-group">
             <label>Warm Storage Address:</label>
             <input type="text" id="warmStorageAddressInput" placeholder="0x..." value="">
-            <button id="updateWarm StorageBtn" disabled>Update Warm Storage Address</button>
+            <button type="button" id="updateWarm StorageBtn" disabled>Update Warm Storage Address</button>
         </div>
         <div id="warmStorageStatus" class="warning">Storage cost functions require Warm Storage contract to be
             configured</div>
     </div>
     <div class="section">
         <h2>Account Information</h2>
-        <button id="accountInfoBtn" disabled>Get Account Info</button>
-        <button id="walletBalanceBtn" disabled>Get Wallet Balances</button>
-        <button id="getCurrentEpochBtn" disabled>Get Current Epoch</button>
+        <button type="button" id="accountInfoBtn" disabled>Get Account Info</button>
+        <button type="button" id="walletBalanceBtn" disabled>Get Wallet Balances</button>
+        <button type="button" id="getCurrentEpochBtn" disabled>Get Current Epoch</button>
         <div id="accountResult" class="result"></div>
     </div>
     <div class="section">
@@ -158,7 +158,7 @@
             <label>With CDN:</label>
             <input type="checkbox" id="costWithCDNCheckbox">
         </div>
-        <button id="calculateCostBtn" disabled>Calculate Storage Costs</button>
+        <button type="button" id="calculateCostBtn" disabled>Calculate Storage Costs</button>
         <div id="costResult" class="result"></div>
         <div id="fundingAnalysis" style="margin-top: 20px; display: none;">
             <h3>Funding Analysis</h3>
@@ -183,8 +183,8 @@
             <label>With CDN:</label>
             <input type="checkbox" id="withCDNCheckbox">
         </div>
-        <button id="checkAllowanceBtn" disabled>Check Allowance</button>
-        <button id="prepareUploadBtn" disabled>Prepare Storage Upload</button>
+        <button type="button" id="checkAllowanceBtn" disabled>Check Allowance</button>
+        <button type="button" id="prepareUploadBtn" disabled>Prepare Storage Upload</button>
         <div id="allowanceResult" class="result"></div>
     </div>
     <!-- Load ethers.js first -->

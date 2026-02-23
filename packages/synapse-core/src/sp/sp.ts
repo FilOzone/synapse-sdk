@@ -5,7 +5,7 @@ import {
   AddPiecesError,
   CreateDataSetError,
   DeletePieceError,
-  DownloadPieceError,
+  type DownloadPieceError,
   FindPieceError,
   InvalidUploadSizeError,
   LocationHeaderError,
@@ -16,7 +16,6 @@ import type { PieceCID } from '../piece/piece.ts'
 import * as Piece from '../piece/piece.ts'
 import type * as TypedData from '../typed-data/index.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
-import { createPieceUrlPDP } from '../utils/piece-url.ts'
 import { isUint8Array } from '../utils/streams.ts'
 
 export namespace createDataSet {

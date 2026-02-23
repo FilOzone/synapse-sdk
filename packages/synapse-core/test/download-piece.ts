@@ -4,7 +4,6 @@ import { HttpResponse, http } from 'msw'
 import { DownloadPieceError } from '../src/errors/pdp.ts'
 import { downloadAndValidate } from '../src/piece/download.ts'
 import * as Piece from '../src/piece/piece.ts'
-import {} from '../src/sp/sp.ts'
 
 describe('Piece download and validation', () => {
   const server = setup()

@@ -33,12 +33,15 @@ const contractOrder = [
   'endorsements',
 ] as const
 
+// biome-ignore lint/correctness/noUnusedVariables: astro...
 const rows = contractOrder
   .filter((key) => {
+    // @ts-expect-error - chain.contracts is a record of ChainContract
     const contract = chain.contracts[key]
     return contract?.address && contract.address !== '0x0000000000000000000000000000000000000000'
   })
   .map((key) => {
+    // @ts-expect-error - chain.contracts is a record of ChainContract
     const contract = chain.contracts[key]
     const address = contract.address
     return {
