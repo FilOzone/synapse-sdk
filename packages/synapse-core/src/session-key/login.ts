@@ -18,14 +18,14 @@ import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
-import { ALL_PERMISSIONS, SESSION_KEY_PERMISSIONS, type SessionKeyPermissions } from './permissions.ts'
+import { DefaultFwssPermissions, type Permission } from './permissions.ts'
 
 export namespace login {
   export type OptionsType = {
     /** Session key address. */
     address: Address
-    /** The permissions to authorize for the session key. Defaults to all permissions. */
-    permissions?: SessionKeyPermissions[]
+    /** The permissions to authorize for the session key. Defaults to all FWSS permissions. */
+    permissions?: Permission[]
     /** The expiry time as Unix timestamp (seconds). Defaults to now + 1 hour. */
     expiresAt?: bigint
     /** The origin of the session key authorization. Defaults to 'synapse'. */
@@ -116,7 +116,7 @@ export namespace loginCall {
 export function loginCall(options: loginCall.OptionsType) {
   const chain = asChain(options.chain)
   const expiresAt = BigInt(Math.floor(Date.now() / 1000) + 3600)
-  const permissions = options.permissions ?? ALL_PERMISSIONS
+  const permissions = options.permissions ?? DefaultFwssPermissions
   return {
     abi: chain.contracts.sessionKeyRegistry.abi,
     address: options.contractAddress ?? chain.contracts.sessionKeyRegistry.address,
@@ -124,7 +124,7 @@ export function loginCall(options: loginCall.OptionsType) {
     args: [
       options.address,
       options.expiresAt ?? expiresAt,
-      [...new Set(permissions)].map((permission) => SESSION_KEY_PERMISSIONS[permission]),
+      Array.from(new Set(permissions)),
       options.origin ?? 'synapse',
     ],
   } satisfies loginCall.OutputType

@@ -6,26 +6,24 @@ import type {
   Client,
   ContractFunctionParameters,
   Hash,
-  Log,
   SimulateContractErrorType,
   Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
-import { parseEventLogs } from 'viem'
 import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
-import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
-import { ALL_PERMISSIONS, SESSION_KEY_PERMISSIONS, type SessionKeyPermissions } from './permissions.ts'
+import { extractLoginEvent } from './login.ts'
+import { DefaultFwssPermissions, type Permission } from './permissions.ts'
 
 export namespace revoke {
   export type OptionsType = {
     /** Session key address. */
     address: Address
     /** The permissions to revoke from the session key. Defaults to all permissions. */
-    permissions?: SessionKeyPermissions[]
+    permissions?: Permission[]
     /** The origin of the revoke operation. Defaults to 'synapse'. */
     origin?: string
     /** Session key registry contract address. If not provided, defaults to the chain contract address. */
@@ -112,16 +110,12 @@ export namespace revokeCall {
  */
 export function revokeCall(options: revokeCall.OptionsType) {
   const chain = asChain(options.chain)
-  const permissions = options.permissions ?? ALL_PERMISSIONS
+  const permissions = options.permissions ?? DefaultFwssPermissions
   return {
     abi: chain.contracts.sessionKeyRegistry.abi,
     address: options.contractAddress ?? chain.contracts.sessionKeyRegistry.address,
     functionName: 'revoke',
-    args: [
-      options.address,
-      [...new Set(permissions)].map((permission) => SESSION_KEY_PERMISSIONS[permission]),
-      options.origin ?? 'synapse',
-    ],
+    args: [options.address, Array.from(new Set(permissions)), options.origin ?? 'synapse'],
   } satisfies revokeCall.OutputType
 }
 
@@ -131,13 +125,4 @@ export function revokeCall(options: revokeCall.OptionsType) {
  * @param logs - The transaction logs.
  * @returns The AuthorizationsUpdated event.
  */
-export function extractRevokeEvent(logs: Log[]) {
-  const [log] = parseEventLogs({
-    abi: Abis.sessionKeyRegistry,
-    logs,
-    eventName: 'AuthorizationsUpdated',
-    strict: true,
-  })
-  if (!log) throw new Error('`AuthorizationsUpdated` event not found.')
-  return log
-}
+export const extractRevokeEvent = extractLoginEvent

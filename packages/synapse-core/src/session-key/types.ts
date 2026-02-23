@@ -2,11 +2,11 @@ import type { TypedEventTarget } from 'iso-web/event-target'
 import type { Simplify } from 'type-fest'
 import type { Account, Address, Client, CustomSource, LocalAccount, Transport } from 'viem'
 import type { Chain as SynapseChain } from '../chains.ts'
-import type { SessionKeyPermissions } from './permissions.ts'
+import type { Expirations, Permission } from './permissions.ts'
 
 export type SessionKeyEvents = {
-  expirationsUpdated: CustomEvent<Record<SessionKeyPermissions, bigint>>
-  connected: CustomEvent<Record<SessionKeyPermissions, bigint>>
+  expirationsUpdated: CustomEvent<Expirations>
+  connected: CustomEvent<Expirations>
   disconnected: CustomEvent<void>
   error: CustomEvent<Error>
 }
@@ -28,9 +28,9 @@ export interface SessionKey<KeyType extends SessionKeyType> extends TypedEventTa
   readonly rootAddress: Address
   readonly account: Account
   readonly type: KeyType
-  readonly expirations: Record<SessionKeyPermissions, bigint>
-  hasPermission: (permission: SessionKeyPermissions) => boolean
+  readonly expirations: Expirations
+  hasPermission: (permission: Permission) => boolean
   syncExpirations: () => Promise<void>
-  connect: () => void
+  connect: () => Promise<void>
   disconnect: () => void
 }

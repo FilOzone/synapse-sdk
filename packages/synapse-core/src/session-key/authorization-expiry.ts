@@ -14,12 +14,7 @@ import { multicall, readContract } from 'viem/actions'
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
-import {
-  ALL_PERMISSIONS,
-  EMPTY_EXPIRATIONS,
-  SESSION_KEY_PERMISSIONS,
-  type SessionKeyPermissions,
-} from './permissions.ts'
+import { DefaultFwssPermissions, type Expirations, type Permission } from './permissions.ts'
 
 export namespace authorizationExpiry {
   export type OptionsType = {
@@ -28,7 +23,7 @@ export namespace authorizationExpiry {
     /** The address of the session key. */
     sessionKeyAddress: Address
     /** The session key permission. */
-    permission: SessionKeyPermissions
+    permission: Permission
     /** Session key registry contract address. If not provided, the default is the session key registry contract address for the chain. */
     contractAddress?: Address
   }
@@ -58,7 +53,7 @@ export namespace authorizationExpiry {
  *
  * @example
  * ```ts
- * import { authorizationExpiry } from '@filoz/synapse-core/session-key'
+ * import { authorizationExpiry, CreateDataSetPermission } from '@filoz/synapse-core/session-key'
  * import { createPublicClient, http } from 'viem'
  * import { calibration } from '@filoz/synapse-core/chains'
  *
@@ -70,7 +65,7 @@ export namespace authorizationExpiry {
  * const expiry = await authorizationExpiry(client, {
  *   address: '0x1234567890123456789012345678901234567890',
  *   sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
- *   permission: 'CreateDataSet',
+ *   permission: CreateDataSetPermission,
  * })
  *
  * console.log('Authorization expires at:', expiry)
@@ -114,7 +109,7 @@ export namespace authorizationExpiryCall {
  *
  * @example
  * ```ts
- * import { authorizationExpiryCall } from '@filoz/synapse-core/session-key'
+ * import { authorizationExpiryCall, CreateDataSetPermission } from '@filoz/synapse-core/session-key'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -130,7 +125,7 @@ export namespace authorizationExpiryCall {
  *       chain: calibration,
  *       address: '0x1234567890123456789012345678901234567890',
  *       sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
- *       permission: 'CreateDataSet',
+ *       permission: CreateDataSetPermission,
  *     }),
  *   ],
  * })
@@ -144,7 +139,7 @@ export function authorizationExpiryCall(options: authorizationExpiryCall.Options
     abi: chain.contracts.sessionKeyRegistry.abi,
     address: options.contractAddress ?? chain.contracts.sessionKeyRegistry.address,
     functionName: 'authorizationExpiry',
-    args: [options.address, options.sessionKeyAddress, SESSION_KEY_PERMISSIONS[options.permission]],
+    args: [options.address, options.sessionKeyAddress, options.permission],
   } satisfies authorizationExpiryCall.OutputType
 }
 
@@ -172,17 +167,19 @@ export async function isExpired(
 }
 
 export namespace getExpirations {
-  export type OptionsType = Simplify<Omit<authorizationExpiry.OptionsType, 'permission'>>
+  export type OptionsType = Simplify<
+    Omit<authorizationExpiry.OptionsType, 'permission'> & { permissions?: Permission[] }
+  >
   export type ErrorType = authorizationExpiry.ErrorType | MulticallErrorType
-  export type OutputType = Record<SessionKeyPermissions, bigint>
+  export type OutputType = Record<Permission, bigint>
 }
 
 /**
- * Get the expirations for all permissions.
+ * Get the expirations for all FWSS permissions.
  *
  * @param client - The client to use.
  * @param options - {@link getExpirations.OptionsType}
- * @returns The expirations as a record of {@link SessionKeyPermissions} to {@link bigint} {@link getExpirations.OutputType}
+ * @returns Expirations {@link getExpirations.OutputType}
  * @throws Errors {@link getExpirations.ErrorType}
  *
  * @example
@@ -204,12 +201,13 @@ export namespace getExpirations {
  * console.log(expirations)
  */
 export async function getExpirations(client: Client<Transport, Chain>, options: getExpirations.OptionsType) {
-  const expirations: Record<SessionKeyPermissions, bigint> = EMPTY_EXPIRATIONS
+  const permissions = options.permissions ?? DefaultFwssPermissions
+  const expirations: Expirations = Object.fromEntries(permissions.map((permission) => [permission, 0n]))
 
   try {
     const result = await multicall(client, {
       allowFailure: false,
-      contracts: ALL_PERMISSIONS.map((permission) =>
+      contracts: permissions.map((permission) =>
         authorizationExpiryCall({
           chain: client.chain,
           address: options.address,
@@ -219,8 +217,8 @@ export async function getExpirations(client: Client<Transport, Chain>, options: 
       ),
     })
 
-    for (let i = 0; i < ALL_PERMISSIONS.length; i++) {
-      expirations[ALL_PERMISSIONS[i]] = result[i]
+    for (let i = 0; i < permissions.length; i++) {
+      expirations[permissions[i]] = result[i]
     }
   } catch (e) {
     if (!(e instanceof ContractFunctionExecutionError && e.details.includes('actor not found'))) {

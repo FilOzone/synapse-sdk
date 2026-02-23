@@ -16,12 +16,12 @@ import { watchContractEvent } from 'viem/actions'
 import { asChain, type Chain as SynapseChain } from '../chains.ts'
 import { getExpirations } from './authorization-expiry.ts'
 import { extractLoginEvent } from './login.ts'
-import { EMPTY_EXPIRATIONS, getPermissionFromTypeHash, type SessionKeyPermissions } from './permissions.ts'
+import { DefaultEmptyExpirations, type Expirations, type Permission } from './permissions.ts'
 import type { SessionKey, SessionKeyAccount, SessionKeyEvents } from './types.ts'
 
 interface Secp256k1SessionKeyOptions {
   client: Client<Transport, SynapseChain, SessionKeyAccount<'Secp256k1'>>
-  expirations: Record<SessionKeyPermissions, bigint>
+  expirations: Expirations
 }
 
 /**
@@ -30,7 +30,7 @@ interface Secp256k1SessionKeyOptions {
 class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements SessionKey<'Secp256k1'> {
   #client: Client<Transport, SynapseChain, SessionKeyAccount<'Secp256k1'>>
   #type: 'Secp256k1'
-  #expirations: Record<SessionKeyPermissions, bigint>
+  #expirations: Expirations
   #unsubscribe: WatchContractEventReturnType | undefined
 
   /**
@@ -79,13 +79,16 @@ class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements 
         args: { identity: this.#client.account.rootAddress },
 
         onLogs: (logs) => {
-          const event = extractLoginEvent(logs)
-          if (event.args.identity === this.#client.account.rootAddress) {
-            for (const hash of event.args.permissions) {
-              const permission = getPermissionFromTypeHash(hash)
-              this.expirations[permission] = event.args.expiry
+          try {
+            const event = extractLoginEvent(logs)
+            if (event.args.identity === this.#client.account.rootAddress) {
+              for (const hash of event.args.permissions) {
+                this.#expirations[hash] = event.args.expiry
+              }
+              this.emit('expirationsUpdated', this.#expirations)
             }
-            this.emit('expirationsUpdated', this.#expirations)
+          } catch (error) {
+            this.emit('error', error as Error)
           }
         },
       })
@@ -104,23 +107,25 @@ class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements 
   /**
    * Check if the session key has a permission.
    *
-   * @param permission - {@link SessionKeyPermissions}
+   * @param permission - {@link Permission}
    * @returns boolean
    */
-  hasPermission(permission: SessionKeyPermissions) {
+  hasPermission(permission: Permission) {
     return this.expirations[permission] > BigInt(Math.floor(Date.now() / 1000))
   }
 
   /**
    * Sync the expirations of the session key from the contract.
    *
+   * @param permissions - The permissions to sync the expirations for. Defaults to all FWSS permissions.
    * @returns Promise<void>
    * @throws Errors {@link getExpirations.ErrorType}
    */
-  async syncExpirations() {
+  async syncExpirations(permissions?: Permission[]) {
     this.#expirations = await getExpirations(this.#client, {
       address: this.#client.account.rootAddress,
       sessionKeyAddress: this.#client.account.address,
+      permissions: permissions,
     })
     this.emit('expirationsUpdated', this.#expirations)
   }
@@ -128,7 +133,7 @@ class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements 
 
 export interface FromSecp256k1Options {
   privateKey: Hex
-  expirations?: Record<SessionKeyPermissions, bigint>
+  expirations?: Expirations
   root: Account | Address
   transport?: HttpTransport | WebSocketTransport | FallbackTransport
   chain: Chain
@@ -181,7 +186,7 @@ export function fromSecp256k1(options: FromSecp256k1Options) {
 
   return new Secp256k1SessionKey({
     client: client,
-    expirations: options.expirations ?? EMPTY_EXPIRATIONS,
+    expirations: options.expirations ?? DefaultEmptyExpirations,
   })
 }
 

@@ -54,7 +54,7 @@ export const sessionKeys: Command = command(
 
     await sessionKey.connect()
 
-    if (sessionKey.hasPermission('CreateDataSet')) {
+    if (sessionKey.hasPermission(SessionKey.CreateDataSetPermission)) {
       const result = await createDataSet(sessionKey.client, {
         payee: '0xa3971A7234a3379A1813d9867B531e7EeB20ae07',
         payer: sessionKey.rootAddress,
