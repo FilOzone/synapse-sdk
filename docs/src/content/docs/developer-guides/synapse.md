@@ -55,7 +55,7 @@ interface SynapseAPI {
   providers: SPRegistryService
   filbeam: FilBeamService
   // Storage provider info getter
-  getProviderInfo(providerAddress: string): Promise<PDPProvider>
+  getProviderInfo(providerAddress: string | bigint): Promise<PDPProvider>
 }
 ```
 

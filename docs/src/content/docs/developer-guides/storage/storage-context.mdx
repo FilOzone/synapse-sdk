@@ -285,9 +285,9 @@ const receivedData = await storageContext.download({ pieceCid });
 
 console.log(`Received data: ${new TextDecoder().decode(receivedData)}`);
 
-// Get the list of piece CIDs in the current data set by querying the provider
-const pieceCids = await Array.fromAsync(storageContext.getPieces());
-console.log(`Piece CIDs: ${pieceCids.map((cid) => cid.toString()).join(", ")}`);
+// Get all pieces in the current data set by querying the provider
+const pieces = await Array.fromAsync(storageContext.getPieces());
+console.log(`Piece CIDs: ${pieces.map((piece) => piece.pieceCid.toString()).join(", ")}`);
 
 // Check the status of a piece on the service provider
 const status = await storageContext.pieceStatus({ pieceCid });
@@ -313,15 +313,15 @@ const context = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
   withCDN: true, // Optional: enable CDN for faster downloads
 });
-const files = [] as File[]
+const pieces = [] as Uint8Array[]
 // ---cut---
 // ✅ Efficient: Batched automatically
-const uploads = files.map((file) => context.upload(file));
+const uploads = pieces.map((piece) => context.upload(piece));
 const results = await Promise.all(uploads);
 
 // ❌ Slow: Forces sequential processing
-for (const file of files) {
-  await context.upload(file);
+for (const piece of pieces) {
+  await context.upload(piece);
 }
 ```
 
@@ -364,7 +364,7 @@ console.log("Dataset terminated successfully");
 
 ### Deleting a Piece
 
-To delete an individual piece from the data set, call `context.deletePiece(pieceCid)`.
+To delete an individual piece from the data set, call `context.deletePiece({ piece: pieceCid })`.
 This method submits an on-chain transaction to initiate the deletion process.
 
 **Important:** Piece deletion is irreversible and cannot be canceled once initiated.
@@ -403,13 +403,14 @@ Download pieces from any available provider using the StorageManager:
 
 ```typescript
 // Download from any provider that has the piece
-const data = await synapse.storage.download(pieceCid);
+const data = await synapse.storage.download({ pieceCid });
 
 // Download with CDN optimization (if available)
-const dataWithCDN = await synapse.storage.download(pieceCid, { withCDN: true });
+const dataWithCDN = await synapse.storage.download({ pieceCid, withCDN: true });
 
 // Prefer a specific provider (falls back to others if unavailable)
-const dataFromProvider = await synapse.storage.download(pieceCid, {
+const dataFromProvider = await synapse.storage.download({
+  pieceCid,
   providerAddress: "0x...",
 });
 ```
@@ -423,11 +424,11 @@ When using a StorageContext, downloads are automatically restricted to that spec
 const context = await synapse.storage.createContext({
   providerAddress: "0x...",
 });
-const data = await context.download(pieceCid);
+const data = await context.download({ pieceCid });
 
 // The context passes its withCDN setting to the download
 const contextWithCDN = await synapse.storage.createContext({ withCDN: true });
-const dataWithCDN = await contextWithCDN.download(pieceCid); // Uses CDN if available
+const dataWithCDN = await contextWithCDN.download({ pieceCid }); // Uses CDN if available
 ```
 
 #### CDN Option Inheritance
@@ -440,11 +441,11 @@ The `withCDN` option (which is an alias for `metadata: { withCDN: '' }`) follows
 
 ```typescript
 // Example of inheritance
-const synapse = await Synapse.create({ withCDN: true }); // Global default: CDN enabled
+const synapse = Synapse.create({ withCDN: true }); // Global default: CDN enabled
 const context = await synapse.storage.createContext({ withCDN: false }); // Context override: CDN disabled
-await synapse.storage.download(pieceCid); // Uses Synapse's withCDN: true
-await context.download(pieceCid); // Uses context's withCDN: false
-await synapse.storage.download(pieceCid, { withCDN: false }); // Method override: CDN disabled
+await synapse.storage.download({ pieceCid }); // Uses Synapse's withCDN: true
+await context.download({ pieceCid }); // Uses context's withCDN: false
+await synapse.storage.download({ pieceCid, withCDN: false }); // Method override: CDN disabled
 ```
 
 Note: When `withCDN: true` is set, it adds `{ withCDN: '' }` to the data set's metadata, ensuring CDN-enabled and non-CDN data sets remain separate.
