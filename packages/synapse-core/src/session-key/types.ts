@@ -30,6 +30,7 @@ export interface SessionKey<KeyType extends SessionKeyType> extends TypedEventTa
   readonly type: KeyType
   readonly expirations: Expirations
   hasPermission: (permission: Permission) => boolean
+  hasPermissions: (permissions: Permission[]) => boolean
   syncExpirations: () => Promise<void>
   connect: () => Promise<void>
   disconnect: () => void

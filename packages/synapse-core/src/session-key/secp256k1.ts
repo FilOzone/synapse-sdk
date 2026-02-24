@@ -115,6 +115,16 @@ class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements 
   }
 
   /**
+   * Check if the session key has all the permissions.
+   *
+   * @param permissions - {@link Permission}
+   * @returns boolean - True if the session key has all the permissions, false otherwise.
+   */
+  hasPermissions(permissions: Permission[]) {
+    return permissions.every((permission) => this.hasPermission(permission))
+  }
+
+  /**
    * Sync the expirations of the session key from the contract.
    *
    * @param permissions - The permissions to sync the expirations for. Defaults to all FWSS permissions.

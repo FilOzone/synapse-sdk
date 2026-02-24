@@ -1,4 +1,6 @@
 import { asChain, type Chain } from '@filoz/synapse-core/chains'
+import type { SessionKeyAccount } from '@filoz/synapse-core/session-key'
+import * as SessionKey from '@filoz/synapse-core/session-key'
 import {
   type Account,
   type Address,
@@ -31,10 +33,12 @@ export class Synapse {
   private readonly _providers: SPRegistryService
 
   private readonly _client: Client<Transport, Chain, Account, PublicRpcSchema, PublicActions<Transport, Chain>>
+  private readonly _sessionClient: Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>> | undefined
   private readonly _chain: Chain
 
   /**
-   * Create a new Synapse instance with async initialization.
+   * Create a new Synapse instance.
+   *
    * @param options - Configuration options for Synapse
    * @returns A fully initialized Synapse instance
    */
@@ -53,11 +57,16 @@ export class Synapse {
       throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
     }
 
-    return new Synapse({ client, withCDN: options.withCDN })
+    if (options.sessionKey != null && !options.sessionKey.hasPermissions(SessionKey.DefaultFwssPermissions)) {
+      throw new Error('Session key does not have the required permissions. Please login with the session key first.')
+    }
+
+    return new Synapse({ client, withCDN: options.withCDN, sessionClient: options.sessionKey?.client })
   }
 
   public constructor(options: SynapseFromClientOptions) {
     this._client = options.client.extend(publicActions)
+    this._sessionClient = options.sessionClient
     this._chain = asChain(options.client.chain)
     this._withCDN = options.withCDN ?? false
     this._providers = new SPRegistryService({ client: options.client })
@@ -75,6 +84,10 @@ export class Synapse {
 
   get client(): Client<Transport, Chain, Account, PublicRpcSchema, PublicActions<Transport, Chain>> {
     return this._client
+  }
+
+  get sessionClient(): Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>> | undefined {
+    return this._sessionClient
   }
 
   get chain(): Chain {

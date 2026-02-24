@@ -38,7 +38,7 @@ export const DefaultFwssPermissions = [
   AddPiecesPermission,
   SchedulePieceRemovalsPermission,
   DeleteDataSetPermission,
-] as const
+]
 
 export type Permission =
   | CreateDataSetPermission

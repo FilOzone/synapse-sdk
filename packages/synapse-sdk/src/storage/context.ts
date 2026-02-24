@@ -1046,7 +1046,7 @@ export class StorageContext {
           this.getClientDataSetId(),
         ])
         // Add pieces to the data set
-        const addPiecesResult = await SP.addPieces(this._client, {
+        const addPiecesResult = await SP.addPieces(this._synapse.sessionClient ?? this._client, {
           dataSetId: this.dataSetId, // PDPVerifier data set ID
           clientDataSetId, // Client's dataset nonce
           pieces: batch.map((item) => ({ pieceCid: item.pieceCid, metadata: item.metadata })),
@@ -1072,7 +1072,7 @@ export class StorageContext {
         })
       } else {
         // Create a new data set and add pieces to it
-        const result = await SP.createDataSetAndAddPieces(this._client, {
+        const result = await SP.createDataSetAndAddPieces(this._synapse.sessionClient ?? this._client, {
           cdn: this._withCDN,
           payee: this._provider.serviceProvider,
           payer: this._client.account.address,
@@ -1240,9 +1240,10 @@ export class StorageContext {
       throw createError('StorageContext', 'deletePiece', 'Data set not found')
     }
     const pieceId = typeof piece === 'bigint' ? piece : await this._getPieceIdByCID(piece)
+
     const clientDataSetId = await this.getClientDataSetId()
 
-    const { hash } = await schedulePieceDeletion(this._synapse.client, {
+    const { hash } = await schedulePieceDeletion(this._synapse.sessionClient ?? this._synapse.client, {
       serviceURL: this._pdpEndpoint,
       dataSetId: this.dataSetId,
       pieceId: pieceId,
