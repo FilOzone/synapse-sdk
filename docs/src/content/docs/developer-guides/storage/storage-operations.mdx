@@ -170,15 +170,13 @@ console.log("Piece metadata:", metadata);
 
 ## Getting the size of a specific piece
 
-Calculate size of a specific piece by extracting the size from the PieceCID:
+Extract the size directly from a PieceCID using Synapse Core:
 
 ```ts twoslash
 // @lib: esnext,dom
-const pieceCid = null as unknown as string;
-// @ts-ignore
-// ---cut---
-import { getSizeFromPieceCID } from "@filoz/synapse-sdk/piece";
+import { getSizeFromPieceCID } from "@filoz/synapse-core/piece";
 
+const pieceCid = "bafkzcib...";
 const size = getSizeFromPieceCID(pieceCid);
 console.log(`Piece size: ${size} bytes`);
 ```

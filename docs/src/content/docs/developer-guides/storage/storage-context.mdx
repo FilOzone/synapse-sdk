@@ -41,17 +41,27 @@ type StorageContextCallbacks = {
     provider: PDPProvider;
   }) => void;
 };
+type Address = `0x${string}`
 // ---cut---
 interface StorageServiceOptions {
-  providerId?: number; // Specific provider ID to use (optional)
-  excludeProviderIds?: number[]; // Do not select any of these providers (optional)
-  providerAddress?: string; // Specific provider address to use (optional)
-  dataSetId?: number; // Specific data set ID to use (optional)
-  withCDN?: boolean; // Enable CDN services (optional)
-  forceCreateDataSet?: boolean; // Force creation of a new data set, even if a candidate exists (optional)
-  callbacks?: StorageContextCallbacks; // Progress callbacks (optional)
-  metadata?: Record<string, string>; // Metadata requirements for data set selection/creation
-  uploadBatchSize?: number; // Max uploads per batch (default: 32, min: 1)
+  /** Specific provider ID to use (optional) */
+  providerId?: bigint
+  /** Do not select any of these providers */
+  excludeProviderIds?: bigint[]
+  /** Specific provider address to use (optional) */
+  providerAddress?: Address
+  /** Specific data set ID to use (optional) */
+  dataSetId?: bigint
+  /** Whether to enable CDN services */
+  withCDN?: boolean
+  /** Force creation of a new data set, even if a candidate exists */
+  forceCreateDataSet?: boolean
+  /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
+  uploadBatchSize?: number
+  /** Callbacks for creation process */
+  callbacks?: StorageContextCallbacks
+  /** Custom metadata for the data set (key-value pairs) */
+  metadata?: Record<string, string>
 }
 ```
 
@@ -147,62 +157,72 @@ import {
   PieceStatus,
 } from "@filoz/synapse-sdk";
 import { Hash } from 'viem'
-type Transaction = Promise<Hash>;
+type Address = `0x${string}`
 type Hex = `0x${string}`;
+type UploadPieceStreamingData = Uint8Array | ReadableStream<Uint8Array> | File | Blob
 export interface UploadCallbacks {
   /** Called periodically during upload with bytes uploaded so far */
   onProgress?: (bytesUploaded: number) => void;
   /** Called when upload to service provider completes */
   onUploadComplete?: (pieceCid: PieceCID) => void;
   /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
-  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
+  onPiecesAdded?: (transaction: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
   /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
-  onPiecesConfirmed?: (dataSetId: number, pieces: PieceRecord[]) => void;
+  onPiecesConfirmed?: (dataSetId: bigint, pieces: PieceRecord[]) => void;
 }
 
 /**
  * Options for uploading individual pieces to an existing storage context
  * @param metadata - Custom metadata for this specific piece (key-value pairs)
+ * @param pieceCid - Optional pre-calculated PieceCID to skip CommP calculation
+ * @param signal - Optional AbortSignal to cancel the upload
  * @param onUploadComplete - Called when upload to service provider completes
  * @param onPiecesAdded - Called when the service provider has added the piece(s) and submitted the transaction to the chain
  * @param onPiecesConfirmed - Called when the service provider agrees that the piece addition(s) are confirmed on-chain and provides the dataSetId
  */
 type UploadOptions = {
   metadata?: Record<string, string>;
+  pieceCid?: PieceCID;
+  signal?: AbortSignal;
   onUploadComplete?: (pieceCid: PieceCID) => void;
-  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
-  onPiecesConfirmed?: (dataSetId: number, pieces: PieceRecord[]) => void;
+  onPiecesAdded?: (transaction: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
+  onPiecesConfirmed?: (dataSetId: bigint, pieces: PieceRecord[]) => void;
+};
+
+type DownloadOptions = {
+  pieceCid: string | PieceCID;
+  withCDN?: boolean;
 };
 // ---cut---
 interface StorageContextAPI {
   // Properties
   readonly provider: PDPProvider;
-  readonly serviceProvider: string;
+  readonly serviceProvider: Address;
   readonly withCDN: boolean;
-  readonly dataSetId: number | undefined;
+  readonly dataSetId: bigint | undefined;
   readonly dataSetMetadata: Record<string, string>;
 
   // Upload & Download
   upload(
-    data: File,
+    data: UploadPieceStreamingData,
     options?: UploadOptions
   ): Promise<UploadResult>;
-  download(pieceCid: string | PieceCID): Promise<Uint8Array>;
+  download(options: DownloadOptions): Promise<Uint8Array>;
 
   // Piece Queries
-  hasPiece(pieceCid: string | PieceCID): Promise<boolean>;
-  pieceStatus(pieceCid: string | PieceCID): Promise<PieceStatus>;
-  getDataSetPieces(): Promise<PieceCID[]>;
+  hasPiece(options: { pieceCid: string | PieceCID }): Promise<boolean>;
+  pieceStatus(options: { pieceCid: string | PieceCID }): Promise<PieceStatus>;
+  getPieces(options?: { batchSize?: bigint }): AsyncGenerator<PieceRecord>;
 
   // Piece Management
-  deletePiece(piece: string | PieceCID | number): Promise<string>;
+  deletePiece(options: { piece: string | PieceCID | bigint }): Promise<Hash>;
 
   // Info & Preflight
   getProviderInfo(): Promise<PDPProvider>;
-  preflightUpload(size: number): Promise<PreflightInfo>;
+  preflightUpload(options: { size: number }): Promise<PreflightInfo>;
 
   // Lifecycle
-  terminate(): Transaction;
+  terminate(): Promise<Hash>;
 }
 ```
 
@@ -284,14 +304,24 @@ The SDK batches up to 32 uploads by default (configurable via `uploadBatchSize`)
 :::tip[Batch Upload Performance]
 **For best performance, start all uploads without awaiting** and let the SDK batch them automatically. This can significantly reduce total upload time for multiple files.
 
-```typescript
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const context = await synapse.storage.createContext({
+  providerAddress: "0x...", // Optional: use specific provider address
+  withCDN: true, // Optional: enable CDN for faster downloads
+});
+const files = [] as File[]
+// ---cut---
 // ✅ Efficient: Batched automatically
-const uploads = dataArray.map((data) => context.upload(data));
+const uploads = files.map((file) => context.upload(file));
 const results = await Promise.all(uploads);
 
 // ❌ Slow: Forces sequential processing
-for (const data of dataArray) {
-  await context.upload(data);
+for (const file of files) {
+  await context.upload(file);
 }
 ```
 
