@@ -1,0 +1,221 @@
+---
+title: Synapse Core
+description: Low-level building blocks for direct contract interaction and storage provider communication.
+sidebar:
+  order: 5
+---
+
+**Synapse Core** (`@filoz/synapse-core`) is the low-level foundation that both the [Synapse SDK](/developer-guides/synapse/) and [Synapse React](/developer-guides/react-integration/) build on. Use Synapse Core when you need:
+
+- Direct control over individual contract calls without the `Synapse` class abstraction
+- Custom integrations that combine only the modules you need
+
+
+
+## Setup
+
+**Install dependencies:**
+
+```bash
+npm install @filoz/synapse-core viem
+```
+
+Synapse Core requires [viem](https://viem.sh) 2.x as a peer dependency.
+
+**Client setup:**
+
+All Synapse Core functions accept a viem `Client` as their first argument. Create one using viem's standard client factories:
+
+```ts twoslash
+// @lib: esnext,dom
+import { createPublicClient, createWalletClient, http } from "viem"
+import { privateKeyToAccount } from "viem/accounts"
+import { calibration, mainnet } from "@filoz/synapse-core/chains"
+
+// Read-only client for queries
+const publicClient = createPublicClient({
+  chain: calibration, // or mainnet
+  transport: http(),
+})
+
+// Wallet client for transactions
+const account = privateKeyToAccount("0x...")
+const walletClient = createWalletClient({
+  account,
+  chain: calibration, // or mainnet
+  transport: http(),
+})
+```
+
+The `@filoz/synapse-core/chains` subpath exports chain definitions with all contract addresses pre-configured for Filecoin Mainnet (`mainnet`) and Filecoin testnet (`calibration`) networks.
+
+## Payments
+
+Query account balances, deposit funds, manage operator approvals, and settle payment rails on the Filecoin Pay contract.
+
+```ts twoslash
+// @lib: esnext,dom
+import { createPublicClient, createWalletClient, http } from "viem"
+import { privateKeyToAccount } from "viem/accounts"
+import { calibration } from "@filoz/synapse-core/chains"
+const publicClient = createPublicClient({ chain: calibration, transport: http() })
+const account = privateKeyToAccount("0x0000000000000000000000000000000000000000000000000000000000000001")
+const walletClient = createWalletClient({ account, chain: calibration, transport: http() })
+// ---cut---
+import * as pay from "@filoz/synapse-core/pay"
+import { parseUnits } from "viem"
+
+// Query Filecoin Pay account info for the USDFC token
+const info = await pay.accounts(publicClient, {
+  // If not provided, the USDFC token address will be used.
+  token: calibration.contracts.usdfc.address,
+  address: account.address,
+})
+console.log(info.availableFunds) // bigint — funds available in Filecoin Pay
+
+// Deposit USDFC in Filecoin Pay
+const depositTxHash = await pay.depositAndApprove(walletClient, {
+  // If not provided, the USDFC token address will be used.
+  token: calibration.contracts.usdfc.address,
+  amount: parseUnits("1", 18), // 1 USDFC
+})
+
+await publicClient.waitForTransactionReceipt({
+  hash: depositTxHash
+})
+
+// Withdraw USDFC from Filecoin Pay
+const withdrawTxHash = await pay.withdraw(walletClient, {
+  // If not provided, the USDFC token address will be used.
+  token: calibration.contracts.usdfc.address,
+  amount: parseUnits("1", 18), // 1 USDFC
+})
+
+await publicClient.waitForTransactionReceipt({
+  hash: withdrawTxHash
+})
+
+```
+
+## Storage
+
+List approved storage providers.
+
+```ts twoslash
+// @lib: esnext,dom
+import { createPublicClient, http } from "viem"
+import { calibration } from "@filoz/synapse-core/chains"
+const publicClient = createPublicClient({ chain: calibration, transport: http() })
+// ---cut---
+import * as warmStorage from "@filoz/synapse-core/warm-storage"
+
+// List approved providers
+const providers = await warmStorage.getApprovedProviders(publicClient)
+console.log(providers) // bigint[] — approved provider IDs
+```
+
+---
+
+Create a data set and upload a file.
+
+```ts twoslash
+// @lib: esnext,dom
+import { createWalletClient, http } from "viem"
+import { privateKeyToAccount } from "viem/accounts"
+import { calibration } from "@filoz/synapse-core/chains"
+const account = privateKeyToAccount("0x1")
+const walletClient = createWalletClient({ account, chain: calibration, transport: http() })
+const data = new Uint8Array([1, 2, 3])
+// ---cut---
+import * as piece from "@filoz/synapse-core/piece"
+import * as sp from "@filoz/synapse-core/sp"
+import { getPDPProvider } from "@filoz/synapse-core/sp-registry"
+
+// 1. Select a provider
+const provider = await getPDPProvider(walletClient, { providerId: 1n })
+
+// 2. Calculate PieceCID and upload data
+const pieceCid = piece.calculate(data)
+const size = piece.getSize(pieceCid)
+console.log(size) // size of the piece in bytes
+await sp.uploadPiece({
+  data,
+  pieceCid,
+  serviceURL: provider.pdp.serviceURL,
+})
+
+console.log("Piece uploaded")
+
+await sp.findPiece({
+  pieceCid,
+  serviceURL: provider.pdp.serviceURL,
+  retry: true,
+})
+
+console.log("Piece parked")
+
+// 3. Create a data set and add the piece on-chain
+const result = await sp.createDataSetAndAddPieces(walletClient, {
+  serviceURL: provider.pdp.serviceURL,
+  payee: provider.payee,
+  cdn: false,
+  pieces: [{ pieceCid }],
+})
+
+console.log("Creating data set and adding piece")
+
+// 4. Wait for confirmation
+const confirmed = await sp.waitForCreateDataSetAddPieces({
+  statusUrl: result.statusUrl,
+})
+
+console.log(confirmed.dataSetId)  // bigint — on-chain data set ID
+console.log(confirmed.piecesIds)  // bigint[] — confirmed piece IDs
+```
+
+<details>
+<summary>*For large files, use `uploadPieceStreaming` instead of `uploadPiece`:*</summary>
+
+```ts twoslash
+// @lib: esnext,dom
+import * as sp from "@filoz/synapse-core/sp"
+const serviceURL = "https://provider.example.com"
+// ---cut---
+// Stream upload — PieceCID is calculated during transfer
+const stream = new ReadableStream<Uint8Array>({ /* ... */ })
+const uploaded = await sp.uploadPieceStreaming({
+  data: stream,
+  serviceURL,
+  onProgress(bytes) {
+    console.log(`${bytes} bytes uploaded`)
+  },
+})
+console.log(uploaded.pieceCid) // PieceCID — calculated from streamed data
+console.log(uploaded.size)     // number — total bytes uploaded
+```
+
+</details>
+
+---
+
+Download a piece from a storage provider.
+
+```ts twoslash
+// @lib: esnext,dom
+import { createPublicClient, http } from "viem"
+import { getPDPProvider } from "@filoz/synapse-core/sp-registry"
+import { calibration } from "@filoz/synapse-core/chains"
+const publicClient = createPublicClient({ chain: calibration, transport: http() })
+const provider = await getPDPProvider(publicClient, { providerId: 1n })
+// ---cut---
+import { downloadAndValidate } from "@filoz/synapse-core/piece"
+
+// Download a piece
+const data = await downloadAndValidate({
+  url: `${provider.pdp.serviceURL}/piece`,
+  expectedPieceCid: "bafkzcib...",
+})
+console.log(data) // Uint8Array — downloaded piece data
+```
+
+Check out the [Synapse Core Reference](/reference/filoz/synapse-core/toc/) for all available modules and functions.
