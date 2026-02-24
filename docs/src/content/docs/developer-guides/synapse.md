@@ -24,38 +24,38 @@ The SDK integrates with four key components of the Filecoin Onchain Cloud:
 Looking for Python or Go? Check out [Community Projects](/resources/community-projects/) for community-maintained SDKs.
 :::
 
-The SDK provides two primary components:
-
-- **`synapse.payments`** - Token operations, service authorizations, and payment rail settlements
-- **`synapse.storage`** - Data upload, download, and storage context management
-
-The main `Synapse` class exposes this simple interface for all operations:
+The `Synapse` class provides a single entry point for all operations:
 
 ```ts twoslash
 // @lib: esnext,dom
 import {
   Synapse,
   SynapseOptions,
-  StorageInfo,
-  PDPProvider,
 } from "@filoz/synapse-sdk"
 import type { PaymentsService } from "@filoz/synapse-sdk/payments"
 import type { StorageManager } from "@filoz/synapse-sdk/storage"
+import type { FilBeamService } from "@filoz/synapse-sdk/filbeam"
+import type { SPRegistryService } from "@filoz/synapse-sdk/sp-registry"
+import type { Chain } from '@filoz/synapse-core/chains'
+import {
+  type Client,
+} from 'viem'
+import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
+
 // ---cut---
 interface SynapseAPI {
   // Create a new Synapse instance
-  create(options: SynapseOptions): Promise<Synapse>
+  create(options: SynapseOptions): Synapse
   // Properties
+  client: Client
+  chain: Chain
+  // Services
   payments: PaymentsService
   storage: StorageManager
-  // Storage Information (pricing, providers, service parameters, allowances)
-  getStorageInfo(): Promise<StorageInfo>
+  providers: SPRegistryService
+  filbeam: FilBeamService
+  // Storage provider info getter
   getProviderInfo(providerAddress: string): Promise<PDPProvider>
-  getChainId(): number
-  // Contract Addresses
-  getWarmStorageAddress(): string
-  getPaymentsAddress(): string
-  getPDPVerifierAddress(): string
 }
 ```
 
@@ -75,19 +75,17 @@ Fund your account and manage payments for Filecoin storage services.
 
 ### Storage Operations
 
-The SDK provides comprehensive storage capabilities through two main approaches:
+The SDK provides two storage approaches:
 
-- **Auto-managed storage**: Quick and simple - the SDK handles provider selection and data set creation.
-- **Explicit control**: Full control over providers, data sets, and batch operations.
+- **Auto-managed** — The SDK handles provider selection and data set creation
+- **Explicit control** — Full control over providers, data sets, and batch operations
 
-To understand these storage approaches, you'll need to be familiar with several key concepts:
+#### Key Concepts
 
-#### Core Concepts
-
-- **Storage Contexts**: Manage storage lifecycle and provider connections.
-- **Data Sets**: Organize related data pieces with shared payment rails.
-- **PieceCIDs**: Unique content-addressed identifiers for stored data.
-- **Service Providers**: Infrastructure for decentralized storage with cryptographic proofs.
+- **Storage Contexts** — Manage storage lifecycle and provider connections
+- **Data Sets** — Organize related data pieces with shared payment rails
+- **PieceCIDs** — Content-addressed identifiers for stored data
+- **Service Providers** — Decentralized storage with cryptographic proofs
 
 [View Storage Operations Guide →](/developer-guides/storage/storage-operations/) - _Learn the basics in less than 10 minutes_
 
@@ -95,9 +93,7 @@ To understand these storage approaches, you'll need to be familiar with several 
 
 [View Storage Costs Guide →](/developer-guides/storage/storage-costs/) - _Learn how to calculate your storage costs_
 
-## Technical Constraints and Concepts
-
-The following sections cover important technical constraints and concepts that apply to all storage operations.
+## Technical Constraints
 
 ### Metadata Limits
 
@@ -119,15 +115,13 @@ These limits are enforced by the blockchain contracts. The SDK will validate met
 
 ### Size Constraints
 
-The storage service enforces the following size limits for uploads:
+Upload size limits:
 
 - **Minimum**: 127 bytes (required for PieceCID calculation)
-- **Maximum**: 200 MiB (209,715,200 bytes)
-
-Attempting to upload data outside these limits will result in an error.
+- **Maximum**: ~1 GiB (1,065,353,216 bytes)
 
 :::note
-These limits are defined in the SDK constants (`SIZE_CONSTANTS.MIN_UPLOAD_SIZE` and `SIZE_CONSTANTS.MAX_UPLOAD_SIZE`). While the underlying Curio PDP service supports files up to 254 MiB, the SDK currently limits uploads to 200 MiB. Future versions will support larger files through chunking and aggregate PieceCIDs.
+These limits are defined in the SDK constants (`SIZE_CONSTANTS.MIN_UPLOAD_SIZE` and `SIZE_CONSTANTS.MAX_UPLOAD_SIZE`). Future versions will support larger files through chunking and aggregate PieceCIDs.
 
 See [this issue](https://github.com/FilOzone/synapse-sdk/issues/110) for details.
 :::
@@ -153,18 +147,6 @@ LegacyPieceCID (v1 format) conversion utilities are provided for interoperabilit
 
 **Technical Reference:** See [FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md) for the complete specification of PieceCID ("v2 Piece CID") and its relationship to LegacyPieceCID ("v1 Piece CID"). Most Filecoin tooling currently uses v1, but the ecosystem is transitioning to v2.
 
-## Error Handling
-
-The SDK provides consistent error handling across all operations to help you debug issues quickly.
-
-```ts
-try {
-  await synapse.payments.deposit(amount);
-} catch (error) {
-  console.error(error.message); // Clear error description
-  console.error(error.cause); // Underlying error if any
-}
-```
 
 ## Additional Resources
 
