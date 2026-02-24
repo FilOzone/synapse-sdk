@@ -123,7 +123,7 @@ Create a data set and upload a file.
 import { createWalletClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { calibration } from "@filoz/synapse-core/chains"
-const account = privateKeyToAccount("0x1")
+const account = privateKeyToAccount("0x0000000000000000000000000000000000000000000000000000000000000001")
 const walletClient = createWalletClient({ account, chain: calibration, transport: http() })
 const data = new Uint8Array([1, 2, 3])
 // ---cut---

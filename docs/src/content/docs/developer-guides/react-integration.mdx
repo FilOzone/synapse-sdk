@@ -69,14 +69,19 @@ Query account info and make deposits using hooks:
 // @lib: esnext,dom
 import { useAccountInfo, useDepositAndApprove } from "@filoz/synapse-react";
 import { parseUnits } from "viem";
+import { useAccount } from "wagmi";
 
 const PaymentsExample = () => {
-  const { data: account, isLoading } = useAccountInfo({ watch: true });
+  const { address } = useAccount();
+  const { data: account, isLoading } = useAccountInfo(
+    address ? { address, watch: true } : { watch: true }
+  );
 
   const deposit = useDepositAndApprove({
     onHash: (hash) => console.log("Tx:", hash),
   });
 
+  if (!address) return <div>Connect wallet</div>;
   if (isLoading) return <div>Loading...</div>;
 
   return (
@@ -101,15 +106,19 @@ Upload files and list data sets:
 // @lib: esnext,dom
 import { useUpload, useDataSets, useProviders } from "@filoz/synapse-react";
 import { useState } from "react";
+import { useAccount } from "wagmi";
 
 const StorageExample = () => {
+  const { address } = useAccount();
   const { data: providers } = useProviders();
-  const { data: dataSets } = useDataSets({});
+  const { data: dataSets } = useDataSets(address ? { address } : {});
   const [files, setFiles] = useState<File[]>([]);
 
   const upload = useUpload({
     onHash: (hash) => console.log("Tx:", hash),
   });
+
+  if (!address) return <div>Connect wallet</div>;
 
   return (
     <div>
