@@ -1,6 +1,6 @@
 {
   "name": "@filoz/synapse-core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "JavaScript Standard Library for Filecoin Onchain Cloud",
   "repository": {
     "type": "git",
