@@ -38,6 +38,7 @@ Per month means **per 30 days** here, not calendar month like a traditional stor
 #### Example 1: NFT Collection (10,000 × 5 KiB ≈ 48.82 MiB)
 
 ```ts twoslash
+// @lib: esnext,dom
 // 48.82 MiB less than 24.567 GiB threshold
 // Price is $0.06/month
 const PRICE_PER_MONTH = 0.06;
@@ -58,6 +59,7 @@ const PRICE_FOR_24_MONTHS = PRICE_PER_MONTH * 24; // 1.44 USDFC
 - **Traffic:** 1,000 users × 100 MiB/month ≈ 100,000 MiB/month egress
 
 ```ts twoslash
+// @lib: esnext,dom
 const STORAGE_PRICE_PER_TIB_PER_MONTH = 2.5; // $2.50/TiB/month
 const CDN_EGRESS_PRICE_PER_TIB = 14; // $14/TiB downloaded
 const storageMiB = 100_000;

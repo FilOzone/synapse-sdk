@@ -313,15 +313,15 @@ const context = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
   withCDN: true, // Optional: enable CDN for faster downloads
 });
-const pieces = [] as Uint8Array[]
+const dataArray = [] as Uint8Array[] | ReadableStream<Uint8Array>[]
 // ---cut---
 // ✅ Efficient: Batched automatically
-const uploads = pieces.map((piece) => context.upload(piece));
+const uploads = dataArray.map((data) => context.upload(data));
 const results = await Promise.all(uploads);
 
 // ❌ Slow: Forces sequential processing
-for (const piece of pieces) {
-  await context.upload(piece);
+for (const data of dataArray) {
+  await context.upload(data);
 }
 ```
 
@@ -401,7 +401,13 @@ The SDK provides flexible download options with clear semantics:
 
 Download pieces from any available provider using the StorageManager:
 
-```typescript
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const pieceCid = "bafyb...";
+// ---cut---
 // Download from any provider that has the piece
 const data = await synapse.storage.download({ pieceCid });
 
@@ -419,7 +425,13 @@ const dataFromProvider = await synapse.storage.download({
 
 When using a StorageContext, downloads are automatically restricted to that specific provider:
 
-```typescript
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const pieceCid = "bafyb...";
+// ---cut---
 // Downloads from the provider associated with this context
 const context = await synapse.storage.createContext({
   providerAddress: "0x...",
@@ -439,9 +451,15 @@ The `withCDN` option (which is an alias for `metadata: { withCDN: '' }`) follows
 2. **StorageContext level**: Can override Synapse's default
 3. **Method level**: Can override instance settings
 
-```typescript
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const account = privateKeyToAccount('0x...');
+const pieceCid = "bafyb...";
+// ---cut---
 // Example of inheritance
-const synapse = Synapse.create({ withCDN: true }); // Global default: CDN enabled
+const synapse = Synapse.create({ account, withCDN: true }); // Global default: CDN enabled
 const context = await synapse.storage.createContext({ withCDN: false }); // Context override: CDN disabled
 await synapse.storage.download({ pieceCid }); // Uses Synapse's withCDN: true
 await context.download({ pieceCid }); // Uses context's withCDN: false
