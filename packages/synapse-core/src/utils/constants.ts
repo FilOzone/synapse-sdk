@@ -88,9 +88,40 @@ export const SIZE_CONSTANTS = {
    * This balances gas efficiency with reasonable transaction sizes
    */
   DEFAULT_UPLOAD_BATCH_SIZE: 32,
+
+  /**
+   * Bytes per leaf in the PDP merkle tree.
+   * The FWSS contract converts leaf counts to bytes via `totalBytes = leafCount * BYTES_PER_LEAF`.
+   */
+  BYTES_PER_LEAF: 32n,
 } as const
 
 export const LOCKUP_PERIOD = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
+
+/**
+ * Default safety margin in epochs when calculating deposit amounts.
+ * Accounts for epoch drift between balance check and on-chain execution.
+ */
+export const DEFAULT_BUFFER_EPOCHS = 5n
+
+/**
+ * Default extra runway in epochs beyond the required lockup.
+ * 0n means no additional runway beyond the lockup period.
+ */
+export const DEFAULT_RUNWAY_EPOCHS = 0n
+
+/**
+ * CDN fixed lockup amounts charged at dataset creation time.
+ * These are one-time lockups for CDN egress and cache miss egress rails.
+ */
+export const CDN_FIXED_LOCKUP = {
+  /** CDN egress rail fixed lockup: 0.7 USDFC */
+  cdn: 700_000_000_000_000_000n,
+  /** Cache miss egress rail fixed lockup: 0.3 USDFC */
+  cacheMiss: 300_000_000_000_000_000n,
+  /** Total: 1.0 USDFC */
+  total: 1_000_000_000_000_000_000n,
+} as const
 
 export const RETRY_CONSTANTS = {
   RETRIES: Infinity,

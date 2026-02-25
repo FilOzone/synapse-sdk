@@ -18,12 +18,12 @@
  */
 
 import { asChain, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
-import * as Pay from '@filoz/synapse-core/pay'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import { dataSetLiveCall, getDataSetListenerCall } from '@filoz/synapse-core/pdp-verifier'
 import { type MetadataObject, metadataArrayToObject } from '@filoz/synapse-core/utils'
 import {
   addApprovedProvider,
+  getAccountTotalStorageSize,
   getAllDataSetMetadata,
   getAllDataSetMetadataCall,
   getAllPieceMetadata,
@@ -47,7 +47,7 @@ import {
 } from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type { EnhancedDataSetInfo } from '../types.ts'
-import { DEFAULT_CHAIN, METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
+import { DEFAULT_CHAIN, METADATA_KEYS } from '../utils/constants.ts'
 
 export class WarmStorageService {
   private readonly _client: Client<Transport, Chain, Account>
@@ -194,6 +194,22 @@ export class WarmStorageService {
   }
 
   /**
+   * Get the total storage size across all live datasets for an account.
+   *
+   * @param options - Options for the total storage size query
+   * @param options.address - Address to query. Defaults to the client account address.
+   * @returns Total storage size and dataset count {@link getAccountTotalStorageSize.OutputType}
+   * @throws Errors {@link getAccountTotalStorageSize.ErrorType}
+   */
+  async getAccountTotalStorageSize(
+    options: { address?: Address } = {}
+  ): Promise<getAccountTotalStorageSize.OutputType> {
+    return getAccountTotalStorageSize(this._client, {
+      address: options.address ?? this._client.account.address,
+    })
+  }
+
+  /**
    * Validate that a dataset is live and managed by this WarmStorage contract
    *
    * Performs validation checks in parallel:
@@ -315,251 +331,6 @@ export class WarmStorageService {
    */
   async getServicePrice(): Promise<getServicePrice.OutputType> {
     return getServicePrice(this._client)
-  }
-
-  /**
-   * Calculate storage costs for a given size
-   * @param options - Options for the storage cost
-   * @param options.sizeInBytes - Size of data to store in bytes
-   * @returns Cost estimates per epoch, day, and month
-   * @remarks CDN costs are usage-based (egress pricing), so withCDN field reflects base storage cost only
-   */
-  async calculateStorageCost(options: { sizeInBytes: bigint }): Promise<{
-    perEpoch: bigint
-    perDay: bigint
-    perMonth: bigint
-    withCDN: {
-      perEpoch: bigint
-      perDay: bigint
-      perMonth: bigint
-    }
-  }> {
-    const servicePriceInfo = await this.getServicePrice()
-
-    // Calculate price per byte per epoch (base storage cost)
-    const pricePerEpoch =
-      (servicePriceInfo.pricePerTiBPerMonthNoCDN * options.sizeInBytes) /
-      (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
-
-    const costs = {
-      perEpoch: pricePerEpoch,
-      perDay: pricePerEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-      perMonth: pricePerEpoch * servicePriceInfo.epochsPerMonth,
-    }
-
-    // CDN costs are usage-based (egress pricing), so withCDN returns base storage cost
-    // Actual CDN costs will be charged based on egress usage
-    return {
-      ...costs,
-      withCDN: costs,
-    }
-  }
-
-  /**
-   * Check if user has sufficient allowances for a storage operation and calculate costs
-   * @param options - Options for the allowance check
-   * @param options.sizeInBytes - Size of data to store
-   * @param options.withCDN - Whether CDN is enabled
-   * @param options.address - Address of the account to check allowances for (optional, defaults to the client account address)
-   * @param options.operator - Address of the operator to check allowances for (optional, defaults to the WarmStorage contract address)
-   * @param options.lockupDays - Number of days for lockup period (defaults to 30)
-   * @returns Allowance requirement details and storage costs
-   */
-  async checkAllowanceForStorage(options: {
-    sizeInBytes: bigint
-    withCDN: boolean
-    address?: Address
-    operator?: Address
-    lockupDays?: bigint
-  }): Promise<{
-    rateAllowanceNeeded: bigint
-    lockupAllowanceNeeded: bigint
-    currentRateAllowance: bigint
-    currentLockupAllowance: bigint
-    currentRateUsed: bigint
-    currentLockupUsed: bigint
-    sufficient: boolean
-    message?: string
-    costs: {
-      perEpoch: bigint
-      perDay: bigint
-      perMonth: bigint
-    }
-    depositAmountNeeded: bigint
-  }> {
-    // Get current allowances and calculate costs in parallel
-    const [approval, costs] = await Promise.all([
-      Pay.operatorApprovals(this._client, {
-        address: options.address ?? this._client.account.address,
-        operator: options.operator,
-      }),
-      this.calculateStorageCost({ sizeInBytes: options.sizeInBytes }),
-    ])
-
-    const selectedCosts = options.withCDN ? costs.withCDN : costs
-    const rateNeeded = selectedCosts.perEpoch
-
-    // Calculate lockup period based on provided days (default: 30)
-    const lockupPeriod = (options.lockupDays ?? TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS) * TIME_CONSTANTS.EPOCHS_PER_DAY
-    const lockupNeeded = rateNeeded * lockupPeriod
-
-    // Calculate required allowances (current usage + new requirement)
-    const totalRateNeeded = approval.rateUsage + rateNeeded
-    const totalLockupNeeded = approval.lockupUsage + lockupNeeded
-
-    // Check if allowances are sufficient
-    const sufficient = approval.rateAllowance >= totalRateNeeded && approval.lockupAllowance >= totalLockupNeeded
-
-    // Calculate how much more is needed
-    const rateAllowanceNeeded = totalRateNeeded > approval.rateAllowance ? totalRateNeeded - approval.rateAllowance : 0n
-
-    const lockupAllowanceNeeded =
-      totalLockupNeeded > approval.lockupAllowance ? totalLockupNeeded - approval.lockupAllowance : 0n
-
-    // Build optional message
-    let message: string | undefined
-    if (!sufficient) {
-      const needsRate = rateAllowanceNeeded > 0n
-      const needsLockup = lockupAllowanceNeeded > 0n
-      if (needsRate && needsLockup) {
-        message = 'Insufficient rate and lockup allowances'
-      } else if (needsRate) {
-        message = 'Insufficient rate allowance'
-      } else if (needsLockup) {
-        message = 'Insufficient lockup allowance'
-      }
-    }
-
-    return {
-      rateAllowanceNeeded,
-      lockupAllowanceNeeded,
-      currentRateAllowance: approval.rateAllowance,
-      currentLockupAllowance: approval.lockupAllowance,
-      currentRateUsed: approval.rateUsage,
-      currentLockupUsed: approval.lockupUsage,
-      sufficient,
-      message,
-      costs: selectedCosts,
-      depositAmountNeeded: lockupNeeded,
-    }
-  }
-
-  /**
-   * Prepare for storage upload by checking balances and allowances
-   *
-   * This method performs a comprehensive check of the prerequisites for storage upload,
-   * including verifying sufficient funds and service allowances. It returns a list of
-   * actions that need to be executed before the upload can proceed.
-   *
-   * @param options - Configuration options for the storage upload
-   * @param options.dataSize - Size of data to store in bytes
-   * @param options.withCDN - Whether to enable CDN for faster retrieval (optional, defaults to false)
-   * @param options.address - Address of the account to check allowances for (optional, defaults to the client account address)
-   * @param options.operator - Address of the operator to check allowances for (optional, defaults to the WarmStorage contract address)
-   * @param options.lockupDays - Number of days for lockup period (defaults to 30)
-   *
-   * @returns Object containing:
-   *   - estimatedCost: Breakdown of storage costs (per epoch, day, and month)
-   *   - allowanceCheck: Status of service allowances with optional message
-   *   - actions: Array of required actions (deposit, approveService) that need to be executed
-   *
-   * @example
-   * ```typescript
-   * const prep = await warmStorageService.prepareStorageUpload(
-   *   { dataSize: SIZE_CONSTANTS.GiB, withCDN: true, address: '0x...' },
-   * )
-   *
-   * if (prep.actions.length > 0) {
-   *   for (const action of prep.actions) {
-   *     console.log(`Executing: ${action.description}`)
-   *     await action.execute()
-   *   }
-   * }
-   * ```
-   */
-  async prepareStorageUpload(options: {
-    dataSize: bigint
-    withCDN?: boolean
-    address?: Address
-    operator?: Address
-    lockupDays?: bigint
-  }): Promise<{
-    estimatedCost: {
-      perEpoch: bigint
-      perDay: bigint
-      perMonth: bigint
-    }
-    allowanceCheck: {
-      sufficient: boolean
-      message?: string
-    }
-    actions: Array<{
-      type: 'deposit' | 'approve' | 'approveService'
-      description: string
-      execute: () => Promise<Hash>
-    }>
-  }> {
-    const address = options.address ?? this._client.account.address
-    // Parallelize cost calculation and allowance check
-    const [costs, allowanceCheck] = await Promise.all([
-      this.calculateStorageCost({ sizeInBytes: options.dataSize }),
-      this.checkAllowanceForStorage({
-        sizeInBytes: options.dataSize,
-        withCDN: options.withCDN ?? false,
-        address: options.address,
-        operator: options.operator,
-        lockupDays: options.lockupDays,
-      }),
-    ])
-
-    // Select the appropriate costs based on CDN option
-    const selectedCosts = (options.withCDN ?? false) ? costs.withCDN : costs
-
-    const actions: Array<{
-      type: 'deposit' | 'approve' | 'approveService'
-      description: string
-      execute: () => Promise<Hash>
-    }> = []
-
-    // Check if deposit is needed
-    const accountInfo = await Pay.accounts(this._client, { address })
-    const requiredBalance = selectedCosts.perMonth // Require at least 1 month of funds
-
-    if (accountInfo.availableFunds < requiredBalance) {
-      const depositAmount = requiredBalance - accountInfo.availableFunds
-      actions.push({
-        type: 'deposit',
-        description: `Deposit ${depositAmount} USDFC to payments contract`,
-        execute: async () => await Pay.deposit(this._client, { amount: depositAmount }),
-      })
-    }
-
-    // Check if service approval is needed
-    if (!allowanceCheck.sufficient) {
-      actions.push({
-        type: 'approveService',
-        description: `Approve service with rate allowance ${allowanceCheck.rateAllowanceNeeded} and lockup allowance ${allowanceCheck.lockupAllowanceNeeded}`,
-        execute: async () =>
-          await Pay.setOperatorApproval(this._client, {
-            approve: true,
-          }),
-      })
-    }
-
-    return {
-      estimatedCost: {
-        perEpoch: selectedCosts.perEpoch,
-        perDay: selectedCosts.perDay,
-        perMonth: selectedCosts.perMonth,
-      },
-      allowanceCheck: {
-        sufficient: allowanceCheck.sufficient,
-        message: allowanceCheck.sufficient
-          ? undefined
-          : `Insufficient allowances: rate needed ${allowanceCheck.rateAllowanceNeeded}, lockup needed ${allowanceCheck.lockupAllowanceNeeded}`,
-      },
-      actions,
-    }
   }
 
   // ========== Data Set Operations ==========

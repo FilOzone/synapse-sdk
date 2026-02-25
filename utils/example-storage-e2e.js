@@ -75,25 +75,26 @@ async function main() {
   console.log(`FIL balance: ${Number(filBalance) / 1e18} FIL`)
   console.log(`USDFC balance: ${formatUSDFC(usdfcBalance)}`)
 
-  // Preflight checks
-  console.log('\n--- Preflight Upload Check ---')
-  const preflight = await synapse.storage.preflightUpload({ size: totalSize })
+  // Prepare account (deposit + approval if needed)
+  console.log('\n--- Preparing Account ---')
+  const prep = await synapse.storage.prepare({ dataSize: BigInt(totalSize) })
 
   console.log('Estimated costs:')
-  console.log(`  Per epoch (30s): ${formatUSDFC(preflight.estimatedCost.perEpoch)}`)
-  console.log(`  Per day: ${formatUSDFC(preflight.estimatedCost.perDay)}`)
-  console.log(`  Per month: ${formatUSDFC(preflight.estimatedCost.perMonth)}`)
+  console.log(`  Per epoch (30s): ${formatUSDFC(prep.costs.rate.perEpoch)}`)
+  console.log(`  Per month: ${formatUSDFC(prep.costs.rate.perMonth)}`)
+  console.log(`  Deposit needed: ${formatUSDFC(prep.costs.depositNeeded)}`)
+  console.log(`  Ready: ${prep.costs.ready}`)
 
-  if (!preflight.allowanceCheck.sufficient) {
-    console.error(`\nInsufficient allowances: ${preflight.allowanceCheck.message}`)
-    console.error('\nPlease ensure you have:')
-    console.error('1. Sufficient USDFC balance')
-    console.error('2. Approved USDFC spending for the Payments contract')
-    console.error('3. Approved the Warm Storage service as an operator')
-    process.exit(1)
+  if (prep.transaction) {
+    console.log(`  Deposit amount: ${formatUSDFC(prep.transaction.depositAmount)}`)
+    console.log(`  Includes approval: ${prep.transaction.includesApproval}`)
+    const { hash } = await prep.transaction.execute({
+      onHash: (h) => console.log(`  Transaction hash: ${h}`),
+    })
+    console.log(`  Transaction confirmed: ${hash}`)
+  } else {
+    console.log('Account already ready')
   }
-
-  console.log('Sufficient allowances available')
 
   // Upload files - single vs multi-file paths
   console.log('\n--- Uploading ---')
