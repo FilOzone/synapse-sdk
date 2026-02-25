@@ -58,7 +58,9 @@ export class Synapse {
     }
 
     if (options.sessionKey != null && !options.sessionKey.hasPermissions(SessionKey.DefaultFwssPermissions)) {
-      throw new Error('Session key does not have the required permissions. Please login with the session key first.')
+      throw new Error(
+        'Session key does not have the required permissions. Please login and sync expirations with the session key first.'
+      )
     }
 
     return new Synapse({ client, withCDN: options.withCDN, sessionClient: options.sessionKey?.client })

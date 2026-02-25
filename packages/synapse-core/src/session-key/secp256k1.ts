@@ -68,7 +68,7 @@ class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements 
     return this.#client.account
   }
 
-  async connect() {
+  async watch() {
     await this.syncExpirations()
 
     if (!this.#unsubscribe) {
@@ -77,7 +77,7 @@ class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements 
         abi: this.#client.chain.contracts.sessionKeyRegistry.abi,
         eventName: 'AuthorizationsUpdated',
         args: { identity: this.#client.account.rootAddress },
-
+        onError: this.emit.bind(this, 'error'),
         onLogs: (logs) => {
           try {
             const event = extractLoginEvent(logs)
@@ -94,9 +94,12 @@ class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements 
       })
       this.emit('connected', this.#expirations)
     }
+    return () => {
+      this.unwatch()
+    }
   }
 
-  disconnect() {
+  unwatch() {
     if (this.#unsubscribe) {
       this.#unsubscribe()
       this.#unsubscribe = undefined

@@ -32,6 +32,14 @@ export interface SessionKey<KeyType extends SessionKeyType> extends TypedEventTa
   hasPermission: (permission: Permission) => boolean
   hasPermissions: (permissions: Permission[]) => boolean
   syncExpirations: () => Promise<void>
-  connect: () => Promise<void>
-  disconnect: () => void
+  /**
+   * Watch the session key for expirations updates.
+   *
+   * @returns A function to stop watching the session key.
+   */
+  watch: () => Promise<() => void>
+  /**
+   * Stop watching the session key for expirations updates.
+   */
+  unwatch: () => void
 }
