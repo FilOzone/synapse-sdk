@@ -7,6 +7,7 @@
 
 import type { Chain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
+import type { SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { Account, Address, Client, Hex, Transport } from 'viem'
@@ -58,6 +59,8 @@ export interface SynapseOptions {
    */
   account: Account | Address
 
+  sessionKey?: SessionKey<'Secp256k1'>
+
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
 }
@@ -69,7 +72,9 @@ export interface SynapseFromClientOptions {
    * @see https://viem.sh/docs/clients/wallet#optional-hoist-the-account
    */
   client: Client<Transport, Chain, Account>
+
   // Advanced Configuration
+  sessionClient?: Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>>
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean

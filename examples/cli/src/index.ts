@@ -13,6 +13,7 @@ import { pay } from './commands/pay.ts'
 import { pieces } from './commands/pieces.ts'
 import { piecesRemoval } from './commands/pieces-removal.ts'
 import { piecesUpload } from './commands/pieces-upload.ts'
+import { sessionKeys } from './commands/session-keys.ts'
 import { upload } from './commands/upload.ts'
 import { uploadDataset } from './commands/upload-dataset.ts'
 import { withdraw } from './commands/withdraw.ts'
@@ -37,6 +38,7 @@ const argv = cli({
     piecesUpload,
     uploadDataset,
     getSpPeerIds,
+    sessionKeys,
   ],
 })
 
