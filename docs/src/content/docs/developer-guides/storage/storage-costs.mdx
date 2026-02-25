@@ -92,127 +92,54 @@ const totalCostFor24Months = totalCostPerMonth * 24;
 
 ## Warm Storage Service Approvals
 
-Before uploading, approve the **WarmStorage operator** and fund your account. FWSS requires a 30-day prepayment buffer—when your balance drops below 30 days, the provider may remove your data.
+Before uploading, the **WarmStorage operator** must be approved and your account must be funded. FWSS requires a 30-day prepayment buffer — when your balance drops below 30 days, the provider may remove your data.
 
-**Approval Components:**
-
-| Component             | Purpose                               | Formula When Adding Storage              |
-| --------------------- | ------------------------------------- | ---------------------------------------- |
-| **Deposit Amount**    | USDFC tokens for storage duration     | Total cost for desired months            |
-| **Rate Allowance**    | Max spending per epoch (cumulative)   | `currentRateUsed + newRate`              |
-| **Lockup Allowance**  | 30-day prepayment buffer (cumulative) | `currentLockupUsed + (newRate × 86,400)` |
-| **Max Lockup Period** | Safety limit on locked funds          | constant of 86,400 epochs (30 days)      |
+The SDK's `prepare()` method handles all of this automatically. It computes the exact deposit needed, checks whether the FWSS operator is approved, and returns a single transaction that handles both.
 
 ---
 
-## Detailed Calculator Guide
+## Querying Upload Costs
 
-Learn how to calculate storage costs, required operator allowances and fund your account for future storage needs.
-
-In this guide we will calculate the costs for a 1 GiB storage capacity for 12 months.
-
-### Step 1: Calculate Base Storage Costs
-
-Get pricing information and calculate the cost per epoch for your storage capacity:
+Use `getUploadCosts()` to preview costs without executing any transaction. This is useful for displaying pricing in a UI or letting users confirm before proceeding.
 
 ```ts twoslash
 // @lib: esnext,dom
-import {
-  Synapse,
-  SIZE_CONSTANTS,
-  calibration
-} from "@filoz/synapse-sdk"
-import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
-import { privateKeyToAccount } from 'viem/accounts'
-// ---cut---
-// Get pricing structure
-const warmStorageService = WarmStorageService.create({ account: privateKeyToAccount('0x...') })
-
-const { minimumPricePerMonth, epochsPerMonth, pricePerTiBPerMonthNoCDN } =
-  await warmStorageService.getServicePrice()
-
-// Calculate base cost per month
-const bytesToStore = SIZE_CONSTANTS.GiB // 1 GiB
-let pricePerMonth =
-  (pricePerTiBPerMonthNoCDN * BigInt(bytesToStore)) /
-  BigInt(SIZE_CONSTANTS.TiB)
-
-// Apply minimum pricing if needed
-if (pricePerMonth < minimumPricePerMonth) {
-  pricePerMonth = minimumPricePerMonth
-}
-
-// Calculate per-epoch cost
-const pricePerEpoch = pricePerMonth / epochsPerMonth
-
-console.log("Monthly cost:", pricePerMonth)
-console.log("Per-epoch cost:", pricePerEpoch)
-```
-
-### Step 2: Calculate Required Allowances
-
-Calculate cumulative allowances for your new storage, accounting for existing usage.
-
-:::note[Understanding Cumulative Allowances]
-Allowances are **cumulative** - you must add your new storage requirements to any existing usage. This is because the WarmStorage operator needs permission to spend on behalf of all your active datasets, not just the new one. Think of it like updating a credit limit to cover both old and new subscriptions.
-
-- **Rate Allowance**: Total per-epoch spending across all datasets
-- **Lockup Allowance**: Total 30-day buffer across all datasets
-
-:::
-
-```ts twoslash
-// @lib: esnext,dom
-import { Synapse, TOKENS, TIME_CONSTANTS, calibration } from "@filoz/synapse-sdk";
+import { Synapse, formatUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const pricePerMonth = null as unknown as bigint;
 const pricePerEpoch = null as unknown as bigint;
 // ---cut---
-// Define storage duration in months (minimum 1 month)
-const persistencePeriodInMonths = 12n;
+const costs = await synapse.storage.getUploadCosts({
+  dataSize: 1073741824n, // 1 GiB in bytes
+})
 
-// Check if creating a new CDN dataset (creates context to determine if one exists)
-const storageContext = await synapse.storage.createContext({
-  withCDN: true,
-  metadata: { Application: "MyApp", Version: "1.0.0" },
-});
-const newCDNDataSetNeeded = storageContext.dataSetId === null;
-
-const warmStorageDefaultLockupPeriod = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS; // 30 days
-
-// Calculate total cost and lockup needed for THIS storage addition
-const cdnDataSetCreationCost = 10n ** 18n; // 1 USDFC
-let totalCostNeeded = pricePerMonth * persistencePeriodInMonths;
-let lockupNeeded = pricePerMonth * warmStorageDefaultLockupPeriod;
-if (newCDNDataSetNeeded) {
-  lockupNeeded += cdnDataSetCreationCost;
-  totalCostNeeded += cdnDataSetCreationCost;
-}
-
-// Get current approval status (what's already being used)
-const [approval, accountInfo] = await Promise.all([
-  synapse.payments.serviceApproval(),
-  synapse.payments.accountInfo(),
-]);
-
-// Calculate cumulative allowances: existing usage + new requirements
-// This ensures the operator can spend for ALL your datasets
-const lockupAllowanceNeeded = approval.lockupUsage + lockupNeeded;
-const rateAllowanceNeeded = approval.rateUsage + pricePerEpoch;
-
-console.log("New lockup needed:", lockupNeeded);
-console.log("Cumulative lockup allowance needed:", lockupAllowanceNeeded);
-console.log("Cumulative rate allowance needed:", rateAllowanceNeeded);
+console.log("Rate per epoch:", costs.rate.perEpoch)
+console.log("Rate per month:", formatUnits(costs.rate.perMonth))
+console.log("Deposit needed:", formatUnits(costs.depositNeeded))
+console.log("Needs FWSS approval:", costs.needsFwssMaxApproval)
+console.log("Ready to upload:", costs.ready)
 ```
 
-### Step 3: Fund Your Account
+The returned `UploadCosts` object contains:
 
-Check balances, calculate deposit amount, and execute the appropriate transaction:
+| Field | Type | Description |
+| --- | --- | --- |
+| `rate.perEpoch` | `bigint` | Storage rate per epoch (30 seconds) |
+| `rate.perMonth` | `bigint` | Storage rate per month (for display) |
+| `depositNeeded` | `bigint` | USDFC to deposit (`0n` if sufficient funds) |
+| `needsFwssMaxApproval` | `boolean` | Whether FWSS operator approval is needed |
+| `ready` | `boolean` | `true` when no deposit or approval is needed |
+
+---
+
+## Funding Your Account
+
+Use `prepare()` to compute costs and get a ready-to-execute transaction. This is the recommended approach for most use cases — it replaces the previous manual flow of calculating allowances, checking approvals, and branching between deposit/approve methods.
 
 ```ts twoslash
 // @lib: esnext,dom
-import { Synapse, TIME_CONSTANTS, calibration, TOKENS } from "@filoz/synapse-sdk";
+import { Synapse, formatUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const totalCostNeeded = null as unknown as bigint;
@@ -221,37 +148,37 @@ const lockupAllowanceNeeded = null as unknown as bigint;
 const approval = await synapse.payments.serviceApproval();
 const accountInfo = await synapse.payments.accountInfo();
 // ---cut---
-// Calculate deposit amount needed
-const depositAmountNeeded =
-  totalCostNeeded > accountInfo.availableFunds
-    ? totalCostNeeded - accountInfo.availableFunds
-    : 0n;
+// Compute costs and get a transaction (if needed)
+const prep = await synapse.storage.prepare({
+  dataSize: 1073741824n, // 1 GiB
+})
 
-// Check if allowances are sufficient
-const sufficient =
-  rateAllowanceNeeded <= approval.rateAllowance &&
-  lockupAllowanceNeeded <= approval.lockupAllowance;
+// Inspect costs
+console.log("Rate per month:", formatUnits(prep.costs.rate.perMonth))
+console.log("Deposit needed:", formatUnits(prep.costs.depositNeeded))
 
-// Verify wallet balance
-const walletBalance = await synapse.payments.walletBalance({ token: TOKENS.USDFC });
-if (walletBalance < depositAmountNeeded) {
-  throw new Error("Insufficient USDFC balance in wallet");
+// Execute if the account isn't ready
+if (prep.transaction) {
+  console.log("Deposit amount:", formatUnits(prep.transaction.depositAmount))
+  console.log("Includes approval:", prep.transaction.includesApproval)
+
+  const { hash } = await prep.transaction.execute()
+  console.log("Transaction confirmed:", hash)
 }
 
-// Execute appropriate transaction
-if (!sufficient && depositAmountNeeded > 0n) {
-  // Need both deposit and approval
-  await synapse.payments.depositWithPermitAndApproveOperator({ amount: depositAmountNeeded });
-} else if (!sufficient) {
-  // Only need approval update
-  await synapse.payments.approveService();
-} else if (depositAmountNeeded > 0n) {
-  // Only need deposit
-  await synapse.payments.depositWithPermit({ amount: depositAmountNeeded });
-}
-
-console.log("Account funded successfully");
+// Now safe to upload
 ```
+
+`prepare()` returns:
+
+- **`costs`**: The full `UploadCosts` breakdown
+- **`transaction`**: A transaction object with `execute()`, or `null` if the account is already ready
+
+The transaction automatically picks the right contract call:
+- **Needs deposit + approval**: calls `depositWithPermitAndApproveOperator`
+- **Needs approval only**: calls `approveService`
+- **Needs deposit only**: calls `depositWithPermit`
+- **Already ready**: returns `transaction: null`
 
 ## Next Steps
 
