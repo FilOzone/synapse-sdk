@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.0...synapse-core-v0.2.1) (2026-02-25)
+
+
+### Features
+
+* new core piece url retriever ([#617](https://github.com/FilOzone/synapse-sdk/issues/617)) ([d1e7018](https://github.com/FilOzone/synapse-sdk/commit/d1e7018c93cb45bf2cfe0a5b2d81ed4a0ff3e72d))
+* new session keys with viem ([#618](https://github.com/FilOzone/synapse-sdk/issues/618)) ([ad9ebe7](https://github.com/FilOzone/synapse-sdk/commit/ad9ebe7cc7792f42c980f1d1b9c51bd574fc674b))
+
+
+### Bug Fixes
+
+* **metadata:** validate metadata values are strings before length check ([#615](https://github.com/FilOzone/synapse-sdk/issues/615)) ([be6133f](https://github.com/FilOzone/synapse-sdk/commit/be6133f7c9a482ed9e06a0a45418160f13d88f65))
+* **pay:** require explicit allowances when approving custom operators ([#616](https://github.com/FilOzone/synapse-sdk/issues/616)) ([b5820c9](https://github.com/FilOzone/synapse-sdk/commit/b5820c9d2b507bbb09d14bc11ad6866097c10b6e))
+
+
+### Chores
+
+* biome 2.4.4 ([#626](https://github.com/FilOzone/synapse-sdk/issues/626)) ([061d5b1](https://github.com/FilOzone/synapse-sdk/commit/061d5b15d0ad932cdc6621a3dd5030ee6e420e43))
+* update biome ([#609](https://github.com/FilOzone/synapse-sdk/issues/609)) ([fe2b365](https://github.com/FilOzone/synapse-sdk/commit/fe2b3651ca17087a6f9ed31216aed64afaa756fa))
+* update msw package version to 2.12.10 in workspace and mock service worker files ([#610](https://github.com/FilOzone/synapse-sdk/issues/610)) ([c046b7a](https://github.com/FilOzone/synapse-sdk/commit/c046b7a9e36a1f8e5de2fc70bab2cc203b5ebaa2))
+
 ## [0.2.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.4...synapse-core-v0.2.0) (2026-02-11)
 
 

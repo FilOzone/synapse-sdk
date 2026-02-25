@@ -1,5 +1,5 @@
 {
   "packages/synapse-sdk": "0.37.0",
-  "packages/synapse-core": "0.2.0",
+  "packages/synapse-core": "0.2.1",
   "packages/synapse-react": "0.2.1"
 }
