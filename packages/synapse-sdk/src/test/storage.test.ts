@@ -286,12 +286,6 @@ describe('StorageService', () => {
       assert.equal(service.dataSetId, 1n)
     })
 
-    it.skip('should create new data set when none exist', async () => {
-      // Skip: Requires real PDPServer for createDataSet
-      // This would need mocking of PDPServer which is created internally
-      // TODO: Implement PDPServer mocking and get this working
-    })
-
     it('should prefer data sets with existing pieces', async () => {
       const expectedDataSetBase = {
         cacheMissRailId: 0n,

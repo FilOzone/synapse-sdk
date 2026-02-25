@@ -4,6 +4,12 @@ import { createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { authorizationExpiry, authorizationExpiryCall } from '../src/session-key/authorization-expiry.ts'
+import {
+  AddPiecesPermission,
+  CreateDataSetPermission,
+  DeleteDataSetPermission,
+  SchedulePieceRemovalsPermission,
+} from '../src/session-key/permissions.ts'
 
 describe('authorizationExpiry', () => {
   const server = setup()
@@ -26,7 +32,7 @@ describe('authorizationExpiry', () => {
         chain: calibration,
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: 'CreateDataSet',
+        permission: CreateDataSetPermission,
       })
 
       assert.equal(call.functionName, 'authorizationExpiry')
@@ -43,7 +49,7 @@ describe('authorizationExpiry', () => {
         chain: mainnet,
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: 'AddPieces',
+        permission: AddPiecesPermission,
       })
 
       assert.equal(call.functionName, 'authorizationExpiry')
@@ -58,7 +64,7 @@ describe('authorizationExpiry', () => {
         chain: calibration,
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: 'SchedulePieceRemovals',
+        permission: SchedulePieceRemovalsPermission,
         contractAddress: customAddress,
       })
 
@@ -70,7 +76,7 @@ describe('authorizationExpiry', () => {
         chain: calibration,
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: 'DeleteDataSet',
+        permission: DeleteDataSetPermission,
       })
 
       assert.ok(typeof call.args[2] === 'string')
@@ -91,7 +97,7 @@ describe('authorizationExpiry', () => {
       const expiry = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: 'CreateDataSet',
+        permission: CreateDataSetPermission,
       })
 
       assert.equal(typeof expiry, 'bigint')
@@ -118,7 +124,7 @@ describe('authorizationExpiry', () => {
       const expiry = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: 'AddPieces',
+        permission: AddPiecesPermission,
       })
 
       assert.equal(expiry, customExpiry)
@@ -150,13 +156,13 @@ describe('authorizationExpiry', () => {
       const expirySchedule = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: 'SchedulePieceRemovals',
+        permission: SchedulePieceRemovalsPermission,
       })
 
       const expiryDelete = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: 'DeleteDataSet',
+        permission: DeleteDataSetPermission,
       })
 
       assert.equal(expirySchedule, expiry1)
@@ -182,7 +188,7 @@ describe('authorizationExpiry', () => {
       const expiry = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: 'CreateDataSet',
+        permission: CreateDataSetPermission,
       })
 
       assert.equal(expiry, 0n)

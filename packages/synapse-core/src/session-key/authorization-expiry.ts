@@ -1,18 +1,20 @@
 import type { Simplify } from 'type-fest'
-import type {
-  Address,
-  Chain,
-  Client,
-  ContractFunctionParameters,
-  ContractFunctionReturnType,
-  ReadContractErrorType,
-  Transport,
+import {
+  type Address,
+  type Chain,
+  type Client,
+  ContractFunctionExecutionError,
+  type ContractFunctionParameters,
+  type ContractFunctionReturnType,
+  type MulticallErrorType,
+  type ReadContractErrorType,
+  type Transport,
 } from 'viem'
-import { readContract } from 'viem/actions'
+import { multicall, readContract } from 'viem/actions'
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
-import { SESSION_KEY_PERMISSIONS, type SessionKeyPermissions } from './permissions.ts'
+import { DefaultFwssPermissions, type Expirations, type Permission } from './permissions.ts'
 
 export namespace authorizationExpiry {
   export type OptionsType = {
@@ -21,7 +23,7 @@ export namespace authorizationExpiry {
     /** The address of the session key. */
     sessionKeyAddress: Address
     /** The session key permission. */
-    permission: SessionKeyPermissions
+    permission: Permission
     /** Session key registry contract address. If not provided, the default is the session key registry contract address for the chain. */
     contractAddress?: Address
   }
@@ -51,7 +53,7 @@ export namespace authorizationExpiry {
  *
  * @example
  * ```ts
- * import { authorizationExpiry } from '@filoz/synapse-core/session-key'
+ * import { authorizationExpiry, CreateDataSetPermission } from '@filoz/synapse-core/session-key'
  * import { createPublicClient, http } from 'viem'
  * import { calibration } from '@filoz/synapse-core/chains'
  *
@@ -63,7 +65,7 @@ export namespace authorizationExpiry {
  * const expiry = await authorizationExpiry(client, {
  *   address: '0x1234567890123456789012345678901234567890',
  *   sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
- *   permission: 'CreateDataSet',
+ *   permission: CreateDataSetPermission,
  * })
  *
  * console.log('Authorization expires at:', expiry)
@@ -107,7 +109,7 @@ export namespace authorizationExpiryCall {
  *
  * @example
  * ```ts
- * import { authorizationExpiryCall } from '@filoz/synapse-core/session-key'
+ * import { authorizationExpiryCall, CreateDataSetPermission } from '@filoz/synapse-core/session-key'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -123,7 +125,7 @@ export namespace authorizationExpiryCall {
  *       chain: calibration,
  *       address: '0x1234567890123456789012345678901234567890',
  *       sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
- *       permission: 'CreateDataSet',
+ *       permission: CreateDataSetPermission,
  *     }),
  *   ],
  * })
@@ -137,6 +139,92 @@ export function authorizationExpiryCall(options: authorizationExpiryCall.Options
     abi: chain.contracts.sessionKeyRegistry.abi,
     address: options.contractAddress ?? chain.contracts.sessionKeyRegistry.address,
     functionName: 'authorizationExpiry',
-    args: [options.address, options.sessionKeyAddress, SESSION_KEY_PERMISSIONS[options.permission]],
+    args: [options.address, options.sessionKeyAddress, options.permission],
   } satisfies authorizationExpiryCall.OutputType
+}
+
+export namespace isExpired {
+  export type OptionsType = Simplify<authorizationExpiry.OptionsType>
+  export type ErrorType = authorizationExpiry.ErrorType
+  export type OutputType = boolean
+}
+
+/**
+ * Check if the session key is expired.
+ *
+ * @param client - The client to use.
+ * @param options - The options to use.
+ * @returns Whether the session key is expired.
+ * @throws - {@link isExpired.ErrorType} if the read contract fails.
+ */
+export async function isExpired(
+  client: Client<Transport, Chain>,
+  options: isExpired.OptionsType
+): Promise<isExpired.OutputType> {
+  const expiry = await authorizationExpiry(client, options)
+
+  return expiry < BigInt(Math.floor(Date.now() / 1000))
+}
+
+export namespace getExpirations {
+  export type OptionsType = Simplify<
+    Omit<authorizationExpiry.OptionsType, 'permission'> & { permissions?: Permission[] }
+  >
+  export type ErrorType = authorizationExpiry.ErrorType | MulticallErrorType
+  export type OutputType = Record<Permission, bigint>
+}
+
+/**
+ * Get the expirations for all FWSS permissions.
+ *
+ * @param client - The client to use.
+ * @param options - {@link getExpirations.OptionsType}
+ * @returns Expirations {@link getExpirations.OutputType}
+ * @throws Errors {@link getExpirations.ErrorType}
+ *
+ * @example
+ * ```ts
+ * import { getExpirations } from '@filoz/synapse-core/session-key'
+ * import { createPublicClient, http } from 'viem'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const expirations = await getExpirations(client, {
+ *   address: '0x1234567890123456789012345678901234567890',
+ *   sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+ * })
+ *
+ * console.log(expirations)
+ */
+export async function getExpirations(client: Client<Transport, Chain>, options: getExpirations.OptionsType) {
+  const permissions = options.permissions ?? DefaultFwssPermissions
+  const expirations: Expirations = Object.fromEntries(permissions.map((permission) => [permission, 0n]))
+
+  try {
+    const result = await multicall(client, {
+      allowFailure: false,
+      contracts: permissions.map((permission) =>
+        authorizationExpiryCall({
+          chain: client.chain,
+          address: options.address,
+          sessionKeyAddress: options.sessionKeyAddress,
+          permission,
+        })
+      ),
+    })
+
+    for (let i = 0; i < permissions.length; i++) {
+      expirations[permissions[i]] = result[i]
+    }
+  } catch (e) {
+    if (!(e instanceof ContractFunctionExecutionError && e.details.includes('actor not found'))) {
+      throw e
+    }
+  }
+
+  return expirations
 }

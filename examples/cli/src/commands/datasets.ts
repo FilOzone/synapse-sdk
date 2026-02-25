@@ -33,7 +33,7 @@ export const datasets: Command = command(
       spinner.stop('Data sets:')
       dataSets.forEach(async (dataSet) => {
         p.log.info(
-          `#${dataSet.dataSetId} ${dataSet.cdn ? 'CDN' : ''} ${dataSet.provider.pdp.serviceURL} ${dataSet.pdpEndEpoch > 0n ? `Terminating at epoch ${dataSet.pdpEndEpoch}` : ''} ${dataSet.live ? 'Live' : ''} ${dataSet.managed ? 'Managed' : ''}`
+          `#${dataSet.dataSetId} ${dataSet.provider.payee} ${dataSet.cdn ? 'CDN' : ''} ${dataSet.provider.pdp.serviceURL} ${dataSet.pdpEndEpoch > 0n ? `Terminating at epoch ${dataSet.pdpEndEpoch}` : ''} ${dataSet.live ? 'Live' : ''} ${dataSet.managed ? 'Managed' : ''}`
         )
       })
       p.log.warn(`Block number: ${blockNumber}`)
