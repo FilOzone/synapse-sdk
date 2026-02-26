@@ -5,56 +5,101 @@ sidebar:
   order: 1
 ---
 
-This page describes the available Synapse packages and how to choose the one that fits your use case.
+This page describes the components of the Synapse SDK and how they work together. You'll learn how each component can be used independently, how they are organized within the SDK architecture, and how they interact with the underlying smart contracts and storage providers.
 
-## Packages
+The SDK is built from these core components:
 
-| Package | Best For |
-|---------|----------|
-| **[Synapse SDK](/developer-guides/synapse/)** | CLI tools, scripts, Node.js backends |
-| **[Synapse Core](/developer-guides/synapse-core/)** | Fine-grained control, custom integrations |
-| **[Synapse React](/developer-guides/react-integration/)** | React applications |
+- **`Synapse`** - Main SDK entry point with simple, high-level API
+- **`PaymentsService`** - SDK client for managing deposits, approvals, and payment rails (interacts with Filecoin Pay contract)
+- **`StorageManager`**, **`StorageContext`** - Storage operation classes
+- **`WarmStorageService`** - SDK client for storage coordination and pricing (interacts with WarmStorage contract)
 
-The packages form three layers:
+The following diagram illustrates how these components relate to each other and the external systems they interact with:
 
-1. **Core** - Composable modules for each filecoin onchain cloud operation. Both the SDK and React packages build on Core.
-2. **SDK** - Wraps Core into a single `Synapse` entry point that manages payments, storage, and provider discovery.
-3. **React** - Wraps Core into React hooks.
+```mermaid
+graph LR
+    subgraph "Public API"
+        Synapse
+    end
 
-## Synapse SDK
+    subgraph "Payment Services"
+        PS[PaymentsService]
+    end
 
-**Synapse SDK** is the recommended starting point. A single `Synapse` class coordinates payments, storage, provider discovery, and session keys behind a high-level API.
+    subgraph "Storage Services"
+        SM[StorageManager]
+    end
 
-- **Payments**: Deposits, withdrawals, operator approvals ([Payments Operations Guide →](/developer-guides/payments/payment-operations/))
-- **Storage**: Upload and download files to storage providers ([Storage Operations Guide →](/developer-guides/storage/storage-operations/))
-- **Provider Discovery**: Query registered storage providers and products
-- **Session Keys**: Delegate signing authority for automated workflows
+    subgraph "Lower-Level"
+        WSS[WarmStorageService]
+        SC[StorageContext]
+    end
+    Synapse --> SM
+    Synapse --> PS
+    SM --> SC
+    SM --> WSS
+    PS --> SC
+```
 
-[**Synapse SDK Guide →**](/developer-guides/synapse/)
+The SDK architecture is guided by several key principles that ensure maintainability, flexibility, and ease of use:
 
-[**Synapse SDK Reference →**](/reference/filoz/synapse-sdk/toc/)
+**Design Principles**:
 
-## Synapse Core
+- **Separation of Concerns**: Protocol, business logic, and application layers are distinct
+- **Composability**: Each component can be used independently or together
+- **Abstraction**: SDK hides blockchain complexity from applications
+- **Verification**: All storage backed by cryptographic proofs
 
-**Synapse Core** is a low-level building blocks that the SDK and React packages build on. Use when you need direct control over individual operations.
+## SDK Components
 
-- **Contract functions** - Filecoin Pay, Warm Storage, PDP Verifier, Service Provider Registry
-- **Storage provider HTTP API**: Data set creation, piece uploads, deletions
-- **PieceCID utilities** - Calculate, parse, and validate piece identifiers
-- **EIP-712 typed data** - Sign operations for data set and piece management
-- **Chain configuration** - Mainnet, calibration, and devnet definitions
+The SDK is organized into three layers, each serving a specific purpose:
 
-[**Synapse Core Guide →**](/developer-guides/synapse-core/)
+- **High-Level API**: The `Synapse` class provides a simple interface for common operations.
+- **Service Layer**: `PaymentsService` and `StorageManager` handle domain-specific logic.
+- **Lower-Level Clients**: Direct access to contracts and providers for advanced use cases.
 
-[**Synapse Core Reference →**](/reference/filoz/synapse-core/toc/)
+### Synapse
 
-## Synapse React
+**Purpose**: Main SDK entry point with simple, high-level API
 
-React hooks for payments, storage, and provider operations. Built on [Wagmi](https://wagmi.sh) and [TanStack Query](https://tanstack.com/query).
+**API Reference**: [Synapse API Reference](/reference/filoz/synapse-sdk/synapse/classes/synapse/)
 
-[**Synapse React Guide →**](/developer-guides/react-integration/)
+### PaymentsService
 
-[**Synapse React Reference →**](/reference/filoz/synapse-react/toc/)
+The PaymentsService provides direct access to the Filecoin Pay contract, enabling you to:
+
+- Manage token deposits and withdrawals
+- Approve operators for automated payments
+- Query and settle payment rails
+- Monitor account health and balance
+
+This is your primary interface for all payment-related operations in the SDK.
+
+**API Reference**: [PaymentsService API Reference](/reference/filoz/synapse-sdk/payments/classes/paymentsservice/)
+
+Check out the [Payment Operations](/developer-guides/payments/payment-operations/) guide for more details.
+
+### StorageManager
+
+**Purpose**: High-level storage operations with multi-copy durability. `upload()` stores data on multiple providers automatically. Also handles provider-agnostic downloads.
+
+**API Reference**: [StorageManager API Reference](/reference/filoz/synapse-sdk/storage/classes/storagemanager/)
+
+Check out the [Storage Operations](/developer-guides/storage/storage-operations/) guide for more details.
+
+### StorageContext
+
+**Purpose**: Provider-specific split operations (`store` → `pull` → `commit`). Used for batch uploads, custom error handling, and manual orchestration of multi-copy flows.
+
+**API Reference**: [StorageContext API Reference](/reference/filoz/synapse-sdk/storage/classes/storagecontext/)
+
+Check out the [Split Operations](/developer-guides/storage/storage-context/) guide for more details.
+
+### WarmStorageService
+
+**Purpose**: SDK client for storage coordination and pricing - storage pricing and cost calculations, data set management and queries, metadata operations (data sets and pieces), service provider approval management, contract address discovery, data set creation verification.
+
+**API Reference**: [WarmStorageService API Reference](/reference/filoz/synapse-sdk/warmstorage/classes/warmstorageservice/)
 
 ## Complete Data Flow
 
@@ -117,8 +162,8 @@ Choose your learning path based on your immediate needs:
 
 Jump straight to code with the [**Getting Started Guide →**](/getting-started/)
 
-- [**Storage Operations →**](/developer-guides/storage/storage-operations/) - Upload and download your first file
-- [**Storage Context →**](/developer-guides/storage/storage-context/) - Advanced storage operations and batch uploads
+- [**Storage Operations →**](/developer-guides/storage/storage-operations/) - Multi-copy uploads and downloads
+- [**Split Operations →**](/developer-guides/storage/storage-context/) - Manual control over store, pull, and commit
 - [**Payment Operations →**](/developer-guides/payments/payment-operations/) - Fund your account and manage payments
 - [**Rails & Settlement →**](/developer-guides/payments/rails-settlement/) - Payment mechanics and settlement strategies
 - [**React Integration →**](/developer-guides/react-integration/) - Use Synapse React hooks in your React app

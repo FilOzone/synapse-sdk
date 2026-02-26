@@ -44,6 +44,8 @@ export type PdpDataSetInfo = {
   metadata: MetadataObject
   /** PDP provider associated with the data set. */
   provider: PDPProvider
+  /** Number of active (non-zero) pieces in the data set. */
+  activePieceCount: bigint
 }
 
 export interface PdpDataSet extends DataSetInfo, PdpDataSetInfo {}

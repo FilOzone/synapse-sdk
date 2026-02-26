@@ -100,15 +100,13 @@ describe('StorageService', () => {
       assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
     })
 
-    it('should skip existing datasets and return -1 with providerId when forceCreateDataSet is true', async () => {
-      let fetchedDataSets = false
+    it('should select provider and find existing data set with providerId', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
             getAllDataSetMetadata() {
-              fetchedDataSets = true
               return [[], []]
             },
           },
@@ -127,7 +125,6 @@ describe('StorageService', () => {
         synapse,
         warmStorageService,
         providerId: Mocks.PROVIDERS.provider1.providerId,
-        forceCreateDataSet: true,
       })
 
       assert.equal(
@@ -135,11 +132,9 @@ describe('StorageService', () => {
         Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
         'Should select the requested provider'
       )
-      assert.equal(context.dataSetId, undefined, 'Should not have a data set id when forceCreateDataSet is true')
-      assert.isFalse(fetchedDataSets, 'Should not have fetched existing data sets when forceCreateDataSet is true')
     })
 
-    it('should skip existing datasets and return -1 with providerAddress when forceCreateDataSet is true', async () => {
+    it('should select provider by providerId and reuse existing data set', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -160,7 +155,7 @@ describe('StorageService', () => {
       const context = await StorageContext.create({
         synapse,
         warmStorageService,
-        providerAddress: Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
+        providerId: Mocks.PROVIDERS.provider1.providerId,
       })
 
       assert.equal(
@@ -168,10 +163,9 @@ describe('StorageService', () => {
         Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
         'Should select the requested provider'
       )
-      assert.equal(context.dataSetId, undefined, 'Should not have a data set id when forceCreateDataSet is true')
     })
 
-    it('should reuse existing data set with providerId when forceCreateDataSet is not set', async () => {
+    it('should reuse existing data set with providerId', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -199,7 +193,7 @@ describe('StorageService', () => {
       })
       // Should have reused existing data set (not created new one)
       assert.equal(context.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
-      assert.equal(context.dataSetId, 1n, 'Should not have a data set id when forceCreateDataSet is true')
+      assert.equal(context.dataSetId, 1n, 'Should reuse the existing data set')
     })
 
     it('should throw when no approved providers available', async () => {
@@ -380,7 +374,6 @@ describe('StorageService', () => {
             providerCallbackFired = true
           },
           onDataSetResolved: (info) => {
-            assert.isTrue(info.isExisting)
             assert.equal(info.dataSetId, 1n)
             dataSetCallbackFired = true
           },
@@ -448,7 +441,7 @@ describe('StorageService', () => {
       assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
     })
 
-    it('should select by providerAddress', async () => {
+    it('should select by providerId', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -473,7 +466,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create({
         synapse,
         warmStorageService,
-        providerAddress: Mocks.PROVIDERS.provider2.providerInfo.serviceProvider,
+        providerId: Mocks.PROVIDERS.provider2.providerId,
       })
 
       assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider2.providerInfo.serviceProvider)
@@ -533,7 +526,7 @@ describe('StorageService', () => {
       }
     })
 
-    it('should throw when providerAddress not approved', async () => {
+    it('should throw when providerId not approved', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -546,7 +539,7 @@ describe('StorageService', () => {
         await StorageContext.create({
           synapse,
           warmStorageService,
-          providerAddress: '0x6666666666666666666666666666666666666666',
+          providerId: 999n,
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
@@ -560,8 +553,37 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
-            clientDataSets: () => [[1n, 2n]],
-            getAllDataSetMetadata: (args) => {
+            getClientDataSets: () => [
+              [
+                {
+                  cacheMissRailId: 0n,
+                  cdnRailId: 0n,
+                  clientDataSetId: 0n,
+                  commissionBps: 100n,
+                  dataSetId: 1n,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
+                  pdpEndEpoch: 0n,
+                  pdpRailId: 1n,
+                  providerId: 1n,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                },
+                {
+                  cacheMissRailId: 0n,
+                  cdnRailId: 1n,
+                  clientDataSetId: 0n,
+                  commissionBps: 100n,
+                  dataSetId: 2n,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
+                  pdpEndEpoch: 0n,
+                  pdpRailId: 2n,
+                  providerId: 1n,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                },
+              ],
+            ],
+            getAllDataSetMetadata: (args: any) => {
               const [dataSetId] = args
               if (dataSetId === 2n) {
                 return [
@@ -570,42 +592,6 @@ describe('StorageService', () => {
                 ]
               }
               return [[], []] // empty metadata for other data sets
-            },
-            getDataSet: (args) => {
-              const [dataSetId] = args
-              if (dataSetId === 1n) {
-                return [
-                  {
-                    cacheMissRailId: 0n,
-                    cdnRailId: 0n,
-                    clientDataSetId: 0n,
-                    commissionBps: 100n,
-                    dataSetId: 1n,
-                    payee: Mocks.ADDRESSES.serviceProvider1,
-                    payer: Mocks.ADDRESSES.client1,
-                    pdpEndEpoch: 0n,
-                    pdpRailId: 1n,
-                    providerId: 1n,
-                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                  },
-                ]
-              } else {
-                return [
-                  {
-                    cacheMissRailId: 0n,
-                    cdnRailId: 1n,
-                    clientDataSetId: 0n,
-                    commissionBps: 100n,
-                    dataSetId: 2n,
-                    payee: Mocks.ADDRESSES.serviceProvider1,
-                    payer: Mocks.ADDRESSES.client1,
-                    pdpEndEpoch: 0n,
-                    pdpRailId: 2n,
-                    providerId: 1n,
-                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                  },
-                ]
-              }
             },
           },
         }),
@@ -725,7 +711,7 @@ describe('StorageService', () => {
       }
     })
 
-    it('should handle conflict between dataSetId and providerAddress', async () => {
+    it('should handle conflict between dataSetId and providerId', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -762,7 +748,7 @@ describe('StorageService', () => {
           synapse,
           warmStorageService,
           dataSetId: 1n,
-          providerAddress: '0x9999888877776666555544443333222211110000',
+          providerId: 999n,
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
@@ -1051,15 +1037,13 @@ describe('StorageService', () => {
       assert.equal(results[1].status, 'rejected')
 
       if (results[0].status === 'rejected' && results[1].status === 'rejected') {
-        assert.include(results[0].reason.message, 'Failed to upload piece to service provider')
-        assert.include(results[1].reason.message, 'Failed to upload piece to service provider')
-        // They should have the same error message (same batch)
-        assert.equal(results[0].reason.message, results[1].reason.message)
+        assert.include(results[0].reason.message, 'Failed to store piece on service provider')
+        assert.include(results[1].reason.message, 'Failed to store piece on service provider')
       }
 
-      // Third upload might succeed or fail depending on timing
+      // Third upload should also fail since the mock always errors
       if (results[2].status === 'rejected') {
-        assert.include(results[2].reason.message, 'Failed to upload piece to service provider')
+        assert.include(results[2].reason.message, 'Failed to store piece on service provider')
       }
     })
 
@@ -1183,7 +1167,7 @@ describe('StorageService', () => {
       } catch (error: any) {
         // The error is wrapped twice - first by the specific throw, then by the outer catch
         assert.include(error.message, 'StorageContext addPieces failed:')
-        assert.include(error.message, 'Failed to add piece to data set')
+        assert.include(error.message, 'Failed to commit pieces on-chain')
       }
     })
 
@@ -1275,7 +1259,7 @@ describe('StorageService', () => {
         await service.upload(testData)
         assert.fail('Should have thrown upload error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to upload piece to service provider')
+        assert.include(error.message, 'Failed to store piece on service provider')
       }
     })
 
@@ -1304,7 +1288,7 @@ describe('StorageService', () => {
         await service.upload(testData)
         assert.fail('Should have thrown add pieces error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to add piece to data set')
+        assert.include(error.message, 'Failed to commit pieces on-chain')
       }
     })
   })
@@ -1353,8 +1337,8 @@ describe('StorageService', () => {
           await StorageContext.create({ synapse, warmStorageService })
           assert.fail('Should have thrown error')
         } catch (error: any) {
-          assert.include(error.message, 'StorageContext selectProviderWithPing failed')
-          assert.include(error.message, 'All 2 providers failed health check')
+          assert.include(error.message, 'StorageContext resolveProviderAndDataSet failed')
+          assert.include(error.message, 'No approved service providers available')
         }
       })
     })
@@ -1400,7 +1384,7 @@ describe('StorageService', () => {
     })
   })
 
-  describe('getDataSetPieces', () => {
+  describe('getPieces', () => {
     it('should successfully fetch data set pieces', async () => {
       const mockDataSetData = {
         id: 1,

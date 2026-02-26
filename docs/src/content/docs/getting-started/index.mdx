@@ -93,17 +93,19 @@ async function main() {
   await synapse.client.waitForTransactionReceipt({ hash })
   console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
 
-  // 3) Upload
+  // 3) Upload — stores 2 copies across independent providers for durability
   const file = new TextEncoder().encode(
-    `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
-    Your data is safe here. 
-    🌍 You need to make sure to meet the minimum size 
+    `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud!
+    Your data is safe here.
+    🌍 You need to make sure to meet the minimum size
     requirement of 127 bytes per upload.`
   );
-  const { pieceCid, size } = await synapse.storage.upload(file)
+  const { pieceCid, size, copies, failures } = await synapse.storage.upload(file)
   console.log(`✅ Upload complete!`);
   console.log(`PieceCID: ${pieceCid}`);
   console.log(`Size: ${size} bytes`);
+  console.log(`Stored on ${copies.length} providers`);
+  if (failures.length > 0) console.warn(`${failures.length} copy attempt(s) failed`);
 
   // 4) Download
   const bytes = await synapse.storage.download({ pieceCid })
@@ -127,8 +129,8 @@ What you just did:
 - ✅ Initialized synapse SDK for Filecoin Calibration
 - ✅ Deposited USDFC as payment tokens
 - ✅ Authorized the storage service to use the token
-- ✅ Uploaded data to decentralized storage
-- ✅ Retrieved it using only the content address
+- ✅ Uploaded data with 2 copies across independent providers for durability
+- ✅ Retrieved it using only the content address (from any provider that has it)
 
 Now let's break down each step...
 
@@ -181,14 +183,16 @@ import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 // ---cut---
-// Upload data - SDK automatically selects provider and creates data set if needed
+// Upload data — stores 2 copies by default for durability
 const file = new TextEncoder().encode(
-  `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
-    Your data is safe here. 
-    🌍 You need to make sure to meet the minimum size 
+  `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud!
+    Your data is safe here.
+    🌍 You need to make sure to meet the minimum size
     requirement of 127 bytes per upload.`
 );
-const { pieceCid } = await synapse.storage.upload(file);
+const { pieceCid, copies, failures } = await synapse.storage.upload(file);
+console.log(`Stored on ${copies.length} providers`);
+if (failures.length > 0) console.warn(`${failures.length} copy attempt(s) failed`);
 
 // Download data from any provider that has it
 const downloadedData = await synapse.storage.download({ pieceCid });

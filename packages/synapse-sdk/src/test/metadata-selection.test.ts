@@ -7,97 +7,9 @@ import { setup } from 'iso-web/msw'
 import { createWalletClient, http as viemHttp, zeroAddress } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { METADATA_KEYS } from '../utils/constants.ts'
-import { metadataMatches } from '../utils/metadata.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 
 describe('Metadata-based Data Set Selection', () => {
-  describe('Metadata Utilities', () => {
-    describe('metadataMatches', () => {
-      it('should not match when data set has extra keys', () => {
-        const dataSetMetadata: Record<string, string> = {
-          environment: 'production',
-          [METADATA_KEYS.WITH_CDN]: '',
-          region: 'us-east',
-        }
-
-        const requested: Record<string, string> = {
-          [METADATA_KEYS.WITH_CDN]: '',
-          environment: 'production',
-        }
-
-        // With exact matching, extra keys in dataSet mean no match
-        assert.isFalse(metadataMatches(dataSetMetadata, requested))
-      })
-
-      it('should not match when requested value differs', () => {
-        const dataSetMetadata: Record<string, string> = {
-          environment: 'production',
-          [METADATA_KEYS.WITH_CDN]: '',
-        }
-
-        const requested: Record<string, string> = { environment: 'development' }
-
-        assert.isFalse(metadataMatches(dataSetMetadata, requested))
-      })
-
-      it('should not match when requested key is missing', () => {
-        const dataSetMetadata: Record<string, string> = { environment: 'production' }
-
-        const requested: Record<string, string> = { [METADATA_KEYS.WITH_CDN]: '' }
-
-        assert.isFalse(metadataMatches(dataSetMetadata, requested))
-      })
-
-      it('should not match when data set has metadata but empty requested', () => {
-        const dataSetMetadata: Record<string, string> = { environment: 'production' }
-
-        const requested: Record<string, string> = {}
-
-        // With exact matching, non-empty dataSet doesn't match empty request
-        assert.isFalse(metadataMatches(dataSetMetadata, requested))
-      })
-
-      it('should be order-independent with exact matching', () => {
-        const dataSetMetadata: Record<string, string> = {
-          b: '2',
-          a: '1',
-          c: '3',
-        }
-
-        const requested: Record<string, string> = {
-          c: '3',
-          a: '1',
-          b: '2',
-        }
-
-        // Order doesn't matter, but must have exact same keys
-        assert.isTrue(metadataMatches(dataSetMetadata, requested))
-      })
-
-      it('should match when both have empty metadata', () => {
-        const dataSetMetadata: Record<string, string> = {}
-        const requested: Record<string, string> = {}
-
-        // Both empty = exact match
-        assert.isTrue(metadataMatches(dataSetMetadata, requested))
-      })
-
-      it('should match when metadata is exactly the same', () => {
-        const dataSetMetadata: Record<string, string> = {
-          [METADATA_KEYS.WITH_CDN]: '',
-          environment: 'production',
-        }
-
-        const requested: Record<string, string> = {
-          [METADATA_KEYS.WITH_CDN]: '',
-          environment: 'production',
-        }
-
-        assert.isTrue(metadataMatches(dataSetMetadata, requested))
-      })
-    })
-  })
-
   describe('WarmStorageService with Metadata', () => {
     let server: any
     let warmStorageService: WarmStorageService
@@ -253,31 +165,6 @@ describe('Metadata-based Data Set Selection', () => {
       assert.equal(dataSets[2].pdpVerifierDataSetId, 3n)
       assert.isFalse(dataSets[2].withCDN)
       assert.deepEqual(dataSets[2].metadata, { [METADATA_KEYS.WITH_IPFS_INDEXING]: '' })
-    })
-
-    it('should prefer data sets with matching metadata', async () => {
-      const dataSets = await warmStorageService.getClientDataSetsWithDetails({ address: Mocks.ADDRESSES.client1 })
-
-      // Filter for data sets with withIPFSIndexing
-      const withIndexing = dataSets.filter((ds) =>
-        metadataMatches(ds.metadata, { [METADATA_KEYS.WITH_IPFS_INDEXING]: '' })
-      )
-
-      assert.equal(withIndexing.length, 1)
-      assert.equal(withIndexing[0].pdpVerifierDataSetId, 3n)
-
-      // Filter for data sets with withCDN
-      const withCDN = dataSets.filter((ds) => metadataMatches(ds.metadata, { [METADATA_KEYS.WITH_CDN]: '' }))
-
-      assert.equal(withCDN.length, 1)
-      assert.equal(withCDN[0].pdpVerifierDataSetId, 2n)
-
-      // Filter for data sets with no specific metadata (exact empty match)
-      const noRequirements = dataSets.filter((ds) => metadataMatches(ds.metadata, {}))
-
-      // With exact matching, only data set 1 with empty metadata matches
-      assert.equal(noRequirements.length, 1)
-      assert.equal(noRequirements[0].pdpVerifierDataSetId, 1n)
     })
   })
 })
