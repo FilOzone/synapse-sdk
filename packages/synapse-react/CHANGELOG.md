@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.2.1...synapse-react-v0.2.2) (2026-02-26)
+
+
+### Features
+
+* new session keys with viem ([#618](https://github.com/FilOzone/synapse-sdk/issues/618)) ([ad9ebe7](https://github.com/FilOzone/synapse-sdk/commit/ad9ebe7cc7792f42c980f1d1b9c51bd574fc674b))
+
+
+### Chores
+
+* **master:** release synapse-core 0.2.2 ([92fd0cb](https://github.com/FilOzone/synapse-sdk/commit/92fd0cb81f986e6dcee5b732324266bb00440eff))
+* **master:** release synapse-sdk 0.37.2 ([c4396e1](https://github.com/FilOzone/synapse-sdk/commit/c4396e145160ffdf0591cecb6546f93af86e6c8e))
+
 ## [0.2.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.2.0...synapse-react-v0.2.1) (2026-02-12)
 
 
