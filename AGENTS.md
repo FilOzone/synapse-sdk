@@ -14,27 +14,42 @@ Primary interface for developers building on the FOC services marketplace. Abstr
 
 ```text
 packages/synapse-sdk/src/
-├── synapse.ts                  # Main entry point
+├── synapse.ts                  # Main entry point (Synapse class)
 ├── types.ts                    # TypeScript interfaces
+├── storage/
+│   ├── manager.ts              # StorageManager (multi-copy upload orchestration)
+│   └── context.ts              # StorageContext (per-provider store/pull/commit ops)
 ├── payments/service.ts         # PaymentsService (deposits, withdrawals, rails)
 ├── warm-storage/service.ts     # WarmStorageService (storage costs, allowances, data sets)
 ├── sp-registry/                # SPRegistryService (provider discovery, products)
-├── storage/
-│   ├── manager.ts              # StorageManager (auto-managed contexts)
-│   └── context.ts              # StorageContext (explicit provider+dataset ops)
-├── piece/                      # PieceCID utilities
-├── session/                    # Session key support
-├── subgraph/                   # Subgraph queries
-├── retriever/                  # Content retrieval
+├── filbeam/                    # FilBeamService (CDN)
+├── errors/
+│   ├── index.ts                # Re-exports
+│   └── storage.ts              # StoreError, CommitError
 └── utils/
     ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS
-    ├── errors.ts
+    ├── errors.ts               # SynapseError base class
     ├── metadata.ts
-    ├── network.ts
-    └── provider-resolver.ts
+    └── network.ts
+
+packages/synapse-core/src/      # Lower-level protocol layer (separate package)
+├── sp/                         # Curio HTTP API client (PDP endpoints)
+│   ├── sp.ts                   # Low-level PDP API calls
+│   └── pull.ts                 # SP-to-SP pull with EIP-712 signing
+├── piece/                      # PieceCID utilities
+├── typed-data/                 # EIP-712 signing (CreateDataSet, AddPieces, etc.)
+├── warm-storage/               # Provider selection, data set matching
+├── session-key/                # Session key creation and management
+├── pdp-verifier/               # PDPVerifier contract reads
+├── pay/                        # Filecoin Pay contract interactions
+├── sp-registry/                # ServiceProviderRegistry reads
+├── chains.ts                   # Chain definitions (mainnet, calibration)
+├── devnet/                     # foc-devnet integration (validateDevnetInfo, toChain)
+├── mocks/                      # MSW-based test mocking infrastructure
+└── utils/                      # Metadata, formatting, helpers
 ```
 
-**Data flow**: Client signs for FWSS → Curio HTTP API → PDPVerifier contract → FWSS callback → Payments contract.
+**Data flow**: Client signs EIP-712 for FWSS → Curio HTTP API → PDPVerifier contract → FWSS callback → Payments contract.
 
 ## Development
 
@@ -49,6 +64,8 @@ packages/synapse-sdk/src/
 
 **Tests**: Mocha + Chai, `src/test/`, run with `pnpm test`
 
+**E2E**: `node utils/example-storage-e2e.js <file> [file2] ...` against calibnet or devnet. See `resolveConfig()` in the file for env vars. Single file uses streaming upload; multiple files demonstrate split operations.
+
 ## Biome Linting (Critical)
 
 **NO** `!` operator → use `?.` or explicit checks
@@ -59,25 +76,75 @@ Run `pnpm run lint:fix` before commits.
 
 ## Key Components
 
-**Synapse** (`Synapse.create({privateKey, rpcUrl})` or `{provider}` or `{signer}`): Main entry, auto-detects network (mainnet/calibration only), minimal interface (`synapse.payments`, `synapse.storage`).
+**Synapse** (`Synapse.create({privateKey, rpcUrl})` or `{provider}` or `{signer}`): Main entry, auto-detects network (mainnet/calibration only), minimal interface (`synapse.payments`, `synapse.storage`). Optionally accepts `sessionKey` for delegated signing.
 
-**PaymentsService**: Deposits, withdrawals, operator approvals, payment rails. Wraps Payments contract.
+**PaymentsService**: Deposits, withdrawals, operator approvals, payment rails. Wraps Filecoin Pay contract.
 
 **WarmStorageService**: Storage costs, allowances, data sets. Source of all contract addresses via auto-discovery. Wraps FWSS contract.
 
 **SPRegistryService**: Provider discovery, metadata, products. Wraps ServiceProviderRegistry contract.
 
-**StorageManager**: High-level storage ops with auto-managed contexts, SP-agnostic downloads.
+**StorageManager**: Multi-copy upload orchestration. Auto-selects providers (endorsed primary + approved secondaries), manages the store → pull → commit pipeline, handles SP-agnostic downloads. Entry point: `synapse.storage`.
 
-**StorageContext**: Explicit provider+dataset operations with metadata.
+**StorageContext**: Represents a specific provider + data set pair. Exposes split operations (`store()`, `pull()`, `commit()`, `presignForCommit()`) for fine-grained control, plus convenience `upload()` that combines store + commit. Created via `StorageManager.createContexts()`.
 
-**PDPServer**: HTTP client for Curio PDP API (`POST /pdp/data-sets`, `POST /pdp/piece`, etc.).
+**synapse-core** (`@filoz/synapse-core`): Lower-level protocol package. Contains Curio HTTP client, EIP-712 signing, provider selection logic, PieceCID utilities, session key management, chain definitions, and test mocking infrastructure. Versions independently from synapse-sdk.
 
-**PDPAuthHelper**: EIP-712 signature creation for operations (CreateDataSet, AddPieces, ScheduleRemovals, DeleteDataSet).
+## Multi-Copy Upload Flow
+
+Storage uses a store → pull → commit pipeline for multi-copy durability:
+
+```
+Client ──store──> Primary SP (endorsed)
+                    │
+         ┌─────────┴─────────┐
+         ▼                   ▼
+      Secondary SP        Secondary SP
+       (pull from          (pull from
+        primary)            primary)
+         │                   │
+         ▼                   ▼
+      commit()            commit()
+      (on-chain)          (on-chain)
+```
+
+1. **store()**: Upload data to primary provider. Returns PieceCID. No on-chain state.
+2. **pull()**: Secondary providers fetch the piece from primary via SP-to-SP transfer. Curio validates authorization via `estimateGas` against the EIP-712 signed blob.
+3. **commit()**: Call AddPieces (or CreateDataSetAndAddPieces) on-chain for each provider.
+
+**presignForCommit()** creates the EIP-712 signed blob before pull, so the same signature serves as authorization for both the pull (SP validates via estimateGas) and the commit (on-chain submission). Avoids double wallet prompts.
+
+### Provider Selection
+
+- **Endorsed** providers: curated, high-quality SPs. Always used as primary.
+- **Approved** providers: pass automated quality checks. Used as secondaries.
+- Endorsed is a subset of approved. Default count is 2 (1 primary + 1 secondary).
+- `createContexts()` has 3 mutually exclusive paths: (1) no options = auto-select, (2) `dataSetIds` = use those exactly, (3) `providerIds` = use those exactly. No mixing.
+
+### Failure Handling
+
+`UploadResult` returns `copies[]` (successful) and `failures[]` (failed). Primary failure is fatal; secondary failures are reported but non-fatal. `StoreError` and `CommitError` (in `errors/storage.ts`) carry providerId and cause chain.
+
+## Session Keys
+
+Session keys allow delegated signing without exposing the main wallet. Created via `@filoz/synapse-core/session-key`.
+
+```typescript
+import * as SessionKey from '@filoz/synapse-core/session-key'
+
+const sessionKey = SessionKey.fromSecp256k1({
+  chain: calibration,
+  privateKey: sessionPrivateKey,
+  root: client.account,
+})
+const synapse = new Synapse({ client, sessionClient: sessionKey.client })
+```
+
+All signing operations (store, pull, commit, delete) use `sessionClient ?? client` internally. The `payer` address always remains the root wallet.
 
 ## Contract Architecture
 
-**Base**: :"Filecoin Pay" payments contract (generic payment rails, deposits, withdrawals, operator approvals)
+**Base**: Filecoin Pay - generic payment rails (deposits, withdrawals, operator approvals)
 
 **Service**: FilecoinWarmStorageService (FWSS) - client auth (EIP-712), provider whitelist, payment rail creation, implements PDPListener callbacks. Split into main contract (write ops) + StateView contract (read ops).
 
@@ -95,7 +162,7 @@ Filecoin's content-addressed identifier for data pieces. Format: `uvarint paddin
 
 Extract digest: `digest.bytes.subarray(digest.bytes.length - 32)`
 
-**Utilities** (`@filoz/synapse-sdk/piece`): `calculate()`, `asPieceCID()`, `asLegacyPieceCID()`, `createPieceCIDStream()`
+**Utilities** (`@filoz/synapse-core/piece`): `calculate()`, `asPieceCID()`, `asLegacyPieceCID()`, `createPieceCIDStream()`
 
 Ref: FRC-0069
 
@@ -124,30 +191,50 @@ Ref: FRC-0069
 ## Storage API
 
 ```typescript
-// Simple: auto-managed
-const synapse = await Synapse.create({privateKey, rpcUrl})
-await synapse.storage.upload(data)
-await synapse.storage.download(pieceCid)  // SP-agnostic
+// Simple: auto-managed multi-copy upload
+const synapse = await Synapse.create({ privateKey, rpcUrl })
+const result = await synapse.storage.upload(data)
+// result.copies = [{ providerId, dataSetId, pieceId, role: 'primary'|'secondary' }]
+// result.failures = [{ providerId, error, role }]
 
-// Advanced: explicit context
-const ctx = await synapse.storage.createContext({
-  providerId: 1,
-  metadata: {category: 'videos', withCDN: ''}
+// Download (SP-agnostic, tries all known providers)
+const bytes = await synapse.storage.download({ pieceCid })
+
+// Explicit contexts for fine-grained control
+const [primary, secondary] = await synapse.storage.createContexts({ count: 2 })
+const stored = await primary.store(data)            // Upload, get PieceCID
+const extraData = await secondary.presignForCommit([{ pieceCid: stored.pieceCid }])
+await secondary.pull({                               // SP-to-SP transfer
+  pieces: [stored.pieceCid],
+  from: (cid) => primary.getPieceUrl(cid),
+  extraData,
 })
-await ctx.upload(data)
-await ctx.download(pieceCid)  // SP-specific
+await primary.commit({ pieces: [{ pieceCid: stored.pieceCid }] })
+await secondary.commit({ pieces: [{ pieceCid: stored.pieceCid }], extraData })
 ```
 
 ## Curio PDP API
 
+Endpoints on Curio's PDP HTTP API, called by synapse-core's SP client (`@filoz/synapse-core/sp`):
+
 - `POST /pdp/data-sets` - Create data set
-- `GET /pdp/data-sets/created/{txHash}` - Check creation status
-- `GET /pdp/data-sets/{dataSetId}` - Get details
-- `POST /pdp/data-sets/{dataSetId}/pieces` - Add pieces
-- `DELETE /pdp/data-sets/{dataSetId}/pieces/{pieceId}` - Schedule removal
-- `POST /pdp/piece` - Create upload session
-- `PUT /pdp/piece/upload/{uploadUUID}` - Upload piece data
-- `GET /pdp/piece/` - Find pieces
+- `POST /pdp/data-sets/create-and-add` - Create data set and add pieces (primary path)
+- `GET /pdp/data-sets/created/{txHash}` - Poll data set creation status
+- `GET /pdp/data-sets/{dataSetId}` - Get data set details
+- `DELETE /pdp/data-sets/{dataSetId}` - Delete data set
+- `POST /pdp/data-sets/{dataSetId}/pieces` - Add pieces to existing data set
+- `GET /pdp/data-sets/{dataSetId}/pieces/added/{txHash}` - Poll piece addition status
+- `GET /pdp/data-sets/{dataSetId}/pieces/{pieceId}` - Get piece details
+- `DELETE /pdp/data-sets/{dataSetId}/pieces/{pieceId}` - Schedule piece removal
+- `POST /pdp/piece` - Create upload session (legacy)
+- `PUT /pdp/piece/upload/{uploadUUID}` - Upload piece data (legacy)
+- `POST /pdp/piece/uploads` - Create streaming upload session
+- `PUT /pdp/piece/uploads/{uploadUUID}` - Stream piece data
+- `POST /pdp/piece/uploads/{uploadUUID}` - Finalize streaming upload
+- `GET /pdp/piece/` - Find piece by PieceCID
+- `GET /pdp/piece/{pieceCid}/status` - Piece indexing/IPNI status
+- `POST /pdp/piece/pull` - Pull piece from another SP (idempotent, doubles as status poll)
+- `GET /pdp/ping` - Health check
 
 ## Conventional Commits
 
