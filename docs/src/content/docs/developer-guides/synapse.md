@@ -2,7 +2,7 @@
 title: Synapse SDK
 description: Overview of the Synapse SDK.
 sidebar:
-  order: 0
+  order: 2
 ---
 
 ## What is Synapse SDK?
@@ -11,10 +11,10 @@ sidebar:
 
 The SDK integrates with four key components of the Filecoin Onchain Cloud:
 
-- **PDPVerifier** : Proof verification contract powered by ([PDP](/core-concepts/pdp-overview/))
-- **Filecoin Pay** : Payment layer contract powered by ([Filecoin Pay](/core-concepts/filecoin-pay-overview/))
-- **Filecoin Warm Storage Service** : Business logic contract powered by ([WarmStorage](/core-concepts/fwss-overview/))
-- **Service Providers** : Service providers are the actors that safeguard the data stored in the Filecoin Onchain Cloud powered by the [Curio Storage software](https://github.com/filecoin-project/curio)
+- **PDPVerifier**: Proof verification contract powered by [PDP](/core-concepts/pdp-overview/)
+- **Filecoin Pay**: Payment layer contract powered by [Filecoin Pay](/core-concepts/filecoin-pay-overview/)
+- **Filecoin Warm Storage Service**: Business logic contract powered by [WarmStorage](/core-concepts/fwss-overview/)
+- **Service Providers**: Actors that safeguard data stored in the Filecoin Onchain Cloud, powered by the [Curio Storage software](https://github.com/filecoin-project/curio)
 
 :::tip[New to Synapse SDK?]
 **Start building in 5 minutes!** Follow the [**Getting Started Guide →**](/getting-started/) to install the SDK, configure your environment, and upload your first file to Filecoin Onchain Cloud.
@@ -24,75 +24,91 @@ The SDK integrates with four key components of the Filecoin Onchain Cloud:
 Looking for Python or Go? Check out [Community Projects](/resources/community-projects/) for community-maintained SDKs.
 :::
 
-The `Synapse` class provides a single entry point for all operations:
+## Core Modules
 
-```ts twoslash
-// @lib: esnext,dom
-import {
-  Synapse,
-  SynapseOptions,
-} from "@filoz/synapse-sdk"
-import type { PaymentsService } from "@filoz/synapse-sdk/payments"
-import type { StorageManager } from "@filoz/synapse-sdk/storage"
-import type { FilBeamService } from "@filoz/synapse-sdk/filbeam"
-import type { SPRegistryService } from "@filoz/synapse-sdk/sp-registry"
-import type { Chain } from '@filoz/synapse-core/chains'
-import {
-  type Client,
-} from 'viem'
-import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
+```mermaid
+graph LR
+    subgraph "Public API"
+        Synapse
+    end
 
-// ---cut---
-interface SynapseAPI {
-  // Create a new Synapse instance
-  create(options: SynapseOptions): Synapse
-  // Properties
-  client: Client
-  chain: Chain
-  // Services
-  payments: PaymentsService
-  storage: StorageManager
-  providers: SPRegistryService
-  filbeam: FilBeamService
-  // Storage provider info getter
-  getProviderInfo(providerAddress: string | bigint): Promise<PDPProvider>
-}
+    subgraph "Payment Operations"
+        PS[PaymentsService]
+    end
+
+    subgraph "Storage Operations"
+        SM[StorageManager]
+    end
+
+    subgraph "Lower-Level"
+        WSS[WarmStorageService]
+        SC[StorageContext]
+    end
+    Synapse --> SM
+    Synapse --> PS
+    SM --> SC
+    SM --> WSS
 ```
 
-### Payment Operations
+- **`Synapse`**: Is the main entry point with high-level API
+- **`PaymentsService`**: Manages deposits, approvals, and payment rails
+- **`StorageManager`**, **`StorageContext`**: Storage operation modules
+- **`WarmStorageService`**: Storage coordination and pricing module
+
+## Payment Operations
 
 Fund your account and manage payments for Filecoin storage services.
 
-#### When You Need This
+### PaymentsService
 
-- Required before uploading files (must fund account and approve operators)
-- To monitor account balance and health
-- If you're a service provider managing settlements
+The PaymentsService provides direct access to the Filecoin Pay contract, enabling you to:
+
+- Manage token deposits and withdrawals
+- Approve operators for automated payments
+- Query and settle payment rails
+- Monitor account health and balance
 
 [View Payment Operations Guide →](/developer-guides/payments/payment-operations/) - _Learn the basics in less than 10 minutes_
 
 [View Rails & Settlement Guide →](/developer-guides/payments/rails-settlement/) - _Learn the advanced payment concepts_
 
-### Storage Operations
+**API Reference**: [PaymentsService API Reference](/reference/filoz/synapse-sdk/payments/classes/paymentsservice/)
 
-The SDK provides storage with multi-copy durability by default. Three tiers of increasing control:
+## Storage Operations
 
-- **`synapse.storage.upload(data)`** — Multi-copy upload (default: 2 providers). Handles provider selection, SP-to-SP replication, and on-chain commit automatically. Returns `{ pieceCid, size, copies, failures }`.
-- **Split operations** — Manual control over each upload phase (`store` → `pull` → `commit`) via `StorageContext`. For batch uploads, custom error handling, and pre-signing.
-- **Core library** — Direct chain queries and SP HTTP calls via `@filoz/synapse-core` for custom orchestration.
+Store data on Filecoin Onchain Cloud. The SDK provides storage with multi-copy durability by default. Synapse SDK offers two ways to work with storage operations:
 
-#### Core Concepts
+- **Auto-Managed**: The main entry point for storage operations through the `StorageManager` class (`synapse.storage`).
+- **Explicit Control**: Use `StorageContext` class for explicit control.
 
-- **Data Sets**: Organize related data pieces with shared payment rails per provider.
-- **PieceCIDs**: Unique content-addressed identifiers for stored data.
-- **Copies**: Each upload is stored on multiple independent providers for redundancy.
-- **Service Providers**: Infrastructure for decentralized storage with cryptographic proofs.
+### StorageManager
+
+High-level storage operations with multi-copy durability. Stores data on multiple providers automatically, handling provider selection, SP-to-SP replication, and on-chain commit.
 
 [View Storage Operations Guide →](/developer-guides/storage/storage-operations/) - _Multi-copy uploads in less than 10 minutes_
 
+**API Reference**: [StorageManager API Reference](/reference/filoz/synapse-sdk/storage/classes/storagemanager/)
+
+### StorageContext
+
+Provider-specific split operations (`store` → `pull` → `commit`). Used for batch uploads, custom error handling, and manual orchestration of multi-copy flows.
+
 [View Split Operations Guide →](/developer-guides/storage/storage-context/) - _Manual control over store, pull, and commit_
 
+**API Reference**: [StorageContext API Reference](/reference/filoz/synapse-sdk/storage/classes/storagecontext/)
+
+## WarmStorageService
+
+Low-level module for storage coordination and pricing:
+
+- Storage pricing and cost calculations
+- Data set management and queries
+- Metadata operations (data sets and pieces)
+- Get information about storage providers
+
 [View Storage Costs Guide →](/developer-guides/storage/storage-costs/) - _Learn how to calculate your storage costs_
+
+**API Reference**: [WarmStorageService API Reference](/reference/filoz/synapse-sdk/warmstorage/classes/warmstorageservice/)
 
 ## Technical Constraints
 
@@ -147,7 +163,6 @@ PieceCID is also known as "CommP" or "Piece Commitment" in Filecoin documentatio
 LegacyPieceCID (v1 format) conversion utilities are provided for interoperability with other Filecoin services that may still use the older format.
 
 **Technical Reference:** See [FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md) for the complete specification of PieceCID ("v2 Piece CID") and its relationship to LegacyPieceCID ("v1 Piece CID"). Most Filecoin tooling currently uses v1, but the ecosystem is transitioning to v2.
-
 
 ## Additional Resources
 
