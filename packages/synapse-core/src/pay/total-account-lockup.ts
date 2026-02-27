@@ -14,20 +14,19 @@ export namespace totalAccountLockup {
   }
 
   export type OutputType = {
-    /** Sum of lockupFixed across all active rails */
+    /** Sum of lockupFixed across all rails (including terminated but not yet finalized) */
     totalFixedLockup: bigint
-    /** Number of active rails */
-    activeRailCount: number
   }
 
   export type ErrorType = getRailsForPayerAndToken.ErrorType | MulticallErrorType
 }
 
 /**
- * Get the total fixed lockup across all active rails for an account.
+ * Get the total fixed lockup across all rails for an account.
  *
- * Fetches all rails for the payer, filters to active (non-terminated) rails,
- * then batches `getRail` calls via multicall to sum `lockupFixed`.
+ * Fetches all rails for the payer, then batches `getRail` calls via multicall
+ * to sum `lockupFixed`. Includes terminated-but-not-finalized rails since they
+ * still hold locked funds until finalization.
  *
  * @param client - The client to use for the query.
  * @param options - {@link totalAccountLockup.OptionsType}
@@ -50,7 +49,6 @@ export namespace totalAccountLockup {
  * })
  *
  * console.log('Total fixed lockup:', lockup.totalFixedLockup)
- * console.log('Active rails:', lockup.activeRailCount)
  * ```
  */
 export async function totalAccountLockup(
@@ -63,15 +61,13 @@ export async function totalAccountLockup(
     contractAddress: options.contractAddress,
   })
 
-  const activeRails = results.filter((rail) => !rail.isTerminated)
-
-  if (activeRails.length === 0) {
-    return { totalFixedLockup: 0n, activeRailCount: 0 }
+  if (results.length === 0) {
+    return { totalFixedLockup: 0n }
   }
 
   const railDetails = await multicall(client, {
     allowFailure: false,
-    contracts: activeRails.map((rail) =>
+    contracts: results.map((rail) =>
       getRailCall({
         chain: client.chain,
         railId: rail.railId,
@@ -85,8 +81,5 @@ export async function totalAccountLockup(
     totalFixedLockup += rail.lockupFixed
   }
 
-  return {
-    totalFixedLockup,
-    activeRailCount: activeRails.length,
-  }
+  return { totalFixedLockup }
 }

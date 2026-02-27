@@ -1,7 +1,7 @@
 import { CDN_FIXED_LOCKUP } from '../utils/constants.ts'
 import { calculateEffectiveRate } from './calculate-effective-rate.ts'
 
-export namespace calculateAdditionalLockup {
+export namespace calculateAdditionalLockupRequired {
   export type ParamsType = {
     /** Size of new data being uploaded, in bytes. */
     dataSize: bigint
@@ -13,7 +13,7 @@ export namespace calculateAdditionalLockup {
     minimumPricePerMonth: bigint
     /** Epochs per month from getServicePrice(). */
     epochsPerMonth: bigint
-    /** Lockup period in epochs (default: 86400 = 30 days). */
+    /** Lockup period in epochs. */
     lockupEpochs: bigint
     /** Whether a new dataset is being created (vs adding to existing). */
     isNewDataset: boolean
@@ -39,12 +39,12 @@ export namespace calculateAdditionalLockup {
  * Handles floor-to-floor transitions correctly: when both the current dataset size
  * and the new total size are below the floor threshold, the rate delta is 0.
  *
- * @param params - {@link calculateAdditionalLockup.ParamsType}
- * @returns {@link calculateAdditionalLockup.OutputType}
+ * @param params - {@link calculateAdditionalLockupRequired.ParamsType}
+ * @returns {@link calculateAdditionalLockupRequired.OutputType}
  */
-export function calculateAdditionalLockup(
-  params: calculateAdditionalLockup.ParamsType
-): calculateAdditionalLockup.OutputType {
+export function calculateAdditionalLockupRequired(
+  params: calculateAdditionalLockupRequired.ParamsType
+): calculateAdditionalLockupRequired.OutputType {
   const {
     dataSize,
     currentDataSetSize,

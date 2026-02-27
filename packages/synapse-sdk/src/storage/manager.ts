@@ -27,7 +27,7 @@ import type { UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { getPDPProviderByAddress } from '@filoz/synapse-core/sp-registry'
 import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS, LOCKUP_PERIOD } from '@filoz/synapse-core/utils'
 import {
-  calculateAdditionalLockup,
+  calculateAdditionalLockupRequired,
   calculateBufferAmount,
   calculateEffectiveRate,
   calculateRunwayAmount,
@@ -704,7 +704,7 @@ export class StorageManager {
       const isNewDataSet = ctx.dataSetId == null
       const currentDataSetSize = dataSetSizes.get(i) ?? 0n
 
-      const lockup = calculateAdditionalLockup({
+      const lockup = calculateAdditionalLockupRequired({
         dataSize: options.dataSize,
         currentDataSetSize,
         pricePerTiBPerMonth: pricing.pricePerTiBPerMonthNoCDN,
@@ -746,18 +746,28 @@ export class StorageManager {
       runwayEpochs,
     })
 
-    const rawNeed = totalLockup + runway + debtInfo.debt - debtInfo.availableFunds
+    const rawDepositNeeded = totalLockup + runway + debtInfo.debt - debtInfo.availableFunds
 
-    const buffer = calculateBufferAmount({
-      rawNeed,
-      netRate,
-      fundedUntilEpoch: debtInfo.fundedUntilEpoch,
-      currentEpoch,
-      availableFunds: debtInfo.availableFunds,
-      bufferEpochs,
-    })
+    // Skip buffer when no existing rails are draining and all contexts are new datasets.
+    // The deposit lands before any rail is created, so nothing consumes funds
+    // between balance check and tx execution.
+    // Minimum upload size is 1 GiB, well below the ~26 GiB floor threshold, so buffer is
+    // not needed for upto 26 contexts as of now which is reasonable.
+    const allNewDatasets = contexts.every((ctx) => ctx.dataSetId == null)
+    const skipBuffer = accountInfo.lockupRate === 0n && allNewDatasets
 
-    const clamped = rawNeed > 0n ? rawNeed : 0n
+    const buffer = skipBuffer
+      ? 0n
+      : calculateBufferAmount({
+          rawDepositNeeded,
+          netRate,
+          fundedUntilEpoch: debtInfo.fundedUntilEpoch,
+          currentEpoch,
+          availableFunds: debtInfo.availableFunds,
+          bufferEpochs,
+        })
+
+    const clamped = rawDepositNeeded > 0n ? rawDepositNeeded : 0n
     const depositNeeded = clamped + buffer
     const needsFwssMaxApproval = !approved
 

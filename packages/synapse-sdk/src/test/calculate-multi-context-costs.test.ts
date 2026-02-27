@@ -312,6 +312,45 @@ describe('calculateMultiContextCosts', () => {
     )
   })
 
+  it('should skip buffer when all new datasets and no existing rails', async () => {
+    // Fresh account: lockupRate=0, all new dataset contexts
+    server.use(
+      Mocks.JSONRPC({
+        ...Mocks.presets.basic,
+        payments: {
+          ...Mocks.presets.basic.payments,
+          accounts: () => [
+            0n, // funds
+            0n, // lockupCurrent
+            0n, // lockupRate: no existing rails
+            0n, // lockupLastSettledAt
+          ],
+          operatorApprovals: fullyApproved,
+        },
+      })
+    )
+
+    const ctx = makeContext(synapse, warmStorageService, {})
+
+    const noBuffer = await manager.calculateMultiContextCosts([ctx], {
+      dataSize: 1n,
+      bufferEpochs: 0n,
+    })
+
+    const withBuffer = await manager.calculateMultiContextCosts([ctx], {
+      dataSize: 1n,
+      bufferEpochs: 100n,
+    })
+
+    // No existing rails + all new datasets → buffer skipped
+    assert.equal(
+      withBuffer.depositNeeded,
+      noBuffer.depositNeeded,
+      'new user deposit should be identical regardless of bufferEpochs'
+    )
+    assert.ok(noBuffer.depositNeeded > 0n, 'should still require lockup deposit')
+  })
+
   it('should increase deposit with larger buffer when lockupRate > 0', async () => {
     server.use(
       Mocks.JSONRPC({

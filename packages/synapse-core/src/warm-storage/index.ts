@@ -10,7 +10,7 @@
  */
 
 export * from './add-approved-provider.ts'
-export * from './calculate-additional-lockup.ts'
+export * from './calculate-additional-lockup-required.ts'
 export * from './calculate-deposit-needed.ts'
 export * from './calculate-effective-rate.ts'
 export * from './fetch-provider-selection-input.ts'

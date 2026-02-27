@@ -102,7 +102,8 @@ export async function depositWithPermit(
     throw new InsufficientBalanceError(balance, options.amount)
   }
 
-  const deadline = options.deadline ?? BigInt(Math.floor(Date.now() / 1000) + TIME_CONSTANTS.PERMIT_DEADLINE_DURATION)
+  const deadline =
+    options.deadline ?? BigInt(Math.floor(Date.now() / 1000)) + BigInt(TIME_CONSTANTS.PERMIT_DEADLINE_DURATION)
 
   const structuredSignature = parseSignature(
     await signErc20Permit(client, {

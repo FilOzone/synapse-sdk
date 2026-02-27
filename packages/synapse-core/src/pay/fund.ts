@@ -73,25 +73,23 @@ export async function fund(client: Client<Transport, Chain, Account>, options: f
   const needsApproval =
     options.needsFwssMaxApproval ?? !(await isFwssMaxApproved(client, { clientAddress: client.account.address }))
 
-  if (needsApproval && options.amount > 0n) {
-    return depositAndApprove(client, {
-      amount: options.amount,
-      rateAllowance: maxUint256,
-      lockupAllowance: maxUint256,
-      maxLockupPeriod: LOCKUP_PERIOD,
-    })
-  }
-
-  if (needsApproval && options.amount === 0n) {
-    return setOperatorApproval(client, {
-      approve: true,
-      rateAllowance: maxUint256,
-      lockupAllowance: maxUint256,
-      maxLockupPeriod: LOCKUP_PERIOD,
-    })
-  }
-
-  if (options.amount > 0n) {
+  if (needsApproval) {
+    if (options.amount > 0n) {
+      return depositAndApprove(client, {
+        amount: options.amount,
+        rateAllowance: maxUint256,
+        lockupAllowance: maxUint256,
+        maxLockupPeriod: LOCKUP_PERIOD,
+      })
+    } else {
+      return setOperatorApproval(client, {
+        approve: true,
+        rateAllowance: maxUint256,
+        lockupAllowance: maxUint256,
+        maxLockupPeriod: LOCKUP_PERIOD,
+      })
+    }
+  } else if (options.amount > 0n) {
     return depositWithPermit(client, { amount: options.amount })
   }
 
