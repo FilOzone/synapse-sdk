@@ -150,7 +150,7 @@ await sp.findPiece({
   retry: true,
 })
 
-  console.log(`Piece ${pieceCid.toString()} uploaded to provider ${provider.pdp.serviceURL}`)
+console.log(`Piece ${pieceCid.toString()} uploaded to provider ${provider.pdp.serviceURL}`)
 
 // 3. Create a data set and add the piece on-chain
 const result = await sp.createDataSetAndAddPieces(walletClient, {
