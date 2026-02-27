@@ -1,7 +1,7 @@
 /* globals describe it */
 
 import assert from 'assert'
-import { calculateAdditionalLockup } from '../src/warm-storage/calculate-additional-lockup.ts'
+import { calculateAdditionalLockupRequired } from '../src/warm-storage/calculate-additional-lockup-required.ts'
 
 const pricing = {
   pricePerTiBPerMonth: 2_500_000_000_000_000_000n, // 2.5 USDFC
@@ -11,9 +11,9 @@ const pricing = {
 
 const lockupEpochs = 86400n // 30 days
 
-describe('calculateAdditionalLockup', () => {
+describe('calculateAdditionalLockupRequired', () => {
   it('new dataset without CDN: no CDN fixed lockup', () => {
-    const result = calculateAdditionalLockup({
+    const result = calculateAdditionalLockupRequired({
       dataSize: 1000n,
       currentDataSetSize: 0n,
       ...pricing,
@@ -31,7 +31,7 @@ describe('calculateAdditionalLockup', () => {
   })
 
   it('new dataset with CDN: includes CDN fixed lockup of 1 USDFC', () => {
-    const result = calculateAdditionalLockup({
+    const result = calculateAdditionalLockupRequired({
       dataSize: 1000n,
       currentDataSetSize: 0n,
       ...pricing,
@@ -47,7 +47,7 @@ describe('calculateAdditionalLockup', () => {
 
   it('existing dataset floor-to-floor: rate delta = 0 when both sizes are below floor', () => {
     // Both 100 bytes and 200 bytes are well below floor threshold
-    const result = calculateAdditionalLockup({
+    const result = calculateAdditionalLockupRequired({
       dataSize: 100n,
       currentDataSetSize: 100n,
       ...pricing,
@@ -68,7 +68,7 @@ describe('calculateAdditionalLockup', () => {
     // Start with 0 (treated as new since isNewDataset=false but currentDataSetSize=0
     // triggers the else branch... actually currentDataSetSize > 0n check fails so it
     // goes to the else branch). Use a large currentDataSetSize instead.
-    const result = calculateAdditionalLockup({
+    const result = calculateAdditionalLockupRequired({
       dataSize: TiB,
       currentDataSetSize: 1n, // tiny existing dataset at floor
       ...pricing,

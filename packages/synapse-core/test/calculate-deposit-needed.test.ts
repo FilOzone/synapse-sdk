@@ -21,9 +21,9 @@ describe('calculateRunwayAmount', () => {
 })
 
 describe('calculateBufferAmount', () => {
-  it('rawNeed > 0: returns netRate * bufferEpochs', () => {
+  it('rawDepositNeeded > 0: returns netRate * bufferEpochs', () => {
     const result = calculateBufferAmount({
-      rawNeed: 100n,
+      rawDepositNeeded: 100n,
       netRate: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
       fundedUntilEpoch: 500n,
       currentEpoch: 100n,
@@ -36,9 +36,9 @@ describe('calculateBufferAmount', () => {
     assert.equal(result, 300n)
   })
 
-  it('rawNeed > 0, zero delta: returns netRate * bufferEpochs', () => {
+  it('rawDepositNeeded > 0, zero delta: returns netRate * bufferEpochs', () => {
     const result = calculateBufferAmount({
-      rawNeed: 100n,
+      rawDepositNeeded: 100n,
       netRate: 10n, // no delta — just currentLockupRate
       fundedUntilEpoch: 500n,
       currentEpoch: 100n,
@@ -50,11 +50,11 @@ describe('calculateBufferAmount', () => {
     assert.equal(result, 200n)
   })
 
-  it('rawNeed <= 0, fundedUntilEpoch within buffer window: returns max(0, netRate*buffer - available)', () => {
+  it('rawDepositNeeded <= 0, fundedUntilEpoch within buffer window: returns max(0, netRate*buffer - available)', () => {
     // fundedUntilEpoch = 110, currentEpoch = 100, bufferEpochs = 20
     // 110 <= 100 + 20 = 120, so within buffer window
     const result = calculateBufferAmount({
-      rawNeed: -50n,
+      rawDepositNeeded: -50n,
       netRate: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
       fundedUntilEpoch: 110n,
       currentEpoch: 100n,
@@ -66,11 +66,11 @@ describe('calculateBufferAmount', () => {
     assert.equal(result, 250n)
   })
 
-  it('rawNeed <= 0, fundedUntilEpoch beyond buffer window: returns 0', () => {
+  it('rawDepositNeeded <= 0, fundedUntilEpoch beyond buffer window: returns 0', () => {
     // fundedUntilEpoch = 500, currentEpoch = 100, bufferEpochs = 20
     // 500 > 100 + 20 = 120, so beyond buffer window
     const result = calculateBufferAmount({
-      rawNeed: -50n,
+      rawDepositNeeded: -50n,
       netRate: 15n,
       fundedUntilEpoch: 500n,
       currentEpoch: 100n,
@@ -107,6 +107,53 @@ describe('calculateDepositNeeded', () => {
     })
 
     assert.equal(result, 0n)
+  })
+
+  it('new dataset + no existing rails: buffer skipped', () => {
+    const base = {
+      dataSize: 1000n,
+      currentDataSetSize: 0n,
+      ...pricing,
+      lockupEpochs: 86400n,
+      isNewDataset: true,
+      withCDN: false,
+      currentLockupRate: 0n,
+      runwayEpochs: 0n,
+      debt: 0n,
+      availableFunds: 0n,
+      fundedUntilEpoch: 0n,
+      currentEpoch: 1000n,
+    }
+
+    const withBuffer = calculateDepositNeeded({ ...base, bufferEpochs: 100n })
+    const withoutBuffer = calculateDepositNeeded({ ...base, bufferEpochs: 0n })
+
+    // No existing rails (currentLockupRate=0) + new dataset → buffer skipped
+    assert.equal(withBuffer, withoutBuffer)
+    assert.ok(withBuffer > 0n) // still requires the lockup deposit
+  })
+
+  it('new dataset + existing rails: buffer still applies', () => {
+    const base = {
+      dataSize: 1000n,
+      currentDataSetSize: 0n,
+      ...pricing,
+      lockupEpochs: 86400n,
+      isNewDataset: true,
+      withCDN: false,
+      currentLockupRate: 100_000_000_000_000n, // existing rails draining
+      runwayEpochs: 0n,
+      debt: 0n,
+      availableFunds: 0n,
+      fundedUntilEpoch: 0n,
+      currentEpoch: 1000n,
+    }
+
+    const withBuffer = calculateDepositNeeded({ ...base, bufferEpochs: 100n })
+    const withoutBuffer = calculateDepositNeeded({ ...base, bufferEpochs: 0n })
+
+    // Existing rails draining → buffer must apply even for new dataset
+    assert.ok(withBuffer > withoutBuffer)
   })
 
   it('underfunded account with debt: includes debt in deposit', () => {

@@ -43,7 +43,6 @@ describe('totalAccountLockup', () => {
     })
 
     assert.equal(result.totalFixedLockup, 0n)
-    assert.equal(result.activeRailCount, 0)
   })
 
   it('should sum lockupFixed across active rails', async () => {
@@ -86,12 +85,11 @@ describe('totalAccountLockup', () => {
     })
 
     assert.equal(result.totalFixedLockup, lockupFixed1 + lockupFixed2)
-    assert.equal(result.activeRailCount, 2)
   })
 
-  it('should exclude terminated rails from lockup sum', async () => {
+  it('should include terminated rails in lockup sum', async () => {
     const activeLockup = parseUnits('0.7', 18)
-    const terminatedLockup = parseUnits('5', 18) // should be excluded
+    const terminatedLockup = parseUnits('5', 18)
 
     server.use(
       JSONRPC({
@@ -128,12 +126,14 @@ describe('totalAccountLockup', () => {
       address: ADDRESSES.client1,
     })
 
-    // Only the active rail's lockupFixed should be counted
-    assert.equal(result.totalFixedLockup, activeLockup)
-    assert.equal(result.activeRailCount, 1)
+    // Both active and terminated rails count — terminated rails still hold locked funds until finalized
+    assert.equal(result.totalFixedLockup, activeLockup + terminatedLockup)
   })
 
-  it('should return zero when all rails are terminated', async () => {
+  it('should sum lockup when all rails are terminated', async () => {
+    const lockup1 = parseUnits('3', 18)
+    const lockup2 = parseUnits('2', 18)
+
     server.use(
       JSONRPC({
         ...presets.basic,
@@ -147,6 +147,15 @@ describe('totalAccountLockup', () => {
             2n,
             2n,
           ],
+          getRail: (args) => {
+            const railId = args[0]
+            return [
+              {
+                ...presets.basic.payments.getRail(args)[0],
+                lockupFixed: railId === 1n ? lockup1 : lockup2,
+              },
+            ]
+          },
         },
       })
     )
@@ -160,7 +169,6 @@ describe('totalAccountLockup', () => {
       address: ADDRESSES.client1,
     })
 
-    assert.equal(result.totalFixedLockup, 0n)
-    assert.equal(result.activeRailCount, 0)
+    assert.equal(result.totalFixedLockup, lockup1 + lockup2)
   })
 })
