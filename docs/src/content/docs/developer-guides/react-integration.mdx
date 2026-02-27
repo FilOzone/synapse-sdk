@@ -2,7 +2,7 @@
 title: React Integration
 description: Guide to integrating Synapse into React applications using Synapse React hooks.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 ## Setup
@@ -143,7 +143,7 @@ const StorageExample = () => {
           </button>
           {ds.pieces.map((p) => (
             <div key={p.id.toString()}>
-              <p>Piece {p.id.toString()}: {p.cid.toV1().toString()}</p>
+              <p>Piece {p.id.toString()}: {p.cid.toString()}</p>
               <p>URL: {p.url}</p>
               <p>Metadata: {JSON.stringify(p.metadata)}</p>
             </div>

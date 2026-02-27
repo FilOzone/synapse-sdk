@@ -2,15 +2,13 @@
 title: Synapse Core
 description: Low-level building blocks for direct contract interaction and storage provider communication.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 **Synapse Core** (`@filoz/synapse-core`) is the low-level foundation that both the [Synapse SDK](/developer-guides/synapse/) and [Synapse React](/developer-guides/react-integration/) build on. Use Synapse Core when you need:
 
 - Direct control over individual contract calls without the `Synapse` class abstraction
 - Custom integrations that combine only the modules you need
-
-
 
 ## Setup
 
@@ -59,7 +57,7 @@ import { createPublicClient, createWalletClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { calibration } from "@filoz/synapse-core/chains"
 const publicClient = createPublicClient({ chain: calibration, transport: http() })
-const account = privateKeyToAccount("0x0000000000000000000000000000000000000000000000000000000000000001")
+const account = privateKeyToAccount("0x...")
 const walletClient = createWalletClient({ account, chain: calibration, transport: http() })
 // ---cut---
 import * as pay from "@filoz/synapse-core/pay"
@@ -120,11 +118,12 @@ Create a data set and upload a file.
 
 ```ts twoslash
 // @lib: esnext,dom
-import { createWalletClient, http } from "viem"
+import { createWalletClient, createPublicClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { calibration } from "@filoz/synapse-core/chains"
-const account = privateKeyToAccount("0x0000000000000000000000000000000000000000000000000000000000000001")
+const account = privateKeyToAccount("0x...")
 const walletClient = createWalletClient({ account, chain: calibration, transport: http() })
+const publicClient = createPublicClient({ chain: calibration, transport: http() })
 const data = new Uint8Array([1, 2, 3])
 // ---cut---
 import * as piece from "@filoz/synapse-core/piece"
@@ -132,27 +131,26 @@ import * as sp from "@filoz/synapse-core/sp"
 import { getPDPProvider } from "@filoz/synapse-core/sp-registry"
 
 // 1. Select a provider
-const provider = await getPDPProvider(walletClient, { providerId: 1n })
+const provider = await getPDPProvider(publicClient, { providerId: 1n })
 
 // 2. Calculate PieceCID and upload data
 const pieceCid = piece.calculate(data)
 const size = piece.getSize(pieceCid)
 console.log(size) // size of the piece in bytes
+// Upload the piece to the provider
 await sp.uploadPiece({
   data,
   pieceCid,
   serviceURL: provider.pdp.serviceURL,
 })
-
-console.log("Piece uploaded")
-
+// Poll the provider to confirm the piece is stored
 await sp.findPiece({
   pieceCid,
   serviceURL: provider.pdp.serviceURL,
   retry: true,
 })
 
-console.log("Piece parked")
+  console.log(`Piece ${pieceCid.toString()} uploaded to provider ${provider.pdp.serviceURL}`)
 
 // 3. Create a data set and add the piece on-chain
 const result = await sp.createDataSetAndAddPieces(walletClient, {
@@ -162,15 +160,14 @@ const result = await sp.createDataSetAndAddPieces(walletClient, {
   pieces: [{ pieceCid }],
 })
 
-console.log("Creating data set and adding piece")
-
 // 4. Wait for confirmation
 const confirmed = await sp.waitForCreateDataSetAddPieces({
   statusUrl: result.statusUrl,
 })
 
-console.log(confirmed.dataSetId)  // bigint — on-chain data set ID
-console.log(confirmed.piecesIds)  // bigint[] — confirmed piece IDs
+const { dataSetId, piecesIds, hash } = confirmed
+
+console.log(`Data set ${dataSetId} created and piece ${pieceCid.toString()} added to data set`)
 ```
 
 <details>
