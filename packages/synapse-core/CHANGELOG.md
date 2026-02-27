@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.1...synapse-core-v0.2.2) (2026-02-26)
+
+
+### Features
+
+* **storage:** extract provider selection to synapse-core and update docs for multi-copy ([ae0eea9](https://github.com/FilOzone/synapse-sdk/commit/ae0eea96956b958c4e9554edc8643f378cf4c15e))
+* **synapse-core:** add SP-to-SP piece pull functionality ([#544](https://github.com/FilOzone/synapse-sdk/issues/544)) ([afe0ae0](https://github.com/FilOzone/synapse-sdk/commit/afe0ae0abc95f3589b8506bf6a06fa9a15556ebe))
+
+
+### Chores
+
+* **master:** release synapse-core 0.2.2 ([92fd0cb](https://github.com/FilOzone/synapse-sdk/commit/92fd0cb81f986e6dcee5b732324266bb00440eff))
+* **master:** release synapse-sdk 0.37.2 ([c4396e1](https://github.com/FilOzone/synapse-sdk/commit/c4396e145160ffdf0591cecb6546f93af86e6c8e))
+
 ## [0.2.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.0...synapse-core-v0.2.1) (2026-02-25)
 
 

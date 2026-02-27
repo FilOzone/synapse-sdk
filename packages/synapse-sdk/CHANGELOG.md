@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.38.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.37.1...synapse-sdk-v0.38.0) (2026-02-26)
+
+
+### Features
+
+* **storage:** extract provider selection to synapse-core and update docs for multi-copy ([ae0eea9](https://github.com/FilOzone/synapse-sdk/commit/ae0eea96956b958c4e9554edc8643f378cf4c15e))
+* **storage:** multi-copy upload with store-&gt;pull-&gt;commit flow ([cf6babd](https://github.com/FilOzone/synapse-sdk/commit/cf6babdef5c421d3bda97b85ff36865609e64e5e)), closes [#494](https://github.com/FilOzone/synapse-sdk/issues/494)
+
+
+### Chores
+
+* **master:** release synapse-core 0.2.2 ([92fd0cb](https://github.com/FilOzone/synapse-sdk/commit/92fd0cb81f986e6dcee5b732324266bb00440eff))
+* **master:** release synapse-sdk 0.37.2 ([c4396e1](https://github.com/FilOzone/synapse-sdk/commit/c4396e145160ffdf0591cecb6546f93af86e6c8e))
+* **master:** release synapse-sdk 0.38.0 ([be88413](https://github.com/FilOzone/synapse-sdk/commit/be88413d13d453c59224cba4e11f3035d3ad1239))
+
 ## [0.37.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.37.0...synapse-sdk-v0.37.1) (2026-02-25)
 
 
