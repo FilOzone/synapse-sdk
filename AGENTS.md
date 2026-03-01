@@ -36,9 +36,19 @@ packages/synapse-sdk/src/
 
 **Data flow**: Client signs for FWSS → Curio HTTP API → PDPVerifier contract → FWSS callback → Payments contract.
 
+## Monorepo Package Structure
+
+**synapse-core** (`packages/synapse-core/` `@filoz/synapse-core`): Stateless, low-level library of pure functions. Includes utilities, types, chain definitions, and blockchain interactions using viem. Shared foundation for both synapse-react and synapse-sdk.
+
+**synapse-react** (`packages/synapse-react/`): React hooks wrapping synapse-core for React apps. Uses wagmi + @tanstack/react-query. Does NOT depend on synapse-sdk.
+
+**synapse-sdk** (`packages/synapse-sdk/` `@filoz/synapse-sdk`): Stateful service classes. DX-focused golden path (_don't make me care about your junk_).
+
+**synapse-playground** (`apps/synapse-playground/`): Vite-based React demo app using synapse-react hooks. Dev server runs at localhost:5173.
+
 ## Development
 
-**Monorepo**: pnpm workspace, packages in `packages/*`, examples in `examples/*`
+**Monorepo**: pnpm workspace, packages in `packages/*`, apps in `apps/*`, examples in `examples/*`
 
 **Commands**:
 
@@ -48,6 +58,47 @@ packages/synapse-sdk/src/
 **Build**: TypeScript → `dist/` (in package), ES modules with `.js` extensions, strict mode, NodeNext resolution
 
 **Tests**: Mocha + Chai, `src/test/`, run with `pnpm test`
+
+When working on a single package, run the tests for that package only. For
+example:
+
+```bash
+pnpm -F ./packages/synapse-core test
+```
+
+**Test assertions**: Use `assert.deepStrictEqual` for comparing objects instead of multiple `assert.equal` calls:
+
+```typescript
+// Bad
+assert.equal(result.cdnEgressQuota, 1000000n)
+assert.equal(result.cacheMissEgressQuota, 500000n)
+
+// Good
+assert.deepStrictEqual(result, { cdnEgressQuota: 1000000n, cacheMissEgressQuota: 500000n })
+```
+
+**Parameterized tests**: When testing multiple similar cases, use a single loop with descriptive names instead of multiple `it()` blocks with repeated assertions. One assertion per test, with names describing the specific input condition:
+
+```typescript
+// Bad - multiple assertions in one test
+it('should throw error when input is invalid', () => {
+  assert.throws(() => validate(null), isError)
+  assert.throws(() => validate('string'), isError)
+  assert.throws(() => validate(123), isError)
+})
+
+// Good - parameterized tests with descriptive names
+const invalidInputCases: Record<string, unknown> = {
+  'input is null': null,
+  'input is a string': 'string',
+  'input is a number': 123,
+}
+for (const [name, input] of Object.entries(invalidInputCases)) {
+  it(`should throw error when ${name}`, () => {
+    assert.throws(() => validate(input), isError)
+  })
+}
+```
 
 ## Biome Linting (Critical)
 
