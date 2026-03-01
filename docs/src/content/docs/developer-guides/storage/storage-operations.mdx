@@ -31,15 +31,18 @@ This guide covers the primary storage API — `synapse.storage.upload()` — whi
 
 **Storage Manager**: The main entry point for storage operations (`synapse.storage`). Handles provider selection, multi-copy orchestration, data set management, and provider-agnostic downloads.
 
-## Quick Start
+## Storage Approaches
+
+### Upload Examples
 
 Upload data with a single call — the SDK selects providers and handles multi-copy replication automatically:
 
-```ts
-import { Synapse } from "@filoz/synapse-sdk"
-import { privateKeyToAccount } from "viem/accounts"
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 
 const data = new Uint8Array([1, 2, 3, 4, 5])
 
@@ -69,15 +72,16 @@ The result contains:
 - **`copies`** — array of successful copies, each with `providerId`, `dataSetId`, `pieceId`, `role` (`'primary'` or `'secondary'`), `retrievalUrl`, and `isNewDataSet`
 - **`failures`** — array of failed copy attempts (partial failures are returned, not thrown), each with `providerId`, `role`, `error`, and `explicit`
 
-## Upload with Metadata
+#### Upload with Metadata
 
 Attach metadata to organize uploads. The SDK reuses existing data sets when metadata matches, avoiding duplicate payment rails:
 
-```ts
-import { Synapse } from "@filoz/synapse-sdk"
-import { privateKeyToAccount } from "viem/accounts"
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 
 const data = new TextEncoder().encode("Hello, Filecoin!")
 
@@ -98,11 +102,12 @@ console.log("Uploaded:", result.pieceCid.toString())
 
 Subsequent uploads with the same `metadata` reuse the same data sets and payment rails.
 
-## Upload with Callbacks
+#### Upload with Callbacks
 
 Track the lifecycle of a multi-copy upload with callbacks:
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
@@ -146,11 +151,12 @@ Callback lifecycle:
 5. **`onPiecesAdded`** — commit transaction submitted
 6. **`onPiecesConfirmed`** — commit confirmed on-chain
 
-## Controlling Copy Count
+### Controlling Copy Count
 
 Adjust the number of copies for your durability requirements:
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
@@ -169,25 +175,26 @@ console.log("1 copy:", result1.copies.length)
 
 The default is 2 copies. The first copy is stored on an **endorsed** provider (high trust, curated), and secondary copies are pulled via SP-to-SP transfer from approved providers.
 
-## Understanding the Result
+### Understanding the Result
 
 `upload()` is designed around **partial success over atomicity**: it commits whatever succeeded rather than throwing away successful work. This means the return value is the primary interface for understanding what happened — not just whether it threw.
 
-### When `upload()` throws
+#### When `upload()` throws
 
 `upload()` only throws in these cases:
 
 | Error | What happened | What to do |
-|-------|---------------|------------|
+| ------- | --------------- | ------------ |
 | **`StoreError`** | Primary upload failed — no data committed anywhere | Retry the upload |
 | **`CommitError`** | Data is stored on providers but **all** on-chain commits failed | Use [split operations](/developer-guides/storage/storage-context/) to retry `commit()` without re-uploading |
 | Selection error | No endorsed provider available or reachable | Check provider health / network |
 
-### When `upload()` returns
+#### When `upload()` returns
 
 If `upload()` returns (no throw), **at least one copy** is committed on-chain. But the result may contain fewer copies than requested. Every copy in `copies[]` represents a committed on-chain data set that the user is now paying for.
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
@@ -218,15 +225,16 @@ for (const copy of result.copies) {
 }
 ```
 
-### Auto-retry behavior
+#### Auto-retry behavior
 
 For auto-selected providers (no explicit `providerIds` or `dataSetIds`), the SDK automatically retries failed secondaries with alternate providers up to 5 times. If you explicitly specify providers, the SDK respects your choice and does not retry.
 
-## Download
+## Retrieval Approaches
 
 Download from any provider that has the piece — the SDK resolves the provider automatically:
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
@@ -241,7 +249,8 @@ console.log("Downloaded:", text)
 
 For CDN-accelerated downloads:
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
@@ -276,7 +285,6 @@ import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
-// ---cut---
 const dataSets = await synapse.storage.findDataSets();
 
 for (const ds of dataSets) {
@@ -316,11 +324,12 @@ Access custom metadata attached to individual pieces:
 
 ```ts twoslash
 // @lib: esnext,dom
-import { WarmStorageService } from "@filoz/synapse-sdk/warm-storage";
-import { privateKeyToAccount } from 'viem/accounts'
 const dataSetId = 1n;
 const piece = null as unknown as { pieceCid: string; pieceId: bigint };
 // ---cut---
+import { WarmStorageService } from "@filoz/synapse-sdk/warm-storage";
+import { privateKeyToAccount } from 'viem/accounts'
+
 const warmStorage =  WarmStorageService.create({ account: privateKeyToAccount('0x...') });
 
 const metadata = await warmStorage.getPieceMetadata({ dataSetId, pieceId: piece.pieceId });
@@ -329,15 +338,13 @@ console.log("Piece metadata:", metadata);
 
 ## Getting the size of a specific piece
 
-Calculate size of a specific piece by extracting the size from the PieceCID:
+Extract the size directly from a PieceCID using Synapse Core:
 
 ```ts twoslash
 // @lib: esnext,dom
-const pieceCid = null as unknown as string;
-// @ts-ignore
-// ---cut---
-import { getSizeFromPieceCID } from "@filoz/synapse-sdk/piece";
+import { getSizeFromPieceCID } from "@filoz/synapse-core/piece";
 
+const pieceCid = "bafkzcib...";
 const size = getSizeFromPieceCID(pieceCid);
 console.log(`Piece size: ${size} bytes`);
 ```

@@ -342,15 +342,21 @@ async function prepareForWithdrawal() {
 
 Common settlement errors and solutions:
 
-```typescript
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const railId = 1n;
+// ---cut---
 try {
   await synapse.payments.settle({railId});
 } catch (error) {
-  if (error.message.includes("InsufficientNativeTokenForBurn")) {
+  if (error instanceof Error && error.message.includes("InsufficientNativeTokenForBurn")) {
     console.error("Insufficient FIL for settlement fee (0.0013 FIL required)");
-  } else if (error.message.includes("NoProgressInSettlement")) {
+  } else if (error instanceof Error && error.message.includes("NoProgressInSettlement")) {
     console.error("Rail already settled to current epoch");
-  } else if (error.message.includes("RailNotActive")) {
+  } else if (error instanceof Error && error.message.includes("RailNotActive")) {
     console.error("Rail is not active or already terminated");
   } else {
     console.error("Settlement failed:", error);

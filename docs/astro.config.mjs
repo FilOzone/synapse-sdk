@@ -175,6 +175,10 @@ export default defineConfig({
           ecTwoSlash({
             twoslashOptions: {
               lib: ['esnext', 'dom'],
+              compilerOptions: {
+                jsx: 4, // react-jsx
+                jsxImportSource: 'react',
+              },
             },
           }),
         ],

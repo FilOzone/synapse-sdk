@@ -1,8 +1,8 @@
 ---
 title: React Integration
-description: Guide to integrating Synapse SDK into React applications with Wagmi or MetaMask.
+description: Guide to integrating Synapse into React applications using Synapse React hooks.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 ## Setup
@@ -10,119 +10,149 @@ sidebar:
 **Install dependencies:**
 
 ```bash
-# Core (required)
-npm install @filoz/synapse-sdk ethers
-
-# Wagmi integration (recommended)
-npm install wagmi viem @tanstack/react-query
+npm install @filoz/synapse-react wagmi viem @tanstack/react-query
 ```
 
 **Requirements:**
 
-- React 18+, Ethers 6.x, Wagmi 2.x (if used), Node 18+
+- React 18+, Wagmi 3.x, viem 2.x, TanStack Query 5.x
 - Connected Web3 wallet
 - Supported networks: Filecoin Mainnet, Filecoin Calibration
 
-## Wagmi Integration (Recommended)
+**Wagmi config:**
 
-Multi-wallet support, React Query caching, type-safe.
+```tsx twoslash
+// @lib: esnext,dom
+import { calibration, mainnet } from "@filoz/synapse-core/chains";
+import { createConfig, http } from "wagmi";
 
-### 1. viem to ethers Signer Hook
+export const wagmiConfig = createConfig({
+  chains: [calibration, mainnet],
+  transports: {
+    [mainnet.id]: http(),
+    [calibration.id]: http(),
+  },
+});
+```
 
-```typescript
-import { BrowserProvider, JsonRpcSigner } from "ethers";
-import { type Config, useConnectorClient } from "wagmi";
+**Provider setup:**
 
-export const useEthersSigner = ({ chainId }: { chainId?: number } = {}) => {
-  const { data: client } = useConnectorClient<Config>({ chainId });
-  if (!client) return null;
-  const { account, chain, transport } = client;
-  const provider = new BrowserProvider(transport, {
-    chainId: chain.id,
-    name: chain.name,
+Synapse React hooks work within [Wagmi](https://wagmi.sh) and [TanStack Query](https://tanstack.com/query) providers. Set these up at the root of your app:
+
+```tsx twoslash
+// @lib: esnext,dom
+import type { Config } from "wagmi";
+const config = {} as Config;
+const YourApp = () => <div />;
+// ---cut---
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { WagmiProvider } from "wagmi";
+
+const queryClient = new QueryClient();
+
+export default function App() {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <YourApp />
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+```
+
+## Payments
+
+Query account info and make deposits using hooks:
+
+```tsx twoslash
+// @lib: esnext,dom
+import { useAccountInfo, useDepositAndApprove } from "@filoz/synapse-react";
+import { parseUnits } from "viem";
+import { useAccount } from "wagmi";
+
+const PaymentsExample = () => {
+  const { address } = useAccount();
+  const { data: account, isLoading } = useAccountInfo(
+    address ? { address, watch: true } : { watch: true }
+  );
+
+  const deposit = useDepositAndApprove({
+    onHash: (hash) => console.log("Tx:", hash),
   });
-  return new JsonRpcSigner(provider, account.address);
-};
-```
 
-### 2. Simple Component Example
+  if (!address) return <div>Connect wallet</div>;
+  if (isLoading) return <div>Loading...</div>;
 
-```tsx
-import { Synapse, TOKENS } from "@filoz/synapse-sdk";
-import { ethers } from "ethers";
-import { useEffect, useState } from "react";
-import { useEthersSigner } from "./useEthersSigner";
-
-const SimpleWagmiExample = () => {
-  const signer = useEthersSigner();
-  const [synapse, setSynapse] = useState<Synapse | null>(null);
-
-  useEffect(() => {
-    if (signer)
-      Synapse.create({ signer }).then(setSynapse).catch(console.error);
-  }, [signer]);
-
-  const deposit = async () => {
-    if (!synapse) return;
-    const amount = ethers.parseUnits("1", 18);
-    const tx = await synapse.payments.deposit(amount, TOKENS.USDFC);
-    await tx.wait();
-    alert("Deposit confirmed!");
-  };
-
-  return synapse ? (
-    <button onClick={deposit}>Deposit 1 USDFC</button>
-  ) : (
-    <div>Connect wallet</div>
+  return (
+    <div>
+      <p>Available: {account?.availableFunds.toString()} USDFC</p>
+      <button
+        onClick={() => deposit.mutate({ amount: parseUnits("1", 18) })}
+        disabled={deposit.isPending}
+      >
+        {deposit.isPending ? "Depositing..." : "Deposit 1 USDFC"}
+      </button>
+    </div>
   );
 };
 ```
 
-## MetaMask Integration
+## Storage
 
-Minimal dependencies, smaller bundle. MetaMask-only.
+Upload files and list data sets:
 
-```tsx
-import { Synapse, TOKENS } from "@filoz/synapse-sdk";
-import { BrowserProvider } from "ethers";
+```tsx twoslash
+// @lib: esnext,dom
+import { useUpload, useDataSets, useProviders } from "@filoz/synapse-react";
 import { useState } from "react";
-import { ethers } from "ethers";
+import { useAccount } from "wagmi";
 
-const SimpleMetaMaskExample = () => {
-  const [synapse, setSynapse] = useState<Synapse | null>(null);
+const StorageExample = () => {
+  const { address } = useAccount();
+  const { data: providers } = useProviders();
+  const { data: dataSets } = useDataSets(address ? { address } : {});
+  const [files, setFiles] = useState<File[]>([]);
 
-  const connect = async () => {
-    if (!window.ethereum) return alert("Install MetaMask");
-    await window.ethereum.request({ method: "eth_requestAccounts" });
-    const provider = new BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    setSynapse(await Synapse.create({ signer }));
-  };
-  const deposit = async () => {
-    if (!synapse) return;
-    const amount = ethers.parseUnits("1", 18);
-    const tx = await synapse.payments.deposit(amount, TOKENS.USDFC);
-    await tx.wait();
-    alert("Deposit confirmed!");
-  };
+  const upload = useUpload({
+    onHash: (hash) => console.log("Tx:", hash),
+  });
 
-  return synapse ? (
-    <button onClick={deposit}>Deposit 1 USDFC</button>
-  ) : (
-    <button onClick={connect}>Connect MetaMask</button>
+  if (!address) return <div>Connect wallet</div>;
+
+  return (
+    <div>
+      <p>Providers: {providers?.length ?? 0}</p>
+      <p>Data sets: {dataSets?.length ?? 0}</p>
+
+      {dataSets?.map((ds) => (
+        <div key={ds.dataSetId.toString()}>
+          <p>Dataset {ds.dataSetId.toString()}: {ds.pieces.length} pieces</p>
+          <input
+            type="file"
+            multiple
+            onChange={(e) =>
+              e.target.files && setFiles(Array.from(e.target.files))
+            }
+          />
+          <button
+            onClick={() => upload.mutate({ files, dataSetId: ds.dataSetId })}
+            disabled={upload.isPending || files.length === 0}
+          >
+            {upload.isPending ? "Uploading..." : "Upload"}
+          </button>
+          {ds.pieces.map((p) => (
+            <div key={p.id.toString()}>
+              <p>Piece {p.id.toString()}: {p.cid.toString()}</p>
+              <p>URL: {p.url}</p>
+              <p>Metadata: {JSON.stringify(p.metadata)}</p>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 };
 ```
 
-## Next Steps
-
-### Ready to Build?
-
-Jump straight to code with the [**Getting Started Guide →**](/getting-started/)
-
-- [**Storage Operations →**](/developer-guides/storage/storage-operations/) - Upload and download your first file
-- [**Storage Context →**](/developer-guides/storage/storage-context/) - Advanced storage operations and batch uploads
-- [**Payment Operations →**](/developer-guides/payments/payment-operations/) - Fund your account and manage payments
-- [**Rails & Settlement →**](/developer-guides/payments/rails-settlement/) - Payment mechanics and settlement strategies
-
-**Resources**: [Wagmi](https://wagmi.sh) · [Ethers v6](https://docs.ethers.org/v6/) · [React](https://react.dev/learn) · [Filecoin](https://docs.filecoin.io)
+Check out the [Synapse React Reference](/reference/filoz/synapse-react/toc/) for all available query and mutation hooks.

@@ -74,13 +74,14 @@ Get started with storage in just a few lines of code.
 
 ```ts twoslash
 // @lib: esnext,dom
-import { Synapse, parseUnits } from "@filoz/synapse-sdk"
+import { Synapse, parseUnits, mainnet, calibration } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from 'viem/accounts'
 
 async function main() {
   // 1) Initialize the Synapse SDK
   const synapse = Synapse.create({ 
-    account: privateKeyToAccount('0x...') 
+    account: privateKeyToAccount('0x...'),
+    chain: mainnet, // default is calibration testnet
     // Uncomment for high-performance incentive-aligned data retrievability through Filecoin Beam
     // withCDN: true
   })
@@ -206,20 +207,20 @@ Congratulations! You've successfully stored and retrieved data using the Synapse
 
 ### Key Features
 
-| Category                   | Features                                                         |
-| -------------------------- | ---------------------------------------------------------------- |
-| 🗄️ **Advanced Storage**    | **CDN Integration**: Enable fast global content delivery         |
-|                            | **Metadata Management**: Tag and organize your data              |
-|                            | **Batch Operations**: Upload multiple files efficiently          |
-| 💰 **Payment Management**  | **Automated Settlements**: Handle payment rails automatically    |
-|                            | **Cost Estimation**: Preview storage costs before uploading      |
-|                            | **Allowance Management**: Control spending limits                |
-| 🛠️ **Developer Tools**     | **Session Keys**: Improve user experience with delegated signing |
-|                            | **Progress Callbacks**: Track upload/download progress           |
-|                            | **Error Handling**: Comprehensive error management               |
-| 🌐 **Network Integration** | **Provider Discovery**: Find optimal storage providers           |
-|                            | **Proof Verification**: Verify data integrity with PDP           |
-|                            | **[Subgraph Integration](https://github.com/FIL-Builders/fwss-subgraph)**: Query blockchain data efficiently |
+| Category | Features |
+| --- | --- |
+| 🗄️ **Advanced Storage** | **CDN Integration**: Enable fast global content delivery |
+| | **Metadata Management**: Tag and organize your data |
+| | **Batch Operations**: Upload multiple files efficiently |
+| 💰 **Payment Management** | **Automated Settlements**: Handle payment rails automatically |
+| | **Cost Estimation**: Preview storage costs before uploading |
+| | **Allowance Management**: Control spending limits |
+| 🛠️ **Developer Tools** | **Session Keys**: Improve user experience with delegated signing |
+| | **Progress Callbacks**: Track upload/download progress |
+| | **Error Handling**: Comprehensive error management |
+| 🌐 **Network Integration** | **Provider Discovery**: Find optimal storage providers |
+| | **Proof Verification**: Verify data integrity with PDP |
+| | **[Subgraph Integration](https://github.com/FIL-Builders/fwss-subgraph)**: Query blockchain data efficiently |
 
 #### Quick Examples
 

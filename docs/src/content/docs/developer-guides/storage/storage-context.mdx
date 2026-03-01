@@ -28,7 +28,7 @@ The high-level `upload()` handles single-piece multi-copy uploads end-to-end. Us
 
 Every upload goes through three phases:
 
-```
+```text
 store ──► pull ──► commit
   │         │         │
   │         │         └─ On-chain: create dataset, add piece, start payments
@@ -40,49 +40,45 @@ store ──► pull ──► commit
 - **pull**: SP-to-SP transfer. The destination SP fetches the piece from a source SP. No client bandwidth used.
 - **commit**: Submit an on-chain transaction to add the piece to a data set. Creates the data set and payment rail if needed.
 
-## Creating Contexts
+## Storage Contexts
 
-A `StorageContext` represents a connection to a specific provider and data set. Create one for single-provider work, or multiple for multi-copy:
+A Storage Context represents a connection to a specific storage provider and data set.
 
-```ts
+### Creating Contexts
+
+```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
 const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
 
 // Single context — auto-selects provider
-const ctx = await synapse.storage.createContext({
+await synapse.storage.createContext({
   metadata: { source: "my-app" },
 })
 
-// Multiple contexts for multi-copy
-const contexts = await synapse.storage.createContexts({
-  count: 2,
-  metadata: { source: "my-app" },
-})
-const [primary, secondary] = contexts
-```
-
-Context creation options:
-
-```ts
 // Single context (createContext)
 await synapse.storage.createContext({
   providerId: 1n,           // specific provider (optional)
   dataSetId: 42n,           // specific data set (optional)
-  metadata: { ... },        // data set metadata for matching/creation
+  metadata: { source: "my-app" },        // data set metadata for matching/creation
   withCDN: true,            // enable fast-retrieval (paid, optional)
   excludeProviderIds: [3n], // skip specific providers (optional)
 })
 
-// Multiple contexts (createContexts)
-await synapse.storage.createContexts({
+// Multiple contexts for multi-copy
+const contexts = await synapse.storage.createContexts({
   count: 3,                     // number of contexts (default: 2)
   providerIds: [1n, 2n, 3n],   // specific providers (mutually exclusive with dataSetIds)
   dataSetIds: [10n, 20n, 30n], // specific data sets (mutually exclusive with providerIds)
-  metadata: { ... },
 })
+const [primary, secondary] = contexts
 ```
+
+[**View creation options for `createContext()`**](/reference/filoz/synapse-sdk/synapse/interfaces/storageserviceoptions/)
+
+[**View creation options for `createContexts()`**](/reference/filoz/synapse-sdk/synapse/interfaces/contextcreatecontextsoptions/)
 
 ### Data Set Selection and Matching
 
@@ -119,12 +115,28 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 - If a provider fails the ping test, the SDK tries the next candidate
 - A new data set will be created automatically during the first commit
 
-## Store Phase
+## Example Upload Flow
+
+### Store Phase
 
 Upload data to a provider without committing on-chain:
 
-```ts
-const { pieceCid, size } = await ctx.store(data, {
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const data = new TextEncoder().encode("Hello, Filecoin!")
+const abortController = new AbortController()
+const preCalculatedCid = null as unknown as PieceCID;
+// ---cut---
+const contexts = await synapse.storage.createContexts({
+  count: 2,
+})
+const [primary, secondary] = contexts
+
+const { pieceCid, size } = await primary.store(data, {
   pieceCid: preCalculatedCid,       // skip expensive PieceCID (hash digest) calculation (optional)
   signal: abortController.signal,   // cancellation (optional)
   onProgress: (bytes) => {          // progress callback (optional)
@@ -143,11 +155,23 @@ After store completes, the piece is parked on the SP and can be:
 - Pulled to other providers via `pull()`
 - Committed on-chain via `commit()`
 
-## Pull Phase (SP-to-SP Transfer)
+### Pull Phase (SP-to-SP Transfer)
 
 Request a secondary provider to fetch pieces from the primary:
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const [primary, secondary] = await synapse.storage.createContexts({
+      count: 2,
+  metadata: { source: "my-app" },
+})
+const pieceCid = null as unknown as PieceCID;
+const abortController = new AbortController()
+// ---cut---
 // Pre-sign to avoid double wallet prompts during pull + commit
 const extraData = await secondary.presignForCommit([{ pieceCid }])
 
@@ -174,21 +198,50 @@ The `from` parameter accepts either a URL string (base service URL) or a functio
 
 **Pre-signing**: `presignForCommit()` creates an EIP-712 signature that can be reused for both `pull()` and `commit()`. This avoids prompting the wallet twice. Pass the same `extraData` to both calls.
 
-## Commit Phase
+### Commit Phase
 
 Add pieces to an on-chain data set. Creates the data set and payment rail if one doesn't exist:
 
-```ts
-const commitResult = await ctx.commit({
-  pieces: [{ pieceCid, pieceMetadata: { filename: "doc.pdf" } }],
-  extraData,          // pre-signed auth from presignForCommit() (optional)
-  onSubmitted: (txHash) => {
-    console.log(`Transaction submitted: ${txHash}`)
-  },
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+import type { Hex } from "viem";
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const contexts = await synapse.storage.createContexts({
+      count: 2,
+  metadata: { source: "my-app" },
 })
+const [primary, secondary] = contexts
+const pieceCid = null as unknown as PieceCID;
+const extraData = null as unknown as Hex;
+const onSubmitted = (txHash: Hex) => {
+  console.log(`Transaction submitted: ${txHash}`)
+}
+// ---cut---
+// Commit on both providers
+const [primaryCommit, secondaryCommit] = await Promise.allSettled([
+  primary.commit({
+    pieces: [{ pieceCid, pieceMetadata: { filename: "doc.pdf" } }],
+    onSubmitted: (txHash) => {
+      console.log(`Transaction submitted: ${txHash}`)
+    },
+  }),
+  secondary.commit({
+    pieces: [{ pieceCid, pieceMetadata: { filename: "doc.pdf" } }],
+    extraData,          // pre-signed auth from presignForCommit() (optional)
+    onSubmitted: (txHash) => {
+      console.log(`Transaction submitted: ${txHash}`)
+    },
+  })
+])
 
-console.log(`Committed: dataSet=${commitResult.dataSetId}, piece=${commitResult.pieceIds[0]}`)
-console.log(`New data set: ${commitResult.isNewDataSet}`)
+if (primaryCommit.status === "fulfilled") {
+  console.log(`Primary: dataSet=${primaryCommit.value.dataSetId}`)
+}
+if (secondaryCommit.status === "fulfilled") {
+  console.log(`Secondary: dataSet=${secondaryCommit.value.dataSetId}`)
+}
 ```
 
 The result:
@@ -202,11 +255,12 @@ The result:
 
 Upload multiple files to 2 providers with full error handling:
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..")})
 
 const files = [
   new TextEncoder().encode("File 1 content..."),
@@ -237,7 +291,7 @@ const extraData = await secondary.presignForCommit(
 // Pull all pieces to secondary
 const pullResult = await secondary.pull({
   pieces: pieceCids,
-  from: primary,
+  from: (cid) => primary.getPieceUrl(cid),
   extraData,
 })
 
@@ -262,7 +316,7 @@ if (secondaryCommit.status === "fulfilled") {
 Each phase's errors are independent. Failures don't cascade — you can retry at any level:
 
 | Phase | Failure | Data state | Recovery |
-|-------|---------|------------|----------|
+| ------- | --------- | ------------ | ---------- |
 | **store** | Upload/network error | No data on SP | Retry `store()` with same or different context |
 | **pull** | SP-to-SP transfer failed | Data on primary only | Retry `pull()`, try different secondary, or skip |
 | **commit** | On-chain transaction failed | Data on SP but not on-chain | Retry `commit()` (no re-upload needed) |
@@ -289,7 +343,15 @@ This method submits an on-chain transaction to initiate the termination process.
 
 You can also terminate a data set using `synapse.storage.terminateDataSet({ dataSetId })`, when the data set ID is known and creating a context is not necessary.
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const ctx = await synapse.storage.createContext({
+  metadata: { source: "my-app" },
+})
 // Via context
 const hash = await ctx.terminate()
 await synapse.client.waitForTransactionReceipt({ hash })
@@ -307,18 +369,27 @@ This method submits an on-chain transaction to initiate the deletion process.
 
 **Important:** Piece deletion is irreversible and cannot be canceled once initiated.
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const ctx = await synapse.storage.createContext({
+  metadata: { source: "my-app" },
+})
 // List all pieces in the data set
 const pieces = []
 for await (const piece of ctx.getPieces()) {
   pieces.push(piece)
 }
 
-// Delete by piece ID
-await ctx.deletePiece({ piece: pieces[0].pieceId })
-console.log(
-  `Piece ${pieces[0].pieceCid} (ID: ${pieces[0].pieceId}) deleted successfully`
-)
+if (pieces.length > 0) {
+  await ctx.deletePiece({ piece: pieces[0].pieceId })
+  console.log(
+    `Piece ${pieces[0].pieceCid} (ID: ${pieces[0].pieceId}) deleted successfully`
+  )
+}
 
 // Delete by PieceCID
 await ctx.deletePiece({ piece: "bafkzcib..." })
@@ -332,7 +403,14 @@ The SDK provides flexible download options with clear semantics:
 
 Download pieces from any available provider using the StorageManager:
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const pieceCid = null as unknown as PieceCID;
+// ---cut---
 // Download from any provider that has the piece
 const data = await synapse.storage.download({ pieceCid })
 
@@ -344,7 +422,16 @@ const dataWithCDN = await synapse.storage.download({ pieceCid, withCDN: true })
 
 When using a StorageContext, downloads are automatically restricted to that specific provider:
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const ctx = await synapse.storage.createContext({
+  metadata: { source: "my-app" },
+})
+const pieceCid = null as unknown as PieceCID;
 // Downloads from the provider associated with this context
 const data = await ctx.download({ pieceCid })
 ```
@@ -357,10 +444,15 @@ The `withCDN` option follows a clear inheritance hierarchy:
 2. **StorageContext level**: Can override Synapse's default
 3. **Method level**: Can override instance settings
 
-```ts
-// Example of inheritance
-const synapse = Synapse.create({ account, withCDN: true }) // Global default: CDN enabled
-const ctx = await synapse.storage.createContext({ withCDN: false }) // Context override: CDN disabled
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const ctx = await synapse.storage.createContext({ withCDN: false })
+const pieceCid = null as unknown as PieceCID;
+// ---cut---
 await synapse.storage.download({ pieceCid })                // Uses Synapse's withCDN: true
 await ctx.download({ pieceCid })                            // Uses context's withCDN: false
 await synapse.storage.download({ pieceCid, withCDN: false }) // Method override: CDN disabled
@@ -374,7 +466,19 @@ For maximum control, use the core library functions without the SDK wrapper clas
 
 ### Provider Selection
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const ctx = await synapse.storage.createContext({
+  metadata: { source: "my-app" },
+})
+const client = synapse.client;
+const walletAddress = client.account.address;
+const pieceCid = null as unknown as PieceCID;
+// ---cut---
 import { fetchProviderSelectionInput, selectProviders } from "@filoz/synapse-core/warm-storage"
 
 // Fetch all chain data needed for selection
@@ -408,10 +512,27 @@ The `endorsedIds` parameter controls which providers are eligible. When non-empt
 
 ### Upload and Commit
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID, asChain } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const client = synapse.client;
+const chain = asChain(client.chain);
+const walletAddress = client.account.address;
+const primary = await synapse.storage.createContext({
+  metadata: { source: "my-app" },
+})
 import * as SP from "@filoz/synapse-core/sp"
 import { signAddPieces, signCreateDataSetAndAddPieces } from "@filoz/synapse-core/typed-data"
 
+const myStream = new ReadableStream<Uint8Array>({
+  start(controller) {
+    controller.enqueue(new Uint8Array([1, 2, 3]))
+    controller.close()
+  },
+})
 // Upload piece to SP
 const { pieceCid, size } = await SP.uploadPieceStreaming({
   serviceURL: primary.provider.pdp.serviceURL,
@@ -442,14 +563,28 @@ console.log(`DataSet: ${confirmation.dataSetId}`)
 
 ### SP-to-SP Pull
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
 import * as SP from "@filoz/synapse-core/sp"
 
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const client = synapse.client;
+const walletAddress = client.account.address;
+
+const [primary, secondary] = await synapse.storage.createContexts({
+  count: 2,
+  metadata: { source: "my-app" },
+})
+const pieceCid = null as unknown as PieceCID;
+// ---cut---
 const response = await SP.waitForPullStatus(client, {
   serviceURL: secondary.provider.pdp.serviceURL,
   pieces: [{
     pieceCid,
-    sourceUrl: `${primary.provider.pdp.serviceURL}/pdp/piece/${pieceCid}`,
+    sourceUrl: primary.getPieceUrl(pieceCid),
   }],
   payee: secondary.provider.serviceProvider,
   payer: client.account.address,
@@ -467,9 +602,6 @@ This path requires manual EIP-712 signing. The `signAddPieces` and `signCreateDa
 
 - **[Calculate Storage Costs](/developer-guides/storage/storage-costs/)** — Plan your budget and fund your storage account.
   _Use the quick calculator to estimate monthly costs._
-
-- **[Component Architecture](/developer-guides/components/)** — Understand how StorageContext fits into the SDK design.
-  _Deep dive into the component architecture._
 
 - **[Payment Management](/developer-guides/payments/payment-operations/)** — Manage deposits, approvals, and payment rails.
   _Required before your first upload._

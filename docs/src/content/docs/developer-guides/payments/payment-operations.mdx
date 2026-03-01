@@ -2,7 +2,7 @@
 title: Payment Operations
 description: Fund your account and manage payments for Filecoin storage.
 sidebar:
-  order: 2
+  order: 0
 ---
 
 The Synapse SDK uses [**USDFC**](https://app.usdfc.net/) (a Filecoin-native stablecoin) for storage payments. Before uploading files, you must fund your account and approve operators.
@@ -58,9 +58,17 @@ await synapse.client.waitForTransactionReceipt({ hash });
 
 If you cannot use permit-based deposits, you can use the traditional two-transaction approach:
 
-```ts
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, parseUnits } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+// ---cut---
+const filecoinpay = synapse.chain.contracts.filecoinPay.address
+const amount = parseUnits("100");
+
 // 1. Approve USDFC spending
-await usdfc.approve(paymentAddress, depositAmount);
+await synapse.payments.approve({spender: filecoinpay, amount});
 
 // 2. Deposit
 await synapse.payments.deposit({ amount });
