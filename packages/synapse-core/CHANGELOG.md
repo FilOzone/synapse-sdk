@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.2...synapse-core-v0.38.0) (2026-03-01)
+
+
+### Chores
+
+* **master:** release synapse-sdk 0.38.0 ([be88413](https://github.com/FilOzone/synapse-sdk/commit/be88413d13d453c59224cba4e11f3035d3ad1239))
+
 ## [0.2.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.1...synapse-core-v0.2.2) (2026-02-26)
 
 
