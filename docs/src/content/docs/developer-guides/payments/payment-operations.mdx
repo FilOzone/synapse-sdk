@@ -28,7 +28,7 @@ Monitor your account balance to ensure you have sufficient funds for storage ope
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 const walletBalance = await synapse.payments.walletBalance();
 const accountInfo = await synapse.payments.accountInfo();
@@ -44,7 +44,7 @@ console.log("Spending rate:", accountInfo.lockupRate, "per epoch");
 // @lib: esnext,dom
 import { Synapse, parseUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 import { TOKENS } from "@filoz/synapse-sdk";
 
@@ -62,7 +62,7 @@ If you cannot use permit-based deposits, you can use the traditional two-transac
 // @lib: esnext,dom
 import { Synapse, parseUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 const filecoinpay = synapse.chain.contracts.filecoinPay.address
 const amount = parseUnits("100");
@@ -86,7 +86,7 @@ This requires two transactions and higher gas costs. Use `depositWithPermit` ins
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 import { TIME_CONSTANTS } from "@filoz/synapse-sdk";
 
@@ -106,7 +106,7 @@ if (daysRemaining < 7) console.warn("⚠️ Low balance!");
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 const info = await synapse.payments.accountInfo();
 await synapse.payments.withdraw({ amount: info.availableFunds });
@@ -131,7 +131,7 @@ Approving warmStorage for 1TiB of storage for 3 months.
 import { Synapse, calibration } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const monthlyPricePerTiB = null as unknown as bigint;
 // ---cut---
 import { TIME_CONSTANTS } from "@filoz/synapse-sdk";
@@ -153,7 +153,7 @@ Revoking warmStorage's operator approvals.
 // @lib: esnext,dom
 import { Synapse, calibration } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 await synapse.payments.revokeService();
 ```
@@ -164,7 +164,7 @@ await synapse.payments.revokeService();
 // @lib: esnext,dom
 import { Synapse, calibration } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 const approval = await synapse.payments.serviceApproval();
 
