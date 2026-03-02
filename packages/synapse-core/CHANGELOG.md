@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.2...synapse-core-v0.2.3) (2026-03-02)
+
+
+### Bug Fixes
+
+* **core:** replace getChain with asChain to preserve custom chain configs ([#643](https://github.com/FilOzone/synapse-sdk/issues/643)) ([fdc80bc](https://github.com/FilOzone/synapse-sdk/commit/fdc80bcb5291be64663f9b76315bc4ff25349028))
+* **session-key:** use accountless client for getExpirations reads ([#645](https://github.com/FilOzone/synapse-sdk/issues/645)) ([268a736](https://github.com/FilOzone/synapse-sdk/commit/268a736a69b0c25185d03d1715d28600c804c69c))
+
 ## [0.2.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.1...synapse-core-v0.2.2) (2026-02-26)
 
 
