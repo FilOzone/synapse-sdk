@@ -73,7 +73,7 @@ describe('Storage Upload', () => {
         }
       )
     )
-    const synapse = new Synapse({ client })
+    const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -152,7 +152,7 @@ describe('Storage Upload', () => {
         }
       )
     )
-    const synapse = new Synapse({ client })
+    const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -217,7 +217,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = new Synapse({ client })
+    const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -268,7 +268,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = new Synapse({ client })
+    const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -323,7 +323,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = new Synapse({ client })
+    const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -398,7 +398,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = new Synapse({ client })
+    const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {

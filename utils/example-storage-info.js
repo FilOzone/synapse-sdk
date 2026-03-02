@@ -54,6 +54,7 @@ async function main() {
     const synapseOptions = {
       privateKey: PRIVATE_KEY,
       rpcURL: RPC_URL,
+      source: 'synapse-example',
     }
 
     // Add Warm Storage address if provided

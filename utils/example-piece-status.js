@@ -494,6 +494,7 @@ async function main() {
     const synapseOptions = {
       privateKey: PRIVATE_KEY,
       rpcURL: RPC_URL,
+      source: 'synapse-example',
     }
 
     if (WARM_STORAGE_ADDRESS) {

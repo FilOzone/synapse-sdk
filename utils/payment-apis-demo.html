@@ -266,7 +266,8 @@
                 // Create Synapse instance
                 synapse = await SynapseSDK.Synapse.create({
                     signer,
-                    withCDN: false
+                    withCDN: false,
+                    source: 'synapse-example',
                 });
 
                 payments = synapse.payments;

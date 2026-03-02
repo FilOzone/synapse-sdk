@@ -5,6 +5,7 @@ import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import type { MetadataEntry } from '../types.ts'
 import { METADATA_KEYS } from '../utils/constants.ts'
+import { combineMetadata } from '../utils/metadata.ts'
 
 // Mock server for testing
 const server = setup()
@@ -59,6 +60,83 @@ describe('Metadata Support', () => {
       assert.equal(finalMetadata.length, 2)
       const cdnEntries = finalMetadata.filter((m) => m.key === METADATA_KEYS.WITH_CDN)
       assert.equal(cdnEntries.length, 1)
+    })
+  })
+
+  describe('combineMetadata', () => {
+    describe('source option', () => {
+      it('should add source key when source is a non-empty string', () => {
+        const result = combineMetadata({}, { source: 'my-dapp' })
+        assert.deepEqual(result, { [METADATA_KEYS.SOURCE]: 'my-dapp' })
+      })
+
+      it('should not add source key when source is null', () => {
+        const result = combineMetadata({}, { source: null })
+        assert.deepEqual(result, {})
+      })
+
+      it('should not add source key when source is empty string', () => {
+        const result = combineMetadata({}, { source: '' })
+        assert.deepEqual(result, {})
+      })
+
+      it('should not override existing source key in metadata', () => {
+        const metadata = { [METADATA_KEYS.SOURCE]: 'explicit-source' }
+        const result = combineMetadata(metadata, { source: 'other-source' })
+        assert.deepEqual(result, { [METADATA_KEYS.SOURCE]: 'explicit-source' })
+      })
+
+      it('should combine source with other metadata', () => {
+        const metadata = { category: 'videos' }
+        const result = combineMetadata(metadata, { source: 'my-dapp' })
+        assert.deepEqual(result, { category: 'videos', [METADATA_KEYS.SOURCE]: 'my-dapp' })
+      })
+    })
+
+    describe('withCDN option', () => {
+      it('should add withCDN key when withCDN is true', () => {
+        const result = combineMetadata({}, { withCDN: true })
+        assert.deepEqual(result, { [METADATA_KEYS.WITH_CDN]: '' })
+      })
+
+      it('should not add withCDN key when withCDN is false', () => {
+        const result = combineMetadata({}, { withCDN: false })
+        assert.deepEqual(result, {})
+      })
+
+      it('should not override existing withCDN key in metadata', () => {
+        const metadata = { [METADATA_KEYS.WITH_CDN]: '' }
+        const result = combineMetadata(metadata, { withCDN: true })
+        assert.deepEqual(result, { [METADATA_KEYS.WITH_CDN]: '' })
+      })
+    })
+
+    describe('combined options', () => {
+      it('should add both source and withCDN', () => {
+        const result = combineMetadata({}, { withCDN: true, source: 'my-dapp' })
+        assert.deepEqual(result, {
+          [METADATA_KEYS.WITH_CDN]: '',
+          [METADATA_KEYS.SOURCE]: 'my-dapp',
+        })
+      })
+
+      it('should add source but not withCDN when withCDN is false', () => {
+        const result = combineMetadata({}, { withCDN: false, source: 'my-dapp' })
+        assert.deepEqual(result, { [METADATA_KEYS.SOURCE]: 'my-dapp' })
+      })
+    })
+
+    describe('no options', () => {
+      it('should return metadata unchanged when no options provided', () => {
+        const metadata = { key: 'value' }
+        const result = combineMetadata(metadata)
+        assert.deepEqual(result, { key: 'value' })
+      })
+
+      it('should return empty metadata when called with no arguments', () => {
+        const result = combineMetadata()
+        assert.deepEqual(result, {})
+      })
     })
   })
 

@@ -48,6 +48,7 @@ describe('Synapse', () => {
       const synapse = Synapse.create({
         chain: calibration,
         account,
+        source: null,
       })
 
       // Should be able to access storage manager
@@ -66,6 +67,7 @@ describe('Synapse', () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = new Synapse({
         client,
+        source: null,
         withCDN: true,
       })
 
@@ -77,7 +79,7 @@ describe('Synapse', () => {
 
     it('should return same storage manager instance', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = new Synapse({ client })
+      const synapse = new Synapse({ client, source: null })
 
       const storage1 = synapse.storage
       const storage2 = synapse.storage
@@ -90,7 +92,7 @@ describe('Synapse', () => {
   describe('Payment access', () => {
     it('should provide read-only access to payments', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = new Synapse({ client })
+      const synapse = new Synapse({ client, source: null })
 
       // Should be able to access payments
       assert.exists(synapse.payments)
@@ -114,7 +116,7 @@ describe('Synapse', () => {
     it('should get provider info for valid approved provider', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
-      const synapse = new Synapse({ client })
+      const synapse = new Synapse({ client, source: null })
       const providerInfo = await synapse.getProviderInfo(Mocks.ADDRESSES.serviceProvider1)
 
       assert.ok(isAddressEqual(providerInfo.serviceProvider as Address, Mocks.ADDRESSES.serviceProvider1))
@@ -123,7 +125,7 @@ describe('Synapse', () => {
 
     it('should throw for invalid provider address', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = new Synapse({ client })
+      const synapse = new Synapse({ client, source: null })
 
       try {
         // @ts-expect-error - invalid address
@@ -145,7 +147,7 @@ describe('Synapse', () => {
       )
 
       try {
-        const synapse = new Synapse({ client })
+        const synapse = new Synapse({ client, source: null })
         await synapse.getProviderInfo(Mocks.ADDRESSES.zero)
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -164,7 +166,7 @@ describe('Synapse', () => {
       )
 
       try {
-        const synapse = new Synapse({ client })
+        const synapse = new Synapse({ client, source: null })
         await synapse.getProviderInfo(Mocks.ADDRESSES.zero)
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -176,7 +178,7 @@ describe('Synapse', () => {
   describe('download', () => {
     it('should validate PieceCID input', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = new Synapse({ client })
+      const synapse = new Synapse({ client, source: null })
 
       try {
         await synapse.storage.download({ pieceCid: 'invalid-piece-link' })
@@ -205,7 +207,7 @@ describe('Synapse', () => {
         })
       )
 
-      const synapse = new Synapse({ client })
+      const synapse = new Synapse({ client, source: null })
 
       // Use the actual PieceCID for 'test data'
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
@@ -243,6 +245,7 @@ describe('Synapse', () => {
 
       const synapse = new Synapse({
         client,
+        source: null,
         withCDN: false, // Instance default
       })
 
@@ -292,6 +295,7 @@ describe('Synapse', () => {
       )
       const synapse = new Synapse({
         client,
+        source: null,
       })
 
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
@@ -311,6 +315,7 @@ describe('Synapse', () => {
 
       const synapse = new Synapse({
         client,
+        source: null,
       })
 
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
@@ -331,7 +336,7 @@ describe('Synapse', () => {
     it('should return comprehensive storage information', async () => {
       server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }))
 
-      const synapse = new Synapse({ client })
+      const synapse = new Synapse({ client, source: null })
       const storageInfo = await synapse.storage.getStorageInfo()
 
       // Check pricing
@@ -373,7 +378,7 @@ describe('Synapse', () => {
         })
       )
 
-      const synapse = new Synapse({ client })
+      const synapse = new Synapse({ client, source: null })
       const storageInfo = await synapse.storage.getStorageInfo()
 
       // Should still return data with null allowances
@@ -403,7 +408,7 @@ describe('Synapse', () => {
         })
       )
       try {
-        const synapse = new Synapse({ client })
+        const synapse = new Synapse({ client, source: null })
         await synapse.storage.getStorageInfo()
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -428,7 +433,7 @@ describe('Synapse', () => {
           },
         })
       )
-      synapse = new Synapse({ client })
+      synapse = new Synapse({ client, source: null })
       for (const { products } of [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]) {
         server.use(
           Mocks.PING({
