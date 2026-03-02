@@ -14,7 +14,7 @@ import {
   type WriteContractErrorType,
   writeContract,
 } from 'viem/actions'
-import { getChain } from '../chains.ts'
+import { asChain } from '../chains.ts'
 import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
@@ -71,7 +71,7 @@ export type DepositAndApproveOptions = {
  * @throws - {@link InsufficientBalanceError} if the balance is insufficient.
  */
 export async function depositAndApprove(client: Client<Transport, Chain, Account>, options: DepositAndApproveOptions) {
-  const chain = getChain(client.chain.id)
+  const chain = asChain(client.chain)
   const token = options.token ?? chain.contracts.usdfc.address
   const operator = options.operator ?? chain.contracts.fwss.address
 

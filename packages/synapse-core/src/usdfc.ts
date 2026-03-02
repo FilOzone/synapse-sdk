@@ -11,7 +11,7 @@
 
 import type { Account, Chain, Client, Transport } from 'viem'
 import { watchAsset } from 'viem/actions'
-import { getChain } from './chains.ts'
+import { asChain } from './chains.ts'
 
 /**
  * Requests that the user tracks the token in their wallet. Returns a boolean indicating if the token was successfully added.
@@ -21,7 +21,7 @@ import { getChain } from './chains.ts'
  * @returns The result of the watchAsset call.
  */
 export async function watchUsdfc(client: Client<Transport, Chain, Account>) {
-  const chain = getChain(client.chain.id)
+  const chain = asChain(client.chain)
   const token = chain.contracts.usdfc.address
 
   const result = await watchAsset(client, {
