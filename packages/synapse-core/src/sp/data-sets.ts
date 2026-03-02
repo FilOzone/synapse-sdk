@@ -1,5 +1,5 @@
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
-import { asChain, getChain } from '../chains.ts'
+import { asChain } from '../chains.ts'
 import type { PieceCID } from '../piece/piece.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
@@ -34,7 +34,7 @@ export type CreateDataSetOptions = {
  * @returns The response from the create data set on PDP API.
  */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: CreateDataSetOptions) {
-  const chain = getChain(client.chain.id)
+  const chain = asChain(client.chain)
 
   // Sign and encode the create data set message
   const extraData = await signCreateDataSet(client, {
