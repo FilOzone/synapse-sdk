@@ -1141,31 +1141,6 @@ export class StorageContext {
   }
 
   /**
-   * Check if a piece exists on this service provider.
-   *
-   * @param options - Options for the has piece operation
-   * @param options.pieceCid - The PieceCID (piece CID) to check
-   * @returns True if the piece exists on this provider, false otherwise
-   */
-  async hasPiece(options: { pieceCid: string | PieceCID }): Promise<boolean> {
-    const { pieceCid } = options
-    const parsedPieceCID = Piece.asPieceCID(pieceCid)
-    if (parsedPieceCID == null) {
-      return false
-    }
-
-    try {
-      await SP.findPiece({
-        serviceURL: this._pdpEndpoint,
-        pieceCid: parsedPieceCID,
-      })
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  /**
    * Check if a piece exists on this service provider and get its proof status.
    * Also returns timing information about when the piece was last proven and when the next
    * proof is due.
@@ -1188,9 +1163,11 @@ export class StorageContext {
     }
 
     // Run multiple operations in parallel for better performance
-    const [hasPiece, dataSetData, currentEpoch] = await Promise.all([
-      // Check if piece exists on provider
-      this.hasPiece({ pieceCid: parsedPieceCID }),
+    const [activePieces, spDataSetData, currentEpoch] = await Promise.all([
+      // Check if piece exists in the data set
+      PDPVerifier.getActivePieces(this._client, {
+        dataSetId: this.dataSetId,
+      }),
       // Get data set data
       SP.getDataSet({
         serviceURL: this._pdpEndpoint,
@@ -1200,7 +1177,9 @@ export class StorageContext {
       getBlockNumber(this._client),
     ])
 
-    const exists = hasPiece && dataSetData.pieces.findIndex((piece) => piece.pieceCid.equals(parsedPieceCID)) > -1
+    const exists =
+      activePieces.pieces.findIndex((piece) => piece.cid.equals(parsedPieceCID)) > -1 &&
+      spDataSetData.pieces.findIndex((piece) => piece.pieceCid.equals(parsedPieceCID)) > -1
 
     // Initialize return values
     let retrievalUrl: string | null = null
@@ -1216,12 +1195,10 @@ export class StorageContext {
       const [providerInfo, pdpConfig] = await Promise.all([
         // Get provider info for retrieval URL
         this.getProviderInfo().catch(() => null),
-        dataSetData != null
-          ? this._warmStorageService.getPDPConfig().catch((error) => {
-              console.debug('Failed to get PDP config:', error)
-              return null
-            })
-          : Promise.resolve(null),
+        this._warmStorageService.getPDPConfig().catch((error) => {
+          console.debug('Failed to get PDP config:', error)
+          return null
+        }),
       ])
 
       // Set retrieval URL if we have provider info
@@ -1233,18 +1210,18 @@ export class StorageContext {
       }
 
       // Process proof timing data if we have data set data and PDP config
-      if (dataSetData != null && pdpConfig != null) {
+      if (pdpConfig != null) {
         // Check if this PieceCID is in the data set
-        const pieceData = dataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
+        const pieceData = spDataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
 
         if (pieceData != null) {
           pieceId = pieceData.pieceId
 
           // Calculate timing based on nextChallengeEpoch
-          if (dataSetData.nextChallengeEpoch > 0) {
+          if (spDataSetData.nextChallengeEpoch > 0) {
             // nextChallengeEpoch is when the challenge window STARTS, not ends!
             // The proving deadline is nextChallengeEpoch + challengeWindowSize
-            const challengeWindowStart = dataSetData.nextChallengeEpoch
+            const challengeWindowStart = spDataSetData.nextChallengeEpoch
             const provingDeadline = challengeWindowStart + Number(pdpConfig.challengeWindowSize)
 
             // Calculate when the next proof is due (end of challenge window)
@@ -1252,7 +1229,7 @@ export class StorageContext {
 
             // Calculate last proven date (one proving period before next challenge)
             const lastProvenDate = calculateLastProofDate(
-              dataSetData.nextChallengeEpoch,
+              spDataSetData.nextChallengeEpoch,
               Number(pdpConfig.maxProvingPeriod),
               this._chain.genesisTimestamp
             )
