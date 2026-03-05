@@ -94,7 +94,7 @@ Run `pnpm run lint:fix` before commits.
 
 Storage uses a store → pull → commit pipeline for multi-copy durability:
 
-```
+```text
 Client ──store──> Primary SP (endorsed)
                     │
          ┌─────────┴─────────┐
