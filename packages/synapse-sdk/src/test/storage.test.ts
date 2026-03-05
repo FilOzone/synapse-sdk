@@ -1550,6 +1550,35 @@ describe('StorageService', () => {
       assert.isNull(status.dataSetNextProofDue)
     })
 
+    it('should return exists=false when piece found on provider but not in data set', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
+          return HttpResponse.json({
+            id: 1,
+            pieces: [],
+            nextChallengeEpoch: 5000,
+          })
+        }),
+        http.get('https://pdp.example.com/pdp/piece', async () => {
+          return HttpResponse.json({ pieceCid: mockPieceCID })
+        })
+      )
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService({ client })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
+
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
+
+      assert.isFalse(status.exists)
+      assert.isNull(status.retrievalUrl)
+      assert.isNull(status.dataSetLastProven)
+      assert.isNull(status.dataSetNextProofDue)
+    })
+
     it('should return piece status with proof timing when piece exists', async () => {
       server.use(
         Mocks.JSONRPC({

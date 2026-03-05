@@ -1188,7 +1188,7 @@ export class StorageContext {
     }
 
     // Run multiple operations in parallel for better performance
-    const [exists, dataSetData, currentEpoch] = await Promise.all([
+    const [hasPiece, dataSetData, currentEpoch] = await Promise.all([
       // Check if piece exists on provider
       this.hasPiece({ pieceCid: parsedPieceCID }),
       // Get data set data
@@ -1199,6 +1199,8 @@ export class StorageContext {
       // Get current epoch
       getBlockNumber(this._client),
     ])
+
+    const exists = hasPiece && dataSetData.pieces.findIndex((piece) => piece.pieceCid.equals(parsedPieceCID)) > -1
 
     // Initialize return values
     let retrievalUrl: string | null = null
