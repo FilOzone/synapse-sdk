@@ -9,9 +9,9 @@ import {
 } from '../src/warm-storage/calculate-deposit-needed.ts'
 
 describe('calculateRunwayAmount', () => {
-  it('computes netRate * runwayEpochs', () => {
+  it('computes netRateAfterUpload * runwayEpochs', () => {
     const result = calculateRunwayAmount({
-      netRate: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
+      netRateAfterUpload: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
       runwayEpochs: 100n,
     })
 
@@ -21,10 +21,10 @@ describe('calculateRunwayAmount', () => {
 })
 
 describe('calculateBufferAmount', () => {
-  it('rawDepositNeeded > 0: returns netRate * bufferEpochs', () => {
+  it('rawDepositNeeded > 0: returns netRateAfterUpload * bufferEpochs', () => {
     const result = calculateBufferAmount({
       rawDepositNeeded: 100n,
-      netRate: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
+      netRateAfterUpload: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
       fundedUntilEpoch: 500n,
       currentEpoch: 100n,
       availableFunds: 200n,
@@ -36,10 +36,10 @@ describe('calculateBufferAmount', () => {
     assert.equal(result, 300n)
   })
 
-  it('rawDepositNeeded > 0, zero delta: returns netRate * bufferEpochs', () => {
+  it('rawDepositNeeded > 0, zero delta: returns netRateAfterUpload * bufferEpochs', () => {
     const result = calculateBufferAmount({
       rawDepositNeeded: 100n,
-      netRate: 10n, // no delta — just currentLockupRate
+      netRateAfterUpload: 10n, // no delta — just currentLockupRate
       fundedUntilEpoch: 500n,
       currentEpoch: 100n,
       availableFunds: 200n,
@@ -50,12 +50,12 @@ describe('calculateBufferAmount', () => {
     assert.equal(result, 200n)
   })
 
-  it('rawDepositNeeded <= 0, fundedUntilEpoch within buffer window: returns max(0, netRate*buffer - available)', () => {
+  it('rawDepositNeeded <= 0, fundedUntilEpoch within buffer window: returns max(0, netRateAfterUpload*buffer - available)', () => {
     // fundedUntilEpoch = 110, currentEpoch = 100, bufferEpochs = 20
     // 110 <= 100 + 20 = 120, so within buffer window
     const result = calculateBufferAmount({
       rawDepositNeeded: -50n,
-      netRate: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
+      netRateAfterUpload: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
       fundedUntilEpoch: 110n,
       currentEpoch: 100n,
       availableFunds: 50n,
@@ -71,7 +71,7 @@ describe('calculateBufferAmount', () => {
     // 500 > 100 + 20 = 120, so beyond buffer window
     const result = calculateBufferAmount({
       rawDepositNeeded: -50n,
-      netRate: 15n,
+      netRateAfterUpload: 15n,
       fundedUntilEpoch: 500n,
       currentEpoch: 100n,
       availableFunds: 200n,
@@ -95,7 +95,7 @@ describe('calculateDepositNeeded', () => {
       currentDataSetSize: 0n,
       ...pricing,
       lockupEpochs: 86400n,
-      isNewDataset: true,
+      isNewDataSet: true,
       withCDN: false,
       currentLockupRate: 0n,
       runwayEpochs: 0n,
@@ -115,7 +115,7 @@ describe('calculateDepositNeeded', () => {
       currentDataSetSize: 0n,
       ...pricing,
       lockupEpochs: 86400n,
-      isNewDataset: true,
+      isNewDataSet: true,
       withCDN: false,
       currentLockupRate: 0n,
       runwayEpochs: 0n,
@@ -139,7 +139,7 @@ describe('calculateDepositNeeded', () => {
       currentDataSetSize: 0n,
       ...pricing,
       lockupEpochs: 86400n,
-      isNewDataset: true,
+      isNewDataSet: true,
       withCDN: false,
       currentLockupRate: 100_000_000_000_000n, // existing rails draining
       runwayEpochs: 0n,
@@ -163,7 +163,7 @@ describe('calculateDepositNeeded', () => {
       currentDataSetSize: 0n,
       ...pricing,
       lockupEpochs: 86400n,
-      isNewDataset: true,
+      isNewDataSet: true,
       withCDN: false,
       currentLockupRate: 10n,
       runwayEpochs: 0n,

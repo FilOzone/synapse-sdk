@@ -130,7 +130,7 @@ describe('fund', () => {
     assert.equal(depositWithPermitCalled, true)
   })
 
-  it('should return 0x when already approved and amount === 0', async () => {
+  it('should throw when already approved and amount === 0', async () => {
     server.use(
       JSONRPC({
         ...presets.basic,
@@ -148,9 +148,7 @@ describe('fund', () => {
       transport: http(),
     })
 
-    const hash = await fund(client, { amount: 0n })
-
-    assert.equal(hash, '0x')
+    await assert.rejects(fund(client, { amount: 0n }), /Nothing to fund/)
   })
 
   it('should use needsFwssMaxApproval override when provided (true)', async () => {

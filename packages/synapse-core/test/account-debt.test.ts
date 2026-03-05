@@ -3,11 +3,11 @@
 import assert from 'assert'
 import { maxUint256 } from 'viem'
 import { calculateAccountDebt } from '../src/pay/account-debt.ts'
-import { getAccountInfoIfSettled } from '../src/pay/get-account-info-if-settled.ts'
+import { resolveAccountState } from '../src/pay/resolve-account-state.ts'
 
-describe('getAccountInfoIfSettled', () => {
+describe('resolveAccountState', () => {
   it('healthy account: funds > lockup → correct availableFunds and fundedUntilEpoch', () => {
-    const result = getAccountInfoIfSettled({
+    const result = resolveAccountState({
       funds: 1000n,
       lockupCurrent: 100n,
       lockupRate: 1n,
@@ -22,12 +22,29 @@ describe('getAccountInfoIfSettled', () => {
     // simulatedLockupCurrent = 100 + 1 * (100 - 0) = 200
     // availableFunds = max(0, 1000 - 200) = 800
     assert.equal(result.availableFunds, 800n)
-    assert.equal(result.currentFunds, 1000n)
-    assert.equal(result.currentLockupRate, 1n)
   })
 
   it('underfunded account: lockup > funds → availableFunds = 0, fundedUntilEpoch < currentEpoch', () => {
-    const result = getAccountInfoIfSettled({
+    const result = resolveAccountState({
+      funds: 100n,
+      lockupCurrent: 200n,
+      lockupRate: 2n,
+      lockupLastSettledAt: 1000n,
+      currentEpoch: 1200n,
+    })
+
+    // fundedUntilEpoch = 1000 + (100 - 200) / 2 = 1000 + (-50) = 950
+    assert.equal(result.fundedUntilEpoch, 950n)
+    assert.ok(result.fundedUntilEpoch < 1200n)
+
+    // simulatedSettledAt = min(950, 1200) = 950
+    // simulatedLockupCurrent = 200 + 2 * (950 - 1000) = 200 + (-100) = 100
+    // availableFunds = max(0, 100 - 100) = 0
+    assert.equal(result.availableFunds, 0n)
+  })
+
+  it('partially funded account: funds > lockupCurrent but runs out before currentEpoch', () => {
+    const result = resolveAccountState({
       funds: 100n,
       lockupCurrent: 50n,
       lockupRate: 1n,
@@ -46,7 +63,7 @@ describe('getAccountInfoIfSettled', () => {
   })
 
   it('zero lockupRate → fundedUntilEpoch = maxUint256', () => {
-    const result = getAccountInfoIfSettled({
+    const result = resolveAccountState({
       funds: 1000n,
       lockupCurrent: 100n,
       lockupRate: 0n,
@@ -64,7 +81,7 @@ describe('getAccountInfoIfSettled', () => {
 })
 
 describe('calculateAccountDebt', () => {
-  it('healthy account: debt = 0, availableFunds > 0', () => {
+  it('healthy account: debt = 0', () => {
     const result = calculateAccountDebt({
       funds: 1000n,
       lockupCurrent: 100n,
@@ -75,12 +92,10 @@ describe('calculateAccountDebt', () => {
 
     // totalOwed = 100 + 1 * 100 = 200
     // debt = max(0, 200 - 1000) = 0
-    assert.equal(result.debt, 0n)
-    assert.equal(result.availableFunds, 800n)
-    assert.equal(result.fundedUntilEpoch, 900n)
+    assert.equal(result, 0n)
   })
 
-  it('underfunded account: debt > 0, availableFunds = 0', () => {
+  it('underfunded account: debt > 0', () => {
     const result = calculateAccountDebt({
       funds: 100n,
       lockupCurrent: 50n,
@@ -91,12 +106,10 @@ describe('calculateAccountDebt', () => {
 
     // totalOwed = 50 + 1 * 200 = 250
     // debt = max(0, 250 - 100) = 150
-    assert.equal(result.debt, 150n)
-    assert.equal(result.availableFunds, 0n)
-    assert.equal(result.fundedUntilEpoch, 50n)
+    assert.equal(result, 150n)
   })
 
-  it('zero lockupRate: debt = 0, fundedUntilEpoch = maxUint256', () => {
+  it('zero lockupRate: debt = 0', () => {
     const result = calculateAccountDebt({
       funds: 1000n,
       lockupCurrent: 100n,
@@ -107,8 +120,6 @@ describe('calculateAccountDebt', () => {
 
     // totalOwed = 100 + 0 * 100 = 100
     // debt = max(0, 100 - 1000) = 0
-    assert.equal(result.debt, 0n)
-    assert.equal(result.fundedUntilEpoch, maxUint256)
-    assert.equal(result.availableFunds, 900n)
+    assert.equal(result, 0n)
   })
 })

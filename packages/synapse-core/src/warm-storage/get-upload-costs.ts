@@ -3,6 +3,7 @@ import { getBlockNumber } from 'viem/actions'
 import { calculateAccountDebt } from '../pay/account-debt.ts'
 import { accounts } from '../pay/accounts.ts'
 import { isFwssMaxApproved } from '../pay/is-fwss-max-approved.ts'
+import { resolveAccountState } from '../pay/resolve-account-state.ts'
 import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS, LOCKUP_PERIOD } from '../utils/constants.ts'
 import { calculateDepositNeeded } from './calculate-deposit-needed.ts'
 import { calculateEffectiveRate } from './calculate-effective-rate.ts'
@@ -75,7 +76,7 @@ export async function getUploadCosts(
   ])
 
   // Calculate effective rate for the new total dataset size
-  const totalSize = isNewDataSet ? options.dataSize : currentDataSetSize + options.dataSize
+  const totalSize = currentDataSetSize + options.dataSize
   const rate = calculateEffectiveRate({
     sizeInBytes: totalSize,
     pricePerTiBPerMonth: pricing.pricePerTiBPerMonthNoCDN,
@@ -83,14 +84,15 @@ export async function getUploadCosts(
     epochsPerMonth: pricing.epochsPerMonth,
   })
 
-  // Calculate account debt
-  const debtInfo = calculateAccountDebt({
+  const accountParams = {
     funds: accountInfo.funds,
     lockupCurrent: accountInfo.lockupCurrent,
     lockupRate: accountInfo.lockupRate,
     lockupLastSettledAt: accountInfo.lockupLastSettledAt,
     currentEpoch,
-  })
+  }
+  const debt = calculateAccountDebt(accountParams)
+  const { availableFunds, fundedUntilEpoch } = resolveAccountState(accountParams)
 
   // Calculate deposit needed
   const depositNeeded = calculateDepositNeeded({
@@ -100,13 +102,13 @@ export async function getUploadCosts(
     minimumPricePerMonth: pricing.minimumPricePerMonth,
     epochsPerMonth: pricing.epochsPerMonth,
     lockupEpochs: LOCKUP_PERIOD,
-    isNewDataset: isNewDataSet,
+    isNewDataSet,
     withCDN,
     currentLockupRate: accountInfo.lockupRate,
     runwayEpochs,
-    debt: debtInfo.debt,
-    availableFunds: debtInfo.availableFunds,
-    fundedUntilEpoch: debtInfo.fundedUntilEpoch,
+    debt,
+    availableFunds,
+    fundedUntilEpoch,
     currentEpoch,
     bufferEpochs,
   })

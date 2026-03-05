@@ -40,11 +40,11 @@ export namespace fund {
  * - Needs approval + amount > 0: `depositAndApprove` (deposit with permit + approve FWSS operator)
  * - Needs approval + amount === 0: `setOperatorApproval` (approve FWSS operator only)
  * - Already approved + amount > 0: `depositWithPermit` (deposit only via permit)
- * - Already approved + amount === 0: no-op, returns `'0x'`
+ * - Already approved + amount === 0: throws (nothing to do)
  *
  * @param client - The viem client with account to use for the transaction.
  * @param options - {@link fund.OptionsType}
- * @returns The transaction hash (or `'0x'` for no-op)
+ * @returns The transaction hash
  * @throws Errors {@link fund.ErrorType}
  *
  * @example
@@ -93,18 +93,15 @@ export async function fund(client: Client<Transport, Chain, Account>, options: f
     return depositWithPermit(client, { amount: options.amount })
   }
 
-  // Already approved, no deposit needed
-  return '0x' as Hash
+  throw new Error('Nothing to fund: account is already approved and deposit amount is 0')
 }
 
 export namespace fundSync {
   export type OptionsType = fund.OptionsType & ActionSyncCallback
 
   export type OutputType = {
-    /** The transaction hash (or `'0x'` for no-op) */
     hash: Hash
-    /** The transaction receipt, or null for no-op */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>> | null
+    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
   }
 
   export type ErrorType = fund.ErrorType | WaitForTransactionReceiptErrorType
@@ -114,7 +111,6 @@ export namespace fundSync {
  * Smart deposit and wait for confirmation
  *
  * Calls {@link fund} and waits for the transaction receipt.
- * For no-op cases (already approved, no deposit), returns a null receipt.
  *
  * @param client - The viem client with account to use for the transaction.
  * @param options - {@link fundSync.OptionsType}
@@ -153,11 +149,6 @@ export async function fundSync(
 
   if (options.onHash) {
     options.onHash(hash)
-  }
-
-  // No-op case: skip waitForTransactionReceipt
-  if (hash === '0x') {
-    return { hash, receipt: null }
   }
 
   const receipt = await waitForTransactionReceipt(client, { hash })

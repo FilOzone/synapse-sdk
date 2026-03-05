@@ -77,18 +77,18 @@ async function main() {
 
   // Prepare account (deposit + approval if needed)
   console.log('\n--- Preparing Account ---')
-  const prep = await synapse.storage.prepare({ dataSize: BigInt(totalSize) })
+  const { costs, transaction } = await synapse.storage.prepare({ dataSize: BigInt(totalSize) })
 
   console.log('Estimated costs:')
-  console.log(`  Per epoch (30s): ${formatUSDFC(prep.costs.rate.perEpoch)}`)
-  console.log(`  Per month: ${formatUSDFC(prep.costs.rate.perMonth)}`)
-  console.log(`  Deposit needed: ${formatUSDFC(prep.costs.depositNeeded)}`)
-  console.log(`  Ready: ${prep.costs.ready}`)
+  console.log(`  Per epoch (30s): ${formatUSDFC(costs.rate.perEpoch)}`)
+  console.log(`  Per month: ${formatUSDFC(costs.rate.perMonth)}`)
+  console.log(`  Deposit needed: ${formatUSDFC(costs.depositNeeded)}`)
+  console.log(`  Ready: ${costs.ready}`)
 
-  if (prep.transaction) {
-    console.log(`  Deposit amount: ${formatUSDFC(prep.transaction.depositAmount)}`)
-    console.log(`  Includes approval: ${prep.transaction.includesApproval}`)
-    const { hash } = await prep.transaction.execute({
+  if (transaction) {
+    console.log(`  Deposit amount: ${formatUSDFC(transaction.depositAmount)}`)
+    console.log(`  Includes approval: ${transaction.includesApproval}`)
+    const { hash } = await transaction.execute({
       onHash: (h) => console.log(`  Transaction hash: ${h}`),
     })
     console.log(`  Transaction confirmed: ${hash}`)

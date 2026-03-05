@@ -14,11 +14,20 @@ export namespace isFwssMaxApproved {
 }
 
 /**
- * Check whether FWSS is approved with maxUint256 rate/lockup allowances
+ * Check whether FWSS is approved with sufficient rate/lockup allowances
  * and at least LOCKUP_PERIOD (30 days) for maxLockupPeriod.
  *
- * Returns `true` when `isApproved && rateAllowance === maxUint256
- * && lockupAllowance === maxUint256 && maxLockupPeriod >= LOCKUP_PERIOD`.
+ * rateAllowance is checked for exact maxUint256 since the contract never
+ * decrements it — it only tracks usage separately via rateUsage.
+ *
+ * lockupAllowance uses a >= maxUint256 / 2 threshold instead of exact equality
+ * because the contract permanently decrements lockupAllowance on one-time
+ * payments (e.g. when settleFilBeamPaymentRails processes CDN egress charges).
+ * After initially approving with maxUint256, each CDN settlement reduces
+ * lockupAllowance by the one-time payment amount, causing an exact === check
+ * to fail and unnecessarily prompt the user for a new approval transaction.
+ * Half of maxUint256 is still astronomically large — no realistic usage would
+ * ever cross this threshold.
  *
  * @param client - Read-only viem client
  * @param options - {@link isFwssMaxApproved.OptionsType}
@@ -35,7 +44,7 @@ export async function isFwssMaxApproved(
   return (
     approval.isApproved &&
     approval.rateAllowance === maxUint256 &&
-    approval.lockupAllowance === maxUint256 &&
+    approval.lockupAllowance >= maxUint256 / 2n &&
     approval.maxLockupPeriod >= LOCKUP_PERIOD
   )
 }

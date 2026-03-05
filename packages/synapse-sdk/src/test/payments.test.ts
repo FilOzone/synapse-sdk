@@ -715,12 +715,16 @@ describe('PaymentsService', () => {
       assert.typeOf(hash, 'string')
     })
 
-    it('should return 0x hash when already approved and amount === 0', async () => {
-      const hash = await payments.fund({
-        amount: 0n,
-        needsFwssMaxApproval: false,
-      })
-      assert.equal(hash, '0x')
+    it('should throw when already approved and amount === 0', async () => {
+      try {
+        await payments.fund({
+          amount: 0n,
+          needsFwssMaxApproval: false,
+        })
+        assert.fail('expected fund to throw')
+      } catch (error) {
+        assert.include((error as Error).message, 'fund')
+      }
     })
 
     it('should skip RPC check when needsFwssMaxApproval is provided', async () => {

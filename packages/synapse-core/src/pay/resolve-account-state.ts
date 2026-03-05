@@ -1,6 +1,6 @@
 import { maxUint256 } from 'viem'
 
-export namespace getAccountInfoIfSettled {
+export namespace resolveAccountState {
   export type ParamsType = {
     funds: bigint
     lockupCurrent: bigint
@@ -11,27 +11,22 @@ export namespace getAccountInfoIfSettled {
 
   export type OutputType = {
     fundedUntilEpoch: bigint
-    currentFunds: bigint
     availableFunds: bigint
-    currentLockupRate: bigint
   }
 }
 
 /**
- * Pure implementation mirroring the on-chain `getAccountInfoIfSettled`.
+ * Project account state forward to `currentEpoch` by simulating settlement locally.
  *
- * Takes raw account fields from `accounts()` + currentEpoch.
- * No RPC call — computed entirely client-side.
+ * Pure function — no RPC call. Takes raw account fields from `accounts()` + currentEpoch
+ * and computes what the account state would be if settlement happened now.
  *
  * @param params - Raw account fields + current epoch
- * @returns Settled account info including fundedUntilEpoch
+ * @returns fundedUntilEpoch and availableFunds after simulated settlement
  */
-export function getAccountInfoIfSettled(
-  params: getAccountInfoIfSettled.ParamsType
-): getAccountInfoIfSettled.OutputType {
+export function resolveAccountState(params: resolveAccountState.ParamsType): resolveAccountState.OutputType {
   const { funds, lockupCurrent, lockupRate, lockupLastSettledAt, currentEpoch } = params
 
-  // Mirror on-chain: lockupRate == 0 → infinite funding
   const fundedUntilEpoch = lockupRate === 0n ? maxUint256 : lockupLastSettledAt + (funds - lockupCurrent) / lockupRate
 
   // simulatedSettledAt = min(fundedUntilEpoch, currentEpoch)
@@ -46,8 +41,6 @@ export function getAccountInfoIfSettled(
 
   return {
     fundedUntilEpoch,
-    currentFunds: funds,
     availableFunds,
-    currentLockupRate: lockupRate,
   }
 }

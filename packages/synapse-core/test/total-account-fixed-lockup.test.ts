@@ -5,9 +5,9 @@ import { setup } from 'iso-web/msw'
 import { createPublicClient, http, parseUnits } from 'viem'
 import { calibration } from '../src/chains.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { totalAccountLockup } from '../src/pay/total-account-lockup.ts'
+import { totalAccountFixedLockup } from '../src/pay/total-account-fixed-lockup.ts'
 
-describe('totalAccountLockup', () => {
+describe('totalAccountFixedLockup', () => {
   const server = setup()
 
   before(async () => {
@@ -38,7 +38,7 @@ describe('totalAccountLockup', () => {
       transport: http(),
     })
 
-    const result = await totalAccountLockup(client, {
+    const result = await totalAccountFixedLockup(client, {
       address: ADDRESSES.client1,
     })
 
@@ -80,7 +80,7 @@ describe('totalAccountLockup', () => {
       transport: http(),
     })
 
-    const result = await totalAccountLockup(client, {
+    const result = await totalAccountFixedLockup(client, {
       address: ADDRESSES.client1,
     })
 
@@ -122,7 +122,7 @@ describe('totalAccountLockup', () => {
       transport: http(),
     })
 
-    const result = await totalAccountLockup(client, {
+    const result = await totalAccountFixedLockup(client, {
       address: ADDRESSES.client1,
     })
 
@@ -165,7 +165,7 @@ describe('totalAccountLockup', () => {
       transport: http(),
     })
 
-    const result = await totalAccountLockup(client, {
+    const result = await totalAccountFixedLockup(client, {
       address: ADDRESSES.client1,
     })
 
