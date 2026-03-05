@@ -25,8 +25,8 @@ The SessionKeyRegistry stores arbitrary `bytes32` hashes as permissions and is a
 | Constant | Operation |
 | ---------- | ----------- |
 | `CreateDataSetPermission` | Create new datasets |
-| `AddPiecesPermission` | Upload pieces to datasets |
-| `SchedulePieceRemovalsPermission` | Schedule piece deletions |
+| `AddPiecesPermission` | Add pieces to datasets |
+| `SchedulePieceRemovalsPermission` | Schedule piece removals |
 | `DeleteDataSetPermission` | Delete datasets |
 
 These are convenience constants for FWSS operations. The `Permission` type also accepts any `Hex` value, allowing registration of custom permission hashes for non-FWSS operations (e.g., authenticated Curio HTTP endpoints).
@@ -35,23 +35,24 @@ These are convenience constants for FWSS operations. The `Permission` type also 
 
 A complete session key lifecycle from creation through to use:
 
-```ts
+```ts twoslash
 import * as SessionKey from '@filoz/synapse-core/session-key'
 import { calibration } from '@filoz/synapse-core/chains'
 import { createWalletClient, http, type Hex } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts'
 
 // The root wallet (the user's primary wallet)
 const rootAccount = privateKeyToAccount('0x<root-private-key>' as Hex)
 const rootClient = createWalletClient({
   account: rootAccount,
   chain: calibration,
-  transport: http('https://api.calibration.node.glif.io/rpc/v1'),
+  transport: http(),
 })
 
 // Create an ephemeral session key
+const privateKey = generatePrivateKey()
 const sessionKey = SessionKey.fromSecp256k1({
-  privateKey: '0x<session-private-key>' as Hex,
+  privateKey,
   root: rootAccount,       // Account or Address
   chain: calibration,
 })
@@ -78,13 +79,16 @@ await sessionKey.syncExpirations()
 
 `fromSecp256k1()` creates a session key from a secp256k1 private key. It returns a `SessionKey<'Secp256k1'>` instance.
 
-```ts
+```ts twoslash
 import * as SessionKey from '@filoz/synapse-core/session-key'
 import { calibration } from '@filoz/synapse-core/chains'
 import type { Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const rootAccount = privateKeyToAccount('0x<root-private-key>' as Hex)
 
 const sessionKey = SessionKey.fromSecp256k1({
-  privateKey: '0x...' as Hex,   // secp256k1 private key for the session key
+  privateKey: '0x...' as Hex,    // secp256k1 private key for the session key
   root: rootAccount,             // Account or Address of the authorizing wallet
   chain: calibration,            // chain definition (calibration or mainnet)
   // transport: http(customRpc), // optional, defaults to http()
@@ -98,7 +102,28 @@ The session key is inert until authorized. It holds a viem `Client` internally (
 
 The **root wallet** authorizes the session key on-chain. `login()` and `loginSync()` both require a viem `WalletClient` (a `Client` with an `Account`):
 
-```ts
+```ts twoslash
+import * as SessionKey from '@filoz/synapse-core/session-key'
+import { calibration } from '@filoz/synapse-core/chains'
+import { createWalletClient, http, type Hex } from 'viem'
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts'
+
+// The root wallet (the user's primary wallet)
+const rootAccount = privateKeyToAccount('0x<root-private-key>' as Hex)
+const rootClient = createWalletClient({
+  account: rootAccount,
+  chain: calibration,
+  transport: http(),
+})
+
+// Create an ephemeral session key
+const privateKey = generatePrivateKey()
+const sessionKey = SessionKey.fromSecp256k1({
+  privateKey,
+  root: rootAccount,       // Account or Address
+  chain: calibration,
+})
+// ---cut---
 // Fire-and-forget (returns tx hash: Hex)
 const hash = await SessionKey.login(rootClient, {
   address: sessionKey.address,
@@ -115,7 +140,7 @@ const { receipt, event } = await SessionKey.loginSync(rootClient, {
 // event is the AuthorizationsUpdated log with args: { identity, permissions, expiry }
 ```
 
-By default, `login()` grants all four FWSS permissions (`DefaultFwssPermissions`) with a 1-hour expiry. Both `permissions` and `expiresAt` are configurable.
+By default, `login()` grants all four [FWSS permissions](#permissions) (`DefaultFwssPermissions`) with a 1-hour expiry. Both `permissions` and `expiresAt` are configurable.
 
 To grant only specific permissions:
 
@@ -287,105 +312,6 @@ const expirations = await SessionKey.getExpirations(publicClient, {
 })
 ```
 
-## API reference
+## Next Steps
 
-### Factory functions
-
-#### `fromSecp256k1(options)` {#fromSecp256k1}
-
-Create a session key with its own viem client.
-
-- **options.privateKey** `Hex` - secp256k1 private key
-- **options.root** `Account | Address` - the authorizing wallet
-- **options.chain** `Chain` - chain definition
-- **options.transport?** `Transport` - defaults to `http()`
-- **options.expirations?** `Expirations` - pre-populate known expirations
-- **Returns** `SessionKey<'Secp256k1'>`
-
-#### `accountFromSecp256k1(options)` {#accountFromSecp256k1}
-
-Create a session key account without the wrapper (for custom client setup).
-
-- **options.privateKey** `Hex` - secp256k1 private key
-- **options.rootAddress** `Address` - the authorizing wallet's address
-- **Returns** `SessionKeyAccount<'Secp256k1'>`
-
-### SessionKey instance
-
-**Properties:**
-
-- `.client` `Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>>` - viem client that signs with the session key
-- `.address` `Address` - the session key's address
-- `.rootAddress` `Address` - the authorizing wallet's address
-- `.expirations` `Record<Permission, bigint>` - cached permission expiry timestamps
-
-**Methods:**
-
-- `.hasPermission(permission)` - returns `boolean`, local check against cached expirations
-- `.hasPermissions(permissions)` - returns `boolean`, checks all permissions are valid
-- `.syncExpirations()` - returns `Promise<void>`, fetches expirations from chain via multicall
-- `.watch()` - returns `Promise<() => void>`, syncs + subscribes to live `AuthorizationsUpdated` events; the returned function stops watching
-- `.unwatch()` - stops watching for live events
-
-### Write operations (called by root wallet)
-
-All write operations require a wallet client (`Client<Transport, Chain, Account>`).
-
-#### `login(client, options)` {#login}
-
-Authorize a session key on-chain. Returns `Hash`.
-
-- **options.address** `Address` - session key address
-- **options.permissions?** `Permission[]` - defaults to `DefaultFwssPermissions`
-- **options.expiresAt?** `bigint` - unix timestamp, defaults to now + 1 hour
-- **options.origin?** `string` - defaults to `'synapse'`
-
-#### `loginSync(client, options)` {#loginSync}
-
-Authorize and wait for confirmation. Returns `{ receipt, event }`.
-
-Same options as `login()`, plus:
-
-- **options.onHash?** `(hash: Hash) => void` - called when tx is submitted
-
-#### `revoke(client, options)` {#revoke}
-
-Revoke session key permissions. Returns `Hash`.
-
-- **options.address** `Address` - session key address
-- **options.permissions?** `Permission[]` - defaults to `DefaultFwssPermissions`
-- **options.origin?** `string` - defaults to `'synapse'`
-
-#### `revokeSync(client, options)` {#revokeSync}
-
-Revoke and wait for confirmation. Returns `{ receipt, event }`.
-
-Same options as `revoke()`, plus:
-
-- **options.onHash?** `(hash: Hash) => void` - called when tx is submitted
-
-### Read operations
-
-Read operations require a public client (`Client<Transport, Chain>`).
-
-#### `authorizationExpiry(client, options)` {#authorizationExpiry}
-
-Get the expiry timestamp for a single permission. Returns `bigint` (0n if no authorization exists).
-
-- **options.address** `Address` - the root wallet
-- **options.sessionKeyAddress** `Address` - the session key
-- **options.permission** `Permission` - which permission to check
-
-#### `isExpired(client, options)` {#isExpired}
-
-Check if a permission is expired. Returns `boolean`.
-
-Same options as `authorizationExpiry()`.
-
-#### `getExpirations(client, options)` {#getExpirations}
-
-Batch-fetch expirations for multiple permissions. Returns `Record<Permission, bigint>`.
-
-- **options.address** `Address` - the root wallet
-- **options.sessionKeyAddress** `Address` - the session key
-- **options.permissions?** `Permission[]` - defaults to `DefaultFwssPermissions`
+- [Session Keys API](/reference/filoz/synapse-core/session-key/toc/#functions): Reference documentation
