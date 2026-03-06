@@ -1227,7 +1227,7 @@ export class StorageContext {
 
             // Calculate last proven date (one proving period before next challenge)
             const lastProvenDate = calculateLastProofDate(
-              spDataSetData.nextChallengeEpoch,
+              Number(nextChallengeEpoch),
               Number(pdpConfig.maxProvingPeriod),
               this._chain.genesisTimestamp
             )
