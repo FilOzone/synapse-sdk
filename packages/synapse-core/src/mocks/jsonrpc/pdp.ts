@@ -13,6 +13,7 @@ export type getActivePieces = ExtractAbiFunction<typeof Abis.pdp, 'getActivePiec
 export type getDataSetStorageProvider = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetStorageProvider'>
 export type getDataSetLeafCount = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetLeafCount'>
 export type getScheduledRemovals = ExtractAbiFunction<typeof Abis.pdp, 'getScheduledRemovals'>
+export type getNextChallengeEpoch = ExtractAbiFunction<typeof Abis.pdp, 'getNextChallengeEpoch'>
 
 export interface PDPVerifierOptions {
   dataSetLive?: (args: AbiToType<dataSetLive['inputs']>) => AbiToType<dataSetLive['outputs']>
@@ -25,6 +26,9 @@ export interface PDPVerifierOptions {
   ) => AbiToType<getDataSetStorageProvider['outputs']>
   getDataSetLeafCount?: (args: AbiToType<getDataSetLeafCount['inputs']>) => AbiToType<getDataSetLeafCount['outputs']>
   getScheduledRemovals?: (args: AbiToType<getScheduledRemovals['inputs']>) => AbiToType<getScheduledRemovals['outputs']>
+  getNextChallengeEpoch?: (
+    args: AbiToType<getNextChallengeEpoch['inputs']>
+  ) => AbiToType<getNextChallengeEpoch['outputs']>
 }
 
 /**
@@ -109,6 +113,15 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
       return encodeAbiParameters(
         Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getScheduledRemovals')!.outputs,
         options.pdpVerifier.getScheduledRemovals(args)
+      )
+    }
+    case 'getNextChallengeEpoch': {
+      if (!options.pdpVerifier?.getNextChallengeEpoch) {
+        throw new Error('PDP Verifier: getScheduledRemovals is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getNextChallengeEpoch')!.outputs,
+        options.pdpVerifier.getNextChallengeEpoch(args)
       )
     }
     default: {

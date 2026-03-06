@@ -1141,31 +1141,6 @@ export class StorageContext {
   }
 
   /**
-   * Check if a piece exists on this service provider.
-   *
-   * @param options - Options for the has piece operation
-   * @param options.pieceCid - The PieceCID (piece CID) to check
-   * @returns True if the piece exists on this provider, false otherwise
-   */
-  async hasPiece(options: { pieceCid: string | PieceCID }): Promise<boolean> {
-    const { pieceCid } = options
-    const parsedPieceCID = Piece.asPieceCID(pieceCid)
-    if (parsedPieceCID == null) {
-      return false
-    }
-
-    try {
-      await SP.findPiece({
-        serviceURL: this._pdpEndpoint,
-        pieceCid: parsedPieceCID,
-      })
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  /**
    * Check if a piece exists on this service provider and get its proof status.
    * Also returns timing information about when the piece was last proven and when the next
    * proof is due.
@@ -1188,17 +1163,30 @@ export class StorageContext {
     }
 
     // Run multiple operations in parallel for better performance
-    const [exists, dataSetData, currentEpoch] = await Promise.all([
-      // Check if piece exists on provider
-      this.hasPiece({ pieceCid: parsedPieceCID }),
-      // Get data set data
+    const [activePieces, nextChallengeEpoch, spDataSetData, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
+      PDPVerifier.getActivePieces(this._client, {
+        dataSetId: this.dataSetId,
+      }),
+      PDPVerifier.getNextChallengeEpoch(this._client, {
+        dataSetId: this.dataSetId,
+      }),
       SP.getDataSet({
         serviceURL: this._pdpEndpoint,
         dataSetId: this.dataSetId,
       }),
-      // Get current epoch
       getBlockNumber(this._client),
+      this._warmStorageService.getPDPConfig().catch((error) => {
+        console.debug('Failed to get PDP config:', error)
+        return null
+      }),
+      this.getProviderInfo().catch(() => null),
     ])
+
+    const exists = activePieces.pieces.findIndex((piece) => piece.cid.equals(parsedPieceCID)) > -1
+
+    const spStateMatchesContract =
+      spDataSetData.pieces.findIndex((piece) => piece.pieceCid.equals(parsedPieceCID)) > -1 &&
+      BigInt(spDataSetData.nextChallengeEpoch) === nextChallengeEpoch
 
     // Initialize return values
     let retrievalUrl: string | null = null
@@ -1210,18 +1198,7 @@ export class StorageContext {
     let isProofOverdue = false
 
     // If piece exists, get provider info for retrieval URL and proving params in parallel
-    if (exists) {
-      const [providerInfo, pdpConfig] = await Promise.all([
-        // Get provider info for retrieval URL
-        this.getProviderInfo().catch(() => null),
-        dataSetData != null
-          ? this._warmStorageService.getPDPConfig().catch((error) => {
-              console.debug('Failed to get PDP config:', error)
-              return null
-            })
-          : Promise.resolve(null),
-      ])
-
+    if (exists && spStateMatchesContract) {
       // Set retrieval URL if we have provider info
       if (providerInfo != null) {
         retrievalUrl = createPieceUrlPDP({
@@ -1231,26 +1208,26 @@ export class StorageContext {
       }
 
       // Process proof timing data if we have data set data and PDP config
-      if (dataSetData != null && pdpConfig != null) {
+      if (pdpConfig != null) {
         // Check if this PieceCID is in the data set
-        const pieceData = dataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
+        const pieceData = activePieces.pieces.find((piece) => piece.cid.equals(parsedPieceCID))
 
         if (pieceData != null) {
-          pieceId = pieceData.pieceId
+          pieceId = pieceData.id
 
           // Calculate timing based on nextChallengeEpoch
-          if (dataSetData.nextChallengeEpoch > 0) {
+          if (nextChallengeEpoch > 0n) {
             // nextChallengeEpoch is when the challenge window STARTS, not ends!
             // The proving deadline is nextChallengeEpoch + challengeWindowSize
-            const challengeWindowStart = dataSetData.nextChallengeEpoch
-            const provingDeadline = challengeWindowStart + Number(pdpConfig.challengeWindowSize)
+            const challengeWindowStart = nextChallengeEpoch
+            const provingDeadline = challengeWindowStart + pdpConfig.challengeWindowSize
 
             // Calculate when the next proof is due (end of challenge window)
-            nextProofDue = epochToDate(provingDeadline, this._chain.genesisTimestamp)
+            nextProofDue = epochToDate(Number(provingDeadline), this._chain.genesisTimestamp)
 
             // Calculate last proven date (one proving period before next challenge)
             const lastProvenDate = calculateLastProofDate(
-              dataSetData.nextChallengeEpoch,
+              Number(nextChallengeEpoch),
               Number(pdpConfig.maxProvingPeriod),
               this._chain.genesisTimestamp
             )
@@ -1266,7 +1243,7 @@ export class StorageContext {
 
             // Calculate hours until challenge window starts (only if before challenge window)
             if (Number(currentEpoch) < challengeWindowStart) {
-              const timeUntil = timeUntilEpoch(challengeWindowStart, Number(currentEpoch))
+              const timeUntil = timeUntilEpoch(Number(challengeWindowStart), Number(currentEpoch))
               hoursUntilChallengeWindow = timeUntil.hours
             }
           } else {
@@ -1282,7 +1259,7 @@ export class StorageContext {
     }
 
     return {
-      exists,
+      exists: exists && spStateMatchesContract,
       dataSetLastProven: lastProven,
       dataSetNextProofDue: nextProofDue,
       retrievalUrl,
