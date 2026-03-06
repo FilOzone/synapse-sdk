@@ -1,0 +1,317 @@
+---
+title: Session Keys
+description: Delegate signing permissions to ephemeral keys for improved UX and security.
+sidebar:
+  order: 5
+---
+
+## What are session keys?
+
+Session keys are ephemeral signing keys that can perform a limited set of operations on behalf of a root wallet. They are registered on-chain via the **SessionKeyRegistry** contract, which stores permission grants as time-limited authorizations.
+
+This solves a common problem in dApps: without session keys, every storage operation (creating a dataset, uploading pieces, scheduling deletions) requires the user to approve a wallet popup. With session keys, the root wallet authorizes a temporary key once, and that key handles subsequent signing silently until it expires.
+
+### Key concepts
+
+- **Root wallet** - The user's primary wallet (e.g., MetaMask). Owns the identity, funds, and datasets. Used to authorize session keys via `login()`.
+- **Session key** - An ephemeral key pair that signs operations on behalf of the root wallet. Has no funds or on-chain identity of its own.
+- **Permissions** - Each authorization grants specific operation types until an expiry timestamp. Permissions are identified by `bytes32` hashes (by convention, EIP-712 type hashes).
+- **Expiry** - Authorizations are time-limited. The SDK defaults to 1 hour; the contract stores whatever expiry is provided.
+
+### Permissions
+
+The SessionKeyRegistry stores arbitrary `bytes32` hashes as permissions and is agnostic to what they represent. By convention, the SDK uses EIP-712 type hashes to identify operations:
+
+| Constant | Operation |
+| ---------- | ----------- |
+| `CreateDataSetPermission` | Create new datasets |
+| `AddPiecesPermission` | Add pieces to datasets |
+| `SchedulePieceRemovalsPermission` | Schedule piece removals |
+| `DeleteDataSetPermission` | Delete datasets |
+
+These are the constants currently supported by FWSS. The `Permission` type also accepts any `Hex` value, allowing registration of custom permission hashes for non-FWSS operations (e.g., authenticated Curio HTTP endpoints).
+
+## Quick start
+
+A complete session key lifecycle from creation through to use:
+
+```ts twoslash
+import * as SessionKey from '@filoz/synapse-core/session-key'
+import { calibration } from '@filoz/synapse-core/chains'
+import { createWalletClient, http, type Hex } from 'viem'
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts'
+
+// The root wallet (the user's primary wallet)
+const rootAccount = privateKeyToAccount('0x<root-private-key>' as Hex)
+const rootClient = createWalletClient({
+  account: rootAccount,
+  chain: calibration,
+  transport: http(),
+})
+
+// Create an ephemeral session key
+const privateKey = generatePrivateKey()
+const sessionKey = SessionKey.fromSecp256k1({
+  privateKey,
+  root: rootAccount,       // Account or Address
+  chain: calibration,
+})
+
+// Authorize the session key on-chain (root wallet signs this tx)
+const { event } = await SessionKey.loginSync(rootClient, {
+  address: sessionKey.address,
+  onHash(hash) {
+    console.log('Tx submitted:', hash)
+  },
+})
+
+// Sync expirations from the chain so hasPermission() works locally
+await sessionKey.syncExpirations()
+
+// Now use sessionKey.client in place of rootClient for SDK operations.
+// sessionKey.client signs with the session key; sessionKey.rootAddress
+// identifies the root wallet as the payer/identity.
+```
+
+## Detailed usage
+
+### Create a session key
+
+`fromSecp256k1()` creates a session key from a secp256k1 private key. It returns a `SessionKey<'Secp256k1'>` instance.
+
+```ts twoslash
+import * as SessionKey from '@filoz/synapse-core/session-key'
+import { calibration } from '@filoz/synapse-core/chains'
+import type { Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const rootAccount = privateKeyToAccount('0x<root-private-key>' as Hex)
+
+const sessionKey = SessionKey.fromSecp256k1({
+  privateKey: '0x...' as Hex,    // secp256k1 private key for the session key
+  root: rootAccount,             // Account or Address of the authorizing wallet
+  chain: calibration,            // chain definition (calibration or mainnet)
+  // transport: http(customRpc), // optional, defaults to http()
+  // expirations: { ... },       // optional, pre-populate known expirations
+})
+```
+
+The session key is inert until authorized. It holds a viem `Client` internally (`sessionKey.client`) that uses the session key for signing and carries `sessionKey.rootAddress` as the identity.
+
+### Authorize the session key (login)
+
+The **root wallet** authorizes the session key on-chain. `login()` and `loginSync()` both require a viem `WalletClient` (a `Client` with an `Account`):
+
+```ts twoslash
+import * as SessionKey from '@filoz/synapse-core/session-key'
+import { calibration } from '@filoz/synapse-core/chains'
+import { createWalletClient, http, type Hex } from 'viem'
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts'
+
+// The root wallet (the user's primary wallet)
+const rootAccount = privateKeyToAccount('0x<root-private-key>' as Hex)
+const rootClient = createWalletClient({
+  account: rootAccount,
+  chain: calibration,
+  transport: http(),
+})
+
+// Create an ephemeral session key
+const privateKey = generatePrivateKey()
+const sessionKey = SessionKey.fromSecp256k1({
+  privateKey,
+  root: rootAccount,       // Account or Address
+  chain: calibration,
+})
+// ---cut---
+// Fire-and-forget (returns tx hash: Hex)
+const hash = await SessionKey.login(rootClient, {
+  address: sessionKey.address,
+})
+
+// Or wait for confirmation (returns { receipt, event })
+const { receipt, event } = await SessionKey.loginSync(rootClient, {
+  address: sessionKey.address,
+  expiresAt: BigInt(Math.floor(Date.now() / 1000) + 7200), // 2 hours
+  onHash(hash) {
+    console.log('Tx submitted:', hash)
+  },
+})
+// event is the AuthorizationsUpdated log with args: { identity, permissions, expiry }
+```
+
+By default, `login()` grants all four [FWSS permissions](#permissions) (`DefaultFwssPermissions`) with a 1-hour expiry. Both `permissions` and `expiresAt` are configurable.
+
+To grant only specific permissions:
+
+```ts
+await SessionKey.login(rootClient, {
+  address: sessionKey.address,
+  permissions: [
+    SessionKey.AddPiecesPermission,
+    SessionKey.SchedulePieceRemovalsPermission,
+  ],
+})
+```
+
+To grant a custom (non-FWSS) permission:
+
+```ts
+await SessionKey.login(rootClient, {
+  address: sessionKey.address,
+  permissions: [
+    '0xabcdef...' as Hex, // any bytes32 hash
+  ],
+})
+```
+
+### Use the session key for operations
+
+Pass `sessionKey.client` to SDK operations. The session key signs the EIP-712 typed data while `sessionKey.rootAddress` is used as the payer/identity:
+
+```ts
+import { createDataSet, waitForCreateDataSet } from '@filoz/synapse-core/sp'
+
+const result = await createDataSet(sessionKey.client, {
+  payee: providerAddress,          // Address: the SP's address
+  payer: sessionKey.rootAddress,   // Address: the root wallet paying for storage
+  serviceURL: 'https://provider.example.com',
+})
+
+const dataset = await waitForCreateDataSet(result)
+```
+
+### Use with the Synapse class
+
+The `Synapse` class accepts a `sessionKey` option (`SessionKey<'Secp256k1'>`) and uses it automatically for eligible operations (dataset creation, piece uploads, piece deletions):
+
+```ts
+import { Synapse } from '@filoz/synapse-sdk'
+
+const synapse = Synapse.create({
+  account: rootAccount,
+  chain: calibration,
+  transport: http(rpcUrl),
+  sessionKey: sessionKey,
+})
+```
+
+`Synapse.create()` validates that the session key has all four FWSS permissions (`DefaultFwssPermissions`) and that none are expired. This means the session key's expirations must be populated before construction, either by passing `expirations` to `fromSecp256k1()`, or by calling `sessionKey.syncExpirations()` after login.
+
+### Revoke the session key
+
+When done, the root wallet can revoke permissions:
+
+```ts
+// Fire-and-forget (returns tx hash: Hex)
+const hash = await SessionKey.revoke(rootClient, {
+  address: sessionKey.address,
+})
+
+// Or wait for confirmation (returns { receipt, event })
+await SessionKey.revokeSync(rootClient, {
+  address: sessionKey.address,
+  onHash(hash) {
+    console.log('Revoking:', hash)
+  },
+})
+```
+
+Both default to revoking all FWSS permissions. Pass `permissions` to revoke selectively.
+
+## Expirations and refresh
+
+Session key permissions have a fixed expiry set during `login()`. When a permission expires, any operation signed with that session key will revert on-chain.
+
+The SDK does not automatically track or refresh expirations. For short-lived sessions (login, perform operations, done), this is not a concern. For long-lived sessions, the developer should:
+
+- Check `sessionKey.hasPermission(permission)` before operations if expirations are populated
+- Call `sessionKey.syncExpirations()` periodically to refresh cached state from the chain
+- Call `login()` again from the root wallet when permissions are near expiry
+
+Errors from expired session keys will surface as contract reverts. The SDK does not currently distinguish these from other revert causes.
+
+### Checking permissions
+
+`hasPermission()` and `hasPermissions()` are local checks against cached expiration timestamps. They return `true` if the permission's expiry is in the future:
+
+```ts
+// Check a single permission (returns boolean)
+if (sessionKey.hasPermission(SessionKey.CreateDataSetPermission)) {
+  // safe to create dataset
+}
+
+// Check all FWSS permissions at once (returns boolean)
+if (sessionKey.hasPermissions(SessionKey.DefaultFwssPermissions)) {
+  // all FWSS permissions are valid
+}
+```
+
+These require that expirations have been populated via one of:
+
+- `fromSecp256k1({ expirations: ... })` at creation time
+- `sessionKey.syncExpirations()` (fetches from chain via multicall)
+- `sessionKey.watch()` (syncs and subscribes to live updates)
+
+### Real-time tracking (optional)
+
+For dApps that need live permission state (e.g., to update UI when permissions expire or are revoked):
+
+```ts
+const unwatch = await sessionKey.watch()
+
+sessionKey.on('expirationsUpdated', (e: CustomEvent<Expirations>) => {
+  console.log('Permissions changed:', e.detail)
+})
+
+sessionKey.on('error', (e: CustomEvent<Error>) => {
+  console.error('Watch error:', e.detail)
+})
+
+// When done, clean up the subscription
+unwatch()
+// or: sessionKey.unwatch()
+```
+
+`watch()` syncs expirations from the chain, starts a `watchContractEvent` subscription for `AuthorizationsUpdated` events, and returns a cleanup function. You can also call `sessionKey.unwatch()` directly. This is primarily useful for dApp UI; server-side code can use `syncExpirations()` directly.
+
+## Custom permissions
+
+The four FWSS constants are SDK conveniences, not an exhaustive set. Any `bytes32` hash can be registered as a permission. To work with custom permissions:
+
+```ts
+import * as SessionKey from '@filoz/synapse-core/session-key'
+import { createPublicClient, http, type Hex } from 'viem'
+import { calibration } from '@filoz/synapse-core/chains'
+
+const publicClient = createPublicClient({
+  chain: calibration,
+  transport: http(),
+})
+
+const myPermission = '0x...' as Hex
+
+// Grant (requires root wallet client)
+await SessionKey.login(rootClient, {
+  address: sessionKey.address,
+  permissions: [myPermission],
+})
+
+// Check single expiry (returns bigint, 0n if no authorization exists)
+const expiry = await SessionKey.authorizationExpiry(publicClient, {
+  address: rootAddress,              // Address: the root wallet
+  sessionKeyAddress: sessionKey.address,
+  permission: myPermission,
+})
+
+// Batch check (returns Record<Permission, bigint>)
+const expirations = await SessionKey.getExpirations(publicClient, {
+  address: rootAddress,
+  sessionKeyAddress: sessionKey.address,
+  permissions: [myPermission, SessionKey.AddPiecesPermission],
+})
+```
+
+## Next Steps
+
+- [Session Keys API](/reference/filoz/synapse-core/session-key/toc/#functions): Reference documentation
