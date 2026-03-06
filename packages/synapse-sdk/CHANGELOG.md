@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.38.0...synapse-sdk-v0.38.1) (2026-03-06)
+
+
+### Documentation
+
+* add session keys developer guide ([#630](https://github.com/FilOzone/synapse-sdk/issues/630)) ([1b44e3f](https://github.com/FilOzone/synapse-sdk/commit/1b44e3f53d4a26677f9e073bea08acb73f96657d))
+
 ## [0.38.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.37.1...synapse-sdk-v0.38.0) (2026-02-26)
 
 
