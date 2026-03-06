@@ -15,7 +15,6 @@
     "entryPoints": [
       "src/index.ts",
       "src/payments/index.ts",
-      "src/session/index.ts",
       "src/storage/index.ts",
       "src/warm-storage/index.ts",
       "src/sp-registry/index.ts",
