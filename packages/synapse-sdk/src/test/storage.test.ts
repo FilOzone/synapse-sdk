@@ -1583,7 +1583,7 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 0,
+                pieceId: 1,
                 pieceCid: mockPieceCID,
                 subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
@@ -1619,7 +1619,7 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 0,
+                pieceId: 1,
                 pieceCid: mockPieceCID,
                 subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
@@ -1652,7 +1652,7 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 0,
+                pieceId: 1,
                 pieceCid: mockPieceCID,
                 subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
@@ -1688,7 +1688,7 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 0,
+                pieceId: 1,
                 pieceCid: mockPieceCID,
                 subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
@@ -1722,7 +1722,7 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 0,
+                pieceId: 1,
                 pieceCid: mockPieceCID,
                 subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
@@ -1777,7 +1777,7 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 0,
+                pieceId: 1,
                 pieceCid: mockPieceCID,
                 subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
