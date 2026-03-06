@@ -1531,11 +1531,6 @@ describe('StorageService', () => {
             pieces: [],
             nextChallengeEpoch: 5000,
           })
-        }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.text('Piece not found or does not belong to service', {
-            status: 404,
-          })
         })
       )
       const synapse = new Synapse({ client })
@@ -1562,9 +1557,6 @@ describe('StorageService', () => {
             pieces: [],
             nextChallengeEpoch: 5000,
           })
-        }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
       const synapse = new Synapse({ client })
@@ -1591,27 +1583,29 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
+                pieceId: 0,
+                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
                 subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 5000,
           })
-        }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
+      const status = await service.pieceStatus({
+        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+      })
 
       assert.isTrue(status.exists)
-      assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
+      assert.equal(
+        status.retrievalUrl,
+        'https://pdp.example.com/piece/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      )
       assert.isNotNull(status.dataSetLastProven)
       assert.isNotNull(status.dataSetNextProofDue)
       assert.isFalse(status.inChallengeWindow)
@@ -1630,21 +1624,22 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
+                pieceId: 0,
+                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
                 subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 5000,
           })
-        }),
-        Mocks.pdp.findPieceHandler(mockPieceCID, true, pdpOptions)
+        })
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
-      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
+      const status = await service.pieceStatus({
+        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+      })
 
       assert.isTrue(status.exists)
       // During challenge window
@@ -1656,7 +1651,7 @@ describe('StorageService', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
-          eth_blockNumber: numberToHex(5100n),
+          eth_blockNumber: numberToHex(5080n),
         }),
         Mocks.PING(),
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
@@ -1664,24 +1659,23 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
+                pieceId: 0,
+                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
                 subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 5000,
           })
-        }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
+      const status = await service.pieceStatus({
+        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+      })
 
       assert.isTrue(status.exists)
       assert.isTrue(status.isProofOverdue)
@@ -1692,6 +1686,10 @@ describe('StorageService', () => {
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(5100n),
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getNextChallengeEpoch: () => [0n],
+          },
         }),
         Mocks.PING(),
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
@@ -1699,24 +1697,23 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
+                pieceId: 0,
+                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
                 subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 0,
           })
-        }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
+      const status = await service.pieceStatus({
+        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+      })
 
       assert.isTrue(status.exists)
       assert.isNull(status.dataSetLastProven) // No challenge means no proof data
@@ -1736,28 +1733,30 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
+                pieceId: 0,
+                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
                 subPieceOffset: 0,
               },
             ],
-            nextChallengeEpoch: 0,
+            nextChallengeEpoch: 5000,
           })
-        }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
+      const status = await service.pieceStatus({
+        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+      })
 
       assert.isTrue(status.exists)
       // Should not have double slash
-      assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
+      assert.equal(
+        status.retrievalUrl,
+        'https://pdp.example.com/piece/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      )
       // Check that the URL doesn't contain double slashes after the protocol
       const urlWithoutProtocol = (status.retrievalUrl ?? '').substring(8) // Remove 'https://'
       assert.notInclude(urlWithoutProtocol, '//')
@@ -1794,24 +1793,23 @@ describe('StorageService', () => {
             id: 1,
             pieces: [
               {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
+                pieceId: 0,
+                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
                 subPieceOffset: 0,
               },
             ],
             nextChallengeEpoch: 5000,
           })
-        }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
+      const status = await service.pieceStatus({
+        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+      })
 
       assert.isTrue(status.exists)
       assert.isFalse(status.inChallengeWindow) // Not yet in challenge window
