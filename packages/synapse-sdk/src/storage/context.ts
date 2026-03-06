@@ -1163,7 +1163,7 @@ export class StorageContext {
     }
 
     // Run multiple operations in parallel for better performance
-    const [activePieces, nextChallengeEpoch, spDataSetData, currentEpoch] = await Promise.all([
+    const [activePieces, nextChallengeEpoch, spDataSetData, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
       PDPVerifier.getActivePieces(this._client, {
         dataSetId: this.dataSetId,
       }),
@@ -1175,6 +1175,11 @@ export class StorageContext {
         dataSetId: this.dataSetId,
       }),
       getBlockNumber(this._client),
+      this._warmStorageService.getPDPConfig().catch((error) => {
+        console.debug('Failed to get PDP config:', error)
+        return null
+      }),
+      this.getProviderInfo().catch(() => null),
     ])
 
     const exists = activePieces.pieces.findIndex((piece) => piece.cid.equals(parsedPieceCID)) > -1
@@ -1194,15 +1199,6 @@ export class StorageContext {
 
     // If piece exists, get provider info for retrieval URL and proving params in parallel
     if (exists && spStateMatchesContract) {
-      const [providerInfo, pdpConfig] = await Promise.all([
-        // Get provider info for retrieval URL
-        this.getProviderInfo().catch(() => null),
-        this._warmStorageService.getPDPConfig().catch((error) => {
-          console.debug('Failed to get PDP config:', error)
-          return null
-        }),
-      ])
-
       // Set retrieval URL if we have provider info
       if (providerInfo != null) {
         retrievalUrl = createPieceUrlPDP({
