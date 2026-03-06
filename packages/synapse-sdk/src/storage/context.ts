@@ -1216,14 +1216,14 @@ export class StorageContext {
           pieceId = pieceData.id
 
           // Calculate timing based on nextChallengeEpoch
-          if (spDataSetData.nextChallengeEpoch > 0) {
+          if (nextChallengeEpoch > 0n) {
             // nextChallengeEpoch is when the challenge window STARTS, not ends!
             // The proving deadline is nextChallengeEpoch + challengeWindowSize
-            const challengeWindowStart = spDataSetData.nextChallengeEpoch
-            const provingDeadline = challengeWindowStart + Number(pdpConfig.challengeWindowSize)
+            const challengeWindowStart = nextChallengeEpoch
+            const provingDeadline = challengeWindowStart + pdpConfig.challengeWindowSize
 
             // Calculate when the next proof is due (end of challenge window)
-            nextProofDue = epochToDate(provingDeadline, this._chain.genesisTimestamp)
+            nextProofDue = epochToDate(Number(provingDeadline), this._chain.genesisTimestamp)
 
             // Calculate last proven date (one proving period before next challenge)
             const lastProvenDate = calculateLastProofDate(
@@ -1243,7 +1243,7 @@ export class StorageContext {
 
             // Calculate hours until challenge window starts (only if before challenge window)
             if (Number(currentEpoch) < challengeWindowStart) {
-              const timeUntil = timeUntilEpoch(challengeWindowStart, Number(currentEpoch))
+              const timeUntil = timeUntilEpoch(Number(challengeWindowStart), Number(currentEpoch))
               hoursUntilChallengeWindow = timeUntil.hours
             }
           } else {
