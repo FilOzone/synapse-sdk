@@ -339,8 +339,8 @@ describe('Synapse', () => {
       assert.exists(storageInfo.pricing.noCDN)
       assert.exists(storageInfo.pricing.withCDN)
 
-      // Verify pricing calculations (2 USDFC per TiB per month)
-      const expectedNoCDNMonthly = parseUnits('2', 18) // 2 USDFC
+      // Verify pricing calculations (2.5 USDFC per TiB per month)
+      const expectedNoCDNMonthly = parseUnits('2.5', 18) // 2.5 USDFC
       assert.equal(storageInfo.pricing.noCDN.perTiBPerMonth, expectedNoCDNMonthly)
 
       // Check providers
@@ -387,6 +387,7 @@ describe('Synapse', () => {
         lockupAllowance: 0n,
         rateUsed: 0n,
         lockupUsed: 0n,
+        maxLockupPeriod: 0n,
       })
     })
 

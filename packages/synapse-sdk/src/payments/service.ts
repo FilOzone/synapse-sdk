@@ -1,7 +1,6 @@
 import { asChain } from '@filoz/synapse-core/chains'
 import * as ERC20 from '@filoz/synapse-core/erc20'
 import * as Pay from '@filoz/synapse-core/pay'
-import { signErc20Permit } from '@filoz/synapse-core/typed-data'
 import {
   type Account,
   type Address,
@@ -10,13 +9,12 @@ import {
   createClient,
   type Hash,
   http,
-  parseSignature,
   type TransactionReceipt,
   type Transport,
 } from 'viem'
-import { getBalance, getBlockNumber, simulateContract, writeContract } from 'viem/actions'
-import type { RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
-import { createError, DEFAULT_CHAIN, TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
+import { getBalance, getBlockNumber, simulateContract } from 'viem/actions'
+import type { FundOptions, RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
+import { createError, DEFAULT_CHAIN, TOKENS } from '../utils/index.ts'
 
 /**
  * Options for deposit operation
@@ -442,56 +440,16 @@ export class PaymentsService {
    */
   async depositWithPermit(options: { amount: TokenAmount; token?: TokenIdentifier; deadline?: bigint }): Promise<Hash> {
     const { amount, token = TOKENS.USDFC, deadline } = options
-    const chain = asChain(this._client.chain)
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'depositWithPermit', `Unsupported token: ${token}`)
     }
 
-    if (amount <= 0n) {
-      throw createError('PaymentsService', 'depositWithPermit', 'Invalid amount')
-    }
-
-    // Calculate deadline
-    const permitDeadline: bigint =
-      deadline == null ? BigInt(Math.floor(Date.now() / 1000) + TIME_CONSTANTS.PERMIT_DEADLINE_DURATION) : deadline
-
-    const balance = await ERC20.balanceForPermit(this._client, {
-      address: this._client.account.address,
-    })
-    if (balance.value < amount) {
-      throw createError('PaymentsService', 'depositWithPermit', 'Insufficient balance')
-    }
-    const signature = parseSignature(
-      await signErc20Permit(this._client, {
-        amount,
-        nonce: balance.nonce,
-        deadline: permitDeadline,
-        name: balance.name,
-        version: balance.version,
-        token: chain.contracts.usdfc.address,
-        spender: chain.contracts.filecoinPay.address,
-      })
-    )
-
     try {
-      const { request } = await simulateContract(this._client, {
-        account: this._client.account,
-        address: chain.contracts.filecoinPay.address,
-        abi: chain.contracts.filecoinPay.abi,
-        functionName: 'depositWithPermit',
-        args: [
-          chain.contracts.usdfc.address,
-          this._client.account.address,
-          amount,
-          permitDeadline,
-          Number(signature.v),
-          signature.r,
-          signature.s,
-        ],
+      return await Pay.depositWithPermit(this._client, {
+        amount,
+        deadline,
       })
-      const hash = await writeContract(this._client, request)
-      return hash
     } catch (error) {
       throw createError(
         'PaymentsService',
@@ -558,6 +516,43 @@ export class PaymentsService {
         'Failed to execute depositWithPermitAndApproveOperator on Payments contract.',
         error
       )
+    }
+  }
+
+  /**
+   * Smart deposit method that picks the right contract call based on FWSS approval state.
+   *
+   * - If FWSS needs approval AND amount > 0: calls `depositWithPermitAndApproveOperator` with maxUint256 rate/lockup allowances and LOCKUP_PERIOD.
+   * - If FWSS needs approval AND amount === 0: calls `approveService` with maxUint256 rate/lockup allowances and LOCKUP_PERIOD.
+   * - If FWSS is approved AND amount > 0: calls `depositWithPermit`.
+   * - If FWSS is approved AND amount === 0: no-op, returns empty hash.
+   *
+   * @param options - {@link FundOptions}
+   * @returns Transaction hash {@link Hash}
+   */
+  async fund(options: FundOptions): Promise<Hash> {
+    try {
+      return await Pay.fund(this._client, options)
+    } catch (error) {
+      throw createError('PaymentsService', 'fund', 'Failed to execute fund operation.', error)
+    }
+  }
+
+  /**
+   * Smart deposit and wait for confirmation.
+   *
+   * Same routing logic as {@link fund}, but waits for the transaction receipt.
+   * Supports an `onHash` callback that fires once the transaction is submitted
+   * (before waiting for confirmation).
+   *
+   * @param options - {@link Pay.fundSync.OptionsType}
+   * @returns Transaction hash and receipt {@link Pay.fundSync.OutputType}
+   */
+  async fundSync(options: Pay.fundSync.OptionsType): Promise<Pay.fundSync.OutputType> {
+    try {
+      return await Pay.fundSync(this._client, options)
+    } catch (error) {
+      throw createError('PaymentsService', 'fundSync', 'Failed to execute fund operation.', error)
     }
   }
 
@@ -710,6 +705,74 @@ export class PaymentsService {
     } else {
       // Rail is active, use regular settle (requires settlement fee)
       return await this.settle(options)
+    }
+  }
+
+  /**
+   * Get a comprehensive account summary including balances, rates, lockup breakdown, and timeline.
+   *
+   * @param options - Options for the account summary
+   * @param options.token - The token to query (defaults to USDFC)
+   * @param options.epoch - Epoch to evaluate at (defaults to current block number)
+   * @returns Full account summary {@link Pay.getAccountSummary.OutputType}
+   * @throws Errors {@link Pay.getAccountSummary.ErrorType}
+   */
+  async accountSummary(
+    options: { token?: TokenIdentifier; epoch?: bigint } = { token: TOKENS.USDFC }
+  ): Promise<Pay.getAccountSummary.OutputType> {
+    const { token = TOKENS.USDFC, epoch } = options
+    if (token !== TOKENS.USDFC) {
+      throw createError(
+        'PaymentsService',
+        'accountSummary',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
+    }
+
+    try {
+      return await Pay.getAccountSummary(this._client, {
+        address: this._client.account.address,
+        epoch,
+      })
+    } catch (error) {
+      throw createError('PaymentsService', 'accountSummary', 'Failed to get account summary.', error)
+    }
+  }
+
+  /**
+   * Get the total fixed lockup across all rails.
+   *
+   * Fetches all rails for the account and sums their `lockupFixed` values.
+   * Includes terminated-but-not-finalized rails since they still hold locked funds.
+   *
+   * @param options - Options for the total account fixed lockup
+   * @param options.token - The token to query (defaults to USDFC)
+   * @returns Total fixed lockup {@link Pay.totalAccountFixedLockup.OutputType}
+   * @throws Errors {@link Pay.totalAccountFixedLockup.ErrorType}
+   */
+  async totalAccountFixedLockup(
+    options: { token?: TokenIdentifier } = { token: TOKENS.USDFC }
+  ): Promise<Pay.totalAccountFixedLockup.OutputType> {
+    const { token = TOKENS.USDFC } = options
+    if (token !== TOKENS.USDFC) {
+      throw createError(
+        'PaymentsService',
+        'totalAccountFixedLockup',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
+    }
+
+    try {
+      return await Pay.totalAccountFixedLockup(this._client, {
+        address: this._client.account.address,
+      })
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'totalAccountFixedLockup',
+        'Failed to get total account fixed lockup.',
+        error
+      )
     }
   }
 

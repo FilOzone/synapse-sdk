@@ -11,7 +11,7 @@ import type { SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-
 import type { PullStatus } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
-import type { Account, Address, Client, Hex, Transport } from 'viem'
+import type { Account, Address, Client, Hash, Hex, Transport } from 'viem'
 import type { Synapse } from './synapse.ts'
 import type { WarmStorageService } from './warm-storage/service.ts'
 
@@ -24,6 +24,55 @@ export type ServiceProvider = Address
 
 export type { RailInfo } from '@filoz/synapse-core/pay'
 export type { MetadataEntry, MetadataObject } from '@filoz/synapse-core/utils'
+
+// Re-export upload cost types from synapse-core
+export type { getUploadCosts } from '@filoz/synapse-core/warm-storage'
+
+/** Alias for the upload costs return type */
+export type UploadCosts = import('@filoz/synapse-core/warm-storage').getUploadCosts.OutputType
+/** Alias for the upload costs options type */
+export type GetUploadCostsOptions = import('@filoz/synapse-core/warm-storage').getUploadCosts.OptionsType
+
+/**
+ * Options for the fund() method on PaymentsService.
+ * Re-exported from synapse-core.
+ */
+export type FundOptions = import('@filoz/synapse-core/pay').fund.OptionsType
+
+/**
+ * Options for the prepare() method on StorageManager
+ */
+export interface PrepareOptions {
+  /** StorageContext(s) to prepare for upload. */
+  context?: import('./storage/context.ts').StorageContext | import('./storage/context.ts').StorageContext[]
+  /** Size of new data to upload, in bytes. */
+  dataSize: bigint
+  /** Extra runway in epochs beyond the required lockup. */
+  runwayEpochs?: bigint
+  /** Safety margin in epochs. Default: 5n */
+  bufferEpochs?: bigint
+  /** Pre-computed costs — skips internal getUploadCosts() call. */
+  costs?: UploadCosts
+}
+
+/**
+ * Result of the prepare() method on StorageManager
+ */
+export interface PrepareResult {
+  /** The cost breakdown (either passed in or freshly computed). */
+  costs: UploadCosts
+  /** The single transaction to execute, or null if already ready. */
+  transaction: {
+    /** Amount to deposit into the payments contract. 0n when only approval is needed. */
+    depositAmount: bigint
+    /** Whether this transaction includes FWSS operator approval. */
+    includesApproval: boolean
+    /** Execute the transaction, wait for confirmation, and return the hash + receipt. */
+    execute: (options?: {
+      onHash?: (hash: Hash) => void
+    }) => Promise<{ hash: Hash; receipt: import('viem').TransactionReceipt | null }>
+  } | null
+}
 
 /**
  * Supported Filecoin network types
@@ -313,27 +362,6 @@ export interface StorageContextCreateOptions extends StorageServiceOptions {
   warmStorageService: WarmStorageService
 }
 
-/**
- * Preflight information for storage uploads
- */
-export interface PreflightInfo {
-  /** Estimated storage costs */
-  estimatedCost: {
-    perEpoch: bigint
-    perDay: bigint
-    perMonth: bigint
-  }
-  /** Allowance check results */
-  allowanceCheck: {
-    sufficient: boolean
-    message?: string
-  }
-  /** Selected service provider (null when no specific provider selected) */
-  selectedProvider: PDPProvider | null
-  /** Selected data set ID (null when no specific dataset selected) */
-  selectedDataSetId: number | null
-}
-
 // ============================================================================
 // Upload Types
 // ============================================================================
@@ -578,6 +606,8 @@ export interface StorageInfo {
     rateUsed: bigint
     /** Current lockup allowance used */
     lockupUsed: bigint
+    /** Maximum lockup period in epochs the operator can set */
+    maxLockupPeriod: bigint
   } | null
 }
 

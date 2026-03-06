@@ -394,7 +394,7 @@ export const presets = {
       sessionKeyRegistry: () => [ADDRESSES.calibration.sessionKeyRegistry],
       getServicePrice: () => [
         {
-          pricePerTiBPerMonthNoCDN: parseUnits('2', 18),
+          pricePerTiBPerMonthNoCDN: parseUnits('2.5', 18),
           pricePerTiBCdnEgress: parseUnits('7', 18),
           pricePerTiBCacheMissEgress: parseUnits('7', 18),
           minimumPricePerMonth: parseUnits('6', 16),
