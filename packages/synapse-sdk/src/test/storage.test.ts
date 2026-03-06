@@ -1518,7 +1518,7 @@ describe('StorageService', () => {
   })
 
   describe('pieceStatus()', () => {
-    const mockPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+    const mockPieceCID = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
     it('should return exists=false when piece not found on provider', async () => {
       server.use(
         Mocks.JSONRPC({
@@ -1584,8 +1584,8 @@ describe('StorageService', () => {
             pieces: [
               {
                 pieceId: 0,
-                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
               },
             ],
@@ -1597,15 +1597,10 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({
-        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-      })
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
-      assert.equal(
-        status.retrievalUrl,
-        'https://pdp.example.com/piece/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-      )
+      assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
       assert.isNotNull(status.dataSetLastProven)
       assert.isNotNull(status.dataSetNextProofDue)
       assert.isFalse(status.inChallengeWindow)
@@ -1625,8 +1620,8 @@ describe('StorageService', () => {
             pieces: [
               {
                 pieceId: 0,
-                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
               },
             ],
@@ -1637,9 +1632,7 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
-      const status = await service.pieceStatus({
-        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-      })
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       // During challenge window
@@ -1660,8 +1653,8 @@ describe('StorageService', () => {
             pieces: [
               {
                 pieceId: 0,
-                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
               },
             ],
@@ -1673,9 +1666,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({
-        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-      })
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       assert.isTrue(status.isProofOverdue)
@@ -1698,8 +1689,8 @@ describe('StorageService', () => {
             pieces: [
               {
                 pieceId: 0,
-                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
               },
             ],
@@ -1711,9 +1702,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({
-        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-      })
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       assert.isNull(status.dataSetLastProven) // No challenge means no proof data
@@ -1734,8 +1723,8 @@ describe('StorageService', () => {
             pieces: [
               {
                 pieceId: 0,
-                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
               },
             ],
@@ -1747,16 +1736,11 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({
-        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-      })
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       // Should not have double slash
-      assert.equal(
-        status.retrievalUrl,
-        'https://pdp.example.com/piece/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-      )
+      assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
       // Check that the URL doesn't contain double slashes after the protocol
       const urlWithoutProtocol = (status.retrievalUrl ?? '').substring(8) // Remove 'https://'
       assert.notInclude(urlWithoutProtocol, '//')
@@ -1794,8 +1778,8 @@ describe('StorageService', () => {
             pieces: [
               {
                 pieceId: 0,
-                pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-                subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+                pieceCid: mockPieceCID,
+                subPieceCid: mockPieceCID,
                 subPieceOffset: 0,
               },
             ],
@@ -1807,9 +1791,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({
-        pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-      })
+      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isTrue(status.exists)
       assert.isFalse(status.inChallengeWindow) // Not yet in challenge window
