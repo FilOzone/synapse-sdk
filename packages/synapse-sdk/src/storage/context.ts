@@ -1210,10 +1210,10 @@ export class StorageContext {
       // Process proof timing data if we have data set data and PDP config
       if (pdpConfig != null) {
         // Check if this PieceCID is in the data set
-        const pieceData = spDataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
+        const pieceData = activePieces.pieces.find((piece) => piece.cid.equals(parsedPieceCID))
 
         if (pieceData != null) {
-          pieceId = pieceData.pieceId
+          pieceId = pieceData.id
 
           // Calculate timing based on nextChallengeEpoch
           if (spDataSetData.nextChallengeEpoch > 0) {
