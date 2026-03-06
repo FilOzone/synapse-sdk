@@ -64,6 +64,13 @@ export interface SynapseOptions {
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
+
+  /**
+   * Application identifier for namespace isolation. When set to a non-empty string, datasets
+   * are tagged with this value and only datasets with a matching source are reused. Set to
+   * `null` to explicitly opt out.
+   */
+  source: string | null
 }
 
 export interface SynapseFromClientOptions {
@@ -79,6 +86,13 @@ export interface SynapseFromClientOptions {
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
+
+  /**
+   * Application identifier for namespace isolation. When set to a non-empty string, datasets
+   * are tagged with this value and only datasets with a matching source are reused. Set to
+   * `null` to explicitly opt out.
+   */
+  source: string | null
 }
 
 /**

@@ -116,12 +116,15 @@ export interface StorageManagerOptions {
   warmStorageService: WarmStorageService
   /** Whether to enable CDN services */
   withCDN: boolean
+  /** Application identifier for namespace isolation */
+  source: string | null
 }
 
 export class StorageManager {
   private readonly _synapse: Synapse
   private readonly _warmStorageService: WarmStorageService
   private readonly _withCDN: boolean
+  private readonly _source: string | null
   private _defaultContexts?: StorageContext[]
 
   /**
@@ -132,6 +135,7 @@ export class StorageManager {
     this._synapse = options.synapse
     this._warmStorageService = options.warmStorageService
     this._withCDN = options.withCDN
+    this._source = options.source
   }
 
   /**
@@ -622,6 +626,7 @@ export class StorageManager {
    */
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
     const withCDN = options?.withCDN ?? this._withCDN
+    const combinedMetadata = combineMetadata(options?.metadata, { withCDN, source: this._source })
     const canUseDefault = options == null || (options.providerIds == null && options.dataSetIds == null)
     if (this._defaultContexts != null) {
       const expectedSize = options?.count ?? DEFAULT_COPY_COUNT
@@ -629,10 +634,9 @@ export class StorageManager {
         this._defaultContexts.length === expectedSize &&
         this._defaultContexts.every((context) => options?.excludeProviderIds?.includes(context.provider.id) !== true)
       ) {
-        const requestedMetadata = combineMetadata(options?.metadata, withCDN)
         if (
           this._defaultContexts.every((defaultContext) =>
-            metadataMatches(defaultContext.dataSetMetadata, requestedMetadata)
+            metadataMatches(defaultContext.dataSetMetadata, combinedMetadata)
           )
         ) {
           if (options?.callbacks != null) {
@@ -664,6 +668,7 @@ export class StorageManager {
       synapse: this._synapse,
       warmStorageService: this._warmStorageService,
       ...options,
+      metadata: combinedMetadata,
       withCDN,
     })
 
@@ -680,6 +685,7 @@ export class StorageManager {
   async createContext(options?: StorageServiceOptions): Promise<StorageContext> {
     // Determine the effective withCDN setting
     const effectiveWithCDN = options?.withCDN ?? this._withCDN
+    const combinedMetadata = combineMetadata(options?.metadata, { withCDN: effectiveWithCDN, source: this._source })
 
     // Check if we can return the default context
     // We can use the default if:
@@ -688,15 +694,12 @@ export class StorageManager {
     const canUseDefault = options == null || (options.providerId == null && options.dataSetId == null)
 
     if (canUseDefault && this._defaultContexts != null) {
-      // Check if we have a default context with compatible metadata
-
-      const requestedMetadata = combineMetadata(options?.metadata, effectiveWithCDN)
       for (const defaultContext of this._defaultContexts) {
         if (options?.excludeProviderIds?.includes(defaultContext.provider.id)) {
           continue
         }
         // Check if the requested metadata matches what the default context was created with
-        if (!metadataMatches(defaultContext.dataSetMetadata, requestedMetadata)) {
+        if (!metadataMatches(defaultContext.dataSetMetadata, combinedMetadata)) {
           continue
         }
         // Fire callbacks for cached context to ensure consistent behavior
@@ -727,6 +730,7 @@ export class StorageManager {
       synapse: this._synapse,
       warmStorageService: this._warmStorageService,
       ...options,
+      metadata: combinedMetadata,
       withCDN: effectiveWithCDN,
     })
 

@@ -352,7 +352,7 @@ export class StorageContext {
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
     const clientAddress = synapse.client.account.address
-    const requestedMetadata = combineMetadata(options.metadata, options.withCDN)
+    const requestedMetadata = combineMetadata(options.metadata, { withCDN: options.withCDN })
 
     // Handle explicit data set ID selection (highest priority)
     if (options.dataSetId != null) {

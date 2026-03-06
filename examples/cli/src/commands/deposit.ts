@@ -22,6 +22,7 @@ export const deposit: Command = command(
     const { client } = privateKeyClient(argv.flags.chain)
     const synapse = new Synapse({
       client,
+      source: 'synapse-example',
     })
 
     const spinner = p.spinner()

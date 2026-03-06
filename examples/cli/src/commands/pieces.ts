@@ -123,6 +123,7 @@ export const pieces: Command = command(
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
         const synapse = new Synapse({
           client,
+          source: 'synapse-example',
         })
         const context = await synapse.storage.createContext({
           dataSetId: group.dataSetId,

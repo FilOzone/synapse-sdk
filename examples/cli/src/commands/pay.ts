@@ -27,6 +27,7 @@ export const pay: Command = command(
     try {
       const synapse = new Synapse({
         client,
+        source: 'synapse-example',
       })
 
       const filBalance = await synapse.payments.walletBalance()

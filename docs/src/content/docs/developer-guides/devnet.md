@@ -27,6 +27,7 @@ import { Synapse } from '@filoz/synapse-sdk'
 const synapse = await Synapse.create({
   privateKey: process.env.PRIVATE_KEY,
   rpcURL: process.env.RPC_URL,
+  source: 'my-app',
   warmStorageAddress: process.env.WARM_STORAGE_ADDRESS,
   multicall3Address: process.env.MULTICALL3_ADDRESS,
   // Optional: override USDFC token address

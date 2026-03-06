@@ -64,6 +64,7 @@ async function main() {
     chain,
     transport: viemHttp(),
     account,
+    source: 'synapse-example',
   })
 
   console.log('Synapse instance created')
