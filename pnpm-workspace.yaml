@@ -14,17 +14,17 @@ allowBuilds:
 blockExoticSubdeps: true
 
 catalog:
-  '@biomejs/biome': 2.4.4
+  '@biomejs/biome': 2.4.6
   '@types/mocha': ^10.0.10
-  '@types/node': ^25.1.0
+  '@types/node': ^25.3.5
   '@types/react': ^19.2.7
   '@types/react-dom': ^19.2.3
   abitype: ^1.2.0
   mocha: ^11.7.4
   msw: 2.12.10
-  ox: ^0.13.0
+  ox: ^0.14.0
   typescript: 5.9.3
-  viem: ^2.45.1
+  viem: ^2.47.0
   wagmi: ^3.0.2
   zod: ^4.3.5
 
