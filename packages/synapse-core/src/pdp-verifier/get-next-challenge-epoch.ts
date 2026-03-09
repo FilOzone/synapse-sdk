@@ -99,7 +99,7 @@ export namespace getNextChallengeEpochCall {
  * const results = await multicall(client, {
  *   contracts: [
  *     getNextChallengeEpochCall({ chain: calibration, dataSetId: 1n }),
- *     getNextChallengeEpochCall({ chain: calibration, dataSetId: 1n }),
+ *     getNextChallengeEpochCall({ chain: calibration, dataSetId: 101n }),
  *   ],
  * })
  * ```
