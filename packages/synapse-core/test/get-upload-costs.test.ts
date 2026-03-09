@@ -211,7 +211,7 @@ describe('getUploadCosts', () => {
     assert.equal(result.ready, false)
   })
 
-  it('should increase deposit when runwayEpochs is specified', async () => {
+  it('should increase deposit when extraRunwayEpochs is specified', async () => {
     // Underfunded account so deposit is always needed
     server.use(
       JSONRPC({
@@ -232,13 +232,13 @@ describe('getUploadCosts', () => {
     const baseline = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
       dataSize: 1n,
-      runwayEpochs: 0n,
+      extraRunwayEpochs: 0n,
     })
 
     const withRunway = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
       dataSize: 1n,
-      runwayEpochs: 10_000n,
+      extraRunwayEpochs: 10_000n,
     })
 
     assert.ok(
@@ -246,7 +246,7 @@ describe('getUploadCosts', () => {
       `deposit with runway (${withRunway.depositNeeded}) should exceed baseline (${baseline.depositNeeded})`
     )
 
-    // runway = (currentLockupRate + rateDeltaPerEpoch) * runwayEpochs
+    // runway = (currentLockupRate + rateDeltaPerEpoch) * extraRunwayEpochs
     // currentLockupRate = 0, rateDeltaPerEpoch = floor rate = minimumPerEpoch
     // minimumPerEpoch = 6e16 / 86400 = 694,444,444,444 (bigint truncation)
     // runway = 694,444,444,444 * 10,000 = 6,944,444,444,440,000
@@ -254,7 +254,7 @@ describe('getUploadCosts', () => {
     assert.equal(
       withRunway.depositNeeded - baseline.depositNeeded,
       expectedRunway,
-      'runway delta should equal rateDeltaPerEpoch * runwayEpochs'
+      'runway delta should equal rateDeltaPerEpoch * extraRunwayEpochs'
     )
   })
 

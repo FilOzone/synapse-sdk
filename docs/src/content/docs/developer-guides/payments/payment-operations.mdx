@@ -86,7 +86,7 @@ Get a comprehensive snapshot of your account's payment state in a single call. T
 // @lib: esnext,dom
 import { Synapse, formatUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 const summary = await synapse.payments.accountSummary();
 

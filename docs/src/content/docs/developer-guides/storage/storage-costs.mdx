@@ -106,7 +106,7 @@ Use `getUploadCosts()` to preview costs without executing any transaction. This 
 // @lib: esnext,dom
 import { Synapse, formatUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 const costs = await synapse.storage.getUploadCosts({
   dataSize: 1073741824n, // 1 GiB in bytes

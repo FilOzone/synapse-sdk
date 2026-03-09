@@ -91,12 +91,13 @@ describe('calculateMultiContextCosts', () => {
       transport: viemHttp(),
       account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
     })
-    synapse = new Synapse({ client })
+    synapse = new Synapse({ client, source: null })
     warmStorageService = new WarmStorageService({ client })
     manager = new StorageManager({
       synapse,
       warmStorageService,
       withCDN: false,
+      source: null,
     })
   })
 
@@ -287,12 +288,12 @@ describe('calculateMultiContextCosts', () => {
 
     const baseline = await manager.calculateMultiContextCosts([ctxA, ctxB], {
       dataSize: 1n,
-      runwayEpochs: 0n,
+      extraRunwayEpochs: 0n,
     })
 
     const withRunway = await manager.calculateMultiContextCosts([ctxA, ctxB], {
       dataSize: 1n,
-      runwayEpochs: 10_000n,
+      extraRunwayEpochs: 10_000n,
     })
 
     assert.ok(
@@ -300,7 +301,7 @@ describe('calculateMultiContextCosts', () => {
       `deposit with runway (${withRunway.depositNeeded}) should exceed baseline (${baseline.depositNeeded})`
     )
 
-    // runway = (currentLockupRate + totalRateDelta) * runwayEpochs
+    // runway = (currentLockupRate + totalRateDelta) * extraRunwayEpochs
     // currentLockupRate = 0, totalRateDelta = 2 * floor rate per epoch
     // floor per epoch = 6e16 / 86400 = 694,444,444,444
     // runway = 2 * 694,444,444,444 * 10,000 = 13,888,888,888,880,000
@@ -308,7 +309,7 @@ describe('calculateMultiContextCosts', () => {
     assert.equal(
       withRunway.depositNeeded - baseline.depositNeeded,
       expectedRunway,
-      'runway delta should equal totalRateDelta * runwayEpochs'
+      'runway delta should equal totalRateDelta * extraRunwayEpochs'
     )
   })
 

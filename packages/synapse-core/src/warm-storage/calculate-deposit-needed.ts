@@ -6,7 +6,7 @@ export namespace calculateRunwayAmount {
     /** Projected account rate after this upload: currentLockupRate + rateDeltaPerEpoch. */
     netRateAfterUpload: bigint
     /** Extra runway epochs beyond the required lockup. 0n if not requested. */
-    runwayEpochs: bigint
+    extraRunwayEpochs: bigint
   }
 }
 
@@ -20,7 +20,7 @@ export namespace calculateRunwayAmount {
  * @returns The runway amount in token base units
  */
 export function calculateRunwayAmount(params: calculateRunwayAmount.ParamsType): bigint {
-  return params.netRateAfterUpload * params.runwayEpochs
+  return params.netRateAfterUpload * params.extraRunwayEpochs
 }
 
 export namespace calculateBufferAmount {
@@ -85,7 +85,7 @@ export namespace calculateDepositNeeded {
     // Runway parameters
     currentLockupRate: bigint
     /** Extra runway epochs beyond the required lockup. Defaults to DEFAULT_RUNWAY_EPOCHS (0). */
-    runwayEpochs?: bigint
+    extraRunwayEpochs?: bigint
 
     // Account debt + resolved state
     debt: bigint
@@ -118,12 +118,12 @@ export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType
   })
 
   const netRateAfterUpload = params.currentLockupRate + lockup.rateDeltaPerEpoch
-  const runwayEpochs = params.runwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
+  const extraRunwayEpochs = params.extraRunwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
   const bufferEpochs = params.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
 
   const runway = calculateRunwayAmount({
     netRateAfterUpload,
-    runwayEpochs,
+    extraRunwayEpochs,
   })
 
   const rawDepositNeeded = lockup.total + runway + params.debt - params.availableFunds

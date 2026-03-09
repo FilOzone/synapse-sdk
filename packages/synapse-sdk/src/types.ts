@@ -48,7 +48,7 @@ export interface PrepareOptions {
   /** Size of new data to upload, in bytes. */
   dataSize: bigint
   /** Extra runway in epochs beyond the required lockup. */
-  runwayEpochs?: bigint
+  extraRunwayEpochs?: bigint
   /** Safety margin in epochs. Default: 5n */
   bufferEpochs?: bigint
   /** Pre-computed costs — skips internal getUploadCosts() call. */

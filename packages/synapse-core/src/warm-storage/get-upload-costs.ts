@@ -25,7 +25,7 @@ export namespace getUploadCosts {
     dataSize: bigint
 
     /** Extra runway in epochs beyond the required lockup. */
-    runwayEpochs?: bigint
+    extraRunwayEpochs?: bigint
     /** Safety margin in epochs. Default: 5n */
     bufferEpochs?: bigint
   }
@@ -64,7 +64,7 @@ export async function getUploadCosts(
   const isNewDataSet = options.isNewDataSet ?? true
   const withCDN = options.withCDN ?? false
   const currentDataSetSize = options.currentDataSetSize ?? 0n
-  const runwayEpochs = options.runwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
+  const extraRunwayEpochs = options.extraRunwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
   const bufferEpochs = options.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
 
   // Fetch all needed data in parallel
@@ -105,7 +105,7 @@ export async function getUploadCosts(
     isNewDataSet,
     withCDN,
     currentLockupRate: accountInfo.lockupRate,
-    runwayEpochs,
+    extraRunwayEpochs,
     debt,
     availableFunds,
     fundedUntilEpoch,

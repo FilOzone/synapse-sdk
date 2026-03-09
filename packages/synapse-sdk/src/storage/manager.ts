@@ -664,16 +664,16 @@ export class StorageManager {
    * floor-aware rate deltas.
    *
    * @param contexts - Storage contexts to aggregate costs for
-   * @param options - Upload options (dataSize, runwayEpochs, bufferEpochs)
+   * @param options - Upload options (dataSize, extraRunwayEpochs, bufferEpochs)
    * @returns Aggregated upload costs with summed rates and single deposit/approval
    */
   async calculateMultiContextCosts(
     contexts: StorageContext[],
-    options: Pick<PrepareOptions, 'dataSize' | 'runwayEpochs' | 'bufferEpochs'>
+    options: Pick<PrepareOptions, 'dataSize' | 'extraRunwayEpochs' | 'bufferEpochs'>
   ): Promise<UploadCosts> {
     const client = this._synapse.client
     const clientAddress = client.account.address
-    const runwayEpochs = options.runwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
+    const extraRunwayEpochs = options.extraRunwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
     const bufferEpochs = options.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
 
     // Identify existing datasets that need size lookups
@@ -746,7 +746,7 @@ export class StorageManager {
 
     const runway = calculateRunwayAmount({
       netRateAfterUpload,
-      runwayEpochs,
+      extraRunwayEpochs,
     })
 
     const rawDepositNeeded = totalLockup + runway + debt - availableFunds

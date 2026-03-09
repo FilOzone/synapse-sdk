@@ -9,10 +9,10 @@ import {
 } from '../src/warm-storage/calculate-deposit-needed.ts'
 
 describe('calculateRunwayAmount', () => {
-  it('computes netRateAfterUpload * runwayEpochs', () => {
+  it('computes netRateAfterUpload * extraRunwayEpochs', () => {
     const result = calculateRunwayAmount({
       netRateAfterUpload: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
-      runwayEpochs: 100n,
+      extraRunwayEpochs: 100n,
     })
 
     assert.equal(result, 15n * 100n)
@@ -98,7 +98,7 @@ describe('calculateDepositNeeded', () => {
       isNewDataSet: true,
       withCDN: false,
       currentLockupRate: 0n,
-      runwayEpochs: 0n,
+      extraRunwayEpochs: 0n,
       debt: 0n,
       availableFunds: 100_000_000_000_000_000_000n, // 100 USDFC - way more than needed
       fundedUntilEpoch: maxUint256,
@@ -118,7 +118,7 @@ describe('calculateDepositNeeded', () => {
       isNewDataSet: true,
       withCDN: false,
       currentLockupRate: 0n,
-      runwayEpochs: 0n,
+      extraRunwayEpochs: 0n,
       debt: 0n,
       availableFunds: 0n,
       fundedUntilEpoch: 0n,
@@ -142,7 +142,7 @@ describe('calculateDepositNeeded', () => {
       isNewDataSet: true,
       withCDN: false,
       currentLockupRate: 100_000_000_000_000n, // existing rails draining
-      runwayEpochs: 0n,
+      extraRunwayEpochs: 0n,
       debt: 0n,
       availableFunds: 0n,
       fundedUntilEpoch: 0n,
@@ -166,7 +166,7 @@ describe('calculateDepositNeeded', () => {
       isNewDataSet: true,
       withCDN: false,
       currentLockupRate: 10n,
-      runwayEpochs: 0n,
+      extraRunwayEpochs: 0n,
       debt,
       availableFunds: 0n,
       fundedUntilEpoch: 50n,
