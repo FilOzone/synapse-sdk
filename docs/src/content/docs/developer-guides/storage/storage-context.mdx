@@ -51,7 +51,7 @@ A Storage Context represents a connection to a specific storage provider and dat
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 
 // Single context — auto-selects provider
 await synapse.storage.createContext({
@@ -126,7 +126,7 @@ Upload data to a provider without committing on-chain:
 import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const data = new TextEncoder().encode("Hello, Filecoin!")
 const abortController = new AbortController()
 const preCalculatedCid = null as unknown as PieceCID;
@@ -164,7 +164,7 @@ Request a secondary provider to fetch pieces from the primary:
 import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const [primary, secondary] = await synapse.storage.createContexts({
       count: 2,
   metadata: { source: "my-app" },
@@ -207,7 +207,7 @@ Add pieces to an on-chain data set. Creates the data set and payment rail if one
 import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 import type { Hex } from "viem";
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const contexts = await synapse.storage.createContexts({
       count: 2,
   metadata: { source: "my-app" },
@@ -260,7 +260,7 @@ Upload multiple files to 2 providers with full error handling:
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x..")})
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 
 const files = [
   new TextEncoder().encode("File 1 content..."),
@@ -348,7 +348,7 @@ You can also terminate a data set using `synapse.storage.terminateDataSet({ data
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const ctx = await synapse.storage.createContext({
   metadata: { source: "my-app" },
 })
@@ -374,7 +374,7 @@ This method submits an on-chain transaction to initiate the deletion process.
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const ctx = await synapse.storage.createContext({
   metadata: { source: "my-app" },
 })
@@ -408,7 +408,7 @@ Download pieces from any available provider using the StorageManager:
 import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const pieceCid = null as unknown as PieceCID;
 // ---cut---
 // Download from any provider that has the piece
@@ -427,7 +427,7 @@ When using a StorageContext, downloads are automatically restricted to that spec
 import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const ctx = await synapse.storage.createContext({
   metadata: { source: "my-app" },
 })
@@ -449,7 +449,7 @@ The `withCDN` option follows a clear inheritance hierarchy:
 import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const ctx = await synapse.storage.createContext({ withCDN: false })
 const pieceCid = null as unknown as PieceCID;
 // ---cut---
@@ -471,7 +471,7 @@ For maximum control, use the core library functions without the SDK wrapper clas
 import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const ctx = await synapse.storage.createContext({
   metadata: { source: "my-app" },
 })
@@ -517,7 +517,7 @@ The `endorsedIds` parameter controls which providers are eligible. When non-empt
 import { Synapse, type PieceCID, asChain } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const client = synapse.client;
 const chain = asChain(client.chain);
 const walletAddress = client.account.address;
@@ -570,7 +570,7 @@ import { privateKeyToAccount } from "viem/accounts"
 
 import * as SP from "@filoz/synapse-core/sp"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
 const client = synapse.client;
 const walletAddress = client.account.address;
 

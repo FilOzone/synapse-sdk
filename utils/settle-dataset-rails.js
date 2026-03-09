@@ -105,6 +105,7 @@ async function main() {
     synapse = await Synapse.create({
       privateKey,
       rpcURL: rpcUrl,
+      source: 'synapse-example',
     })
 
     // Get warm storage address and create service

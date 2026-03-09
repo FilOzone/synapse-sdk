@@ -26,6 +26,7 @@ import { WarmStorageService } from './warm-storage/index.ts'
  */
 export class Synapse {
   private readonly _withCDN: boolean
+  private readonly _source: string | null
   private readonly _payments: PaymentsService
   private readonly _warmStorageService: WarmStorageService
   private readonly _storageManager: StorageManager
@@ -63,7 +64,12 @@ export class Synapse {
       )
     }
 
-    return new Synapse({ client, withCDN: options.withCDN, sessionClient: options.sessionKey?.client })
+    return new Synapse({
+      client,
+      withCDN: options.withCDN,
+      source: options.source,
+      sessionClient: options.sessionKey?.client,
+    })
   }
 
   public constructor(options: SynapseFromClientOptions) {
@@ -71,6 +77,7 @@ export class Synapse {
     this._sessionClient = options.sessionClient
     this._chain = asChain(options.client.chain)
     this._withCDN = options.withCDN ?? false
+    this._source = options.source ?? null
     this._providers = new SPRegistryService({ client: options.client })
     this._filbeamService = new FilBeamService(this._chain)
     this._warmStorageService = new WarmStorageService({ client: options.client })
@@ -81,6 +88,7 @@ export class Synapse {
       synapse: this,
       warmStorageService: this._warmStorageService,
       withCDN: this._withCDN,
+      source: this._source,
     })
   }
 

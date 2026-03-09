@@ -165,7 +165,7 @@ Allowances are **cumulative** - you must add your new storage requirements to an
 // @lib: esnext,dom
 import { Synapse, TOKENS, TIME_CONSTANTS, calibration } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const pricePerMonth = null as unknown as bigint;
 const pricePerEpoch = null as unknown as bigint;
 // ---cut---
@@ -214,7 +214,7 @@ Check balances, calculate deposit amount, and execute the appropriate transactio
 // @lib: esnext,dom
 import { Synapse, TIME_CONSTANTS, calibration, TOKENS } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const totalCostNeeded = null as unknown as bigint;
 const rateAllowanceNeeded = null as unknown as bigint;
 const lockupAllowanceNeeded = null as unknown as bigint;

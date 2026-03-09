@@ -55,4 +55,15 @@ export const METADATA_KEYS = {
    * Only valid for *piece* metadata.
    */
   IPFS_ROOT_CID: 'ipfsRootCID',
+
+  /**
+   * Key used to identify the application or dapp that created a data set. Enables namespace
+   * isolation when multiple applications share the same wallet. Datasets with different source
+   * values are treated as distinct and will not be reused across applications.
+   *
+   * The value for this key is the application name as a non-empty string.
+   *
+   * Only valid for *data set* metadata.
+   */
+  SOURCE: 'source',
 } as const

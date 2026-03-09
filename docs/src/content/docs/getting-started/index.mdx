@@ -79,8 +79,9 @@ import { privateKeyToAccount } from 'viem/accounts'
 
 async function main() {
   // 1) Initialize the Synapse SDK
-  const synapse = Synapse.create({ 
+  const synapse = Synapse.create({
     account: privateKeyToAccount('0x...'),
+    source: 'my-app',
     chain: mainnet, // default is calibration testnet
     // Uncomment for high-performance incentive-aligned data retrievability through Filecoin Beam
     // withCDN: true
@@ -144,8 +145,10 @@ import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 // ---cut---
 // Initialize SDK with your private key and RPC endpoint
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 ```
+
+The `source` parameter identifies your application. It is stored as metadata on each dataset so that multiple apps sharing the same wallet can distinguish their own data.
 
 ### 2: Payment Setup
 
@@ -158,7 +161,7 @@ To size your deposit, check the up‑to‑date rates in [**Pricing**](/introduct
 // @lib: esnext,dom
 import { Synapse, TOKENS, formatUnits, parseUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 
 // ---cut---
 // Check current USDFC balance
@@ -181,7 +184,7 @@ Now you can upload data to decentralized storage and retrieve it:
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 // ---cut---
 // Upload data — stores 2 copies by default for durability
 const file = new TextEncoder().encode(
@@ -232,7 +235,7 @@ For more control over provider selection and data set management:
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 const file = new TextEncoder().encode(
   `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
     Your data is safe here. 
@@ -269,7 +272,7 @@ const downloaded = await context.download({ pieceCid: result.pieceCid });
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 // ---cut---
 // Get all approved providers
 const storageInfo = await synapse.storage.getStorageInfo();

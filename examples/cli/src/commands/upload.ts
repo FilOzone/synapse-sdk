@@ -42,6 +42,7 @@ export const upload: Command = command(
     try {
       const synapse = new Synapse({
         client,
+        source: 'synapse-example',
       })
 
       p.log.step('Creating context...')

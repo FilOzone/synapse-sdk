@@ -42,7 +42,7 @@ Upload data with a single call — the SDK selects providers and handles multi-c
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 
 const data = new Uint8Array([1, 2, 3, 4, 5])
 
@@ -81,7 +81,7 @@ Attach metadata to organize uploads. The SDK reuses existing data sets when meta
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 
 const data = new TextEncoder().encode("Hello, Filecoin!")
 
@@ -111,7 +111,7 @@ Track the lifecycle of a multi-copy upload with callbacks:
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: 'my-app' })
 
 const data = new Uint8Array(1024) // 1KB of data
 
@@ -160,7 +160,7 @@ Adjust the number of copies for your durability requirements:
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: 'my-app' })
 
 const data = new Uint8Array(256)
 
@@ -198,7 +198,7 @@ If `upload()` returns (no throw), **at least one copy** is committed on-chain. B
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: 'my-app' })
 
 const data = new Uint8Array(256)
 
@@ -238,7 +238,7 @@ Download from any provider that has the piece — the SDK resolves the provider 
 import { Synapse } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from "viem/accounts"
 
-const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: 'my-app' })
 
 // Download using PieceCID from a previous upload
 const pieceCid = "bafkzcib..." // from upload result
@@ -257,6 +257,7 @@ import { privateKeyToAccount } from "viem/accounts"
 // Enable CDN globally
 const synapse = Synapse.create({
   account: privateKeyToAccount("0x..."),
+  source: 'my-app',
   withCDN: true,
 })
 
@@ -284,7 +285,7 @@ Retrieve all data sets owned by your account to inspect piece counts, CDN status
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const dataSets = await synapse.storage.findDataSets();
 
 for (const ds of dataSets) {
@@ -306,7 +307,7 @@ List all pieces stored in a specific data set by iterating through a context:
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const dataSetId = 1n;
 // ---cut---
 const context = await synapse.storage.createContext({ dataSetId });
@@ -358,7 +359,7 @@ Query service-wide pricing, available providers, and network parameters:
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 const info = await synapse.storage.getStorageInfo();
 console.log("Price/TiB/month:", info.pricing.noCDN.perTiBPerMonth);

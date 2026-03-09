@@ -517,7 +517,8 @@
                 // Create Synapse instance
                 synapse = await Synapse.create({
                     signer,
-                    warmStorageAddress: warmStorageAddress || undefined
+                    warmStorageAddress: warmStorageAddress || undefined,
+                    source: 'synapse-example',
                 });
 
                 // Create WarmStorageService instance separately

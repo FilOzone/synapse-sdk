@@ -32,6 +32,7 @@ export const fund: Command = command(
 
       const synapse = new Synapse({
         client,
+        source: 'synapse-example',
       })
 
       spinner.stop('Balances')

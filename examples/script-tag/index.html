@@ -16,7 +16,7 @@
 
     const provider = new ethers.BrowserProvider(window.ethereum)
     try {
-      await Synapse.create({ provider })
+      await Synapse.create({ provider, source: 'synapse-example' })
     } catch (error) {
 
       console.log("🚀 ~ error:", error)
