@@ -1,4 +1,4 @@
-import { CDN_FIXED_LOCKUP } from '../utils/constants.ts'
+import { CDN_FIXED_LOCKUP, LOCKUP_PERIOD, TIME_CONSTANTS } from '../utils/constants.ts'
 import { calculateEffectiveRate } from './calculate-effective-rate.ts'
 
 export namespace calculateAdditionalLockupRequired {
@@ -11,12 +11,12 @@ export namespace calculateAdditionalLockupRequired {
     pricePerTiBPerMonth: bigint
     /** Minimum monthly charge from getServicePrice(). */
     minimumPricePerMonth: bigint
-    /** Epochs per month from getServicePrice(). */
-    epochsPerMonth: bigint
-    /** Lockup period in epochs. */
-    lockupEpochs: bigint
+    /** Epochs per month. Defaults to EPOCHS_PER_MONTH (86400). */
+    epochsPerMonth?: bigint
+    /** Lockup period in epochs. Defaults to LOCKUP_PERIOD (30 days). */
+    lockupEpochs?: bigint
     /** Whether a new dataset is being created (vs adding to existing). */
-    isNewDataset: boolean
+    isNewDataSet: boolean
     /** Whether CDN is enabled for this dataset. */
     withCDN: boolean
   }
@@ -50,9 +50,9 @@ export function calculateAdditionalLockupRequired(
     currentDataSetSize,
     pricePerTiBPerMonth,
     minimumPricePerMonth,
-    epochsPerMonth,
-    lockupEpochs,
-    isNewDataset,
+    epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH,
+    lockupEpochs = LOCKUP_PERIOD,
+    isNewDataSet,
     withCDN,
   } = params
 
@@ -60,7 +60,7 @@ export function calculateAdditionalLockupRequired(
 
   let rateDeltaPerEpoch: bigint
 
-  if (currentDataSetSize > 0n && !isNewDataset) {
+  if (currentDataSetSize > 0n && !isNewDataSet) {
     // Existing dataset: compute delta between new and current rates
     const newRate = calculateEffectiveRate({
       ...rateParams,
@@ -85,7 +85,7 @@ export function calculateAdditionalLockupRequired(
   const rateLockupDelta = rateDeltaPerEpoch * lockupEpochs
 
   // CDN fixed lockup only applies to new CDN datasets
-  const cdnFixedLockup = isNewDataset && withCDN ? CDN_FIXED_LOCKUP.total : 0n
+  const cdnFixedLockup = isNewDataSet && withCDN ? CDN_FIXED_LOCKUP.total : 0n
 
   return {
     rateDeltaPerEpoch,

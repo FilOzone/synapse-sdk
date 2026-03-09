@@ -102,6 +102,18 @@ The SDK's `prepare()` method handles all of this automatically. It computes the 
 
 Use `getUploadCosts()` to preview costs without executing any transaction. This is useful for displaying pricing in a UI or letting users confirm before proceeding.
 
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, formatUnits } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+// ---cut---
+const costs = await synapse.storage.getUploadCosts({
+  dataSize: 1073741824n, // 1 GiB in bytes
+})
+
+```
+
 The returned `UploadCosts` object contains:
 
 | Field | Type | Description |

@@ -65,7 +65,7 @@ export async function getAccountTotalStorageSize(
     return { totalSizeBytes: 0n, datasetCount: 0 }
   }
 
-  const contracts = dataSets.flatMap((ds) => [
+  const calls = dataSets.flatMap((ds) => [
     dataSetLiveCall({
       chain: client.chain,
       dataSetId: ds.dataSetId,
@@ -79,7 +79,7 @@ export async function getAccountTotalStorageSize(
   ])
 
   const results = await multicall(client, {
-    contracts,
+    contracts: calls,
     allowFailure: false,
   })
 

@@ -3,7 +3,7 @@ import { multicall } from 'viem/actions'
 import { getRailCall } from './get-rail.ts'
 import { getRailsForPayerAndToken } from './get-rails-for-payer-and-token.ts'
 
-export namespace totalAccountLockup {
+export namespace totalAccountFixedLockup {
   export type OptionsType = {
     /** The address of the account to query. */
     address: Address
@@ -29,13 +29,13 @@ export namespace totalAccountLockup {
  * still hold locked funds until finalization.
  *
  * @param client - The client to use for the query.
- * @param options - {@link totalAccountLockup.OptionsType}
- * @returns The total fixed lockup and active rail count {@link totalAccountLockup.OutputType}
- * @throws Errors {@link totalAccountLockup.ErrorType}
+ * @param options - {@link totalAccountFixedLockup.OptionsType}
+ * @returns The total fixed lockup and active rail count {@link totalAccountFixedLockup.OutputType}
+ * @throws Errors {@link totalAccountFixedLockup.ErrorType}
  *
  * @example
  * ```ts
- * import { totalAccountLockup } from '@filoz/synapse-core/pay'
+ * import { totalAccountFixedLockup } from '@filoz/synapse-core/pay'
  * import { createPublicClient, http } from 'viem'
  * import { calibration } from '@filoz/synapse-core/chains'
  *
@@ -44,17 +44,17 @@ export namespace totalAccountLockup {
  *   transport: http(),
  * })
  *
- * const lockup = await totalAccountLockup(client, {
+ * const lockup = await totalAccountFixedLockup(client, {
  *   address: '0x1234567890123456789012345678901234567890',
  * })
  *
  * console.log('Total fixed lockup:', lockup.totalFixedLockup)
  * ```
  */
-export async function totalAccountLockup(
+export async function totalAccountFixedLockup(
   client: Client<Transport, Chain>,
-  options: totalAccountLockup.OptionsType
-): Promise<totalAccountLockup.OutputType> {
+  options: totalAccountFixedLockup.OptionsType
+): Promise<totalAccountFixedLockup.OutputType> {
   const { results } = await getRailsForPayerAndToken(client, {
     payer: options.address,
     token: options.token,

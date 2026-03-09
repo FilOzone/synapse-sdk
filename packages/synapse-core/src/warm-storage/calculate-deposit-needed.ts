@@ -1,9 +1,10 @@
+import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS } from '../utils/constants.ts'
 import { calculateAdditionalLockupRequired } from './calculate-additional-lockup-required.ts'
 
 export namespace calculateRunwayAmount {
   export type ParamsType = {
-    /** Net account rate after this upload: currentLockupRate + rateDeltaPerEpoch. */
-    netRate: bigint
+    /** Projected account rate after this upload: currentLockupRate + rateDeltaPerEpoch. */
+    netRateAfterUpload: bigint
     /** Extra runway epochs beyond the required lockup. 0n if not requested. */
     runwayEpochs: bigint
   }
@@ -19,20 +20,20 @@ export namespace calculateRunwayAmount {
  * @returns The runway amount in token base units
  */
 export function calculateRunwayAmount(params: calculateRunwayAmount.ParamsType): bigint {
-  return params.netRate * params.runwayEpochs
+  return params.netRateAfterUpload * params.runwayEpochs
 }
 
 export namespace calculateBufferAmount {
   export type ParamsType = {
     /** additionalLockup + runwayAmount + debt - availableFunds (before clamping to 0). */
     rawDepositNeeded: bigint
-    /** Net account rate after this upload: currentLockupRate + rateDeltaPerEpoch. */
-    netRate: bigint
-    /** From calculateAccountDebt().fundedUntilEpoch. */
+    /** Projected account rate after this upload: currentLockupRate + rateDeltaPerEpoch. */
+    netRateAfterUpload: bigint
+    /** From resolveAccountState().fundedUntilEpoch. */
     fundedUntilEpoch: bigint
     /** Current epoch (block number). */
     currentEpoch: bigint
-    /** From calculateAccountDebt().availableFunds. */
+    /** From resolveAccountState().availableFunds. */
     availableFunds: bigint
     /** Safety margin in epochs. */
     bufferEpochs: bigint
@@ -49,16 +50,16 @@ export namespace calculateBufferAmount {
  * @returns The buffer amount in token base units
  */
 export function calculateBufferAmount(params: calculateBufferAmount.ParamsType): bigint {
-  const { rawDepositNeeded, netRate, fundedUntilEpoch, currentEpoch, availableFunds, bufferEpochs } = params
+  const { rawDepositNeeded, netRateAfterUpload, fundedUntilEpoch, currentEpoch, availableFunds, bufferEpochs } = params
 
   if (rawDepositNeeded > 0n) {
     // Deposit is needed — add buffer so it's sufficient at T_exec
-    return netRate * bufferEpochs
+    return netRateAfterUpload * bufferEpochs
   }
 
   if (fundedUntilEpoch <= currentEpoch + bufferEpochs) {
     // No new lockup needed, but account expires within buffer window
-    const bufferCost = netRate * bufferEpochs
+    const bufferCost = netRateAfterUpload * bufferEpochs
     const needed = bufferCost - availableFunds
     return needed > 0n ? needed : 0n
   }
@@ -74,23 +75,27 @@ export namespace calculateDepositNeeded {
     currentDataSetSize: bigint
     pricePerTiBPerMonth: bigint
     minimumPricePerMonth: bigint
-    epochsPerMonth: bigint
-    lockupEpochs: bigint
-    isNewDataset: boolean
+    /** Epochs per month. Defaults to EPOCHS_PER_MONTH (86400). */
+    epochsPerMonth?: bigint
+    /** Lockup period in epochs. Defaults to LOCKUP_PERIOD (30 days). */
+    lockupEpochs?: bigint
+    isNewDataSet: boolean
     withCDN: boolean
 
     // Runway parameters
     currentLockupRate: bigint
-    runwayEpochs: bigint
+    /** Extra runway epochs beyond the required lockup. Defaults to DEFAULT_RUNWAY_EPOCHS (0). */
+    runwayEpochs?: bigint
 
-    // Account debt (from calculateAccountDebt)
+    // Account debt + resolved state
     debt: bigint
     availableFunds: bigint
     fundedUntilEpoch: bigint
 
     // Buffer parameters
     currentEpoch: bigint
-    bufferEpochs: bigint
+    /** Safety margin in epochs for tx execution delay. Defaults to DEFAULT_BUFFER_EPOCHS (5). */
+    bufferEpochs?: bigint
   }
 }
 
@@ -108,15 +113,17 @@ export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType
     minimumPricePerMonth: params.minimumPricePerMonth,
     epochsPerMonth: params.epochsPerMonth,
     lockupEpochs: params.lockupEpochs,
-    isNewDataset: params.isNewDataset,
+    isNewDataSet: params.isNewDataSet,
     withCDN: params.withCDN,
   })
 
-  const netRate = params.currentLockupRate + lockup.rateDeltaPerEpoch
+  const netRateAfterUpload = params.currentLockupRate + lockup.rateDeltaPerEpoch
+  const runwayEpochs = params.runwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
+  const bufferEpochs = params.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
 
   const runway = calculateRunwayAmount({
-    netRate,
-    runwayEpochs: params.runwayEpochs,
+    netRateAfterUpload,
+    runwayEpochs,
   })
 
   const rawDepositNeeded = lockup.total + runway + params.debt - params.availableFunds
@@ -124,17 +131,17 @@ export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType
   // Skip buffer when no existing rails are draining and this is a new dataset.
   // The deposit lands before any rail is created, so nothing consumes funds
   // between balance check and tx execution.
-  const skipBuffer = params.currentLockupRate === 0n && params.isNewDataset
+  const skipBuffer = params.currentLockupRate === 0n && params.isNewDataSet
 
   const buffer = skipBuffer
     ? 0n
     : calculateBufferAmount({
         rawDepositNeeded,
-        netRate,
+        netRateAfterUpload,
         fundedUntilEpoch: params.fundedUntilEpoch,
         currentEpoch: params.currentEpoch,
         availableFunds: params.availableFunds,
-        bufferEpochs: params.bufferEpochs,
+        bufferEpochs,
       })
 
   const clamped = rawDepositNeeded > 0n ? rawDepositNeeded : 0n

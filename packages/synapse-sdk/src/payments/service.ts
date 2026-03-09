@@ -709,65 +709,70 @@ export class PaymentsService {
   }
 
   /**
-   * Get the total account rate rate across all active rails.
+   * Get a comprehensive account summary including balances, rates, lockup breakdown, and timeline.
    *
-   * Returns the aggregate lockup rate in both per-epoch and per-month units.
-   *
-   * @param options - Options for the total account rate
+   * @param options - Options for the account summary
    * @param options.token - The token to query (defaults to USDFC)
-   * @returns Spend rates {@link Pay.totalAccountRate.OutputType}
-   * @throws Errors {@link Pay.totalAccountRate.ErrorType}
+   * @param options.epoch - Epoch to evaluate at (defaults to current block number)
+   * @returns Full account summary {@link Pay.getAccountSummary.OutputType}
+   * @throws Errors {@link Pay.getAccountSummary.ErrorType}
    */
-  async totalAccountRate(
-    options: { token?: TokenIdentifier } = { token: TOKENS.USDFC }
-  ): Promise<Pay.totalAccountRate.OutputType> {
-    const { token = TOKENS.USDFC } = options
+  async accountSummary(
+    options: { token?: TokenIdentifier; epoch?: bigint } = { token: TOKENS.USDFC }
+  ): Promise<Pay.getAccountSummary.OutputType> {
+    const { token = TOKENS.USDFC, epoch } = options
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
-        'totalAccountRate',
+        'accountSummary',
         `Token "${token}" is not supported. Currently only USDFC token is supported.`
       )
     }
 
     try {
-      return await Pay.totalAccountRate(this._client, {
+      return await Pay.getAccountSummary(this._client, {
         address: this._client.account.address,
+        epoch,
       })
     } catch (error) {
-      throw createError('PaymentsService', 'totalAccountRate', 'Failed to get total account rate.', error)
+      throw createError('PaymentsService', 'accountSummary', 'Failed to get account summary.', error)
     }
   }
 
   /**
-   * Get the total fixed lockup across all active rails.
+   * Get the total fixed lockup across all rails.
    *
-   * Fetches all rails for the account, filters to active ones,
-   * and sums their `lockupFixed` values.
+   * Fetches all rails for the account and sums their `lockupFixed` values.
+   * Includes terminated-but-not-finalized rails since they still hold locked funds.
    *
-   * @param options - Options for the total account lockup
+   * @param options - Options for the total account fixed lockup
    * @param options.token - The token to query (defaults to USDFC)
-   * @returns Total fixed lockup and active rail count {@link Pay.totalAccountLockup.OutputType}
-   * @throws Errors {@link Pay.totalAccountLockup.ErrorType}
+   * @returns Total fixed lockup {@link Pay.totalAccountFixedLockup.OutputType}
+   * @throws Errors {@link Pay.totalAccountFixedLockup.ErrorType}
    */
-  async totalAccountLockup(
+  async totalAccountFixedLockup(
     options: { token?: TokenIdentifier } = { token: TOKENS.USDFC }
-  ): Promise<Pay.totalAccountLockup.OutputType> {
+  ): Promise<Pay.totalAccountFixedLockup.OutputType> {
     const { token = TOKENS.USDFC } = options
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
-        'totalAccountLockup',
+        'totalAccountFixedLockup',
         `Token "${token}" is not supported. Currently only USDFC token is supported.`
       )
     }
 
     try {
-      return await Pay.totalAccountLockup(this._client, {
+      return await Pay.totalAccountFixedLockup(this._client, {
         address: this._client.account.address,
       })
     } catch (error) {
-      throw createError('PaymentsService', 'totalAccountLockup', 'Failed to get total account lockup.', error)
+      throw createError(
+        'PaymentsService',
+        'totalAccountFixedLockup',
+        'Failed to get total account fixed lockup.',
+        error
+      )
     }
   }
 

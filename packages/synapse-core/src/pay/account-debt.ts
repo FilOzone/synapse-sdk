@@ -1,5 +1,3 @@
-import { getAccountInfoIfSettled } from './get-account-info-if-settled.ts'
-
 export namespace calculateAccountDebt {
   export type ParamsType = {
     funds: bigint
@@ -8,38 +6,21 @@ export namespace calculateAccountDebt {
     lockupLastSettledAt: bigint
     currentEpoch: bigint
   }
-
-  export type OutputType = {
-    /** max(0, totalOwed - funds) */
-    debt: bigint
-    /** max(0, funds - totalOwed) */
-    availableFunds: bigint
-    /** Epoch when account runs out (maxUint256 if lockupRate == 0) */
-    fundedUntilEpoch: bigint
-  }
 }
 
 /**
- * Compute account debt — the amount the on-chain `getAccountInfoIfSettled` hides via clamping.
+ * Compute account debt — the unsettled lockup amount exceeding available funds.
  *
  * @param params - Raw account fields + current epoch
- * @returns debt, availableFunds, fundedUntilEpoch
+ * @returns The debt amount (0n if account is healthy)
  */
-export function calculateAccountDebt(params: calculateAccountDebt.ParamsType): calculateAccountDebt.OutputType {
+export function calculateAccountDebt(params: calculateAccountDebt.ParamsType): bigint {
   const { funds, lockupCurrent, lockupRate, lockupLastSettledAt, currentEpoch } = params
-
-  const settled = getAccountInfoIfSettled({ funds, lockupCurrent, lockupRate, lockupLastSettledAt, currentEpoch })
 
   // Total owed = lockupCurrent + lockupRate * elapsed
   const elapsed = currentEpoch - lockupLastSettledAt
   const totalOwed = lockupCurrent + lockupRate * elapsed
 
   // debt = max(0, totalOwed - funds)
-  const debt = totalOwed > funds ? totalOwed - funds : 0n
-
-  return {
-    debt,
-    availableFunds: settled.availableFunds,
-    fundedUntilEpoch: settled.fundedUntilEpoch,
-  }
+  return totalOwed > funds ? totalOwed - funds : 0n
 }

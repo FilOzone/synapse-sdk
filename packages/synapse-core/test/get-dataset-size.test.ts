@@ -3,70 +3,10 @@ import { setup } from 'iso-web/msw'
 import { createPublicClient, http } from 'viem'
 import { calibration } from '../src/chains.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { getDatasetSize, getMultiDatasetSize } from '../src/pdp-verifier/get-dataset-size.ts'
+import { getDataSetSizes } from '../src/pdp-verifier/get-dataset-size.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
 
-describe('getDatasetSize', () => {
-  const server = setup()
-
-  before(async () => {
-    await server.start()
-  })
-
-  after(() => {
-    server.stop()
-  })
-
-  beforeEach(() => {
-    server.resetHandlers()
-  })
-
-  it('should return leafCount * BYTES_PER_LEAF for a dataset', async () => {
-    const leafCount = 100n
-
-    server.use(
-      JSONRPC({
-        ...presets.basic,
-        pdpVerifier: {
-          ...presets.basic.pdpVerifier,
-          getDataSetLeafCount: () => [leafCount],
-        },
-      })
-    )
-
-    const client = createPublicClient({
-      chain: calibration,
-      transport: http(),
-    })
-
-    const size = await getDatasetSize(client, { dataSetId: 1n })
-
-    assert.equal(size, leafCount * SIZE_CONSTANTS.BYTES_PER_LEAF)
-  })
-
-  it('should return 0 for an empty dataset', async () => {
-    server.use(
-      JSONRPC({
-        ...presets.basic,
-        pdpVerifier: {
-          ...presets.basic.pdpVerifier,
-          getDataSetLeafCount: () => [0n],
-        },
-      })
-    )
-
-    const client = createPublicClient({
-      chain: calibration,
-      transport: http(),
-    })
-
-    const size = await getDatasetSize(client, { dataSetId: 1n })
-
-    assert.equal(size, 0n)
-  })
-})
-
-describe('getMultiDatasetSize', () => {
+describe('getDataSetSizes', () => {
   const server = setup()
 
   before(async () => {
@@ -89,9 +29,53 @@ describe('getMultiDatasetSize', () => {
       transport: http(),
     })
 
-    const sizes = await getMultiDatasetSize(client, { dataSetIds: [] })
+    const sizes = await getDataSetSizes(client, { dataSetIds: [] })
 
     assert.deepEqual(sizes, [])
+  })
+
+  it('should return size for a single dataset', async () => {
+    const leafCount = 100n
+
+    server.use(
+      JSONRPC({
+        ...presets.basic,
+        pdpVerifier: {
+          ...presets.basic.pdpVerifier,
+          getDataSetLeafCount: () => [leafCount],
+        },
+      })
+    )
+
+    const client = createPublicClient({
+      chain: calibration,
+      transport: http(),
+    })
+
+    const [size] = await getDataSetSizes(client, { dataSetIds: [1n] })
+
+    assert.equal(size, leafCount * SIZE_CONSTANTS.BYTES_PER_LEAF)
+  })
+
+  it('should return 0 for an empty dataset', async () => {
+    server.use(
+      JSONRPC({
+        ...presets.basic,
+        pdpVerifier: {
+          ...presets.basic.pdpVerifier,
+          getDataSetLeafCount: () => [0n],
+        },
+      })
+    )
+
+    const client = createPublicClient({
+      chain: calibration,
+      transport: http(),
+    })
+
+    const [size] = await getDataSetSizes(client, { dataSetIds: [1n] })
+
+    assert.equal(size, 0n)
   })
 
   it('should return correct sizes for multiple datasets', async () => {
@@ -119,7 +103,7 @@ describe('getMultiDatasetSize', () => {
       transport: http(),
     })
 
-    const sizes = await getMultiDatasetSize(client, {
+    const sizes = await getDataSetSizes(client, {
       dataSetIds: [1n, 2n, 3n],
     })
 

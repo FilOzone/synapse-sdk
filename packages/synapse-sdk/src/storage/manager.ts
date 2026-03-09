@@ -20,8 +20,13 @@
  * ```
  */
 
-import { calculateAccountDebt, isFwssMaxApproved, accounts as payAccounts } from '@filoz/synapse-core/pay'
-import { getMultiDatasetSize } from '@filoz/synapse-core/pdp-verifier'
+import {
+  calculateAccountDebt,
+  isFwssMaxApproved,
+  accounts as payAccounts,
+  resolveAccountState,
+} from '@filoz/synapse-core/pay'
+import { getDataSetSizes } from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
 import type { UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { getPDPProviderByAddress } from '@filoz/synapse-core/sp-registry'
@@ -672,11 +677,7 @@ export class StorageManager {
     const bufferEpochs = options.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
 
     // Identify existing datasets that need size lookups
-    const existingDataSetContexts = contexts
-      .map((ctx, index) => ({ ctx, index }))
-      .filter(({ ctx }) => ctx.dataSetId != null)
-
-    const existingDataSetIds = existingDataSetContexts.map(({ ctx }) => ctx.dataSetId as bigint)
+    const existingDataSetIds = contexts.filter((ctx) => ctx.dataSetId != null).map((ctx) => ctx.dataSetId as bigint)
 
     // Fetch all needed data in parallel (single RPC batch)
     const [accountInfo, pricing, approved, currentEpoch, sizes] = await Promise.all([
@@ -684,13 +685,13 @@ export class StorageManager {
       getServicePrice(client),
       isFwssMaxApproved(client, { clientAddress }),
       getBlockNumber(client, { cacheTime: 0 }),
-      existingDataSetIds.length > 0 ? getMultiDatasetSize(client, { dataSetIds: existingDataSetIds }) : [],
+      existingDataSetIds.length > 0 ? getDataSetSizes(client, { dataSetIds: existingDataSetIds }) : [],
     ])
 
-    // Build dataset size map: context index → currentDataSetSize
-    const dataSetSizes = new Map<number, bigint>()
-    for (let i = 0; i < existingDataSetContexts.length; i++) {
-      dataSetSizes.set(existingDataSetContexts[i].index, sizes[i])
+    // Build dataset size map: dataSetId → size
+    const dataSetSizes = new Map<bigint, bigint>()
+    for (let i = 0; i < existingDataSetIds.length; i++) {
+      dataSetSizes.set(existingDataSetIds[i], sizes[i])
     }
 
     // Per-context loop: calculate lockup for each context
@@ -702,7 +703,7 @@ export class StorageManager {
     for (let i = 0; i < contexts.length; i++) {
       const ctx = contexts[i]
       const isNewDataSet = ctx.dataSetId == null
-      const currentDataSetSize = dataSetSizes.get(i) ?? 0n
+      const currentDataSetSize = ctx.dataSetId != null ? (dataSetSizes.get(ctx.dataSetId) ?? 0n) : 0n
 
       const lockup = calculateAdditionalLockupRequired({
         dataSize: options.dataSize,
@@ -711,7 +712,7 @@ export class StorageManager {
         minimumPricePerMonth: pricing.minimumPricePerMonth,
         epochsPerMonth: pricing.epochsPerMonth,
         lockupEpochs: LOCKUP_PERIOD,
-        isNewDataset: isNewDataSet,
+        isNewDataSet,
         withCDN: ctx.withCDN,
       })
 
@@ -719,7 +720,7 @@ export class StorageManager {
       totalLockup += lockup.total
 
       // Calculate per-context effective rate for the rate output
-      const totalSize = isNewDataSet ? options.dataSize : currentDataSetSize + options.dataSize
+      const totalSize = currentDataSetSize + options.dataSize
       const rate = calculateEffectiveRate({
         sizeInBytes: totalSize,
         pricePerTiBPerMonth: pricing.pricePerTiBPerMonthNoCDN,
@@ -731,22 +732,24 @@ export class StorageManager {
     }
 
     // Account-level calculation (once, with aggregated values)
-    const debtInfo = calculateAccountDebt({
+    const accountParams = {
       funds: accountInfo.funds,
       lockupCurrent: accountInfo.lockupCurrent,
       lockupRate: accountInfo.lockupRate,
       lockupLastSettledAt: accountInfo.lockupLastSettledAt,
       currentEpoch,
-    })
+    }
+    const debt = calculateAccountDebt(accountParams)
+    const { availableFunds, fundedUntilEpoch } = resolveAccountState(accountParams)
 
-    const netRate = accountInfo.lockupRate + totalRateDeltaPerEpoch
+    const netRateAfterUpload = accountInfo.lockupRate + totalRateDeltaPerEpoch
 
     const runway = calculateRunwayAmount({
-      netRate,
+      netRateAfterUpload,
       runwayEpochs,
     })
 
-    const rawDepositNeeded = totalLockup + runway + debtInfo.debt - debtInfo.availableFunds
+    const rawDepositNeeded = totalLockup + runway + debt - availableFunds
 
     // Skip buffer when no existing rails are draining and all contexts are new datasets.
     // The deposit lands before any rail is created, so nothing consumes funds
@@ -760,10 +763,10 @@ export class StorageManager {
       ? 0n
       : calculateBufferAmount({
           rawDepositNeeded,
-          netRate,
-          fundedUntilEpoch: debtInfo.fundedUntilEpoch,
+          netRateAfterUpload,
+          fundedUntilEpoch,
           currentEpoch,
-          availableFunds: debtInfo.availableFunds,
+          availableFunds,
           bufferEpochs,
         })
 

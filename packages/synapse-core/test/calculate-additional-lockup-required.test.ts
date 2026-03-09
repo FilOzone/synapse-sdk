@@ -18,7 +18,7 @@ describe('calculateAdditionalLockupRequired', () => {
       currentDataSetSize: 0n,
       ...pricing,
       lockupEpochs,
-      isNewDataset: true,
+      isNewDataSet: true,
       withCDN: false,
     })
 
@@ -36,7 +36,7 @@ describe('calculateAdditionalLockupRequired', () => {
       currentDataSetSize: 0n,
       ...pricing,
       lockupEpochs,
-      isNewDataset: true,
+      isNewDataSet: true,
       withCDN: true,
     })
 
@@ -52,7 +52,7 @@ describe('calculateAdditionalLockupRequired', () => {
       currentDataSetSize: 100n,
       ...pricing,
       lockupEpochs,
-      isNewDataset: false,
+      isNewDataSet: false,
       withCDN: false,
     })
 
@@ -65,7 +65,7 @@ describe('calculateAdditionalLockupRequired', () => {
 
   it('existing dataset crossing floor threshold: rate delta > 0', () => {
     const TiB = 1n << 40n
-    // Start with 0 (treated as new since isNewDataset=false but currentDataSetSize=0
+    // Start with 0 (treated as new since isNewDataSet=false but currentDataSetSize=0
     // triggers the else branch... actually currentDataSetSize > 0n check fails so it
     // goes to the else branch). Use a large currentDataSetSize instead.
     const result = calculateAdditionalLockupRequired({
@@ -73,7 +73,7 @@ describe('calculateAdditionalLockupRequired', () => {
       currentDataSetSize: 1n, // tiny existing dataset at floor
       ...pricing,
       lockupEpochs,
-      isNewDataset: false,
+      isNewDataSet: false,
       withCDN: false,
     })
 
