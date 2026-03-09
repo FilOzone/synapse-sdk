@@ -18,7 +18,7 @@
       },
       "routes": [
         {
-          "pattern": "demo.filecoin.services",
+          "pattern": "demo.filecoin.cloud",
           "custom_domain": true
         }
       ]
