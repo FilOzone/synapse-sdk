@@ -679,7 +679,7 @@ export class StorageManager {
     // Identify existing datasets that need size lookups
     const existingDataSetIds = contexts.filter((ctx) => ctx.dataSetId != null).map((ctx) => ctx.dataSetId as bigint)
 
-    // Fetch all needed data in parallel (single RPC batch)
+    // Fetch all needed data in parallel
     const [accountInfo, pricing, approved, currentEpoch, sizes] = await Promise.all([
       payAccounts(client, { address: clientAddress }),
       getServicePrice(client),
