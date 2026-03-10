@@ -283,7 +283,7 @@ async function runPieceMode(synapse, pieceCid, options) {
 
   // Get piece status
   console.log('Checking piece status...\n')
-  const status = await storageContext.pieceStatus(pieceCid)
+  const status = await storageContext.pieceStatus({ pieceCid })
 
   if (!status.exists) {
     console.log('Piece does not exist on the selected service provider')
@@ -391,7 +391,7 @@ async function runDatasetMode(synapse, dataSetId, options) {
         dataSetId,
         providerAddress: dataSetInfo.serviceProvider,
       })
-      firstPieceStatus = await storageContext.pieceStatus(dataSetData.pieces[0].pieceCid)
+      firstPieceStatus = await storageContext.pieceStatus({ pieceCid: dataSetData.pieces[0].pieceCid })
     } catch (error) {
       console.log(`  (Could not fetch proof status: ${error.message})`)
     }

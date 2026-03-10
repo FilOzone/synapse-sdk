@@ -102,7 +102,25 @@ console.log("Uploaded:", result.pieceCid.toString())
 
 Subsequent uploads with the same `metadata` reuse the same data sets and payment rails.
 
-#### Upload with Callbacks
+:::tip[Prepare Before Uploading]
+Before your first upload, call `prepare()` to ensure your account is funded and the storage service is approved. It computes the exact deposit needed and returns a single transaction to execute:
+
+```ts
+import { Synapse } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
+
+const prep = await synapse.storage.prepare({ dataSize: 1073741824n }) // 1 GiB
+if (prep.transaction) {
+  await prep.transaction.execute()
+}
+```
+
+See the [Storage Costs guide](/developer-guides/storage/storage-costs/) for a full breakdown.
+:::
+
+## Upload with Callbacks
 
 Track the lifecycle of a multi-copy upload with callbacks:
 

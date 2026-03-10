@@ -78,6 +78,29 @@ This requires two transactions and higher gas costs. Use `depositWithPermit` ins
 
 </details>
 
+### Account Summary
+
+Get a comprehensive snapshot of your account's payment state in a single call. This is the recommended way to check account health — it returns derived values like debt, lockup breakdown, and funded-until epoch.
+
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, formatUnits } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
+// ---cut---
+const summary = await synapse.payments.accountSummary();
+
+console.log("Funds:", formatUnits(summary.funds));
+console.log("Available:", formatUnits(summary.availableFunds));
+console.log("Debt:", formatUnits(summary.debt));
+console.log("Rate per epoch:", summary.lockupRatePerEpoch);
+console.log("Rate per month:", formatUnits(summary.lockupRatePerMonth));
+console.log("Total lockup:", formatUnits(summary.totalLockup));
+console.log("  Fixed lockup:", formatUnits(summary.totalFixedLockup));
+console.log("  Rate-based lockup:", formatUnits(summary.totalRateBasedLockup));
+console.log("Funded until epoch:", summary.fundedUntilEpoch);
+```
+
 ### Account Health Monitoring
 
 **Important**: Monitor your account health regularly. Insufficient balance causes payment failures and service interruptions.
@@ -90,13 +113,13 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 
 // ---cut---
 import { TIME_CONSTANTS } from "@filoz/synapse-sdk";
 
-const info = await synapse.payments.accountInfo();
-const epochsRemaining = info.availableFunds / info.lockupRate;
+const summary = await synapse.payments.accountSummary();
+const epochsRemaining = summary.availableFunds / summary.lockupRatePerEpoch;
 const daysRemaining =
   Number(epochsRemaining) / Number(TIME_CONSTANTS.EPOCHS_PER_DAY);
 
 console.log(`Days remaining: ${daysRemaining.toFixed(1)}`);
-if (daysRemaining < 7) console.warn("⚠️ Low balance!");
+if (daysRemaining < 7) console.warn("Low balance!");
 ```
 
 ### Withdrawing Unlocked Funds

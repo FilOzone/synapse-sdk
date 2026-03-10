@@ -74,7 +74,8 @@ Get started with storage in just a few lines of code.
 
 ```ts twoslash
 // @lib: esnext,dom
-import { Synapse, parseUnits, mainnet, calibration } from "@filoz/synapse-sdk"
+import { Synapse } from "@filoz/synapse-sdk"
+import { mainnet } from "@filoz/synapse-core/chains"
 import { privateKeyToAccount } from 'viem/accounts'
 
 async function main() {
@@ -87,20 +88,22 @@ async function main() {
     // withCDN: true
   })
 
-  // 2) Fund & approve (single tx)
-  const hash = await synapse.payments.depositWithPermitAndApproveOperator({
-    amount: parseUnits("2.5"), // 2.5 USDFC (covers 1TiB of storage for 30 days)
-  })
-  await synapse.client.waitForTransactionReceipt({ hash })
-  console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
-
-  // 3) Upload — stores 2 copies across independent providers for durability
+  // 2) Prepare account (single tx handles deposit + approval)
   const file = new TextEncoder().encode(
     `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud!
     Your data is safe here.
     🌍 You need to make sure to meet the minimum size
     requirement of 127 bytes per upload.`
   );
+  const prep = await synapse.storage.prepare({
+    dataSize: BigInt(file.byteLength),
+  })
+  if (prep.transaction) {
+    const { hash } = await prep.transaction.execute()
+    console.log(`✅ Account funded and approved (tx: ${hash})`)
+  }
+
+  // 3) Upload — stores 2 copies across independent providers for durability
   const { pieceCid, size, copies, failures } = await synapse.storage.upload(file)
   console.log(`✅ Upload complete!`);
   console.log(`PieceCID: ${pieceCid}`);
@@ -127,9 +130,9 @@ main().then(() => {
 
 What you just did:
 
-- ✅ Initialized synapse SDK for Filecoin Calibration
-- ✅ Deposited USDFC as payment tokens
-- ✅ Authorized the storage service to use the token
+- ✅ Initialized Synapse SDK for Filecoin Calibration
+- ✅ Computed the exact deposit and approval needed for your data size
+- ✅ Executed a single transaction to fund and approve (if needed)
 - ✅ Uploaded data with 2 copies across independent providers for durability
 - ✅ Retrieved it using only the content address (from any provider that has it)
 
@@ -152,28 +155,37 @@ The `source` parameter identifies your application. It is stored as metadata on 
 
 ### 2: Payment Setup
 
-Before storing data, you need to deposit USDFC tokens in your payments account. The amount you deposit is entirely up to your anticipated storage and retrieval needs.
+Before storing data, you need to ensure your account is funded and the storage service is approved. The `prepare()` method calculates the exact deposit needed for your data size and returns a single transaction that handles both funding and approval.
+
 :::note[Pricing]
-To size your deposit, check the up‑to‑date rates in [**Pricing**](/introduction/about/#pricing) and use the [storage costs calculator](/developer-guides/storage/storage-costs/#detailed-calculator-guide) for a precise estimate.
+To size your deposit, check the up‑to‑date rates in [**Pricing**](/introduction/about/#pricing) and use the [storage costs guide](/developer-guides/storage/storage-costs/) for a detailed breakdown.
 :::
 
 ```ts twoslash
 // @lib: esnext,dom
-import { Synapse, TOKENS, formatUnits, parseUnits } from "@filoz/synapse-sdk";
+import { Synapse, TOKENS, formatUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 
 // ---cut---
 // Check current USDFC balance
-const walletBalance = await synapse.payments.walletBalance({ token:TOKENS.USDFC });
+const walletBalance = await synapse.payments.walletBalance({ token: TOKENS.USDFC });
 const formattedBalance = formatUnits(walletBalance);
 
-// Deposit USDFC for payment and approve Warm Storage service
-const hash = await synapse.payments.depositWithPermitAndApproveOperator({
-  amount: parseUnits("2.5"), // Deposit amount: 2.5 USDFC (covers 1TiB of storage for 30 days)
+// Prepare account — computes exact deposit + approval for your data size
+const prep = await synapse.storage.prepare({
+  dataSize: 1073741824n, // 1 GiB
 });
-await synapse.client.waitForTransactionReceipt({ hash });
-console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
+
+console.log("Deposit needed:", prep.costs.depositNeeded);
+console.log("Rate per month:", prep.costs.rate.perMonth);
+console.log("Ready to upload:", prep.costs.ready);
+
+// Execute the transaction if needed (handles deposit + approval in one tx)
+if (prep.transaction) {
+  const { hash } = await prep.transaction.execute();
+  console.log(`✅ Account funded and approved (tx: ${hash})`);
+}
 ```
 
 ### 3: Store and Download Data
