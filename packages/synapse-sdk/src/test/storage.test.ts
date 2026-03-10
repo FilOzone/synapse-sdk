@@ -1518,7 +1518,7 @@ describe('StorageService', () => {
   })
 
   describe('pieceStatus()', () => {
-    const mockPieceCID = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+    const mockPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
     it('should return exists=false when piece not in data set', async () => {
       server.use(
         Mocks.JSONRPC({
