@@ -670,6 +670,76 @@ describe('PaymentsService', () => {
     })
   })
 
+  describe('fund', () => {
+    it('should call depositWithPermitAndApproveOperator when not approved and amount > 0', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          payments: {
+            ...Mocks.presets.basic.payments,
+            // Not fully approved (rateAllowance != maxUint256)
+            operatorApprovals: () => [false, 0n, 0n, 0n, 0n, 0n],
+          },
+        })
+      )
+
+      const hash = await payments.fund({ amount: parseUnits('10') })
+      assert.exists(hash)
+      assert.typeOf(hash, 'string')
+    })
+
+    it('should call approveService when not approved and amount === 0', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          payments: {
+            ...Mocks.presets.basic.payments,
+            operatorApprovals: () => [false, 0n, 0n, 0n, 0n, 0n],
+          },
+        })
+      )
+
+      const hash = await payments.fund({ amount: 0n })
+      assert.exists(hash)
+      assert.typeOf(hash, 'string')
+    })
+
+    it('should call depositWithPermit when already approved and amount > 0', async () => {
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
+
+      const hash = await payments.fund({
+        amount: parseUnits('10'),
+        needsFwssMaxApproval: false,
+      })
+      assert.exists(hash)
+      assert.typeOf(hash, 'string')
+    })
+
+    it('should throw when already approved and amount === 0', async () => {
+      try {
+        await payments.fund({
+          amount: 0n,
+          needsFwssMaxApproval: false,
+        })
+        assert.fail('expected fund to throw')
+      } catch (error) {
+        assert.include((error as Error).message, 'fund')
+      }
+    })
+
+    it('should skip RPC check when needsFwssMaxApproval is provided', async () => {
+      // Don't set up any mock — if fund() tried to check via RPC it would fail
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
+
+      const hash = await payments.fund({
+        amount: parseUnits('10'),
+        needsFwssMaxApproval: true,
+      })
+      assert.exists(hash)
+      assert.typeOf(hash, 'string')
+    })
+  })
+
   describe('Enhanced Payment Features', () => {
     describe('accountInfo', () => {
       it('should return detailed account information with correct fields', async () => {

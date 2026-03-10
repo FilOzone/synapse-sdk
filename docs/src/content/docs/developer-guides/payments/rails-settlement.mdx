@@ -79,7 +79,7 @@ Check rails where you're the payer:
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 // ---cut---
 const payerRails = await synapse.payments.getRailsAsPayer();
 console.log(`You have ${payerRails.length} outgoing payment rails`);
@@ -99,7 +99,7 @@ Check rails where you're receiving payments:
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 const payeeRails = await synapse.payments.getRailsAsPayee();
 console.log(`You have ${payeeRails.length} incoming payment rails`);
@@ -113,7 +113,7 @@ For detailed information about a specific rail:
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const railId = null as unknown as bigint;
 // ---cut---
 const railInfo = await synapse.payments.getRail({ railId });
@@ -146,7 +146,7 @@ The simplest way to settle a rail is using `settleAuto()`, which automatically d
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const railId = 1n;
 // ---cut---
 // Automatically handles both active and terminated rails
@@ -172,7 +172,7 @@ Settle up to the current epoch:
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const railId = 1n;
 // ---cut---
 // Settle a specific rail (requires settlement fee)
@@ -193,7 +193,7 @@ Settle up to a specific past epoch (partial settlement):
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const railId = 1n;
 // ---cut---
 const targetEpoch = 1000n; // Ensure it's not in the future
@@ -216,7 +216,7 @@ When a rail is terminated, use the specific method for terminated rails:
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const railId = 1n;
 // ---cut---
 // Check if rail is terminated
@@ -240,7 +240,7 @@ if (railInfo.endEpoch > 0) {
 // @lib: esnext,dom
 import { Synapse, formatUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const railId = 1n;
 // ---cut---
 // Preview settlement to current epoch
@@ -278,7 +278,7 @@ Service providers (payees) should settle regularly to receive accumulated earnin
 // @lib: esnext,dom
 import { Synapse, parseUnits, formatUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 // Example: Settle all incoming rails using settleAuto
 async function settleAllIncomingRails() {
@@ -317,7 +317,7 @@ Clients (payers) typically don't need to settle unless:
 // @lib: esnext,dom
 import { Synapse, parseUnits, formatUnits } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 // Example: Settle before withdrawal
 async function prepareForWithdrawal() {
@@ -346,7 +346,7 @@ Common settlement errors and solutions:
 // @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 const railId = 1n;
 // ---cut---
 try {

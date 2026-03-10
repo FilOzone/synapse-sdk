@@ -29,6 +29,7 @@ async function main() {
   const synapseOptions = {
     privateKey: PRIVATE_KEY,
     rpcURL: RPC_URL,
+    source: 'synapse-example',
   }
 
   // Add Warm Storage address if provided
@@ -61,7 +62,7 @@ async function main() {
 
   // Download - finds any provider with the piece
   console.log('\nDownloading...')
-  const downloaded = await synapse.storage.download(result.pieceCid)
+  const downloaded = await synapse.storage.download({ pieceCid: result.pieceCid })
 
   // Verify
   const downloadedText = new TextDecoder().decode(downloaded)

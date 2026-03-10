@@ -23,6 +23,7 @@ export const withdraw: Command = command(
     const { client, chain } = privateKeyClient(argv.flags.chain)
     const synapse = new Synapse({
       client,
+      source: 'synapse-example',
     })
 
     const spinner = p.spinner()

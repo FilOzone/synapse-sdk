@@ -20,11 +20,28 @@
  * ```
  */
 
+import {
+  calculateAccountDebt,
+  isFwssMaxApproved,
+  accounts as payAccounts,
+  resolveAccountState,
+} from '@filoz/synapse-core/pay'
+import { getDataSetSizes } from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
 import type { UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { getPDPProviderByAddress } from '@filoz/synapse-core/sp-registry'
-import { metadataMatches } from '@filoz/synapse-core/warm-storage'
+import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS, LOCKUP_PERIOD } from '@filoz/synapse-core/utils'
+import {
+  calculateAdditionalLockupRequired,
+  calculateBufferAmount,
+  calculateEffectiveRate,
+  calculateRunwayAmount,
+  getUploadCosts as coreGetUploadCosts,
+  getServicePrice,
+  metadataMatches,
+} from '@filoz/synapse-core/warm-storage'
 import { type Address, type Hash, type Hex, zeroAddress } from 'viem'
+import { getBlockNumber } from 'viem/actions'
 import { CommitError, StoreError } from '../errors/storage.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
@@ -34,14 +51,17 @@ import type {
   DownloadOptions,
   EnhancedDataSetInfo,
   FailedCopy,
+  GetUploadCostsOptions,
   PDPProvider,
   PieceCID,
-  PreflightInfo,
+  PrepareOptions,
+  PrepareResult,
   PullStatus,
   StorageContextCallbacks,
   StorageInfo,
   StorageServiceOptions,
   UploadCallbacks,
+  UploadCosts,
   UploadResult,
 } from '../types.ts'
 import { combineMetadata, createError, METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/index.ts'
@@ -116,12 +136,15 @@ export interface StorageManagerOptions {
   warmStorageService: WarmStorageService
   /** Whether to enable CDN services */
   withCDN: boolean
+  /** Application identifier for namespace isolation */
+  source: string | null
 }
 
 export class StorageManager {
   private readonly _synapse: Synapse
   private readonly _warmStorageService: WarmStorageService
   private readonly _withCDN: boolean
+  private readonly _source: string | null
   private _defaultContexts?: StorageContext[]
 
   /**
@@ -132,6 +155,7 @@ export class StorageManager {
     this._synapse = options.synapse
     this._warmStorageService = options.warmStorageService
     this._withCDN = options.withCDN
+    this._source = options.source
   }
 
   /**
@@ -564,38 +588,201 @@ export class StorageManager {
   }
 
   /**
-   * Run preflight checks for an upload without creating a context
-   * @param options - The options for the preflight upload
-   * @param options.size - The size of data to upload in bytes
-   * @param options.withCDN - Whether to enable CDN services
-   * @param options.metadata - The metadata for the preflight upload
-   * @returns Preflight information including costs and allowances
+   * Get upload costs including rate, deposit needed, and approval state.
+   *
+   * Wraps the synapse-core `getUploadCosts()` function, automatically injecting
+   * the client address. No StorageContext needed — works with primitive values.
+   *
+   * @param options - Upload cost options (clientAddress auto-injected)
+   * @returns Upload costs including rate, deposit needed, and readiness
    */
-  async preflightUpload(options: {
-    size: number
-    withCDN?: boolean
-    metadata?: Record<string, string>
-  }): Promise<PreflightInfo> {
-    // Determine withCDN from metadata if provided, otherwise use option > manager default
-    let withCDN = options?.withCDN ?? this._withCDN
+  async getUploadCosts(options: Omit<GetUploadCostsOptions, 'clientAddress'>): Promise<UploadCosts> {
+    return coreGetUploadCosts(this._synapse.client, {
+      ...options,
+      clientAddress: this._synapse.client.account.address,
+    })
+  }
 
-    // Check metadata for withCDN key - this takes precedence
-    if (options?.metadata != null && METADATA_KEYS.WITH_CDN in options.metadata) {
-      // The withCDN metadata entry should always have an empty string value by convention,
-      // but the contract only checks for key presence, not value
-      const value = options.metadata[METADATA_KEYS.WITH_CDN]
-      if (value !== '') {
-        console.warn(`Warning: withCDN metadata entry has unexpected value "${value}". Expected empty string.`)
-      }
-      withCDN = true // Enable CDN when key exists (matches contract behavior)
+  /**
+   * Prepare the account for upload by computing costs and returning a transaction to execute.
+   *
+   * Can accept pre-computed costs (from a prior `getUploadCosts()` call) to skip redundant RPC,
+   * or computes them internally. When no context is provided, creates default contexts
+   * (mirroring the upload() flow).
+   *
+   * Aggregates per-context lockup correctly for any number of contexts:
+   * - Fetches each existing dataset's size from chain
+   * - Sums lockup across all contexts
+   * - Computes debt, runway, and buffer once at the account level
+   *
+   * @param options - {@link PrepareOptions}
+   * @returns {@link PrepareResult} with costs and an optional transaction
+   */
+  async prepare(options: PrepareOptions): Promise<PrepareResult> {
+    let costs: UploadCosts
+
+    if (options.costs != null) {
+      costs = options.costs
+    } else {
+      // Get or create contexts — mirrors upload() behavior
+      const contexts = options.context
+        ? Array.isArray(options.context)
+          ? options.context
+          : [options.context]
+        : await this.createContexts()
+
+      costs = await this.calculateMultiContextCosts(contexts, options)
     }
 
-    // Use the static method from StorageContext for core logic
-    return await StorageContext.performPreflightCheck({
-      warmStorageService: this._warmStorageService,
-      size: options.size,
-      withCDN,
+    if (costs.ready) {
+      return { costs, transaction: null }
+    }
+
+    return {
+      costs,
+      transaction: {
+        depositAmount: costs.depositNeeded,
+        includesApproval: costs.needsFwssMaxApproval,
+        execute: (options) =>
+          this._synapse.payments.fundSync({
+            amount: costs.depositNeeded,
+            needsFwssMaxApproval: costs.needsFwssMaxApproval,
+            onHash: options?.onHash,
+          }),
+      },
+    }
+  }
+
+  /**
+   * Calculate upload costs aggregated across multiple storage contexts.
+   *
+   * Each context creates its own PDP payment rail with its own lockup. This method
+   * correctly sums per-context lockup while computing account-level debt, runway,
+   * and buffer only once (they are shared across all contexts from the same payer).
+   *
+   * Dataset sizes are fetched from chain for existing datasets to get accurate
+   * floor-aware rate deltas.
+   *
+   * @param contexts - Storage contexts to aggregate costs for
+   * @param options - Upload options (dataSize, extraRunwayEpochs, bufferEpochs)
+   * @returns Aggregated upload costs with summed rates and single deposit/approval
+   */
+  async calculateMultiContextCosts(
+    contexts: StorageContext[],
+    options: Pick<PrepareOptions, 'dataSize' | 'extraRunwayEpochs' | 'bufferEpochs'>
+  ): Promise<UploadCosts> {
+    const client = this._synapse.client
+    const clientAddress = client.account.address
+    const extraRunwayEpochs = options.extraRunwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
+    const bufferEpochs = options.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
+
+    // Identify existing datasets that need size lookups
+    const existingDataSetIds = contexts.filter((ctx) => ctx.dataSetId != null).map((ctx) => ctx.dataSetId as bigint)
+
+    // Fetch all needed data in parallel
+    const [accountInfo, pricing, approved, currentEpoch, sizes] = await Promise.all([
+      payAccounts(client, { address: clientAddress }),
+      getServicePrice(client),
+      isFwssMaxApproved(client, { clientAddress }),
+      getBlockNumber(client, { cacheTime: 0 }),
+      existingDataSetIds.length > 0 ? getDataSetSizes(client, { dataSetIds: existingDataSetIds }) : [],
+    ])
+
+    // Build dataset size map: dataSetId → size
+    const dataSetSizes = new Map<bigint, bigint>()
+    for (let i = 0; i < existingDataSetIds.length; i++) {
+      dataSetSizes.set(existingDataSetIds[i], sizes[i])
+    }
+
+    // Per-context loop: calculate lockup for each context
+    let totalRateDeltaPerEpoch = 0n
+    let totalLockup = 0n
+    let totalRatePerEpoch = 0n
+    let totalRatePerMonth = 0n
+
+    for (let i = 0; i < contexts.length; i++) {
+      const ctx = contexts[i]
+      const isNewDataSet = ctx.dataSetId == null
+      const currentDataSetSize = ctx.dataSetId != null ? (dataSetSizes.get(ctx.dataSetId) ?? 0n) : 0n
+
+      const lockup = calculateAdditionalLockupRequired({
+        dataSize: options.dataSize,
+        currentDataSetSize,
+        pricePerTiBPerMonth: pricing.pricePerTiBPerMonthNoCDN,
+        minimumPricePerMonth: pricing.minimumPricePerMonth,
+        epochsPerMonth: pricing.epochsPerMonth,
+        lockupEpochs: LOCKUP_PERIOD,
+        isNewDataSet,
+        withCDN: ctx.withCDN,
+      })
+
+      totalRateDeltaPerEpoch += lockup.rateDeltaPerEpoch
+      totalLockup += lockup.total
+
+      // Calculate per-context effective rate for the rate output
+      const totalSize = currentDataSetSize + options.dataSize
+      const rate = calculateEffectiveRate({
+        sizeInBytes: totalSize,
+        pricePerTiBPerMonth: pricing.pricePerTiBPerMonthNoCDN,
+        minimumPricePerMonth: pricing.minimumPricePerMonth,
+        epochsPerMonth: pricing.epochsPerMonth,
+      })
+      totalRatePerEpoch += rate.ratePerEpoch
+      totalRatePerMonth += rate.ratePerMonth
+    }
+
+    // Account-level calculation (once, with aggregated values)
+    const accountParams = {
+      funds: accountInfo.funds,
+      lockupCurrent: accountInfo.lockupCurrent,
+      lockupRate: accountInfo.lockupRate,
+      lockupLastSettledAt: accountInfo.lockupLastSettledAt,
+      currentEpoch,
+    }
+    const debt = calculateAccountDebt(accountParams)
+    const { availableFunds, fundedUntilEpoch } = resolveAccountState(accountParams)
+
+    const netRateAfterUpload = accountInfo.lockupRate + totalRateDeltaPerEpoch
+
+    const runway = calculateRunwayAmount({
+      netRateAfterUpload,
+      extraRunwayEpochs,
     })
+
+    const rawDepositNeeded = totalLockup + runway + debt - availableFunds
+
+    // Skip buffer when no existing rails are draining and all contexts are new datasets.
+    // The deposit lands before any rail is created, so nothing consumes funds
+    // between balance check and tx execution.
+    // Minimum upload size is 1 GiB, well below the ~26 GiB floor threshold, so buffer is
+    // not needed for upto 26 contexts as of now which is reasonable.
+    const allNewDatasets = contexts.every((ctx) => ctx.dataSetId == null)
+    const skipBuffer = accountInfo.lockupRate === 0n && allNewDatasets
+
+    const buffer = skipBuffer
+      ? 0n
+      : calculateBufferAmount({
+          rawDepositNeeded,
+          netRateAfterUpload,
+          fundedUntilEpoch,
+          currentEpoch,
+          availableFunds,
+          bufferEpochs,
+        })
+
+    const clamped = rawDepositNeeded > 0n ? rawDepositNeeded : 0n
+    const depositNeeded = clamped + buffer
+    const needsFwssMaxApproval = !approved
+
+    return {
+      rate: {
+        perEpoch: totalRatePerEpoch,
+        perMonth: totalRatePerMonth,
+      },
+      depositNeeded,
+      needsFwssMaxApproval,
+      ready: depositNeeded === 0n && !needsFwssMaxApproval,
+    }
   }
 
   /**
@@ -622,6 +809,7 @@ export class StorageManager {
    */
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
     const withCDN = options?.withCDN ?? this._withCDN
+    const combinedMetadata = combineMetadata(options?.metadata, { withCDN, source: this._source })
     const canUseDefault = options == null || (options.providerIds == null && options.dataSetIds == null)
     if (this._defaultContexts != null) {
       const expectedSize = options?.count ?? DEFAULT_COPY_COUNT
@@ -629,10 +817,9 @@ export class StorageManager {
         this._defaultContexts.length === expectedSize &&
         this._defaultContexts.every((context) => options?.excludeProviderIds?.includes(context.provider.id) !== true)
       ) {
-        const requestedMetadata = combineMetadata(options?.metadata, withCDN)
         if (
           this._defaultContexts.every((defaultContext) =>
-            metadataMatches(defaultContext.dataSetMetadata, requestedMetadata)
+            metadataMatches(defaultContext.dataSetMetadata, combinedMetadata)
           )
         ) {
           if (options?.callbacks != null) {
@@ -664,6 +851,7 @@ export class StorageManager {
       synapse: this._synapse,
       warmStorageService: this._warmStorageService,
       ...options,
+      metadata: combinedMetadata,
       withCDN,
     })
 
@@ -680,6 +868,7 @@ export class StorageManager {
   async createContext(options?: StorageServiceOptions): Promise<StorageContext> {
     // Determine the effective withCDN setting
     const effectiveWithCDN = options?.withCDN ?? this._withCDN
+    const combinedMetadata = combineMetadata(options?.metadata, { withCDN: effectiveWithCDN, source: this._source })
 
     // Check if we can return the default context
     // We can use the default if:
@@ -688,15 +877,12 @@ export class StorageManager {
     const canUseDefault = options == null || (options.providerId == null && options.dataSetId == null)
 
     if (canUseDefault && this._defaultContexts != null) {
-      // Check if we have a default context with compatible metadata
-
-      const requestedMetadata = combineMetadata(options?.metadata, effectiveWithCDN)
       for (const defaultContext of this._defaultContexts) {
         if (options?.excludeProviderIds?.includes(defaultContext.provider.id)) {
           continue
         }
         // Check if the requested metadata matches what the default context was created with
-        if (!metadataMatches(defaultContext.dataSetMetadata, requestedMetadata)) {
+        if (!metadataMatches(defaultContext.dataSetMetadata, combinedMetadata)) {
           continue
         }
         // Fire callbacks for cached context to ensure consistent behavior
@@ -727,6 +913,7 @@ export class StorageManager {
       synapse: this._synapse,
       warmStorageService: this._warmStorageService,
       ...options,
+      metadata: combinedMetadata,
       withCDN: effectiveWithCDN,
     })
 
@@ -785,6 +972,7 @@ export class StorageManager {
             lockupAllowance: approval.lockupAllowance,
             rateUsed: approval.rateUsage,
             lockupUsed: approval.lockupUsage,
+            maxLockupPeriod: approval.maxLockupPeriod,
           }
         } catch {
           // Return null if wallet not connected or any error occurs

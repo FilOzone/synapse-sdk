@@ -79,6 +79,7 @@ async function runBenchmark() {
     privateKey: PRIVATE_KEY,
     rpcURL: RPC_URL,
     warmStorageAddress: PANDORA_ADDRESS,
+    source: 'synapse-example',
   })
   console.log('Synapse instance:', synapse)
   console.log('Synapse network:', synapse.getNetwork?.())

@@ -63,7 +63,6 @@ import type {
   PieceCID,
   PieceRecord,
   PieceStatus,
-  PreflightInfo,
   ProviderSelectionResult,
   PullOptions,
   PullResult,
@@ -153,7 +152,7 @@ export class StorageContext {
    * Validate data size against minimum and maximum limits
    * @param options - The options for the validate raw size
    * @param options.sizeBytes - Size of data in bytes
-   * @param options.context - Context for error messages (e.g., 'upload', 'preflightUpload')
+   * @param options.context - Context for error messages (e.g., 'upload')
    * @throws Error if size is outside allowed limits
    */
   private static validateRawSize(options: { sizeBytes: number; context: string }): void {
@@ -352,7 +351,7 @@ export class StorageContext {
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
     const clientAddress = synapse.client.account.address
-    const requestedMetadata = combineMetadata(options.metadata, options.withCDN)
+    const requestedMetadata = combineMetadata(options.metadata, { withCDN: options.withCDN })
 
     // Handle explicit data set ID selection (highest priority)
     if (options.dataSetId != null) {
@@ -648,55 +647,6 @@ export class StorageContext {
       dataSetId: location.dataSetId,
       dataSetMetadata: location.dataSetMetadata,
     }
-  }
-
-  /**
-   * Static method to perform preflight checks for an upload
-   *
-   * @param options - Options for the preflight check
-   * @param options.size - The size of data to upload in bytes
-   * @param options.withCDN - Whether CDN is enabled
-   * @param options.warmStorageService - WarmStorageService instance
-   * @returns Preflight check results without provider/dataSet specifics
-   */
-  static async performPreflightCheck(options: {
-    size: number
-    withCDN: boolean
-    warmStorageService: WarmStorageService
-  }): Promise<PreflightInfo> {
-    const { size, withCDN, warmStorageService } = options
-    StorageContext.validateRawSize({ sizeBytes: options.size, context: 'preflightUpload' })
-
-    const allowanceCheck = await warmStorageService.checkAllowanceForStorage({ sizeInBytes: BigInt(size), withCDN })
-
-    return {
-      estimatedCost: {
-        perEpoch: allowanceCheck.costs.perEpoch,
-        perDay: allowanceCheck.costs.perDay,
-        perMonth: allowanceCheck.costs.perMonth,
-      },
-      allowanceCheck: {
-        sufficient: allowanceCheck.sufficient,
-        message: allowanceCheck.message,
-      },
-      selectedProvider: null,
-      selectedDataSetId: null,
-    }
-  }
-
-  /**
-   * Run preflight checks for an upload
-   *
-   * @param options - Options for the preflight upload
-   * @param options.size - The size of data to upload in bytes
-   * @returns Preflight information including costs and allowances
-   */
-  async preflightUpload(options: { size: number }): Promise<PreflightInfo> {
-    return await StorageContext.performPreflightCheck({
-      size: options.size,
-      withCDN: this._withCDN,
-      warmStorageService: this._warmStorageService,
-    })
   }
 
   // ==========================================================================

@@ -32,6 +32,7 @@ import { Synapse } from '@filoz/synapse-sdk'
 
 const synapse = Synapse.create({
   account: privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`),
+  source: 'my-app',
   chain: calibration, // optional
   transport: http() // optional
 })
