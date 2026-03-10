@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.3...synapse-core-v0.3.0) (2026-03-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* New synapse costs API ([#632](https://github.com/FilOzone/synapse-sdk/issues/632))
+
+### Features
+
+* New synapse costs API ([#632](https://github.com/FilOzone/synapse-sdk/issues/632)) ([ea2a6c3](https://github.com/FilOzone/synapse-sdk/commit/ea2a6c36f36486c598cb89903c0c394a9f3e6fcc))
+
 ## [0.2.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.2...synapse-core-v0.2.3) (2026-03-02)
 
 
