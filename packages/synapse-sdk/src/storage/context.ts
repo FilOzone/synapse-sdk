@@ -1163,15 +1163,11 @@ export class StorageContext {
     }
 
     // Run multiple operations in parallel for better performance
-    const [activePieces, nextChallengeEpoch, spDataSetData, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
+    const [activePieces, nextChallengeEpoch, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
       PDPVerifier.getActivePieces(this._client, {
         dataSetId: this.dataSetId,
       }),
       PDPVerifier.getNextChallengeEpoch(this._client, {
-        dataSetId: this.dataSetId,
-      }),
-      SP.getDataSet({
-        serviceURL: this._pdpEndpoint,
         dataSetId: this.dataSetId,
       }),
       getBlockNumber(this._client),
@@ -1184,10 +1180,6 @@ export class StorageContext {
 
     const exists = activePieces.pieces.findIndex((piece) => piece.cid.equals(parsedPieceCID)) > -1
 
-    const spStateMatchesContract =
-      spDataSetData.pieces.findIndex((piece) => piece.pieceCid.equals(parsedPieceCID)) > -1 &&
-      BigInt(spDataSetData.nextChallengeEpoch) === nextChallengeEpoch
-
     // Initialize return values
     let retrievalUrl: string | null = null
     let pieceId: bigint | undefined
@@ -1198,7 +1190,7 @@ export class StorageContext {
     let isProofOverdue = false
 
     // If piece exists, get provider info for retrieval URL and proving params in parallel
-    if (exists && spStateMatchesContract) {
+    if (exists) {
       // Set retrieval URL if we have provider info
       if (providerInfo != null) {
         retrievalUrl = createPieceUrlPDP({
@@ -1259,7 +1251,7 @@ export class StorageContext {
     }
 
     return {
-      exists: exists && spStateMatchesContract,
+      exists,
       dataSetLastProven: lastProven,
       dataSetNextProofDue: nextProofDue,
       retrievalUrl,

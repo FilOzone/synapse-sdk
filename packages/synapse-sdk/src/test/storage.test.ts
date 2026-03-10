@@ -1519,51 +1519,19 @@ describe('StorageService', () => {
 
   describe('pieceStatus()', () => {
     const mockPieceCID = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-    it('should return exists=false when piece not found on provider', async () => {
+    it('should return exists=false when piece not in data set', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
-        }),
-        Mocks.PING(),
-        http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
-          return HttpResponse.json({
-            id: 1,
-            pieces: [],
-            nextChallengeEpoch: 5000,
-          })
         })
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
-
-      assert.isFalse(status.exists)
-      assert.isNull(status.retrievalUrl)
-      assert.isNull(status.dataSetLastProven)
-      assert.isNull(status.dataSetNextProofDue)
-    })
-
-    it('should return exists=false when piece found on provider but not in data set', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-        }),
-        Mocks.PING(),
-        http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
-          return HttpResponse.json({
-            id: 1,
-            pieces: [],
-            nextChallengeEpoch: 5000,
-          })
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
-
-      const status = await service.pieceStatus({ pieceCid: mockPieceCID })
+      const status = await service.pieceStatus({
+        pieceCid: 'bafkzcibduukaynfuioybwrsevewtttso22ucohqntpc5h7crizsaw5h7gxd74eav',
+      })
 
       assert.isFalse(status.exists)
       assert.isNull(status.retrievalUrl)
@@ -1576,21 +1544,6 @@ describe('StorageService', () => {
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(4000n),
-        }),
-        Mocks.PING(),
-        http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
-          return HttpResponse.json({
-            id: 1,
-            pieces: [
-              {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
-                subPieceOffset: 0,
-              },
-            ],
-            nextChallengeEpoch: 5000,
-          })
         })
       )
       const synapse = new Synapse({ client })
@@ -1612,21 +1565,6 @@ describe('StorageService', () => {
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(5030n),
-        }),
-        Mocks.PING(),
-        http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
-          return HttpResponse.json({
-            id: 1,
-            pieces: [
-              {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
-                subPieceOffset: 0,
-              },
-            ],
-            nextChallengeEpoch: 5000,
-          })
         })
       )
       const synapse = new Synapse({ client })
@@ -1645,21 +1583,6 @@ describe('StorageService', () => {
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(5080n),
-        }),
-        Mocks.PING(),
-        http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
-          return HttpResponse.json({
-            id: 1,
-            pieces: [
-              {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
-                subPieceOffset: 0,
-              },
-            ],
-            nextChallengeEpoch: 5000,
-          })
         })
       )
       const synapse = new Synapse({ client })
@@ -1681,21 +1604,6 @@ describe('StorageService', () => {
             ...Mocks.presets.basic.pdpVerifier,
             getNextChallengeEpoch: () => [0n],
           },
-        }),
-        Mocks.PING(),
-        http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
-          return HttpResponse.json({
-            id: 1,
-            pieces: [
-              {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
-                subPieceOffset: 0,
-              },
-            ],
-            nextChallengeEpoch: 0,
-          })
         })
       )
       const synapse = new Synapse({ client })
@@ -1715,21 +1623,6 @@ describe('StorageService', () => {
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(5100n),
-        }),
-        Mocks.PING(),
-        http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
-          return HttpResponse.json({
-            id: 1,
-            pieces: [
-              {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
-                subPieceOffset: 0,
-              },
-            ],
-            nextChallengeEpoch: 5000,
-          })
         })
       )
       const synapse = new Synapse({ client })
@@ -1750,8 +1643,7 @@ describe('StorageService', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
-        }),
-        Mocks.PING()
+        })
       )
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService({ client })
@@ -1770,21 +1662,6 @@ describe('StorageService', () => {
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(4880n),
-        }),
-        Mocks.PING(),
-        http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
-          return HttpResponse.json({
-            id: 1,
-            pieces: [
-              {
-                pieceId: 1,
-                pieceCid: mockPieceCID,
-                subPieceCid: mockPieceCID,
-                subPieceOffset: 0,
-              },
-            ],
-            nextChallengeEpoch: 5000,
-          })
         })
       )
       const synapse = new Synapse({ client })
