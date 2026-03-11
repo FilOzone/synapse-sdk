@@ -1424,10 +1424,7 @@ describe('StorageService', () => {
         pieceCid: 'bafkzcibduukaynfuioybwrsevewtttso22ucohqntpc5h7crizsaw5h7gxd74eav',
       })
 
-      assert.isFalse(status.exists)
-      assert.isNull(status.retrievalUrl)
-      assert.isNull(status.dataSetLastProven)
-      assert.isNull(status.dataSetNextProofDue)
+      assert.isNull(status)
     })
 
     it('should return piece status with proof timing when piece exists', async () => {
@@ -1443,7 +1440,7 @@ describe('StorageService', () => {
 
       const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
-      assert.isTrue(status.exists)
+      assert.isNotNull(status)
       assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
       assert.isNotNull(status.dataSetLastProven)
       assert.isNotNull(status.dataSetNextProofDue)
@@ -1463,7 +1460,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
       const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
-      assert.isTrue(status.exists)
+      assert.isNotNull(status)
       // During challenge window
       assert.isTrue(status.inChallengeWindow)
       assert.isFalse(status.isProofOverdue)
@@ -1482,7 +1479,7 @@ describe('StorageService', () => {
 
       const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
-      assert.isTrue(status.exists)
+      assert.isNotNull(status)
       assert.isTrue(status.isProofOverdue)
     })
 
@@ -1503,7 +1500,7 @@ describe('StorageService', () => {
 
       const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
-      assert.isTrue(status.exists)
+      assert.isNotNull(status)
       assert.isNull(status.dataSetLastProven) // No challenge means no proof data
       assert.isNull(status.dataSetNextProofDue)
       assert.isFalse(status.inChallengeWindow)
@@ -1522,7 +1519,7 @@ describe('StorageService', () => {
 
       const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
-      assert.isTrue(status.exists)
+      assert.isNotNull(status)
       // Should not have double slash
       assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
       // Check that the URL doesn't contain double slashes after the protocol
@@ -1561,7 +1558,7 @@ describe('StorageService', () => {
 
       const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
-      assert.isTrue(status.exists)
+      assert.isNotNull(status)
       assert.isFalse(status.inChallengeWindow) // Not yet in challenge window
       assert.isTrue((status.hoursUntilChallengeWindow ?? 0) > 0)
     })

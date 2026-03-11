@@ -285,7 +285,7 @@ async function runPieceMode(synapse, pieceCid, options) {
   console.log('Checking piece status...\n')
   const status = await storageContext.pieceStatus({ pieceCid })
 
-  if (!status.exists) {
+  if (status === null) {
     console.log('Piece does not exist on the selected service provider')
     return
   }

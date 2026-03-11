@@ -657,8 +657,6 @@ export interface DataSetPieceData {
  * The timing information reflects the data set's status.
  */
 export interface PieceStatus {
-  /** Whether the piece exists on the service provider */
-  exists: boolean
   /** When the data set containing this piece was last proven on-chain (null if never proven or not yet due) */
   dataSetLastProven: Date | null
   /** When the next proof is due for the data set containing this piece (end of challenge window) */
