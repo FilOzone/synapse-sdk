@@ -69,7 +69,7 @@ await synapse.storage.createContext({
 
 // Multiple contexts for multi-copy
 const contexts = await synapse.storage.createContexts({
-  copies: 3,                     // number of contexts (default: 2)
+  copies: 3,                   // number of contexts (default: 2)
   providerIds: [1n, 2n, 3n],   // specific providers (mutually exclusive with dataSetIds)
   dataSetIds: [10n, 20n, 30n], // specific data sets (mutually exclusive with providerIds)
 })
