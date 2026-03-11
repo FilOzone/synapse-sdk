@@ -82,8 +82,6 @@ export namespace getNextChallengeEpochCall {
 /**
  * Create a call to the {@link getNextChallengeEpoch} function for use with the multicall or readContract function.
  *
- * Use {@link parseNextChallengeEpoch} to parse the contract output into a {@link getNextChallengeEpoch.OutputType}.
- *
  * @example
  * ```ts
  * import { getNextChallengeEpochCall } from '@filoz/synapse-core/pdp-verifier'
