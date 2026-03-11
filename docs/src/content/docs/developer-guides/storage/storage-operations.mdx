@@ -46,7 +46,7 @@ const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 
 
 const data = new Uint8Array([1, 2, 3, 4, 5])
 
-const { pieceCid, size, copies, failures } = await synapse.storage.upload(data)
+const { pieceCid, size, complete, copies, failedAttempts } = await synapse.storage.upload(data)
 
 console.log("PieceCID:", pieceCid.toString())
 console.log("Size:", size, "bytes")
@@ -56,21 +56,23 @@ for (const copy of copies) {
   console.log(`  Provider ${copy.providerId}: role=${copy.role}, dataSet=${copy.dataSetId}`)
 }
 
-if (failures.length > 0) {
-  console.warn("Some copies failed:", failures)
+if (!complete) {
+  console.warn("Some copies failed:", failedAttempts)
 }
 ```
 
 :::caution[Always check the result]
-`upload()` returns a result as long as **at least one** copy commits on-chain. It only throws when zero copies succeed. You **must** inspect `copies` and `failures` to know whether all requested copies were stored — a successful return does not guarantee all copies succeeded.
+`upload()` returns a result as long as **at least one** copy commits on-chain. It only throws when zero copies succeed. You **must** check `complete` to know whether all requested copies were stored — a successful return does not guarantee all copies succeeded.
 :::
 
 The result contains:
 
+- **`complete`** — `true` when all requested copies were stored and committed on-chain. This is the primary field to check.
+- **`requestedCopies`** — the number of copies that were requested (default: 2)
 - **`pieceCid`** — content address of your data, used for downloads
 - **`size`** — size of the uploaded data in bytes
 - **`copies`** — array of successful copies, each with `providerId`, `dataSetId`, `pieceId`, `role` (`'primary'` or `'secondary'`), `retrievalUrl`, and `isNewDataSet`
-- **`failures`** — array of failed copy attempts (partial failures are returned, not thrown), each with `providerId`, `role`, `error`, and `explicit`
+- **`failedAttempts`** — providers that were tried but did not produce a copy. The SDK retries failed secondaries with alternate providers, so a non-empty array often just means a provider was swapped out. These are diagnostic, check `complete` for the actual outcome.
 
 #### Upload with Metadata
 
@@ -183,11 +185,11 @@ const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: 
 const data = new Uint8Array(256)
 
 // Store 3 copies for higher redundancy
-const result3 = await synapse.storage.upload(data, { count: 3 })
+const result3 = await synapse.storage.upload(data, { copies: 3 })
 console.log("3 copies:", result3.copies.length)
 
 // Store a single copy when redundancy isn't needed
-const result1 = await synapse.storage.upload(data, { count: 1 })
+const result1 = await synapse.storage.upload(data, { copies: 1 })
 console.log("1 copy:", result1.copies.length)
 ```
 
@@ -220,21 +222,14 @@ const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: 
 
 const data = new Uint8Array(256)
 
-const result = await synapse.storage.upload(data, { count: 2 })
+const result = await synapse.storage.upload(data, { copies: 2 })
 
-// Check: did we get all requested copies?
-if (result.copies.length < 2) {
-  console.warn(`Only ${result.copies.length}/2 copies succeeded`)
-  for (const failure of result.failures) {
-    console.warn(`  Provider ${failure.providerId} (${failure.role}): ${failure.error}`)
+// Check overall success: complete === true means all requested copies succeeded
+if (!result.complete) {
+  console.warn(`Only ${result.copies.length}/${result.requestedCopies} copies succeeded`)
+  for (const attempt of result.failedAttempts) {
+    console.warn(`  Provider ${attempt.providerId} (${attempt.role}): ${attempt.error}`)
   }
-}
-
-// Check: did the endorsed primary succeed?
-const primaryFailed = result.failures.find(f => f.role === "primary")
-if (primaryFailed) {
-  console.warn(`Endorsed provider failed: ${primaryFailed.error}`)
-  // Data is only on non-endorsed secondaries
 }
 
 // Every copy is committed and being paid for

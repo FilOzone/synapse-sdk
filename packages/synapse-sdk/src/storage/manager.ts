@@ -50,7 +50,7 @@ import type {
   CreateContextsOptions,
   DownloadOptions,
   EnhancedDataSetInfo,
-  FailedCopy,
+  FailedAttempt,
   GetUploadCostsOptions,
   PDPProvider,
   PieceCID,
@@ -64,7 +64,7 @@ import type {
   UploadCosts,
   UploadResult,
 } from '../types.ts'
-import { combineMetadata, createError, METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/index.ts'
+import { combineMetadata, createError, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/index.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
 
@@ -104,7 +104,7 @@ export type CombinedCallbacks = StorageContextCallbacks & UploadCallbacks
  *
  * Usage patterns:
  * 1. With explicit contexts: `{ contexts }` - uses the given contexts directly
- * 2. Auto-create contexts: `{ providerIds?, dataSetIds?, count? }` - creates/reuses contexts
+ * 2. Auto-create contexts: `{ providerIds?, dataSetIds?, copies? }` - creates/reuses contexts
  * 3. Use default contexts: no options - uses cached default contexts (2 copies)
  */
 export interface StorageManagerUploadOptions extends CreateContextsOptions {
@@ -166,9 +166,10 @@ export class StorageManager {
    * Data is uploaded once to the primary, then secondaries pull from the primary
    * via SP-to-SP transfer.
    *
-   * This method only throws if zero copies succeed. Individual copy failures
-   * are recorded in `result.failures`. Always check `result.copies.length`
-   * against your requested count.
+   * This method only throws if zero copies succeed. Partial success (some but
+   * not all copies) is indicated by `result.complete === false`. Check `complete`
+   * to determine overall success. Don't use `failedAttempts.length` as a failure
+   * signal as `failedAttempts` exists as a diagnostic for intermediate failures.
    *
    * For large files, prefer streaming to minimize memory usage.
    *
@@ -177,7 +178,7 @@ export class StorageManager {
    *
    * @param data - Raw bytes (Uint8Array) or ReadableStream to upload
    * @param options - Upload options including contexts, callbacks, and abort signal
-   * @returns Upload result with pieceCid, size, copies array, and failures array
+   * @returns Upload result with pieceCid, copies, and completion status
    * @throws StoreError if primary store fails (before any data is committed)
    * @throws CommitError if all commit attempts fail (data stored but not on-chain)
    */
@@ -209,7 +210,7 @@ export class StorageManager {
 
     // Pull to secondaries via SP-to-SP transfer
     let successfulSecondaries: StorageContext[] = []
-    let pullFailures: FailedCopy[] = []
+    let pullFailures: FailedAttempt[] = []
     let extraDataMap = new Map<StorageContext, Hex>()
 
     if (secondaries.length > 0) {
@@ -226,7 +227,7 @@ export class StorageManager {
         pieceInputs,
       })
       successfulSecondaries = pullResult.successful
-      pullFailures = pullResult.failures
+      pullFailures = pullResult.failedAttempts
       extraDataMap = pullResult.extraDataMap
     }
 
@@ -324,12 +325,12 @@ export class StorageManager {
       ])
     }
 
-    // Build failures list
-    const failures: FailedCopy[] = [...pullFailures]
+    // Build failed attempts list
+    const failedAttempts: FailedAttempt[] = [...pullFailures]
     const pullFailedIds = new Set(pullFailures.map((f) => f.providerId))
 
     if (primaryCommitError && !pullFailedIds.has(primary.provider.id)) {
-      failures.push({
+      failedAttempts.push({
         providerId: primary.provider.id,
         role: 'primary',
         error: 'Commit failed',
@@ -339,7 +340,7 @@ export class StorageManager {
 
     for (const failedId of commitFailedSecondaryIds) {
       if (!pullFailedIds.has(failedId)) {
-        failures.push({
+        failedAttempts.push({
           providerId: failedId,
           role: 'secondary',
           error: 'Commit failed',
@@ -348,7 +349,15 @@ export class StorageManager {
       }
     }
 
-    return { pieceCid: storeResult.pieceCid, size: storeResult.size, copies, failures }
+    const requestedCopies = contexts.length
+    return {
+      pieceCid: storeResult.pieceCid,
+      size: storeResult.size,
+      requestedCopies,
+      complete: copies.length >= requestedCopies,
+      copies,
+      failedAttempts,
+    }
   }
 
   /**
@@ -384,7 +393,7 @@ export class StorageManager {
       options?.contexts ??
       (await this.createContexts({
         withCDN: options?.withCDN,
-        count: hasExplicitIds ? options?.count : (options?.count ?? DEFAULT_COPY_COUNT),
+        copies: hasExplicitIds ? options?.copies : (options?.copies ?? DEFAULT_COPY_COUNT),
         metadata: options?.metadata,
         excludeProviderIds: options?.excludeProviderIds,
         providerIds: options?.providerIds,
@@ -417,10 +426,14 @@ export class StorageManager {
       onFailure?: (providerId: bigint, pieceCid: PieceCID, error: Error) => void
       pieceInputs?: Array<{ pieceCid: PieceCID; pieceMetadata?: Record<string, string> }>
     }
-  ): Promise<{ successful: StorageContext[]; failures: FailedCopy[]; extraDataMap: Map<StorageContext, Hex> }> {
+  ): Promise<{
+    successful: StorageContext[]
+    failedAttempts: FailedAttempt[]
+    extraDataMap: Map<StorageContext, Hex>
+  }> {
     const usedProviderIds = new Set<bigint>([primary.provider.id, ...secondaries.map((s) => s.provider.id)])
     const successful: StorageContext[] = []
-    const failures: FailedCopy[] = []
+    const failedAttempts: FailedAttempt[] = []
     const extraDataMap = new Map<StorageContext, Hex>()
 
     for (let i = 0; i < secondaries.length; i++) {
@@ -463,7 +476,7 @@ export class StorageManager {
               failedPieces.length > 0
                 ? `Pull failed for ${failedPieces.length} piece(s): ${failedPieces.map((p) => p.pieceCid).join(', ')}`
                 : 'Pull failed'
-            failures.push({
+            failedAttempts.push({
               providerId,
               role: 'secondary',
               error: errorMsg,
@@ -476,7 +489,7 @@ export class StorageManager {
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error)
-          failures.push({
+          failedAttempts.push({
             providerId: currentSecondary.provider.id,
             role: 'secondary',
             error: errorMsg,
@@ -495,7 +508,7 @@ export class StorageManager {
           try {
             const [newContext] = await this.createContexts({
               withCDN: options.withCDN,
-              count: 1,
+              copies: 1,
               metadata: options.metadata,
               callbacks: options.callbacks,
               excludeProviderIds: [...usedProviderIds],
@@ -512,7 +525,7 @@ export class StorageManager {
       }
     }
 
-    return { successful, failures, extraDataMap }
+    return { successful, failedAttempts, extraDataMap }
   }
 
   /**
@@ -800,7 +813,7 @@ export class StorageManager {
    * Providers are randomly chosen to distribute across the network.
    *
    * @param options - Configuration options {@link CreateContextsOptions}
-   * @param options.count - Maximum number of contexts to create (default: 2)
+   * @param options.copies - Number of storage copies to create (default: 2)
    * @param options.dataSetIds - Specific dataset IDs to include
    * @param options.providerIds - Specific provider IDs to use
    * @param options.metadata - Metadata to match when finding/creating datasets
@@ -812,7 +825,7 @@ export class StorageManager {
     const combinedMetadata = combineMetadata(options?.metadata, { withCDN, source: this._source })
     const canUseDefault = options == null || (options.providerIds == null && options.dataSetIds == null)
     if (this._defaultContexts != null) {
-      const expectedSize = options?.count ?? DEFAULT_COPY_COUNT
+      const expectedSize = options?.copies ?? DEFAULT_COPY_COUNT
       if (
         this._defaultContexts.length === expectedSize &&
         this._defaultContexts.every((context) => options?.excludeProviderIds?.includes(context.provider.id) !== true)

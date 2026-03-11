@@ -277,9 +277,12 @@ async function main() {
       console.log(`  ${roleLabel} Provider ${copy.providerId} - pieceId: ${copy.pieceId}, dataSetId: ${copy.dataSetId}`)
     }
 
-    if (result.failures.length > 0) {
-      for (const failure of result.failures) {
-        console.log(`  Failed: provider ${failure.providerId} - ${failure.error.message}`)
+    if (!result.complete) {
+      console.log(`  WARNING: Only ${result.copies.length}/${result.requestedCopies} copies stored`)
+    }
+    if (result.failedAttempts.length > 0) {
+      for (const attempt of result.failedAttempts) {
+        console.log(`  Failed attempt: provider ${attempt.providerId} - ${attempt.error}`)
       }
     }
   }

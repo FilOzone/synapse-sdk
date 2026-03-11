@@ -104,12 +104,12 @@ async function main() {
   }
 
   // 3) Upload — stores 2 copies across independent providers for durability
-  const { pieceCid, size, copies, failures } = await synapse.storage.upload(file)
+  const { pieceCid, size, complete, copies, failedAttempts } = await synapse.storage.upload(file)
   console.log(`✅ Upload complete!`);
   console.log(`PieceCID: ${pieceCid}`);
   console.log(`Size: ${size} bytes`);
   console.log(`Stored on ${copies.length} providers`);
-  if (failures.length > 0) console.warn(`${failures.length} copy attempt(s) failed`);
+  if (!complete) console.warn(`${failedAttempts.length} copy attempt(s) failed`);
 
   // 4) Download
   const bytes = await synapse.storage.download({ pieceCid })
@@ -205,9 +205,9 @@ const file = new TextEncoder().encode(
     🌍 You need to make sure to meet the minimum size
     requirement of 127 bytes per upload.`
 );
-const { pieceCid, copies, failures } = await synapse.storage.upload(file);
+const { pieceCid, complete, copies, failedAttempts } = await synapse.storage.upload(file);
 console.log(`Stored on ${copies.length} providers`);
-if (failures.length > 0) console.warn(`${failures.length} copy attempt(s) failed`);
+if (!complete) console.warn(`${failedAttempts.length} copy attempt(s) failed`);
 
 // Download data from any provider that has it
 const downloadedData = await synapse.storage.download({ pieceCid });
