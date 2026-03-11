@@ -117,7 +117,7 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
     }
     case 'getNextChallengeEpoch': {
       if (!options.pdpVerifier?.getNextChallengeEpoch) {
-        throw new Error('PDP Verifier: getScheduledRemovals is not defined')
+        throw new Error('PDP Verifier: getNextChallengeEpoch is not defined')
       }
       return encodeAbiParameters(
         Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getNextChallengeEpoch')!.outputs,
