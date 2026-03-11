@@ -54,9 +54,9 @@ export namespace getNextChallengeEpoch {
  * ```
  *
  * @param client - The client to use to get the active pieces.
- * @param options - {@link getActivePieces.OptionsType}
- * @returns The next challenge epoch for the data set {@link getActivePieces.OutputType}
- * @throws Errors {@link getActivePieces.ErrorType}
+ * @param options - {@link getNextChallengeEpoch.OptionsType}
+ * @returns The next challenge epoch for the data set {@link getNextChallengeEpoch.OutputType}
+ * @throws Errors {@link getNextChallengeEpoch.ErrorType}
  */
 export async function getNextChallengeEpoch(
   client: Client<Transport, Chain>,
