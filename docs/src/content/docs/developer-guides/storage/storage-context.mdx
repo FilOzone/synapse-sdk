@@ -489,7 +489,7 @@ const input = await fetchProviderSelectionInput(client, {
 // Primary: pass endorsedIds to restrict pool to endorsed providers only
 const [primary] = selectProviders({
   ...input,
-  copies: 1,
+  count: 1,
   metadata: { source: "my-app" },
 })
 
@@ -497,7 +497,7 @@ const [primary] = selectProviders({
 const [secondary] = selectProviders({
   ...input,
   endorsedIds: new Set(),
-  copies: 1,
+  count: 1,
   excludeProviderIds: new Set([primary.provider.id]),
   metadata: { source: "my-app" },
 })
