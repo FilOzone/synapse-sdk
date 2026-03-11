@@ -70,7 +70,7 @@ export async function getNextChallengeEpoch(
       contractAddress: options.contractAddress,
     })
   )
-  return parseNextChallengeEpoch(data)
+  return data
 }
 
 export namespace getNextChallengeEpochCall {
@@ -116,16 +116,4 @@ export function getNextChallengeEpochCall(options: getNextChallengeEpochCall.Opt
     functionName: 'getNextChallengeEpoch',
     args: [options.dataSetId],
   } satisfies getNextChallengeEpochCall.OutputType
-}
-
-/**
- * Parse the contract output into a {@link getNextChallengeEpoch.OutputType}.
- *
- * @param data - The contract output from the getNextChallengeEpoch function {@link getNextChallengeEpoch.ContractOutputType}
- * @returns The next challenge epoch for the data set {@link getNextChallengeEpoch.OutputType}
- */
-export function parseNextChallengeEpoch(
-  data: getNextChallengeEpoch.ContractOutputType
-): getNextChallengeEpoch.OutputType {
-  return data
 }
