@@ -123,6 +123,13 @@ export const CDN_FIXED_LOCKUP = {
   total: 1_000_000_000_000_000_000n,
 } as const
 
+/**
+ * USDFC sybil fee charged on new dataset creation.
+ * Extracted from client funds into the payments auction pool to prevent state-growth spam.
+ * Matches PDPVerifier.USDFC_SYBIL_FEE (immutable, only changes with contract upgrade).
+ */
+export const USDFC_SYBIL_FEE = 100_000_000_000_000_000n // 0.1 USDFC
+
 export const RETRY_CONSTANTS = {
   RETRIES: Infinity,
   FACTOR: 1,

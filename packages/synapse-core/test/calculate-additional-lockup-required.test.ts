@@ -1,6 +1,7 @@
 /* globals describe it */
 
 import assert from 'assert'
+import { USDFC_SYBIL_FEE } from '../src/utils/constants.ts'
 import { calculateAdditionalLockupRequired } from '../src/warm-storage/calculate-additional-lockup-required.ts'
 
 const pricing = {
@@ -23,11 +24,12 @@ describe('calculateAdditionalLockupRequired', () => {
     })
 
     assert.equal(result.cdnFixedLockup, 0n)
+    assert.equal(result.sybilFee, USDFC_SYBIL_FEE)
     // For a small file, should use floor rate
     const minimumPerEpoch = pricing.minimumPricePerMonth / pricing.epochsPerMonth
     assert.equal(result.rateDeltaPerEpoch, minimumPerEpoch)
     assert.equal(result.rateLockupDelta, minimumPerEpoch * lockupEpochs)
-    assert.equal(result.total, result.rateLockupDelta)
+    assert.equal(result.total, result.rateLockupDelta + result.sybilFee)
   })
 
   it('new dataset with CDN: includes CDN fixed lockup of 1 USDFC', () => {
@@ -42,7 +44,8 @@ describe('calculateAdditionalLockupRequired', () => {
 
     const cdnFixedLockup = 1_000_000_000_000_000_000n // 1 USDFC
     assert.equal(result.cdnFixedLockup, cdnFixedLockup)
-    assert.equal(result.total, result.rateLockupDelta + cdnFixedLockup)
+    assert.equal(result.sybilFee, USDFC_SYBIL_FEE)
+    assert.equal(result.total, result.rateLockupDelta + cdnFixedLockup + result.sybilFee)
   })
 
   it('existing dataset floor-to-floor: rate delta = 0 when both sizes are below floor', () => {
@@ -60,6 +63,7 @@ describe('calculateAdditionalLockupRequired', () => {
     assert.equal(result.rateDeltaPerEpoch, 0n)
     assert.equal(result.rateLockupDelta, 0n)
     assert.equal(result.cdnFixedLockup, 0n)
+    assert.equal(result.sybilFee, 0n)
     assert.equal(result.total, 0n)
   })
 
@@ -82,6 +86,7 @@ describe('calculateAdditionalLockupRequired', () => {
     assert.ok(result.rateDeltaPerEpoch > 0n)
     assert.equal(result.rateLockupDelta, result.rateDeltaPerEpoch * lockupEpochs)
     assert.equal(result.cdnFixedLockup, 0n)
+    assert.equal(result.sybilFee, 0n)
     assert.equal(result.total, result.rateLockupDelta)
   })
 })

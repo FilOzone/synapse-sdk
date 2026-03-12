@@ -386,6 +386,14 @@ export const errorsAbi = [
   },
   {
     type: 'error',
+    inputs: [
+      { name: 'index', internalType: 'uint256', type: 'uint256' },
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ProviderIdMismatchAtIndex',
+  },
+  {
+    type: 'error',
     inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     name: 'ProviderNotInApprovedList',
   },
@@ -428,6 +436,7 @@ export const errorsAbi = [
     name: 'RailNotFullySettled',
   },
   { type: 'error', inputs: [], name: 'ServiceContractMustTerminateRail' },
+  { type: 'error', inputs: [], name: 'StorageProviderChangesNotSupported' },
   {
     type: 'error',
     inputs: [
@@ -1745,6 +1754,11 @@ export const filecoinWarmStorageServiceAbi = [
         name: '_sessionKeyRegistry',
         internalType: 'contract SessionKeyRegistry',
         type: 'address',
+      },
+      {
+        name: '_reinitializer_version',
+        internalType: 'uint64',
+        type: 'uint64',
       },
     ],
     stateMutability: 'nonpayable',
@@ -3114,6 +3128,14 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
+    inputs: [
+      { name: 'index', internalType: 'uint256', type: 'uint256' },
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ProviderIdMismatchAtIndex',
+  },
+  {
+    type: 'error',
     inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     name: 'ProviderNotInApprovedList',
   },
@@ -3151,6 +3173,7 @@ export const filecoinWarmStorageServiceAbi = [
     name: 'RailNotFullySettled',
   },
   { type: 'error', inputs: [], name: 'ServiceContractMustTerminateRail' },
+  { type: 'error', inputs: [], name: 'StorageProviderChangesNotSupported' },
   {
     type: 'error',
     inputs: [
@@ -3525,7 +3548,20 @@ export const filecoinWarmStorageServiceStateViewConfig = {
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x85e366Cf9DD2c0aE37E963d9556F5f4718d6417C)
  */
 export const pdpVerifierAbi = [
-  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
+  {
+    type: 'constructor',
+    inputs: [
+      { name: '_initializerVersion', internalType: 'uint64', type: 'uint64' },
+      { name: '_usdfcTokenAddress', internalType: 'address', type: 'address' },
+      { name: '_usdfcSybilFee', internalType: 'uint256', type: 'uint256' },
+      {
+        name: '_paymentsContractAddress',
+        internalType: 'address',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'nonpayable',
+  },
   {
     type: 'function',
     inputs: [],
@@ -3557,8 +3593,29 @@ export const pdpVerifierAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'PAYMENTS_CONTRACT_ADDRESS',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
     name: 'UPGRADE_INTERFACE_VERSION',
     outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'USDFC_SYBIL_FEE',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'USDFC_TOKEN_ADDRESS',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
   },
   {
@@ -3584,6 +3641,27 @@ export const pdpVerifierAbi = [
     name: 'addPieces',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'plannedUpgrade',
+        internalType: 'struct PDPVerifier.PlannedUpgrade',
+        type: 'tuple',
+        components: [
+          {
+            name: 'nextImplementation',
+            internalType: 'address',
+            type: 'address',
+          },
+          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+        ],
+      },
+    ],
+    name: 'announcePlannedUpgrade',
+    outputs: [],
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -3687,6 +3765,26 @@ export const pdpVerifierAbi = [
       { name: 'limit', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'getActivePieces',
+    outputs: [
+      {
+        name: 'pieces',
+        internalType: 'struct Cids.Cid[]',
+        type: 'tuple[]',
+        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
+      },
+      { name: 'pieceIds', internalType: 'uint256[]', type: 'uint256[]' },
+      { name: 'hasMore', internalType: 'bool', type: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'startPieceId', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getActivePiecesByCursor',
     outputs: [
       {
         name: 'pieces',
@@ -3832,6 +3930,16 @@ export const pdpVerifierAbi = [
     name: 'nextProvingPeriod',
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'nextUpgrade',
+    outputs: [
+      { name: 'nextImplementation', internalType: 'address', type: 'address' },
+      { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+    ],
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -4210,6 +4318,27 @@ export const pdpVerifierAbi = [
     anonymous: false,
     inputs: [
       {
+        name: 'plannedUpgrade',
+        internalType: 'struct PDPVerifier.PlannedUpgrade',
+        type: 'tuple',
+        components: [
+          {
+            name: 'nextImplementation',
+            internalType: 'address',
+            type: 'address',
+          },
+          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+        ],
+        indexed: false,
+      },
+    ],
+    name: 'UpgradeAnnounced',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
         name: 'implementation',
         internalType: 'address',
         type: 'address',
@@ -4232,6 +4361,7 @@ export const pdpVerifierAbi = [
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
   { type: 'error', inputs: [], name: 'FailedCall' },
+  { type: 'error', inputs: [], name: 'FilRefundFailed' },
   {
     type: 'error',
     inputs: [
@@ -4258,6 +4388,7 @@ export const pdpVerifierAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
+  { type: 'error', inputs: [], name: 'UsdfcSybilFeeNotMet' },
 ] as const
 
 /**
@@ -4405,7 +4536,17 @@ export const providerIdSetConfig = {
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x839e5c9988e4e9977d40708d0094103c0839Ac9D)
  */
 export const serviceProviderRegistryAbi = [
-  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
+  {
+    type: 'constructor',
+    inputs: [
+      {
+        name: '_reinitializer_version',
+        internalType: 'uint64',
+        type: 'uint64',
+      },
+    ],
+    stateMutability: 'nonpayable',
+  },
   {
     type: 'function',
     inputs: [],
