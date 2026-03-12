@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.40.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.39.0...synapse-sdk-v0.40.0) (2026-03-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* improve UploadResult ergonomics ([#664](https://github.com/FilOzone/synapse-sdk/issues/664))
+
+### Features
+
+* improve UploadResult ergonomics ([#664](https://github.com/FilOzone/synapse-sdk/issues/664)) ([56cd853](https://github.com/FilOzone/synapse-sdk/commit/56cd853c9f90a12bbcf7aff46e88e50b9eb6d40c))
+
+
+### Bug Fixes
+
+* pieceStatus confuses piece ownership. Closes [#296](https://github.com/FilOzone/synapse-sdk/issues/296) ([#655](https://github.com/FilOzone/synapse-sdk/issues/655)) ([be76ad1](https://github.com/FilOzone/synapse-sdk/commit/be76ad1e557dd48fe99c68060363e0c93574d7fd))
+
 ## [0.39.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.38.0...synapse-sdk-v0.39.0) (2026-03-10)
 
 
