@@ -1,4 +1,4 @@
-import { CDN_FIXED_LOCKUP, LOCKUP_PERIOD, TIME_CONSTANTS } from '../utils/constants.ts'
+import { CDN_FIXED_LOCKUP, LOCKUP_PERIOD, TIME_CONSTANTS, USDFC_SYBIL_FEE } from '../utils/constants.ts'
 import { calculateEffectiveRate } from './calculate-effective-rate.ts'
 
 export namespace calculateAdditionalLockupRequired {
@@ -28,7 +28,9 @@ export namespace calculateAdditionalLockupRequired {
     rateLockupDelta: bigint
     /** Fixed CDN lockup (only for new CDN datasets), 0 otherwise. */
     cdnFixedLockup: bigint
-    /** rateLockupDelta + cdnFixedLockup */
+    /** USDFC sybil fee (only for new datasets), 0 otherwise. */
+    sybilFee: bigint
+    /** rateLockupDelta + cdnFixedLockup + sybilFee */
     total: bigint
   }
 }
@@ -87,10 +89,14 @@ export function calculateAdditionalLockupRequired(
   // CDN fixed lockup only applies to new CDN datasets
   const cdnFixedLockup = isNewDataSet && withCDN ? CDN_FIXED_LOCKUP.total : 0n
 
+  // Sybil fee applies to all new dataset creations
+  const sybilFee = isNewDataSet ? USDFC_SYBIL_FEE : 0n
+
   return {
     rateDeltaPerEpoch,
     rateLockupDelta,
     cdnFixedLockup,
-    total: rateLockupDelta + cdnFixedLockup,
+    sybilFee,
+    total: rateLockupDelta + cdnFixedLockup + sybilFee,
   }
 }
