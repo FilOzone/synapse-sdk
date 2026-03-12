@@ -64,7 +64,7 @@ import type {
   UploadCosts,
   UploadResult,
 } from '../types.ts'
-import { combineMetadata, createError, METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/index.ts'
+import { combineMetadata, createError, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/index.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
 

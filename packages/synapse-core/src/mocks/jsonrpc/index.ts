@@ -522,6 +522,7 @@ export const presets = {
       getDataSetStorageProvider: () => [ADDRESSES.serviceProvider1, ADDRESSES.zero],
       getDataSetLeafCount: () => [0n],
       getScheduledRemovals: () => [[]],
+      getNextChallengeEpoch: () => [5000n],
     },
     serviceRegistry: {
       registerProvider: () => [1n],

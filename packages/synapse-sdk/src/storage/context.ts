@@ -1091,31 +1091,6 @@ export class StorageContext {
   }
 
   /**
-   * Check if a piece exists on this service provider.
-   *
-   * @param options - Options for the has piece operation
-   * @param options.pieceCid - The PieceCID (piece CID) to check
-   * @returns True if the piece exists on this provider, false otherwise
-   */
-  async hasPiece(options: { pieceCid: string | PieceCID }): Promise<boolean> {
-    const { pieceCid } = options
-    const parsedPieceCID = Piece.asPieceCID(pieceCid)
-    if (parsedPieceCID == null) {
-      return false
-    }
-
-    try {
-      await SP.findPiece({
-        serviceURL: this._pdpEndpoint,
-        pieceCid: parsedPieceCID,
-      })
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  /**
    * Check if a piece exists on this service provider and get its proof status.
    * Also returns timing information about when the piece was last proven and when the next
    * proof is due.
@@ -1126,9 +1101,9 @@ export class StorageContext {
    *
    * @param options - Options for the piece status
    * @param options.pieceCid - The PieceCID (piece CID) to check
-   * @returns Status information including existence, data set timing, and retrieval URL
+   * @returns Status information including data set timing and retrieval URL
    */
-  async pieceStatus(options: { pieceCid: string | PieceCID }): Promise<PieceStatus> {
+  async pieceStatus(options: { pieceCid: string | PieceCID }): Promise<PieceStatus | null> {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'pieceStatus', 'Data set not found')
     }
@@ -1138,17 +1113,25 @@ export class StorageContext {
     }
 
     // Run multiple operations in parallel for better performance
-    const [exists, dataSetData, currentEpoch] = await Promise.all([
-      // Check if piece exists on provider
-      this.hasPiece({ pieceCid: parsedPieceCID }),
-      // Get data set data
-      SP.getDataSet({
-        serviceURL: this._pdpEndpoint,
+    const [activePieces, nextChallengeEpoch, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
+      PDPVerifier.getActivePieces(this._client, {
         dataSetId: this.dataSetId,
       }),
-      // Get current epoch
+      PDPVerifier.getNextChallengeEpoch(this._client, {
+        dataSetId: this.dataSetId,
+      }),
       getBlockNumber(this._client),
+      this._warmStorageService.getPDPConfig().catch((error) => {
+        console.debug('Failed to get PDP config:', error)
+        return null
+      }),
+      this.getProviderInfo().catch(() => null),
     ])
+
+    const pieceData = activePieces.pieces.find((piece) => piece.cid.equals(parsedPieceCID))
+    if (pieceData === undefined) {
+      return null
+    }
 
     // Initialize return values
     let retrievalUrl: string | null = null
@@ -1159,80 +1142,60 @@ export class StorageContext {
     let hoursUntilChallengeWindow = 0
     let isProofOverdue = false
 
-    // If piece exists, get provider info for retrieval URL and proving params in parallel
-    if (exists) {
-      const [providerInfo, pdpConfig] = await Promise.all([
-        // Get provider info for retrieval URL
-        this.getProviderInfo().catch(() => null),
-        dataSetData != null
-          ? this._warmStorageService.getPDPConfig().catch((error) => {
-              console.debug('Failed to get PDP config:', error)
-              return null
-            })
-          : Promise.resolve(null),
-      ])
+    // Set retrieval URL if we have provider info
+    if (providerInfo != null) {
+      retrievalUrl = createPieceUrlPDP({
+        cid: parsedPieceCID.toString(),
+        serviceURL: providerInfo.pdp.serviceURL,
+      })
+    }
 
-      // Set retrieval URL if we have provider info
-      if (providerInfo != null) {
-        retrievalUrl = createPieceUrlPDP({
-          cid: parsedPieceCID.toString(),
-          serviceURL: providerInfo.pdp.serviceURL,
-        })
-      }
+    // Process proof timing data if we have data set data and PDP config
+    if (pdpConfig != null) {
+      pieceId = pieceData.id
 
-      // Process proof timing data if we have data set data and PDP config
-      if (dataSetData != null && pdpConfig != null) {
-        // Check if this PieceCID is in the data set
-        const pieceData = dataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
+      // Calculate timing based on nextChallengeEpoch
+      if (nextChallengeEpoch > 0n) {
+        // nextChallengeEpoch is when the challenge window STARTS, not ends!
+        // The proving deadline is nextChallengeEpoch + challengeWindowSize
+        const challengeWindowStart = nextChallengeEpoch
+        const provingDeadline = challengeWindowStart + pdpConfig.challengeWindowSize
 
-        if (pieceData != null) {
-          pieceId = pieceData.pieceId
+        // Calculate when the next proof is due (end of challenge window)
+        nextProofDue = epochToDate(Number(provingDeadline), this._chain.genesisTimestamp)
 
-          // Calculate timing based on nextChallengeEpoch
-          if (dataSetData.nextChallengeEpoch > 0) {
-            // nextChallengeEpoch is when the challenge window STARTS, not ends!
-            // The proving deadline is nextChallengeEpoch + challengeWindowSize
-            const challengeWindowStart = dataSetData.nextChallengeEpoch
-            const provingDeadline = challengeWindowStart + Number(pdpConfig.challengeWindowSize)
-
-            // Calculate when the next proof is due (end of challenge window)
-            nextProofDue = epochToDate(provingDeadline, this._chain.genesisTimestamp)
-
-            // Calculate last proven date (one proving period before next challenge)
-            const lastProvenDate = calculateLastProofDate(
-              dataSetData.nextChallengeEpoch,
-              Number(pdpConfig.maxProvingPeriod),
-              this._chain.genesisTimestamp
-            )
-            if (lastProvenDate != null) {
-              lastProven = lastProvenDate
-            }
-
-            // Check if we're in the challenge window
-            inChallengeWindow = Number(currentEpoch) >= challengeWindowStart && Number(currentEpoch) < provingDeadline
-
-            // Check if proof is overdue (past the proving deadline)
-            isProofOverdue = Number(currentEpoch) >= provingDeadline
-
-            // Calculate hours until challenge window starts (only if before challenge window)
-            if (Number(currentEpoch) < challengeWindowStart) {
-              const timeUntil = timeUntilEpoch(challengeWindowStart, Number(currentEpoch))
-              hoursUntilChallengeWindow = timeUntil.hours
-            }
-          } else {
-            // If nextChallengeEpoch is 0, it might mean:
-            // 1. Proof was just submitted and system is updating
-            // 2. Data set is not active
-            // In case 1, we might have just proven, so set lastProven to very recent
-            // This is a temporary state and should resolve quickly
-            console.debug('Data set has nextChallengeEpoch=0, may have just been proven')
-          }
+        // Calculate last proven date (one proving period before next challenge)
+        const lastProvenDate = calculateLastProofDate(
+          Number(nextChallengeEpoch),
+          Number(pdpConfig.maxProvingPeriod),
+          this._chain.genesisTimestamp
+        )
+        if (lastProvenDate != null) {
+          lastProven = lastProvenDate
         }
+
+        // Check if we're in the challenge window
+        inChallengeWindow = Number(currentEpoch) >= challengeWindowStart && Number(currentEpoch) < provingDeadline
+
+        // Check if proof is overdue (past the proving deadline)
+        isProofOverdue = Number(currentEpoch) >= provingDeadline
+
+        // Calculate hours until challenge window starts (only if before challenge window)
+        if (Number(currentEpoch) < challengeWindowStart) {
+          const timeUntil = timeUntilEpoch(Number(challengeWindowStart), Number(currentEpoch))
+          hoursUntilChallengeWindow = timeUntil.hours
+        }
+      } else {
+        // If nextChallengeEpoch is 0, it might mean:
+        // 1. Proof was just submitted and system is updating
+        // 2. Data set is not active
+        // In case 1, we might have just proven, so set lastProven to very recent
+        // This is a temporary state and should resolve quickly
+        console.debug('Data set has nextChallengeEpoch=0, may have just been proven')
       }
     }
 
     return {
-      exists,
       dataSetLastProven: lastProven,
       dataSetNextProofDue: nextProofDue,
       retrievalUrl,
