@@ -110,7 +110,7 @@ describe('Synapse', () => {
       const synapse = new Synapse({ client, source: null, sessionClient: sessionKey.client })
       const firstData = new Uint8Array(127).fill(1) // 127 bytes
       await synapse.storage.upload(firstData, {
-        count: 1,
+        copies: 1,
         providerIds: [1n],
       })
     })

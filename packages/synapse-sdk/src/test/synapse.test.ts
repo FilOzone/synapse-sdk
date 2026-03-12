@@ -464,7 +464,7 @@ describe('Synapse', () => {
       const contexts = await synapse.storage.createContexts({
         providerIds: [Mocks.PROVIDERS.provider1.providerId],
         metadata,
-        count: 1,
+        copies: 1,
       })
       assert.equal(contexts.length, 1)
       assert.equal(BigInt(contexts[0].provider.id), Mocks.PROVIDERS.provider1.providerId)
@@ -479,7 +479,7 @@ describe('Synapse', () => {
       const contexts = await synapse.storage.createContexts({
         providerIds: [Mocks.PROVIDERS.provider1.providerId],
         metadata,
-        count: 1,
+        copies: 1,
       })
       assert.equal(contexts.length, 1)
       assert.equal(BigInt(contexts[0].provider.id), Mocks.PROVIDERS.provider1.providerId)
@@ -500,7 +500,7 @@ describe('Synapse', () => {
 
     it('selects providers specified by data set id', async () => {
       const contexts1 = await synapse.storage.createContexts({
-        count: 1,
+        copies: 1,
         dataSetIds: [1n],
       })
       assert.equal(contexts1.length, 1)
@@ -512,7 +512,7 @@ describe('Synapse', () => {
       // Test dataSetId 0: should fail with "does not exist" (pdpRailId is 0)
       try {
         await synapse.storage.createContexts({
-          count: 1,
+          copies: 1,
           dataSetIds: [0n],
         })
         assert.fail('Expected createContexts to fail for data set id 0')
@@ -523,7 +523,7 @@ describe('Synapse', () => {
       // Test dataSetId 2: should fail (not in mock data, so pdpRailId will be 0)
       try {
         await synapse.storage.createContexts({
-          count: 1,
+          copies: 1,
           dataSetIds: [2n],
         })
         assert.fail('Expected createContexts to fail for data set id 2')
@@ -552,7 +552,7 @@ describe('Synapse', () => {
       }
       try {
         await synapse.storage.createContexts({
-          count: 2,
+          copies: 2,
           dataSetIds: [1n, 1n],
           metadata,
         })
@@ -583,7 +583,7 @@ describe('Synapse', () => {
       }
       try {
         await synapse.storage.createContexts({
-          count: 2,
+          copies: 2,
           providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider1.providerId],
           metadata,
         })
@@ -640,7 +640,7 @@ describe('Synapse', () => {
       }
       try {
         await synapse.storage.createContexts({
-          count: 2,
+          copies: 2,
           dataSetIds: [1n],
           providerIds: [Mocks.PROVIDERS.provider1.providerId],
           metadata,
@@ -657,7 +657,7 @@ describe('Synapse', () => {
         withCDN: '',
       }
       const contexts = await synapse.storage.createContexts({
-        count: 1,
+        copies: 1,
         metadata,
       })
       assert.equal(contexts.length, 1)
@@ -671,7 +671,7 @@ describe('Synapse', () => {
         withCDN: '',
       }
       const contexts = await synapse.storage.createContexts({
-        count: 1,
+        copies: 1,
         metadata,
         excludeProviderIds: [1n],
       })
@@ -700,7 +700,7 @@ describe('Synapse', () => {
         it('throws when endorsed provider is excluded', async () => {
           try {
             await synapse.storage.createContexts({
-              count: 1,
+              copies: 1,
               excludeProviderIds: [BigInt(endorsedProviderId)],
             })
             assert.fail('Expected createContexts to throw')
@@ -718,7 +718,7 @@ describe('Synapse', () => {
 
           try {
             await synapse.storage.createContexts({
-              count: 1,
+              copies: 1,
             })
             assert.fail('Expected createContexts to throw when no endorsed provider available')
           } catch (error: any) {
@@ -727,20 +727,20 @@ describe('Synapse', () => {
           }
         })
 
-        for (const count of [1, 2]) {
-          it(`prefers to select the endorsed context when selecting ${count} providers`, async () => {
+        for (const numCopies of [1, 2]) {
+          it(`prefers to select the endorsed context when selecting ${numCopies} providers`, async () => {
             const counts: Record<string, number> = {}
             for (const providerId of providerIds) {
               counts[providerId.toString()] = 0
             }
             for (let i = 0; i < 5; i++) {
               const contexts = await synapse.storage.createContexts({
-                count,
+                copies: numCopies,
               })
-              assert.equal(contexts.length, count)
+              assert.equal(contexts.length, numCopies)
               assert.equal((contexts[0] as any)._dataSetId, undefined)
               counts[contexts[0].provider.id.toString()]++
-              if (count > 1) {
+              if (numCopies > 1) {
                 assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
                 assert.equal((contexts[1] as any)._dataSetId, undefined)
               }
@@ -755,7 +755,7 @@ describe('Synapse', () => {
 
     it('can attempt to create numerous contexts, returning fewer', async () => {
       const contexts = await synapse.storage.createContexts({
-        count: 100,
+        copies: 100,
       })
       assert.equal(contexts.length, 2)
       assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)

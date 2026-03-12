@@ -244,7 +244,7 @@ export class StorageContext {
 
     if (resolutions.length > 0) {
       // Explicit path — validate count matches deduped results
-      const count = options.count ?? resolutions.length
+      const count = options.copies ?? resolutions.length
       if (resolutions.length !== count) {
         throw createError(
           'StorageContext',
@@ -266,7 +266,7 @@ export class StorageContext {
       }
     } else {
       // Smart selection path (neither dataSetIds nor providerIds provided)
-      const count = options.count ?? 2
+      const count = options.copies ?? 2
       resolutions = await StorageContext.smartSelect({
         synapse: options.synapse,
         metadata: options.metadata ?? {},
@@ -944,6 +944,8 @@ export class StorageContext {
     return {
       pieceCid: storeResult.pieceCid,
       size: storeResult.size,
+      requestedCopies: 1,
+      complete: true,
       copies: [
         {
           providerId: this._provider.id,
@@ -954,7 +956,7 @@ export class StorageContext {
           isNewDataSet: commitResult.isNewDataSet,
         },
       ],
-      failures: [],
+      failedAttempts: [],
     }
   }
 

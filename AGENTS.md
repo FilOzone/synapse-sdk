@@ -123,7 +123,7 @@ Client ──store──> Primary SP (endorsed)
 
 ### Failure Handling
 
-`UploadResult` returns `copies[]` (successful) and `failures[]` (failed). Primary failure is fatal; secondary failures are reported but non-fatal. `StoreError` and `CommitError` (in `errors/storage.ts`) carry providerId and cause chain.
+`UploadResult` returns `complete` (boolean), `copies[]` (successful), and `failedAttempts[]` (intermediate failures). Check `complete` to determine overall success -- do not use `failedAttempts.length` as a failure signal. Primary store failure throws `StoreError`; all commits failing throws `CommitError`. Both carry providerId and cause chain.
 
 ## Session Keys
 
@@ -194,14 +194,15 @@ Ref: FRC-0069
 // Simple: auto-managed multi-copy upload
 const synapse = await Synapse.create({ privateKey, rpcUrl })
 const result = await synapse.storage.upload(data)
+// result.complete === true means all requested copies succeeded
 // result.copies = [{ providerId, dataSetId, pieceId, role: 'primary'|'secondary' }]
-// result.failures = [{ providerId, error, role }]
+// result.failedAttempts = [{ providerId, error, role }] (non-empty does NOT mean failure)
 
 // Download (SP-agnostic, tries all known providers)
 const bytes = await synapse.storage.download({ pieceCid })
 
 // Explicit contexts for fine-grained control
-const [primary, secondary] = await synapse.storage.createContexts({ count: 2 })
+const [primary, secondary] = await synapse.storage.createContexts({ copies: 2 })
 const stored = await primary.store(data)            // Upload, get PieceCID
 const extraData = await secondary.presignForCommit([{ pieceCid: stored.pieceCid }])
 await secondary.pull({                               // SP-to-SP transfer

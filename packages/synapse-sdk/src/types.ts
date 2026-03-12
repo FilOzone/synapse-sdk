@@ -334,8 +334,8 @@ export interface BaseContextOptions {
  * and count for multi-provider redundancy.
  */
 export interface CreateContextsOptions extends BaseContextOptions {
-  /** Number of contexts to create (optional, defaults to 2) */
-  count?: number
+  /** Number of storage copies to create (optional, defaults to 2) */
+  copies?: number
   /**
    * Specific data set IDs to use (mutually exclusive with providerIds)
    */
@@ -427,6 +427,14 @@ export interface UploadOptions extends StoreOptions, UploadCallbacks {
 }
 
 /**
+ * Role of a copy in a multi-provider upload.
+ *
+ * - `'primary'`: The provider that received the original upload (store).
+ * - `'secondary'`: A provider that pulled the data from the primary (SP-to-SP transfer).
+ */
+export type CopyRole = 'primary' | 'secondary'
+
+/**
  * Result for a single successful copy of data on a provider
  */
 export interface CopyResult {
@@ -437,7 +445,7 @@ export interface CopyResult {
   /** Piece ID within the data set */
   pieceId: bigint
   /** Whether this is the primary (store) or secondary (pull) copy */
-  role: 'primary' | 'secondary'
+  role: CopyRole
   /** URL where this copy can be retrieved */
   retrievalUrl: string
   /** Whether a new data set was created for this copy */
@@ -445,13 +453,18 @@ export interface CopyResult {
 }
 
 /**
- * Record of a failed copy attempt
+ * A provider attempt that did not produce a successful copy.
+ *
+ * A non-empty `failedAttempts` array does NOT mean the upload failed.
+ * Failed attempts include providers that were tried and replaced by
+ * successful attempts on other providers. Always check `UploadResult.complete`
+ * to determine overall success.
  */
-export interface FailedCopy {
-  /** Provider ID that failed */
+export interface FailedAttempt {
+  /** Provider ID that was attempted */
   providerId: bigint
-  /** Role of the failed copy */
-  role: 'primary' | 'secondary'
+  /** Role the provider was being used for */
+  role: CopyRole
   /** Error description */
   error: string
   /** Whether the provider was explicitly specified (no auto-retry for explicit) */
@@ -459,17 +472,41 @@ export interface FailedCopy {
 }
 
 /**
- * Upload result information
+ * Result of a multi-copy upload operation.
+ *
+ * To determine success, check `complete`, it's `true` when all requested
+ * copies were successfully stored and recorded on-chain. Do NOT use
+ * `failedAttempts.length > 0` as a failure signal; failed attempts may have
+ * been resolved by successful retries on other providers.
+ *
+ * @example
+ * ```typescript
+ * const result = await synapse.storage.upload(data, { copies: 3 })
+ * if (!result.complete) {
+ *   console.warn(`Got ${result.copies.length}/${result.requestedCopies} copies`)
+ *   for (const attempt of result.failedAttempts) {
+ *     console.warn(`  Provider ${attempt.providerId}: ${attempt.error}`)
+ *   }
+ * }
+ * ```
  */
 export interface UploadResult {
   /** PieceCID of the uploaded data */
   pieceCid: PieceCID
   /** Size of the original data */
   size: number
+  /** Number of copies that were requested */
+  requestedCopies: number
+  /** True when all requested copies were successfully stored and recorded on-chain */
+  complete: boolean
   /** Successful copies across providers */
   copies: CopyResult[]
-  /** Failed copy attempts (individual failures don't throw; check copies.length) */
-  failures: FailedCopy[]
+  /**
+   * Provider attempts that did not produce a copy. A non-empty array does NOT
+   * indicate upload failure, check `complete` or compare `copies.length`
+   * against `requestedCopies` to determine overall success.
+   */
+  failedAttempts: FailedAttempt[]
 }
 
 // ============================================================================
