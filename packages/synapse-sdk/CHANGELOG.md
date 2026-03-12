@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.39.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.38.0...synapse-sdk-v0.39.0) (2026-03-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* New synapse costs API ([#632](https://github.com/FilOzone/synapse-sdk/issues/632))
+* **sdk:** require source parameter for dataset namespace isolation ([#647](https://github.com/FilOzone/synapse-sdk/issues/647))
+
+### Features
+
+* New synapse costs API ([#632](https://github.com/FilOzone/synapse-sdk/issues/632)) ([ea2a6c3](https://github.com/FilOzone/synapse-sdk/commit/ea2a6c36f36486c598cb89903c0c394a9f3e6fcc))
+* **sdk:** require source parameter for dataset namespace isolation ([#647](https://github.com/FilOzone/synapse-sdk/issues/647)) ([8085c05](https://github.com/FilOzone/synapse-sdk/commit/8085c056d116e86ca7ccccdef3e3c1af653634fc))
+
+
+### Documentation
+
+* add session keys developer guide ([#630](https://github.com/FilOzone/synapse-sdk/issues/630)) ([1b44e3f](https://github.com/FilOzone/synapse-sdk/commit/1b44e3f53d4a26677f9e073bea08acb73f96657d))
+
 ## [0.38.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.37.1...synapse-sdk-v0.38.0) (2026-02-26)
 
 
