@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.0...synapse-core-v0.3.1) (2026-03-17)
+
+
+### Features
+
+* new usdfc dataset sybil fee ([#666](https://github.com/FilOzone/synapse-sdk/issues/666)) ([f1bfc44](https://github.com/FilOzone/synapse-sdk/commit/f1bfc44f946a0f6fbc5d4a80c4151e5e37c8824d))
+
+
+### Bug Fixes
+
+* pieceStatus confuses piece ownership. Closes [#296](https://github.com/FilOzone/synapse-sdk/issues/296) ([#655](https://github.com/FilOzone/synapse-sdk/issues/655)) ([be76ad1](https://github.com/FilOzone/synapse-sdk/commit/be76ad1e557dd48fe99c68060363e0c93574d7fd))
+* support multi sp upload flow in react and demo ([#675](https://github.com/FilOzone/synapse-sdk/issues/675)) ([7f70914](https://github.com/FilOzone/synapse-sdk/commit/7f70914e301a6969d5a1a6d1f06e6866d62f48d5))
+
 ## [0.3.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.3...synapse-core-v0.3.0) (2026-03-10)
 
 
