@@ -65,7 +65,8 @@
         "dist/**"
       ],
       "dependencies": [
-        "../synapse-core:build"
+        "../synapse-core:build",
+        "../synapse-sdk:build"
       ]
     },
     "lint": {
@@ -81,6 +82,7 @@
     }
   },
   "dependencies": {
+    "@filoz/synapse-sdk": "workspace:^",
     "@filoz/synapse-core": "workspace:^",
     "@hugomrdias/filsnap-adapter": "^3.3.8"
   },

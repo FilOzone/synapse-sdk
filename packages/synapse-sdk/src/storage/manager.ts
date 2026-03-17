@@ -40,7 +40,7 @@ import {
   getServicePrice,
   metadataMatches,
 } from '@filoz/synapse-core/warm-storage'
-import { type Address, type Hash, type Hex, zeroAddress } from 'viem'
+import { type Address, type Hash, type Hex, UserRejectedRequestError, zeroAddress } from 'viem'
 import { getBlockNumber } from 'viem/actions'
 import { CommitError, StoreError } from '../errors/storage.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -488,6 +488,9 @@ export class StorageManager {
             }
           }
         } catch (error) {
+          if (error instanceof UserRejectedRequestError) {
+            throw error
+          }
           const errorMsg = error instanceof Error ? error.message : String(error)
           failedAttempts.push({
             providerId: currentSecondary.provider.id,

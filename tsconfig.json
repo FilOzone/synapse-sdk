@@ -1,15 +1,8 @@
 {
   "compilerOptions": {
-    // "rootDir": "./src",
     /* Projects */
     "incremental": true,
     "composite": true,
-    // Emit
-
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "removeComments": true,
 
     // Language and Environment
     "lib": ["ESNext", "DOM"],
@@ -17,10 +10,19 @@
     "moduleDetection": "force",
 
     // Modules
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "preserve",
     "resolveJsonModule": true,
     "rewriteRelativeImportExtensions": true,
+
+    // Emit
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": true,
+    "importsNotUsedAsValues": "remove",
+    "stripInternal": true,
+    "noEmitOnError": true,
 
     // Interop Constraints
     "isolatedModules": true,
@@ -31,8 +33,6 @@
     // Type Checking
     "strict": true,
     "noImplicitOverride": true,
-    // TODO: enable this when we remove ethers.Contract
-    // "noUncheckedIndexedAccess": true,
 
     // Completeness
     "skipLibCheck": true

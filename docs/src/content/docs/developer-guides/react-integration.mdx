@@ -112,10 +112,13 @@ const StorageExample = () => {
   const { address } = useAccount();
   const { data: providers } = useProviders();
   const { data: dataSets } = useDataSets(address ? { address } : {});
-  const [files, setFiles] = useState<File[]>([]);
+  const [file, setFile] = useState<File>();
 
   const upload = useUpload({
-    onHash: (hash) => console.log("Tx:", hash),
+    source: 'synapse',
+    callbacks :{
+      onPiecesAdded: (hash) => console.log("Tx:", hash),
+    }
   });
 
   if (!address) return <div>Connect wallet</div>;
@@ -130,14 +133,16 @@ const StorageExample = () => {
           <p>Dataset {ds.dataSetId.toString()}: {ds.pieces.length} pieces</p>
           <input
             type="file"
-            multiple
             onChange={(e) =>
-              e.target.files && setFiles(Array.from(e.target.files))
+              e.target.files && setFile(e.target.files[0])
             }
           />
           <button
-            onClick={() => upload.mutate({ files, dataSetId: ds.dataSetId })}
-            disabled={upload.isPending || files.length === 0}
+            onClick={() => {
+              if(!file)return 
+              upload.mutate({ file })
+            }}
+            disabled={upload.isPending}
           >
             {upload.isPending ? "Uploading..." : "Upload"}
           </button>
