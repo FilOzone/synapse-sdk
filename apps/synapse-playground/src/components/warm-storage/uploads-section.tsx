@@ -86,7 +86,7 @@ export function UploadsSection({
   return dataSet ? (
     <form onSubmit={onSubmit}>
       <div className="flex flex-col gap-3 my-4">
-        <Label htmlFor="data-set">Data Set</Label>
+        {/* <Label htmlFor="data-set">Data Set</Label>
         <Select
           name="data-set"
           onValueChange={(value) => {
@@ -109,7 +109,7 @@ export function UploadsSection({
               </SelectGroup>
             ))}
           </SelectContent>
-        </Select>
+        </Select> */}
         <UploadsZone files={files} handleDrop={handleDrop} />
         <ButtonLoading disabled={!dataSet} loading={isUploading} type="submit">
           Upload
