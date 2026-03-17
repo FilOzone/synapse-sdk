@@ -159,9 +159,7 @@ export function DataSetsSection({
                         <ItemTitle className="break-all">
                           <PDPPieceLink cid={piece.cid.toString()} name={piece.metadata.name} />
                         </ItemTitle>
-                        <ItemDescription>
-                          {piece.metadata.type} {piece.id}
-                        </ItemDescription>
+                        <ItemDescription>{piece.metadata.type}</ItemDescription>
                       </ItemContent>
                       <ItemActions>
                         <Button

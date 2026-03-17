@@ -45,8 +45,11 @@ export function UploadsSection({
     isPending: isUploading,
     error: uploadError,
   } = useUpload({
-    onHash: (hash) => {
-      setHash(hash)
+    source: 'synapse-playground',
+    callbacks: {
+      onPiecesAdded(transaction) {
+        setHash(transaction)
+      },
     },
     mutation: {
       onSettled: () => {
@@ -60,7 +63,7 @@ export function UploadsSection({
     setFiles(files)
   }
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
 
     if (files && files.length > 0 && dataSet) {
@@ -69,7 +72,14 @@ export function UploadsSection({
       //   dataSetId,
       //   sessionKey: sessionKey,
       // })
-      upload({ files: Array.from(files), dataSetId: BigInt(dataSet) })
+      const file = files[0]
+      upload({
+        file,
+        metadata: {
+          name: file.name,
+          type: file.type,
+        },
+      })
     }
   }
 

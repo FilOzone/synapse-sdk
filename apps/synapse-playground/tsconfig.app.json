@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    "baseUrl": ".",
+    "paths": {
+      "@filoz/synapse-core": ["../../packages/synapse-core/src"],
+      "@filoz/synapse-react": ["../../packages/synapse-react/src"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/synapse-core/tsconfig.json" },
+    { "path": "../../packages/synapse-react/tsconfig.json" }
+  ]
+}
