@@ -22,7 +22,7 @@ export function useUpload(props: UseUploadProps) {
 
   return useMutation({
     ...props?.mutation,
-    mutationFn: async ({ file }: UseUploadVariables) => {
+    mutationFn: async ({ file, metadata }: UseUploadVariables) => {
       const connectorClient = await getConnectorClient(config, {
         account: account.address,
         chainId,
@@ -34,8 +34,8 @@ export function useUpload(props: UseUploadProps) {
       })
 
       const rsp = await synapse.storage.upload(new Uint8Array(await file.arrayBuffer()), {
-        pieceMetadata: props.metadata,
         ...props,
+        pieceMetadata: metadata,
       })
 
       queryClient.invalidateQueries({
