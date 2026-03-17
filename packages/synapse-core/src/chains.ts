@@ -9,7 +9,7 @@
  * @module chains
  */
 
-import type { Address, ChainContract, Chain as ViemChain } from 'viem'
+import type { Account, Address, ChainContract, Client, Transport, Chain as ViemChain } from 'viem'
 import * as Abis from './abis/index.ts'
 import { UnsupportedChainError } from './errors/chains.ts'
 
@@ -352,4 +352,14 @@ export function asChain(chain: ViemChain): Chain {
 
 export namespace asChain {
   export type ErrorType = UnsupportedChainError
+}
+
+/**
+ * Convert a viem client to a synapse client.
+ * @param client - The viem client.
+ * @returns The synapse client.
+ */
+export function asClient(client: Client<Transport, ViemChain, Account>): Client<Transport, Chain, Account> {
+  asChain(client.chain)
+  return client as Client<Transport, Chain, Account>
 }

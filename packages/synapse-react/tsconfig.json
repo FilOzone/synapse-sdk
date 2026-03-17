@@ -8,6 +8,9 @@
   "references": [
     {
       "path": "../synapse-core/tsconfig.json"
+    },
+    {
+      "path": "../synapse-sdk/tsconfig.json"
     }
   ],
   "typedocOptions": {

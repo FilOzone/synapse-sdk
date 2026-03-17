@@ -4,47 +4,10 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "wireit",
-    "build": "wireit",
-    "lint": "wireit",
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "tsc --noEmit && biome check --fix .",
     "preview": "vite preview"
-  },
-  "wireit": {
-    "build": {
-      "command": "tsc -b && vite build",
-      "clean": "if-file-deleted",
-      "files": [
-        "src/**/*.{tsx,ts,css}",
-        "public/**/*",
-        "index.html",
-        "tsconfig.json",
-        "vite.config.ts"
-      ],
-      "output": [
-        "dist/**"
-      ]
-    },
-    "lint": {
-      "command": "biome check --fix .",
-      "files": [
-        "src/**/*.{tsx,ts}",
-        "tsconfig.json",
-        "vite.config.ts",
-        "biome.json"
-      ],
-      "output": [],
-      "dependencies": [
-        "build"
-      ]
-    },
-    "dev": {
-      "command": "vite",
-      "dependencies": [
-        "../../packages/synapse-core:build",
-        "../../packages/synapse-react:build"
-      ],
-      "service": true
-    }
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:*",
@@ -96,6 +59,7 @@
     "typescript": "catalog:",
     "vite": "^7.2.6",
     "vite-plugin-node-polyfills": "^0.25.0",
+    "vite-tsconfig-paths": "^6.1.1",
     "wrangler": "^4.71.0"
   }
 }
