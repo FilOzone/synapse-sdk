@@ -25,7 +25,7 @@
     "@hugomrdias/docs": "^0.1.10",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "astro": "^5.18.0",
+    "astro": "^6.0.4",
     "astro-mermaid": "^1.1.0",
     "expressive-code-twoslash": "^0.6.0",
     "mermaid": "^11.12.2",
