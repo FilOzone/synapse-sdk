@@ -12,18 +12,20 @@ import { zHex } from './schemas.ts'
  *
  * @see https://github.com/FilOzone/filecoin-services/blob/a86e4a5018133f17a25b4bb6b5b99da4d34fe664/service_contracts/src/ServiceProviderRegistry.sol#L14
  */
-export const PDPOfferingSchema = z.object({
-  serviceURL: zHex,
-  minPieceSizeInBytes: zHex,
-  maxPieceSizeInBytes: zHex,
-  storagePricePerTibPerDay: zHex,
-  minProvingPeriodInEpochs: zHex,
-  location: zHex,
-  paymentTokenAddress: zHex,
-  ipniPiece: zHex.optional(),
-  ipniIpfs: zHex.optional(),
-  ipniPeerId: zHex.optional(),
-})
+export const PDPOfferingSchema = z
+  .object({
+    serviceURL: zHex,
+    minPieceSizeInBytes: zHex,
+    maxPieceSizeInBytes: zHex,
+    storagePricePerTibPerDay: zHex,
+    minProvingPeriodInEpochs: zHex,
+    location: zHex,
+    paymentTokenAddress: zHex,
+    ipniPiece: zHex.optional(),
+    ipniIpfs: zHex.optional(),
+    ipniPeerId: zHex.optional(),
+  })
+  .catchall(zHex)
 // Standard capability keys for PDP product type (must match ServiceProviderRegistry.sol REQUIRED_PDP_KEYS)
 export const CAP_SERVICE_URL = 'serviceURL'
 export const CAP_MIN_PIECE_SIZE = 'minPieceSizeInBytes'
@@ -46,6 +48,9 @@ export function decodePDPOffering(provider: ProviderWithProduct): PDPOffering {
   }
   return decodePDPCapabilities(parsed.data)
 }
+
+/** Capability keys that are decoded into typed PDPOffering fields, derived from the schema */
+const KNOWN_CAPABILITY_KEYS = new Set([...Object.keys(PDPOfferingSchema.shape), CAP_IPNI_PEER_ID_LEGACY])
 
 /**
  * Decode PDP capabilities from keys/values arrays into a PDPOffering object.
@@ -71,7 +76,15 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
           ? base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID_LEGACY], 'bytes'))
           : undefined,
   }
-  return { ...required, ...optional }
+
+  const extraCapabilities: Record<string, Hex> = Object.create(null)
+  for (const key of Object.keys(capabilities)) {
+    if (!KNOWN_CAPABILITY_KEYS.has(key)) {
+      extraCapabilities[key] = capabilities[key]
+    }
+  }
+
+  return { ...required, ...optional, extraCapabilities }
 }
 
 /**
