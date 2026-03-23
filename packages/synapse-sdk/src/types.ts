@@ -332,18 +332,41 @@ export interface BaseContextOptions {
  *
  * Extends BaseContextOptions with plural provider/dataset selection
  * and count for multi-provider redundancy.
+ *
+ * Provider targeting is mutually exclusive, use ONE of:
+ * - `providerIds` to target specific providers (SDK handles dataset resolution)
+ * - `dataSetIds` to target specific existing datasets
+ * - Neither, to let the SDK auto-select providers
  */
 export interface CreateContextsOptions extends BaseContextOptions {
   /** Number of storage copies to create (optional, defaults to 2) */
   copies?: number
+
   /**
-   * Specific data set IDs to use (mutually exclusive with providerIds)
+   * Specific data set IDs to target. Each must be an active data set owned by
+   * the caller. Mutually exclusive with `providerIds`.
+   *
+   * Use this only when resuming into a known data set from a prior operation.
+   * For first-time uploads to specific providers, use `providerIds` instead,
+   * the SDK handles data set creation automatically.
    */
   dataSetIds?: bigint[]
+
   /**
-   * Specific provider IDs to use (mutually exclusive with dataSetIds)
+   * Specific provider IDs to upload to. The SDK resolves or creates data sets
+   * on each provider automatically. Mutually exclusive with `dataSetIds`.
+   *
+   * This is the recommended way to target specific providers. Do not call
+   * `createContext()` to resolve data sets first, pass provider IDs here
+   * and the SDK handles the rest.
+   *
+   * @example Upload to two specific providers
+   * ```ts
+   * await synapse.storage.upload(data, { providerIds: [4n, 9n] })
+   * ```
    */
   providerIds?: bigint[]
+
   /** Do not select any of these providers */
   excludeProviderIds?: bigint[]
 }
