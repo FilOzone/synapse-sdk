@@ -20,6 +20,7 @@ export type getAllPieceMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getA
 export type getPieceMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getPieceMetadata'>
 export type clientNonces = ExtractAbiFunction<typeof Abis.fwssView, 'clientNonces'>
 export type getPDPConfig = ExtractAbiFunction<typeof Abis.fwssView, 'getPDPConfig'>
+export type getClientDataSetsLength = ExtractAbiFunction<typeof Abis.fwssView, 'getClientDataSetsLength'>
 
 export interface WarmStorageViewOptions {
   isProviderApproved?: (args: AbiToType<isProviderApproved['inputs']>) => AbiToType<isProviderApproved['outputs']>
@@ -36,6 +37,9 @@ export interface WarmStorageViewOptions {
   getPieceMetadata?: (args: AbiToType<getPieceMetadata['inputs']>) => AbiToType<getPieceMetadata['outputs']>
   clientNonces?: (args: AbiToType<clientNonces['inputs']>) => AbiToType<clientNonces['outputs']>
   getPDPConfig?: (args: AbiToType<getPDPConfig['inputs']>) => AbiToType<getPDPConfig['outputs']>
+  getClientDataSetsLength?: (
+    args: AbiToType<getClientDataSetsLength['inputs']>
+  ) => AbiToType<getClientDataSetsLength['outputs']>
 }
 
 /**
@@ -344,6 +348,15 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
       return encodeAbiParameters(
         Abis.fwssView.find((abi) => abi.type === 'function' && abi.name === 'getPDPConfig')!.outputs,
         options.warmStorageView.getPDPConfig(args)
+      )
+    }
+    case 'getClientDataSetsLength': {
+      if (!options.warmStorageView?.getClientDataSetsLength) {
+        throw new Error('Warm Storage View: getClientDataSetsLength is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.fwssView.find((abi) => abi.type === 'function' && abi.name === 'getClientDataSetsLength')!.outputs,
+        options.warmStorageView.getClientDataSetsLength(args)
       )
     }
 

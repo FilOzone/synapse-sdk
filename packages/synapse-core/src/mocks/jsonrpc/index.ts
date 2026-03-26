@@ -505,6 +505,9 @@ export const presets = {
       getPDPConfig: () => {
         return [BigInt(2880), BigInt(60), BigInt(1), BigInt(0)]
       },
+      getClientDataSetsLength: () => {
+        return [1n]
+      },
     },
     pdpVerifier: {
       dataSetLive: () => [true],
