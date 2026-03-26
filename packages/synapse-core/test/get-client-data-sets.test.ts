@@ -55,6 +55,28 @@ describe('getClientDataSets', () => {
 
       assert.equal(call.address, customAddress)
     })
+
+    it('should use paginated args when offset is provided', () => {
+      const call = getClientDataSetsCall({
+        chain: calibration,
+        address: ADDRESSES.client1,
+        offset: 10n,
+        limit: 50n,
+      })
+
+      assert.equal(call.functionName, 'getClientDataSets')
+      assert.deepEqual(call.args, [ADDRESSES.client1, 10n, 50n])
+    })
+
+    it('should use unpaginated args when no offset/limit provided', () => {
+      const call = getClientDataSetsCall({
+        chain: calibration,
+        address: ADDRESSES.client1,
+      })
+
+      assert.equal(call.functionName, 'getClientDataSets')
+      assert.deepEqual(call.args, [ADDRESSES.client1])
+    })
   })
 
   describe('getClientDataSets (with mocked RPC)', () => {

@@ -19,6 +19,10 @@ export namespace getClientDataSets {
   export type OptionsType = {
     /** Client address to fetch data sets for. */
     address: Address
+    /** Starting index (0-based). Use 0 to start from beginning. Defaults to fetching all (unpaginated). */
+    offset?: bigint
+    /** Maximum number of data sets to return. Use 0 to get all remaining. Defaults to fetching all (unpaginated). */
+    limit?: bigint
     /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
     contractAddress?: Address
   }
@@ -57,7 +61,7 @@ export namespace getClientDataSets {
  * })
  *
  * const dataSets = await getClientDataSets(client, {
- *   client: '0x0000000000000000000000000000000000000000',
+ *   address: '0x0000000000000000000000000000000000000000',
  * })
  *
  * console.log(dataSets[0]?.dataSetId)
@@ -72,6 +76,8 @@ export async function getClientDataSets(
     getClientDataSetsCall({
       chain: client.chain,
       address: options.address,
+      offset: options.offset,
+      limit: options.limit,
       contractAddress: options.contractAddress,
     })
   )
@@ -107,7 +113,7 @@ export namespace getClientDataSetsCall {
  *   contracts: [
  *     getClientDataSetsCall({
  *       chain: calibration,
- *       client: '0x0000000000000000000000000000000000000000',
+ *       address: '0x0000000000000000000000000000000000000000',
  *     }),
  *   ],
  * })
@@ -117,10 +123,21 @@ export namespace getClientDataSetsCall {
  */
 export function getClientDataSetsCall(options: getClientDataSetsCall.OptionsType) {
   const chain = asChain(options.chain)
-  return {
+  const base = {
     abi: chain.contracts.fwssView.abi,
     address: options.contractAddress ?? chain.contracts.fwssView.address,
     functionName: 'getClientDataSets',
+  } as const
+
+  if (options.offset != null || options.limit != null) {
+    return {
+      ...base,
+      args: [options.address, options.offset ?? 0n, options.limit ?? 0n],
+    } as getClientDataSetsCall.OutputType
+  }
+
+  return {
+    ...base,
     args: [options.address],
   } satisfies getClientDataSetsCall.OutputType
 }
