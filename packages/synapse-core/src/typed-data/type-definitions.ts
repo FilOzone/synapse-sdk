@@ -28,8 +28,6 @@ export const EIP712Types = {
     { name: 'clientDataSetId', type: 'uint256' },
     { name: 'pieceIds', type: 'uint256[]' },
   ],
-  DeleteDataSet: [{ name: 'clientDataSetId', type: 'uint256' }],
-
   /**
    * ERC-2612: Permit Extension for EIP-20 Signed Approvals
    * @see https://eips.ethereum.org/EIPS/eip-2612
