@@ -27,6 +27,42 @@ describe('decodePDPCapabilities', () => {
       assert.strictEqual(result.ipniPeerId, undefined)
     })
   })
+
+  describe('extraCapabilities', () => {
+    it('preserves non-standard capabilities in extraCapabilities', () => {
+      const capabilities = createMinimalCapabilities({
+        serviceStatus: toHex('dev'),
+        customFlag: '0x01',
+      })
+
+      const result = decodePDPCapabilities(capabilities)
+
+      assert.ok(result.extraCapabilities)
+      assert.strictEqual(result.extraCapabilities.serviceStatus, toHex('dev'))
+      assert.strictEqual(result.extraCapabilities.customFlag, '0x01')
+    })
+
+    it('omits extraCapabilities when no non-standard capabilities exist', () => {
+      const capabilities = createMinimalCapabilities()
+
+      const result = decodePDPCapabilities(capabilities)
+
+      assert.strictEqual(result.extraCapabilities, undefined)
+    })
+
+    it('does not include standard capabilities in extraCapabilities', () => {
+      const capabilities = createMinimalCapabilities({
+        serviceStatus: toHex('dev'),
+      })
+
+      const result = decodePDPCapabilities(capabilities)
+
+      assert.ok(result.extraCapabilities)
+      assert.strictEqual(Object.keys(result.extraCapabilities).length, 1)
+      assert.strictEqual(result.extraCapabilities.serviceURL, undefined)
+      assert.strictEqual(result.extraCapabilities.location, undefined)
+    })
+  })
 })
 
 // Minimal valid capabilities for testing (all required fields)
