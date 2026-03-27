@@ -3241,6 +3241,19 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'clientDataSets',
+    outputs: [
+      { name: 'dataSetIds', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [{ name: 'payer', internalType: 'address', type: 'address' }],
     name: 'clientDataSets',
     outputs: [
@@ -3309,6 +3322,36 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
+    inputs: [
+      { name: 'client', internalType: 'address', type: 'address' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getClientDataSets',
+    outputs: [
+      {
+        name: 'infos',
+        internalType: 'struct FilecoinWarmStorageService.DataSetInfoView[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cacheMissRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cdnRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'payer', internalType: 'address', type: 'address' },
+          { name: 'payee', internalType: 'address', type: 'address' },
+          { name: 'serviceProvider', internalType: 'address', type: 'address' },
+          { name: 'commissionBps', internalType: 'uint256', type: 'uint256' },
+          { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+          { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+          { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [{ name: 'client', internalType: 'address', type: 'address' }],
     name: 'getClientDataSets',
     outputs: [
@@ -3331,6 +3374,13 @@ export const filecoinWarmStorageServiceStateViewAbi = [
         ],
       },
     ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'payer', internalType: 'address', type: 'address' }],
+    name: 'getClientDataSetsLength',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
@@ -3565,6 +3615,13 @@ export const pdpVerifierAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'FIL_SYBIL_FEE',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [],
     name: 'MAX_ENQUEUED_REMOVALS',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
@@ -3745,6 +3802,25 @@ export const pdpVerifierAbi = [
           { name: 'offset', internalType: 'uint256', type: 'uint256' },
         ],
       },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'pieceCid',
+        internalType: 'struct Cids.Cid',
+        type: 'tuple',
+        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
+      },
+      { name: 'startPieceId', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'findPieceIdsByCid',
+    outputs: [
+      { name: 'pieceIds', internalType: 'uint256[]', type: 'uint256[]' },
     ],
     stateMutability: 'view',
   },
