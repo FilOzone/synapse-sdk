@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.1...synapse-core-v0.3.2) (2026-03-27)
+
+
+### Bug Fixes
+
+* **core:** fall back to Blob fetch body when ReadableStream not supported ([#681](https://github.com/FilOzone/synapse-sdk/issues/681)) ([6142cc4](https://github.com/FilOzone/synapse-sdk/commit/6142cc4fa119b2e830c9217979ed52e780f3c1b6))
+
+
+### Chores
+
+* **abi:** update ABI for 1.2.0 filecoin-services release ([#688](https://github.com/FilOzone/synapse-sdk/issues/688)) ([0259413](https://github.com/FilOzone/synapse-sdk/commit/0259413b86dd31e09c7bbc5c0d2f93cf50daadd6))
+
 ## [0.3.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.0...synapse-core-v0.3.1) (2026-03-17)
 
 
