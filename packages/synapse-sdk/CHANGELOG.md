@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.0...synapse-sdk-v0.40.1) (2026-03-27)
+
+
+### Bug Fixes
+
+* installation instructions ([#692](https://github.com/FilOzone/synapse-sdk/issues/692)) ([966a389](https://github.com/FilOzone/synapse-sdk/commit/966a3898391435eaf581be23e23dfed88162020b))
+
 ## [0.40.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.39.0...synapse-sdk-v0.40.0) (2026-03-17)
 
 
