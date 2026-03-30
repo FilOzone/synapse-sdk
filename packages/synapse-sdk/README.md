@@ -33,10 +33,10 @@ The SDK handles all the complexity of blockchain interactions, provider selectio
 ## Installation
 
 ```bash
-pnpm install @filoz/synapse-sdk ethers
+pnpm install @filoz/synapse-sdk viem
 ```
 
-Note: `ethers` v6 is a peer dependency and must be installed separately.
+Note: `viem` is a peer dependency and must be installed separately.
 
 ## Docs
 
