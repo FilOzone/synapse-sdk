@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.2.2...synapse-react-v0.2.3) (2026-03-30)
+
+
+### Bug Fixes
+
+* support multi sp upload flow in react and demo ([#675](https://github.com/FilOzone/synapse-sdk/issues/675)) ([7f70914](https://github.com/FilOzone/synapse-sdk/commit/7f70914e301a6969d5a1a6d1f06e6866d62f48d5))
+* update use-upload-simple interface and export in warm-storage ([da08356](https://github.com/FilOzone/synapse-sdk/commit/da083565802980aebdc11d4b354117a97771c612))
+
 ## [0.2.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.2.1...synapse-react-v0.2.2) (2026-02-26)
 
 
