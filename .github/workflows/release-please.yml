@@ -48,9 +48,8 @@ jobs:
       - run: pnpm -r --filter './packages/**' publish --access=public
   docs:
     needs: release
+    # Only publish docs if the synapse-sdk package is released (manual publish is possible from the GitHub UI)
     if: |
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk') ||
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-core') ||
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react')
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk')
     uses: ./.github/workflows/docs.yml
     secrets: inherit
