@@ -169,6 +169,7 @@ if (prep.transaction) {
 - **`transaction`**: A transaction object with `execute()`, or `null` if the account is already ready
 
 The transaction automatically picks the right contract call:
+
 - **Needs deposit + approval**: calls `depositWithPermitAndApproveOperator`
 - **Needs approval only**: calls `approveService`
 - **Needs deposit only**: calls `depositWithPermit`

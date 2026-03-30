@@ -2,16 +2,16 @@ import { type DataSetWithPieces, type UseProvidersResult, useUpload } from '@fil
 import { useEffect, useState } from 'react'
 import { ErrorAlert, HashAlert } from '../custom-ui/alerts.tsx'
 import { ButtonLoading } from '../custom-ui/button-loading.tsx'
-import { Label } from '../ui/label.tsx'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select.tsx'
+// import { Label } from '../ui/label.tsx'
+// import {
+//   Select,
+//   SelectContent,
+//   SelectGroup,
+//   SelectItem,
+//   SelectLabel,
+//   SelectTrigger,
+//   SelectValue,
+// } from '../ui/select.tsx'
 import { Skeleton } from '../ui/skeleton.tsx'
 import { UploadsZone } from './uploads-zone.tsx'
 
@@ -26,10 +26,10 @@ export function UploadsSection({
   const [dataSet, setDataSet] = useState<string | undefined>(undefined)
   const [files, setFiles] = useState<File[] | undefined>()
 
-  const providerWithDataSets = providers?.map((provider) => ({
-    ...provider,
-    dataSets: dataSets?.filter((d) => d.providerId === provider.id),
-  }))
+  // const providerWithDataSets = providers?.map((provider) => ({
+  //   ...provider,
+  //   dataSets: dataSets?.filter((d) => d.providerId === provider.id),
+  // }))
   const approvedProviders = providers?.map((p) => p.id)
 
   const dataSetsFromApprovedProviders = dataSets?.filter((d) => approvedProviders?.includes(d.providerId))
