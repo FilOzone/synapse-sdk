@@ -84,12 +84,12 @@ function formatTimeDiff(date) {
 
   let timeStr = ''
   if (hours > 0) {
-    timeStr = `${hours} hour${hours !== 1 ? 's' : ''}`
+    timeStr = `${hours} hour${hours === 1 ? '' : 's'}`
     if (minutes > 0) {
-      timeStr += ` ${minutes} minute${minutes !== 1 ? 's' : ''}`
+      timeStr += ` ${minutes} minute${minutes === 1 ? '' : 's'}`
     }
   } else {
-    timeStr = `${minutes} minute${minutes !== 1 ? 's' : ''}`
+    timeStr = `${minutes} minute${minutes === 1 ? '' : 's'}`
   }
 
   return diff > 0 ? `in ${timeStr}` : `${timeStr} ago`

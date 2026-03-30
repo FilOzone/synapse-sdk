@@ -637,9 +637,7 @@ export class StorageManager {
   async prepare(options: PrepareOptions): Promise<PrepareResult> {
     let costs: UploadCosts
 
-    if (options.costs != null) {
-      costs = options.costs
-    } else {
+    if (options.costs == null) {
       // Get or create contexts — mirrors upload() behavior
       const contexts = options.context
         ? Array.isArray(options.context)
@@ -648,6 +646,8 @@ export class StorageManager {
         : await this.createContexts()
 
       costs = await this.calculateMultiContextCosts(contexts, options)
+    } else {
+      costs = options.costs
     }
 
     if (costs.ready) {
@@ -719,7 +719,7 @@ export class StorageManager {
     for (let i = 0; i < contexts.length; i++) {
       const ctx = contexts[i]
       const isNewDataSet = ctx.dataSetId == null
-      const currentDataSetSize = ctx.dataSetId != null ? (dataSetSizes.get(ctx.dataSetId) ?? 0n) : 0n
+      const currentDataSetSize = ctx.dataSetId == null ? 0n : (dataSetSizes.get(ctx.dataSetId) ?? 0n)
 
       const lockup = calculateAdditionalLockupRequired({
         dataSize: options.dataSize,
