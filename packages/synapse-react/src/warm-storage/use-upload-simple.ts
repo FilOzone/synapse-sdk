@@ -4,19 +4,19 @@ import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react
 import { useChainId, useConfig, useConnection } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 
-export interface UseUploadProps {
+export interface UseUploadSimpleProps {
   /**
    * The callback to call when the hash is available.
    */
   onHash?: (hash: string) => void
-  mutation?: Omit<MutateOptions<AddPiecesSuccess, Error, UseUploadVariables>, 'mutationFn'>
+  mutation?: Omit<MutateOptions<AddPiecesSuccess, Error, UseUploadSimpleVariables>, 'mutationFn'>
 }
 
-export interface UseUploadVariables {
+export interface UseUploadSimpleVariables {
   files: File[]
   dataSetId: bigint
 }
-export function useUploadSimple(props: UseUploadProps) {
+export function useUploadSimple(props: UseUploadSimpleProps) {
   const config = useConfig()
   const chainId = useChainId({ config })
   const account = useConnection({ config })
@@ -24,7 +24,7 @@ export function useUploadSimple(props: UseUploadProps) {
 
   return useMutation({
     ...props?.mutation,
-    mutationFn: async ({ files, dataSetId }: UseUploadVariables) => {
+    mutationFn: async ({ files, dataSetId }: UseUploadSimpleVariables) => {
       const connectorClient = await getConnectorClient(config, {
         account: account.address,
         chainId,
