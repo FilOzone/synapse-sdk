@@ -1,0 +1,32 @@
+name: demo
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "apps/synapse-playground/**"
+      - .github/workflows/demo.yml
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: demo
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'master'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+      - run: pnpm install
+      - run: pnpm run build
+      - run: pnpm -r --filter synapse-playground run build
+      - run: pnpx wrangler deploy --cwd synapse-playground --env production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
