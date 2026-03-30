@@ -82,8 +82,8 @@
     }
   },
   "dependencies": {
-    "@filoz/synapse-sdk": "workspace:^",
     "@filoz/synapse-core": "workspace:^",
+    "@filoz/synapse-sdk": "workspace:^",
     "@hugomrdias/filsnap-adapter": "^3.3.8"
   },
   "devDependencies": {
