@@ -20,7 +20,15 @@ jobs:
       - run: pnpm install
       - run: pnpm run build
       - run: pnpm -r --filter docs run build
-      - run: pnpx wrangler deploy --cwd docs --env production
+      - name: Deploy docs
+        run: pnpx wrangler deploy --cwd docs --env production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Upload Wrangler logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrangler-logs
+          path: ~/.config/.wrangler/logs/*.log
+          if-no-files-found: ignore
