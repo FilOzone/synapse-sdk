@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.2...synapse-core-v0.3.3) (2026-03-30)
+
+
+### Bug Fixes
+
+* remove unused storage cost calculation utility and export zod schemas ([1fd793b](https://github.com/FilOzone/synapse-sdk/commit/1fd793b9449e9c24387bed2905abe7899290920e))
+
+
+### Chores
+
+* update biome and fix issues ([f5e8abd](https://github.com/FilOzone/synapse-sdk/commit/f5e8abd4b006e4818717d16f1ede49cb80a2fc3f))
+
 ## [0.3.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.1...synapse-core-v0.3.2) (2026-03-30)
 
 
