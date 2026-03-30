@@ -236,7 +236,6 @@
     "multiformats": "^13.4.1",
     "ox": "catalog:",
     "p-locate": "^7.0.0",
-    "p-retry": "^7.1.0",
     "p-some": "^7.0.0",
     "zod": "catalog:"
   },
