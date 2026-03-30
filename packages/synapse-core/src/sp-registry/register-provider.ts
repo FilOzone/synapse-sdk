@@ -99,14 +99,14 @@ export async function registerProvider(
 
   // Get registration fee if not provided
   let registrationFee: bigint
-  if (options.value !== undefined) {
-    registrationFee = options.value
-  } else {
+  if (options.value === undefined) {
     registrationFee = await readContract(client, {
       abi: chain.contracts.serviceProviderRegistry.abi,
       address: contractAddress,
       functionName: 'REGISTRATION_FEE',
     })
+  } else {
+    registrationFee = options.value
   }
 
   const { request } = await simulateContract(

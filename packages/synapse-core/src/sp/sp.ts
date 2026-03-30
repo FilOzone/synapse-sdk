@@ -395,7 +395,7 @@ export async function uploadPieceStreaming(
   // PUT /pdp/piece/uploads/{uuid}
   const headers: Record<string, string> = {
     'Content-Type': 'application/octet-stream',
-    ...(size != null ? { 'Content-Length': size.toString() } : {}),
+    ...(size == null ? {} : { 'Content-Length': size.toString() }),
   }
 
   const uploadResponse = await request.put(new URL(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL), {

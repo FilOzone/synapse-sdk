@@ -677,7 +677,7 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                 if (chain.transactionMined) {
                     statusMessage += `  • Transaction Success: ${chain.transactionSuccess ? '✅' : '❌'}\n`
                     statusMessage += `  • Block Number: ${chain.blockNumber ?? 'N/A'}\n`
-                    statusMessage += `  • Gas Used: ${chain.gasUsed != null ? chain.gasUsed.toString() : 'N/A'}\n`
+                    statusMessage += `  • Gas Used: ${chain.gasUsed == null ? 'N/A' : chain.gasUsed.toString()}\n`
                 }
                 if (chain.dataSetId != null) {
                     statusMessage += `  • Data Set ID: ${chain.dataSetId}\n`
@@ -1071,7 +1071,7 @@ Current pieces in data set: ${addPiecesInfo.currentPieceCount}`, 'success')
                 if (chain.transactionMined) {
                     statusMessage += `  • Transaction Success: ${chain.transactionSuccess ? '✅' : '❌'}\n`
                     statusMessage += `  • Block Number: ${chain.blockNumber ?? 'N/A'}\n`
-                    statusMessage += `  • Gas Used: ${chain.gasUsed != null ? chain.gasUsed.toString() : 'N/A'}\n`
+                    statusMessage += `  • Gas Used: ${chain.gasUsed == null ? 'N/A' : chain.gasUsed.toString()}\n`
                 }
                 if (chain.dataSetId != null) {
                     statusMessage += `  • Data Set Live: ${chain.dataSetLive ? '✅' : '❌'}\n`
