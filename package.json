@@ -25,9 +25,8 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "knip": "^5.86.0",
-    "markdownlint-cli2": "^0.21.0",
+    "markdownlint-cli2": "^0.22.0",
     "typescript": "catalog:",
-    "viem": "catalog:",
     "wireit": "^0.14.12"
   },
   "simple-git-hooks": {
