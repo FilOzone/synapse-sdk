@@ -212,7 +212,9 @@ export class StorageContext {
       throw createError(
         'StorageContext',
         'createContexts',
-        "Cannot specify both 'dataSetIds' and 'providerIds' - use one or the other"
+        "Cannot specify both 'dataSetIds' and 'providerIds'. " +
+          'To target specific providers, use providerIds and the SDK will handle dataset creation automatically. ' +
+          'Use dataSetIds only when resuming into a known dataset from a prior operation.'
       )
     }
 
