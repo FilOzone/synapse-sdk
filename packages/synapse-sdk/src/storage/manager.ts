@@ -159,6 +159,23 @@ export class StorageManager {
   }
 
   /**
+   * The application source identifier used for dataset namespace isolation.
+   * Set via `Synapse.create({ source })`. Used by `combineMetadata` to tag
+   * datasets so that different applications sharing a wallet don't collide.
+   */
+  get source(): string | null {
+    return this._source
+  }
+
+  /**
+   * Whether CDN rails are enabled for new datasets by default.
+   * Set via `Synapse.create({ withCDN })`.
+   */
+  get withCDN(): boolean {
+    return this._withCDN
+  }
+
+  /**
    * Upload data to Filecoin Onchain Cloud using a store->pull->commit flow across
    * multiple providers.
    *
