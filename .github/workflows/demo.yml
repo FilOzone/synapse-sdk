@@ -1,11 +1,17 @@
-name: documentation
+name: demo
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - "apps/synapse-playground/**"
+      - .github/workflows/demo.yml
   workflow_dispatch:
   workflow_call:
 permissions:
   contents: read
 concurrency:
-  group: docs
+  group: demo
   cancel-in-progress: false
 jobs:
   publish:
@@ -19,16 +25,8 @@ jobs:
           node-version: lts/*
       - run: pnpm install
       - run: pnpm run build
-      - run: pnpm -r --filter docs run build
-      - name: Deploy docs
-        run: pnpx wrangler deploy --cwd docs --env production
+      - run: pnpm -r --filter synapse-playground run build
+      - run: pnpx wrangler deploy --cwd synapse-playground --env production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - name: Upload Wrangler logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: wrangler-logs
-          path: ~/.config/.wrangler/logs/*.log
-          if-no-files-found: ignore
