@@ -16,7 +16,7 @@ import type { Synapse } from './synapse.ts'
 import type { WarmStorageService } from './warm-storage/service.ts'
 
 // Re-export PieceCID, PDPProvider, and PullStatus types
-export type { PieceCID, PDPProvider, PullStatus }
+export type { PDPProvider, PieceCID, PullStatus }
 export type PrivateKey = string
 export type TokenAmount = bigint
 export type DataSetId = bigint
