@@ -16,7 +16,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  optimizeDeps: {
+    exclude: ['@filoz/synapse-core', '@filoz/synapse-react'],
+  },
   resolve: {
+    tsconfigPaths: true,
     dedupe: ['react', 'react-dom', 'wagmi'],
     alias: {
       '@': path.resolve(__dirname, './src'),

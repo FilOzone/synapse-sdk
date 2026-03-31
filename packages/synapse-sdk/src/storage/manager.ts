@@ -40,7 +40,7 @@ import {
   getServicePrice,
   metadataMatches,
 } from '@filoz/synapse-core/warm-storage'
-import { type Address, type Hash, type Hex, zeroAddress } from 'viem'
+import { type Address, type Hash, type Hex, UserRejectedRequestError, zeroAddress } from 'viem'
 import { getBlockNumber } from 'viem/actions'
 import { CommitError, StoreError } from '../errors/storage.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -156,6 +156,23 @@ export class StorageManager {
     this._warmStorageService = options.warmStorageService
     this._withCDN = options.withCDN
     this._source = options.source
+  }
+
+  /**
+   * The application source identifier used for dataset namespace isolation.
+   * Set via `Synapse.create({ source })`. Used by `combineMetadata` to tag
+   * datasets so that different applications sharing a wallet don't collide.
+   */
+  get source(): string | null {
+    return this._source
+  }
+
+  /**
+   * Whether CDN rails are enabled for new datasets by default.
+   * Set via `Synapse.create({ withCDN })`.
+   */
+  get withCDN(): boolean {
+    return this._withCDN
   }
 
   /**
@@ -488,6 +505,9 @@ export class StorageManager {
             }
           }
         } catch (error) {
+          if (error instanceof UserRejectedRequestError) {
+            throw error
+          }
           const errorMsg = error instanceof Error ? error.message : String(error)
           failedAttempts.push({
             providerId: currentSecondary.provider.id,
@@ -634,9 +654,7 @@ export class StorageManager {
   async prepare(options: PrepareOptions): Promise<PrepareResult> {
     let costs: UploadCosts
 
-    if (options.costs != null) {
-      costs = options.costs
-    } else {
+    if (options.costs == null) {
       // Get or create contexts — mirrors upload() behavior
       const contexts = options.context
         ? Array.isArray(options.context)
@@ -645,6 +663,8 @@ export class StorageManager {
         : await this.createContexts()
 
       costs = await this.calculateMultiContextCosts(contexts, options)
+    } else {
+      costs = options.costs
     }
 
     if (costs.ready) {
@@ -716,7 +736,7 @@ export class StorageManager {
     for (let i = 0; i < contexts.length; i++) {
       const ctx = contexts[i]
       const isNewDataSet = ctx.dataSetId == null
-      const currentDataSetSize = ctx.dataSetId != null ? (dataSetSizes.get(ctx.dataSetId) ?? 0n) : 0n
+      const currentDataSetSize = ctx.dataSetId == null ? 0n : (dataSetSizes.get(ctx.dataSetId) ?? 0n)
 
       const lockup = calculateAdditionalLockupRequired({
         dataSize: options.dataSize,

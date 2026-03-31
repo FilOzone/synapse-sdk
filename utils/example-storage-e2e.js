@@ -33,7 +33,7 @@ async function main() {
   console.log('=== Synapse SDK Storage E2E Example ===\n')
 
   // Validate files and collect metadata
-  console.log(`Reading file${filePaths.length !== 1 ? 's' : ''}...`)
+  console.log(`Reading file${filePaths.length === 1 ? '' : 's'}...`)
   const files = []
   let totalSize = 0
 

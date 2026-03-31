@@ -212,7 +212,9 @@ export class StorageContext {
       throw createError(
         'StorageContext',
         'createContexts',
-        "Cannot specify both 'dataSetIds' and 'providerIds' - use one or the other"
+        "Cannot specify both 'dataSetIds' and 'providerIds'. " +
+          'To target specific providers, use providerIds and the SDK will handle dataset creation automatically. ' +
+          'Use dataSetIds only when resuming into a known dataset from a prior operation.'
       )
     }
 
@@ -494,29 +496,20 @@ export class StorageContext {
     for (let i = 0; i < sortedDataSets.length; i += BATCH_SIZE) {
       const batchResults: (EvaluatedDataSet | null)[] = await Promise.all(
         sortedDataSets.slice(i, i + BATCH_SIZE).map(async (dataSet) => {
-          const dataSetId = dataSet.dataSetId
-          try {
-            const [dataSetMetadata, activePieceCount] = await Promise.all([
-              warmStorageService.getDataSetMetadata({ dataSetId }),
-              warmStorageService.getActivePieceCount({ dataSetId }),
-              warmStorageService.validateDataSet({ dataSetId }),
-            ])
+          const { dataSetId } = dataSet
+          const [dataSetMetadata, activePieceCount] = await Promise.all([
+            warmStorageService.getDataSetMetadata({ dataSetId }),
+            warmStorageService.getActivePieceCount({ dataSetId }),
+          ])
 
-            if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
-              return null
-            }
-
-            return {
-              dataSetId,
-              dataSetMetadata,
-              activePieceCount,
-            }
-          } catch (error) {
-            console.warn(
-              `Skipping data set ${dataSetId} for provider ${providerId}:`,
-              error instanceof Error ? error.message : String(error)
-            )
+          if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
             return null
+          }
+
+          return {
+            dataSetId,
+            dataSetMetadata,
+            activePieceCount,
           }
         })
       )

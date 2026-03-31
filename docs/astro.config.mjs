@@ -8,7 +8,6 @@ import rehypeExternalLinks from 'rehype-external-links'
 import starlightAutoSidebar from 'starlight-auto-sidebar'
 import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs'
 import starlightLinksValidator from 'starlight-links-validator'
-import viteTsconfigPaths from 'vite-tsconfig-paths'
 
 const site = 'https://docs.filecoin.cloud'
 
@@ -16,9 +15,6 @@ const site = 'https://docs.filecoin.cloud'
 export default defineConfig({
   site,
   base: '/',
-  vite: {
-    plugins: [viteTsconfigPaths()],
-  },
   markdown: {
     rehypePlugins: [
       [

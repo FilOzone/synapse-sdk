@@ -13,7 +13,9 @@ export function fallbackRandU256(): bigint {
  * @returns a random unsigned big integer between `0` and `2**256-1` inclusive
  */
 export function randU256(): bigint {
-  if (crypto?.getRandomValues != null) {
+  if (crypto?.getRandomValues == null) {
+    return fallbackRandU256()
+  } else {
     const randU64s = new BigUint64Array(4)
     crypto.getRandomValues(randU64s)
     let result = 0n
@@ -22,8 +24,6 @@ export function randU256(): bigint {
       result |= randU64
     })
     return result
-  } else {
-    return fallbackRandU256()
   }
 }
 
@@ -37,11 +37,11 @@ export function fallbackRandIndex(length: number): number {
  * @returns a valid index
  */
 export function randIndex(length: number): number {
-  if (crypto?.getRandomValues != null) {
+  if (crypto?.getRandomValues == null) {
+    return fallbackRandIndex(length)
+  } else {
     const randomBytes = new Uint32Array(1)
     crypto.getRandomValues(randomBytes)
     return randomBytes[0] % length
-  } else {
-    return fallbackRandIndex(length)
   }
 }

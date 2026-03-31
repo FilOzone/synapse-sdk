@@ -1,0 +1,47 @@
+import * as SP from '@filoz/synapse-core/sp'
+import { type AddPiecesSuccess, upload } from '@filoz/synapse-core/sp'
+import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useChainId, useConfig, useConnection } from 'wagmi'
+import { getConnectorClient } from 'wagmi/actions'
+
+export interface UseUploadSimpleProps {
+  /**
+   * The callback to call when the hash is available.
+   */
+  onHash?: (hash: string) => void
+  mutation?: Omit<MutateOptions<AddPiecesSuccess, Error, UseUploadSimpleVariables>, 'mutationFn'>
+}
+
+export interface UseUploadSimpleVariables {
+  files: File[]
+  dataSetId: bigint
+}
+export function useUploadSimple(props: UseUploadSimpleProps) {
+  const config = useConfig()
+  const chainId = useChainId({ config })
+  const account = useConnection({ config })
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    ...props?.mutation,
+    mutationFn: async ({ files, dataSetId }: UseUploadSimpleVariables) => {
+      const connectorClient = await getConnectorClient(config, {
+        account: account.address,
+        chainId,
+      })
+
+      const uploadRsp = await upload(connectorClient, {
+        dataSetId,
+        data: files,
+      })
+
+      props?.onHash?.(uploadRsp.txHash)
+      const rsp = await SP.waitForAddPieces(uploadRsp)
+
+      queryClient.invalidateQueries({
+        queryKey: ['synapse-warm-storage-data-sets', account.address, config.getClient().chain.id],
+      })
+      return rsp
+    },
+  })
+}

@@ -9,10 +9,10 @@ export function createError(prefix: string, operation: string, details: string, 
     baseMessage = `${baseMessage} - ${originalError.message}`
   }
   let finalError: Error
-  if (originalError != null) {
-    finalError = new Error(baseMessage, { cause: originalError })
-  } else {
+  if (originalError == null) {
     finalError = new Error(baseMessage)
+  } else {
+    finalError = new Error(baseMessage, { cause: originalError })
   }
 
   return finalError

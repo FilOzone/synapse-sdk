@@ -1,6 +1,6 @@
 {
   "name": "@filoz/synapse-react",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "React hooks for interacting with Filecoin Onchain Cloud smart contracts",
   "repository": {
     "type": "git",
@@ -65,7 +65,8 @@
         "dist/**"
       ],
       "dependencies": [
-        "../synapse-core:build"
+        "../synapse-core:build",
+        "../synapse-sdk:build"
       ]
     },
     "lint": {
@@ -82,6 +83,7 @@
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",
+    "@filoz/synapse-sdk": "workspace:^",
     "@hugomrdias/filsnap-adapter": "^3.3.8"
   },
   "devDependencies": {

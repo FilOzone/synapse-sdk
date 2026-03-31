@@ -17,7 +17,7 @@ import type { PieceCID } from '../piece/piece.ts'
 import * as Piece from '../piece/piece.ts'
 import type * as TypedData from '../typed-data/index.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
-import { isUint8Array } from '../utils/streams.ts'
+import { isUint8Array, supportsStreamingFetchBody } from '../utils/streams.ts'
 
 export namespace createDataSet {
   /**
@@ -319,7 +319,7 @@ export async function uploadPieceStreaming(
     ? new Blob([options.data as Uint8Array<ArrayBuffer>]).stream()
     : (options.data as ReadableStream) // ReadableStream types dont match between browsers and Node.js
 
-  const size = isUint8Array(options.data) ? options.data.length : options.size
+  let size = isUint8Array(options.data) ? options.data.length : options.size
 
   // Add size tracking and progress reporting
   let bytesUploaded = 0
@@ -363,19 +363,48 @@ export async function uploadPieceStreaming(
     ? dataStream.pipeThrough(trackingStream).pipeThrough(pieceCidStream)
     : dataStream.pipeThrough(trackingStream)
 
-  // PUT /pdp/piece/uploads/{uuid} with streaming body
+  // Determine fetch body: stream it directly when the environment supports
+  // ReadableStream as a request body (Chrome, Node.js), otherwise drain the
+  // pipeline into a Blob first (Firefox, Safari). Draining still runs the
+  // full TransformStream chain so CommP calculation and progress tracking
+  // both execute regardless of path.
+  let fetchBody: ReadableStream | Blob
+  let fetchOptions: Record<string, string> = {}
+
+  if (supportsStreamingFetchBody()) {
+    fetchBody = bodyStream
+    fetchOptions = { duplex: 'half' }
+  } else {
+    const chunks: Uint8Array[] = []
+    let totalSize = 0
+    const reader = bodyStream.getReader()
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      totalSize += value.length
+    }
+    fetchBody = new Blob(chunks as BlobPart[])
+    // Override Content-Length with the actual accumulated size since we now
+    // know it precisely, even for ReadableStream inputs without a pre-set size
+    if (size == null) {
+      size = totalSize
+    }
+  }
+
+  // PUT /pdp/piece/uploads/{uuid}
   const headers: Record<string, string> = {
     'Content-Type': 'application/octet-stream',
-    ...(size != null ? { 'Content-Length': size.toString() } : {}),
+    ...(size == null ? {} : { 'Content-Length': size.toString() }),
   }
 
   const uploadResponse = await request.put(new URL(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL), {
-    body: bodyStream,
+    body: fetchBody,
     headers,
     timeout: false, // No timeout for streaming upload
     signal: options.signal,
-    duplex: 'half', // Required for streaming request bodies
-  } as Parameters<typeof request.put>[1] & { duplex: 'half' })
+    ...fetchOptions,
+  } as Parameters<typeof request.put>[1] & { duplex?: 'half' })
 
   if (uploadResponse.error) {
     if (HttpError.is(uploadResponse.error)) {

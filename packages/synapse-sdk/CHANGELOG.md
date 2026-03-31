@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.40.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.1...synapse-sdk-v0.40.2) (2026-03-30)
+
+
+### Features
+
+* **storage:** add 'source' and 'withCDN' getters on StorageManager ([#701](https://github.com/FilOzone/synapse-sdk/issues/701)) ([d463939](https://github.com/FilOzone/synapse-sdk/commit/d463939a60eff079507ee9c10f79d3e8685a4d81))
+
+
+### Bug Fixes
+
+* re-export error handling utilities and adjust type export order ([011f47f](https://github.com/FilOzone/synapse-sdk/commit/011f47f9f9c742066d305fd9845eadaf32afc092))
+
+
+### Chores
+
+* update biome and fix issues ([f5e8abd](https://github.com/FilOzone/synapse-sdk/commit/f5e8abd4b006e4818717d16f1ede49cb80a2fc3f))
+
+
+### Documentation
+
+* additional docs for upload options: providerId and dataSetId ([#690](https://github.com/FilOzone/synapse-sdk/issues/690)) ([c57a707](https://github.com/FilOzone/synapse-sdk/commit/c57a70735a81a5552c203a438e0182154456ff09))
+
+## [0.40.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.0...synapse-sdk-v0.40.1) (2026-03-30)
+
+
+### Bug Fixes
+
+* installation instructions ([#692](https://github.com/FilOzone/synapse-sdk/issues/692)) ([966a389](https://github.com/FilOzone/synapse-sdk/commit/966a3898391435eaf581be23e23dfed88162020b))
+* **storage:** trim provider resolver & pass all erorrs through ([#702](https://github.com/FilOzone/synapse-sdk/issues/702)) ([02a0fc6](https://github.com/FilOzone/synapse-sdk/commit/02a0fc638f7ef00a5194601022e3f44fcd779ffd))
+
+## [0.40.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.39.0...synapse-sdk-v0.40.0) (2026-03-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* improve UploadResult ergonomics ([#664](https://github.com/FilOzone/synapse-sdk/issues/664))
+
+### Features
+
+* improve UploadResult ergonomics ([#664](https://github.com/FilOzone/synapse-sdk/issues/664)) ([56cd853](https://github.com/FilOzone/synapse-sdk/commit/56cd853c9f90a12bbcf7aff46e88e50b9eb6d40c))
+
+
+### Bug Fixes
+
+* pieceStatus confuses piece ownership. Closes [#296](https://github.com/FilOzone/synapse-sdk/issues/296) ([#655](https://github.com/FilOzone/synapse-sdk/issues/655)) ([be76ad1](https://github.com/FilOzone/synapse-sdk/commit/be76ad1e557dd48fe99c68060363e0c93574d7fd))
+* support multi sp upload flow in react and demo ([#675](https://github.com/FilOzone/synapse-sdk/issues/675)) ([7f70914](https://github.com/FilOzone/synapse-sdk/commit/7f70914e301a6969d5a1a6d1f06e6866d62f48d5))
+
 ## [0.39.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.38.0...synapse-sdk-v0.39.0) (2026-03-10)
 
 

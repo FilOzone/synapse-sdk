@@ -1,11 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
   "ignore": [
-    ".github/**",
-    "./packages/synapse-sdk/src/abis/gen.ts",
-    "./packages/synapse-sdk/wagmi.config.ts",
-    "./packages/synapse-sdk/src/test/mocks/**",
-    "./packages/synapse-core/src/abis/generated.ts",
     "./apps/synapse-playground/src/components/kibo-ui/dropzone/**",
     "./apps/synapse-playground/src/components/ui/**",
     "utils/**"
@@ -31,7 +26,7 @@
   },
   "workspaces": {
     "docs": {
-      "ignoreDependencies": ["@filoz/synapse-sdk", "ethers", "@filoz/synapse-core", "viem"],
+      "ignoreDependencies": ["@filoz/synapse-sdk", "@filoz/synapse-react", "@tanstack/react-query", "wagmi"],
       "ignoreFiles": ["src/custom.css"]
     },
     "packages/synapse-sdk": {
@@ -59,7 +54,8 @@
         "src/sp-registry/index.ts",
         "src/typed-data/index.ts",
         "src/utils/index.ts",
-        "src/warm-storage/index.ts"
+        "src/warm-storage/index.ts",
+        "src/devnet/index.ts"
       ],
       "ignoreFiles": ["wagmi.config.ts"]
     },

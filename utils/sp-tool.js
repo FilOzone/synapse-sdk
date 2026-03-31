@@ -591,13 +591,13 @@ async function handlePDPUpdate(registry, signer, options, provider) {
       ? BigInt(options['max-piece-size'])
       : currentPDP?.offering.maxPieceSizeInBytes || PDP_DEFAULTS.MAX_PIECE_SIZE,
     ipniPiece:
-      options['ipni-piece'] !== undefined
-        ? options['ipni-piece'] === 'true'
-        : currentPDP?.offering.ipniPiece || PDP_DEFAULTS.IPNI_PIECE,
+      options['ipni-piece'] === undefined
+        ? currentPDP?.offering.ipniPiece || PDP_DEFAULTS.IPNI_PIECE
+        : options['ipni-piece'] === 'true',
     ipniIpfs:
-      options['ipni-ipfs'] !== undefined
-        ? options['ipni-ipfs'] === 'true'
-        : currentPDP?.offering.ipniIpfs || PDP_DEFAULTS.IPNI_IPFS,
+      options['ipni-ipfs'] === undefined
+        ? currentPDP?.offering.ipniIpfs || PDP_DEFAULTS.IPNI_IPFS
+        : options['ipni-ipfs'] === 'true',
     storagePricePerTibPerMonth: options.price
       ? BigInt(options.price)
       : currentPDP?.offering.storagePricePerTibPerMonth || PDP_DEFAULTS.STORAGE_PRICE_PER_TIB_PER_MONTH,

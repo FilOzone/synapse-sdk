@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.3.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.2...synapse-core-v0.3.3) (2026-03-30)
+
+
+### Bug Fixes
+
+* remove unused storage cost calculation utility and export zod schemas ([1fd793b](https://github.com/FilOzone/synapse-sdk/commit/1fd793b9449e9c24387bed2905abe7899290920e))
+
+
+### Chores
+
+* update biome and fix issues ([f5e8abd](https://github.com/FilOzone/synapse-sdk/commit/f5e8abd4b006e4818717d16f1ede49cb80a2fc3f))
+
+## [0.3.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.1...synapse-core-v0.3.2) (2026-03-30)
+
+
+### Bug Fixes
+
+* **core:** fall back to Blob fetch body when ReadableStream not supported ([#681](https://github.com/FilOzone/synapse-sdk/issues/681)) ([6142cc4](https://github.com/FilOzone/synapse-sdk/commit/6142cc4fa119b2e830c9217979ed52e780f3c1b6))
+
+
+### Chores
+
+* **abi:** update ABI for 1.2.0 filecoin-services release ([#688](https://github.com/FilOzone/synapse-sdk/issues/688)) ([0259413](https://github.com/FilOzone/synapse-sdk/commit/0259413b86dd31e09c7bbc5c0d2f93cf50daadd6))
+
+## [0.3.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.0...synapse-core-v0.3.1) (2026-03-17)
+
+
+### Features
+
+* new usdfc dataset sybil fee ([#666](https://github.com/FilOzone/synapse-sdk/issues/666)) ([f1bfc44](https://github.com/FilOzone/synapse-sdk/commit/f1bfc44f946a0f6fbc5d4a80c4151e5e37c8824d))
+
+
+### Bug Fixes
+
+* pieceStatus confuses piece ownership. Closes [#296](https://github.com/FilOzone/synapse-sdk/issues/296) ([#655](https://github.com/FilOzone/synapse-sdk/issues/655)) ([be76ad1](https://github.com/FilOzone/synapse-sdk/commit/be76ad1e557dd48fe99c68060363e0c93574d7fd))
+* support multi sp upload flow in react and demo ([#675](https://github.com/FilOzone/synapse-sdk/issues/675)) ([7f70914](https://github.com/FilOzone/synapse-sdk/commit/7f70914e301a6969d5a1a6d1f06e6866d62f48d5))
+
 ## [0.3.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.2.3...synapse-core-v0.3.0) (2026-03-10)
 
 
