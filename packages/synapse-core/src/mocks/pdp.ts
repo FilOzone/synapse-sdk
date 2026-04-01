@@ -7,7 +7,8 @@
 import assert from 'assert'
 import { HttpResponse, http } from 'msw'
 import { decodeAbiParameters, type Hex } from 'viem'
-import type { addPieces, PullPieceInput, PullResponse, PullStatus } from '../sp/sp.ts'
+import type { addPiecesApiRequest } from '../sp/add-pieces.ts'
+import type { pullPiecesApiRequest } from '../sp/pull-pieces.ts'
 
 export interface PDPMockOptions {
   baseUrl?: string
@@ -332,7 +333,7 @@ export function addPiecesWithMetadataCapture(
 ) {
   const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
 
-  return http.post<{ id: string }, addPieces.RequestBody>(
+  return http.post<{ id: string }, addPiecesApiRequest.RequestBody>(
     `${baseUrl}/pdp/data-sets/:id/pieces`,
     async ({ params, request }) => {
       if (params.id !== dataSetId.toString()) {
@@ -374,13 +375,13 @@ export interface PullRequestCapture {
   extraData: string
   recordKeeper: string
   dataSetId?: number
-  pieces: PullPieceInput[]
+  pieces: pullPiecesApiRequest.PullPieceInput[]
 }
 
 /**
  * Creates a handler for the pull pieces endpoint that returns a fixed response
  */
-export function pullPiecesHandler(response: PullResponse, options: PDPMockOptions = {}) {
+export function pullPiecesHandler(response: pullPiecesApiRequest.ReturnType, options: PDPMockOptions = {}) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
 
   return http.post(`${baseUrl}/pdp/piece/pull`, async () => {
@@ -395,7 +396,7 @@ export function pullPiecesHandler(response: PullResponse, options: PDPMockOption
  * Creates a handler that captures the request body and returns a response
  */
 export function pullPiecesWithCaptureHandler(
-  response: PullResponse,
+  response: pullPiecesApiRequest.ReturnType,
   captureCallback: (request: PullRequestCapture) => void,
   options: PDPMockOptions = {}
 ) {
@@ -434,7 +435,7 @@ export function pullPiecesErrorHandler(errorMessage: string, statusCode = 500, o
  */
 export function pullPiecesPollingHandler(
   pendingCount: number,
-  finalResponse: PullResponse,
+  finalResponse: pullPiecesApiRequest.ReturnType,
   options: PDPMockOptions = {}
 ) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
@@ -448,11 +449,11 @@ export function pullPiecesPollingHandler(
     }
 
     if (callCount <= pendingCount) {
-      const pendingResponse: PullResponse = {
+      const pendingResponse: pullPiecesApiRequest.ReturnType = {
         status: 'pending',
         pieces: finalResponse.pieces.map((p) => ({
           pieceCid: p.pieceCid,
-          status: 'pending' as PullStatus,
+          status: 'pending' as pullPiecesApiRequest.PullStatus,
         })),
       }
       return HttpResponse.json(pendingResponse, { status: 200 })
@@ -466,7 +467,7 @@ export function pullPiecesPollingHandler(
  * Creates a handler that simulates a progression through statuses
  */
 export function pullPiecesProgressionHandler(
-  statusProgression: PullStatus[],
+  statusProgression: pullPiecesApiRequest.PullStatus[],
   pieces: Array<{ pieceCid: string }>,
   options: PDPMockOptions = {}
 ) {
@@ -482,7 +483,7 @@ export function pullPiecesProgressionHandler(
       console.debug(`SP Pull Mock: returning status ${currentStatus} (call ${callCount})`)
     }
 
-    const response: PullResponse = {
+    const response: pullPiecesApiRequest.ReturnType = {
       status: currentStatus,
       pieces: pieces.map((p) => ({
         pieceCid: p.pieceCid,
@@ -498,9 +499,9 @@ export function pullPiecesProgressionHandler(
  * Helper to create a complete PullResponse
  */
 export function createPullResponse(
-  status: PullStatus,
-  pieces: Array<{ pieceCid: string; status?: PullStatus }>
-): PullResponse {
+  status: pullPiecesApiRequest.PullStatus,
+  pieces: Array<{ pieceCid: string; status?: pullPiecesApiRequest.PullStatus }>
+): pullPiecesApiRequest.ReturnType {
   return {
     status,
     pieces: pieces.map((p) => ({

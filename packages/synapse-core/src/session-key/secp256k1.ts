@@ -27,7 +27,7 @@ interface Secp256k1SessionKeyOptions {
 /**
  * Secp256k1SessionKey - A session key for a secp256k1 private key.
  */
-class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements SessionKey<'Secp256k1'> {
+export class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements SessionKey<'Secp256k1'> {
   #client: Client<Transport, SynapseChain, SessionKeyAccount<'Secp256k1'>>
   #type: 'Secp256k1'
   #expirations: Expirations

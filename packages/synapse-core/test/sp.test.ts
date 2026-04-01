@@ -28,17 +28,19 @@ import {
   uploadPieceStreamingHandler,
 } from '../src/mocks/pdp.ts'
 import * as Piece from '../src/piece/piece.ts'
-import { getDataSet, TimeoutError, waitForAddPieces } from '../src/sp/index.ts'
 import {
-  addPieces,
-  createDataSet,
-  createDataSetAndAddPieces,
+  addPiecesApiRequest,
+  createDataSetAndAddPiecesApiRequest,
+  createDataSetApiRequest,
   deletePiece,
   findPiece,
+  getDataSet,
+  TimeoutError,
   uploadPiece,
-  uploadPieceStreaming,
-} from '../src/sp/sp.ts'
-import { waitForCreateDataSet } from '../src/sp/wait-for-create-dataset.ts'
+  waitForAddPieces,
+  waitForCreateDataSet,
+} from '../src/sp/index.ts'
+import { uploadPieceStreaming } from '../src/sp/upload-streaming.ts'
 import * as TypedData from '../src/typed-data/index.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
 
@@ -69,7 +71,7 @@ describe('SP', () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       server.use(
-        http.post<never, createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', async ({ request }) => {
+        http.post<never, createDataSetApiRequest.RequestBody>('http://pdp.local/pdp/data-sets', async ({ request }) => {
           const body = await request.json()
           assert.strictEqual(body.extraData, extraData)
           assert.strictEqual(body.recordKeeper, ADDRESSES.calibration.warmStorage)
@@ -89,7 +91,7 @@ describe('SP', () => {
         clientDataSetId: 0n,
         payee: ADDRESSES.client1,
       })
-      const result = await createDataSet({
+      const result = await createDataSetApiRequest({
         serviceURL: 'http://pdp.local',
         recordKeeper: ADDRESSES.calibration.warmStorage,
         extraData,
@@ -102,7 +104,7 @@ describe('SP', () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       server.use(
-        http.post<never, createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', async ({ request }) => {
+        http.post<never, createDataSetApiRequest.RequestBody>('http://pdp.local/pdp/data-sets', async ({ request }) => {
           const body = await request.json()
           assert.strictEqual(body.extraData, extraData)
           assert.strictEqual(body.recordKeeper, ADDRESSES.calibration.warmStorage)
@@ -123,7 +125,7 @@ describe('SP', () => {
         payee: ADDRESSES.client1,
         metadata: [{ key: 'name', value: 'test' }],
       })
-      const result = await createDataSet({
+      const result = await createDataSetApiRequest({
         serviceURL: 'http://pdp.local',
         recordKeeper: ADDRESSES.calibration.warmStorage,
         extraData,
@@ -134,7 +136,7 @@ describe('SP', () => {
 
     it('should fail with bad location header', async () => {
       server.use(
-        http.post<never, createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', () => {
+        http.post<never, createDataSetApiRequest.RequestBody>('http://pdp.local/pdp/data-sets', () => {
           return new HttpResponse(null, {
             status: 201,
             headers: { Location: `/pdp/data-sets/created/invalid-hash` },
@@ -146,14 +148,14 @@ describe('SP', () => {
         payee: ADDRESSES.client1,
       })
       try {
-        await createDataSet({
+        await createDataSetApiRequest({
           serviceURL: 'http://pdp.local',
           recordKeeper: ADDRESSES.calibration.warmStorage,
           extraData,
         })
         assert.fail('Should have thrown error for bad location header')
       } catch (e) {
-        const error = e as createDataSet.ErrorType
+        const error = e as createDataSetApiRequest.ErrorType
         assert.instanceOf(error, LocationHeaderError)
         assert.equal(error.message, 'Location header format is invalid: /pdp/data-sets/created/invalid-hash')
       }
@@ -161,7 +163,7 @@ describe('SP', () => {
 
     it('should fail with no location header', async () => {
       server.use(
-        http.post<never, createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', () => {
+        http.post<never, createDataSetApiRequest.RequestBody>('http://pdp.local/pdp/data-sets', () => {
           return new HttpResponse(null, {
             status: 201,
             headers: {},
@@ -173,14 +175,14 @@ describe('SP', () => {
         payee: ADDRESSES.client1,
       })
       try {
-        await createDataSet({
+        await createDataSetApiRequest({
           serviceURL: 'http://pdp.local',
           recordKeeper: ADDRESSES.calibration.warmStorage,
           extraData,
         })
         assert.fail('Should have thrown error for no Location header')
       } catch (e) {
-        const error = e as createDataSet.ErrorType
+        const error = e as createDataSetApiRequest.ErrorType
         assert.instanceOf(error, LocationHeaderError)
         assert.equal(error.message, 'Location header format is invalid: <none>')
       }
@@ -205,7 +207,7 @@ describe('SP', () => {
         })
       )
       try {
-        await createDataSet({
+        await createDataSetApiRequest({
           serviceURL: 'http://pdp.local',
           recordKeeper: ADDRESSES.calibration.warmStorage,
           extraData: await TypedData.signCreateDataSet(client, {
@@ -215,7 +217,7 @@ describe('SP', () => {
         })
         assert.fail('Should have thrown error for CreateDataSetError error')
       } catch (e) {
-        const error = e as createDataSet.ErrorType
+        const error = e as createDataSetApiRequest.ErrorType
         assert.instanceOf(error, CreateDataSetError)
         assert.equal(error.shortMessage, 'Failed to create data set.')
         assert.equal(
@@ -246,7 +248,7 @@ invariant failure: insufficient funds to cover lockup after function execution`
         })
       )
       try {
-        await createDataSet({
+        await createDataSetApiRequest({
           serviceURL: 'http://pdp.local',
           recordKeeper: ADDRESSES.calibration.warmStorage,
           extraData: await TypedData.signCreateDataSet(client, {
@@ -287,7 +289,7 @@ InvalidSignature(address expected, address actual)
         })
       )
       try {
-        await createDataSet({
+        await createDataSetApiRequest({
           serviceURL: 'http://pdp.local',
           recordKeeper: ADDRESSES.calibration.warmStorage,
           extraData: await TypedData.signCreateDataSet(client, {
@@ -451,7 +453,7 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await createDataSetAndAddPieces({
+      const result = await createDataSetAndAddPiecesApiRequest({
         serviceURL: 'http://pdp.local',
         recordKeeper: ADDRESSES.calibration.warmStorage,
         pieces: [Piece.parse(pieceCid)],
@@ -474,7 +476,7 @@ InvalidSignature(address expected, address actual)
       const pieceCid = Piece.parse(validPieceCid)
 
       server.use(
-        http.post<{ id: string }, addPieces.RequestBody>(
+        http.post<{ id: string }, addPiecesApiRequest.RequestBody>(
           'http://pdp.local/pdp/data-sets/:id/pieces',
           async ({ request, params }) => {
             const body = await request.json()
@@ -504,7 +506,7 @@ InvalidSignature(address expected, address actual)
         pieces: [{ pieceCid }],
       })
 
-      const result = await addPieces({
+      const result = await addPiecesApiRequest({
         serviceURL: 'http://pdp.local',
         dataSetId: 1n,
         pieces: [pieceCid],
@@ -534,7 +536,7 @@ InvalidSignature(address expected, address actual)
       })
 
       try {
-        await addPieces({
+        await addPiecesApiRequest({
           serviceURL: 'http://pdp.local',
           dataSetId: 1n,
           pieces: [pieceCid],
@@ -554,7 +556,7 @@ InvalidSignature(address expected, address actual)
       const pieceCid2 = Piece.parse(validPieceCid)
 
       server.use(
-        http.post<{ id: string }, addPieces.RequestBody>(
+        http.post<{ id: string }, addPiecesApiRequest.RequestBody>(
           'http://pdp.local/pdp/data-sets/:id/pieces',
           async ({ request, params }) => {
             const body = await request.json()
@@ -579,7 +581,7 @@ InvalidSignature(address expected, address actual)
         pieces: [{ pieceCid: pieceCid1 }, { pieceCid: pieceCid2 }],
       })
 
-      const result = await addPieces({
+      const result = await addPiecesApiRequest({
         serviceURL: 'http://pdp.local',
         dataSetId: 1n,
         pieces: [pieceCid1, pieceCid2],
@@ -608,7 +610,7 @@ InvalidSignature(address expected, address actual)
       })
 
       try {
-        await addPieces({
+        await addPiecesApiRequest({
           serviceURL: 'http://pdp.local',
           dataSetId: 1n,
           pieces: [pieceCid],
@@ -639,7 +641,7 @@ InvalidSignature(address expected, address actual)
       })
 
       try {
-        await addPieces({
+        await addPiecesApiRequest({
           serviceURL: 'http://pdp.local',
           dataSetId: 1n,
           pieces: [pieceCid],
