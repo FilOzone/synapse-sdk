@@ -34,7 +34,7 @@ export interface SelectionDataSet {
  * and passes it to selectProviders(). Separating data fetching
  * from selection keeps selectProviders() pure and testable.
  *
- * The `endorsedIds` set controls pool restriction:
+ * The `endorsedIds` array controls pool restriction:
  * - Non-empty: only providers in this set are considered (primary selection)
  * - Empty: all providers in the `providers` list are considered (secondary selection)
  */
@@ -43,7 +43,7 @@ export interface ProviderSelectionInput {
   providers: PDPProvider[]
   /** Set of endorsed provider IDs (from endorsements.getProviderIds).
    *  Non-empty = restrict to endorsed only. Empty = use all providers. */
-  endorsedIds: Set<bigint>
+  endorsedIds: bigint[]
   /** Client's existing datasets with metadata and piece counts */
   clientDataSets: SelectionDataSet[]
 }
@@ -56,7 +56,7 @@ export interface ProviderSelectionOptions extends ProviderSelectionInput {
   /** Number of providers to select (default: 1) */
   count?: number
   /** Provider IDs to exclude (for retry after ping failure or multi-copy exclusion) */
-  excludeProviderIds?: Set<bigint>
+  excludeProviderIds?: bigint[]
   /** Desired metadata for dataset matching (empty object matches only empty-metadata datasets) */
   metadata?: MetadataObject
 }

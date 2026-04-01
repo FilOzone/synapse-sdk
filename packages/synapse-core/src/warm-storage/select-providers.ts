@@ -26,13 +26,13 @@ import type { ProviderSelectionOptions, ResolvedLocation } from './location-type
  */
 export function selectProviders(options: ProviderSelectionOptions): ResolvedLocation[] {
   const count = options.count ?? 1
-  const excludeProviderIds = options.excludeProviderIds ?? new Set<bigint>()
+  const excludeProviderIds = options.excludeProviderIds ?? []
   const metadata = options.metadata ?? {}
 
   // Determine the eligible pool: restricted to endorsed if endorsedIds is non-empty
-  const isPoolRestricted = options.endorsedIds.size > 0
+  const isPoolRestricted = options.endorsedIds.length > 0
   const eligibleProviders = options.providers.filter(
-    (p) => !excludeProviderIds.has(p.id) && (!isPoolRestricted || options.endorsedIds.has(p.id))
+    (p) => !excludeProviderIds.includes(p.id) && (!isPoolRestricted || options.endorsedIds.includes(p.id))
   )
 
   if (eligibleProviders.length === 0) {
@@ -46,24 +46,24 @@ export function selectProviders(options: ProviderSelectionOptions): ResolvedLoca
   const matchingDataSets = findMatchingDataSets(eligibleDataSets, metadata)
 
   const results: ResolvedLocation[] = []
-  const selectedProviderIds = new Set<bigint>()
+  const selectedProviderIds: bigint[] = []
 
   for (let i = 0; i < count; i++) {
     let found = false
 
     // Prefer a provider with an existing matching dataset (reuses payment rail)
     for (const ds of matchingDataSets) {
-      if (selectedProviderIds.has(ds.providerId)) continue
+      if (selectedProviderIds.includes(ds.providerId)) continue
       const provider = providerMap.get(ds.providerId)
       if (provider == null) continue
 
       results.push({
         provider,
         dataSetId: ds.dataSetId,
-        endorsed: options.endorsedIds.has(ds.providerId),
+        endorsed: options.endorsedIds.includes(ds.providerId),
         dataSetMetadata: ds.metadata,
       })
-      selectedProviderIds.add(ds.providerId)
+      selectedProviderIds.push(ds.providerId)
       found = true
       break
     }
@@ -71,14 +71,14 @@ export function selectProviders(options: ProviderSelectionOptions): ResolvedLoca
     // Otherwise pick any eligible provider (new dataset created on commit)
     if (!found) {
       for (const provider of eligibleProviders) {
-        if (selectedProviderIds.has(provider.id)) continue
+        if (selectedProviderIds.includes(provider.id)) continue
         results.push({
           provider,
           dataSetId: null,
-          endorsed: options.endorsedIds.has(provider.id),
+          endorsed: options.endorsedIds.includes(provider.id),
           dataSetMetadata: metadata,
         })
-        selectedProviderIds.add(provider.id)
+        selectedProviderIds.push(provider.id)
         found = true
         break
       }
