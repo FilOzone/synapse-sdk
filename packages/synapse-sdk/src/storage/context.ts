@@ -751,7 +751,7 @@ export class StorageContext {
     }))
 
     const handleProgressResponse = onProgress
-      ? (response: SP.PullResponse) => {
+      ? (response: SP.waitForPullPieces.ReturnType) => {
           for (const piece of response.pieces) {
             const pieceCid = pieces.find((p) => p.toString() === piece.pieceCid)
             if (pieceCid) {
@@ -784,9 +784,9 @@ export class StorageContext {
             metadata: this._dataSetMetadata,
           }
 
-      const response = await SP.waitForPullStatus(
+      const response = await SP.waitForPullPieces(
         this._synapse.sessionClient ?? this._synapse.client,
-        pullOptions as SP.waitForPullStatus.OptionsType
+        pullOptions as SP.waitForPullPieces.OptionsType
       )
 
       const pieceResults = response.pieces.map((piece: { pieceCid: string; status: string }) => {
