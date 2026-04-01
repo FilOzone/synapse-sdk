@@ -27,7 +27,7 @@ import {
   getAllDataSetMetadata,
   getAllDataSetMetadataCall,
   getAllPieceMetadata,
-  getApprovedProviders,
+  getApprovedProviderIds,
   getClientDataSets,
   getDataSet,
   getServicePrice,
@@ -365,7 +365,7 @@ export class WarmStorageService {
    */
   async removeApprovedProvider(options: { providerId: bigint }): Promise<removeApprovedProvider.OutputType> {
     // First, we need to find the index of this provider in the array
-    const approvedIds = await getApprovedProviders(this._client)
+    const approvedIds = await getApprovedProviderIds(this._client)
     const index = approvedIds.indexOf(options.providerId)
 
     if (index === -1) {
@@ -379,8 +379,8 @@ export class WarmStorageService {
    * Get list of approved provider IDs
    * @returns Array of approved provider IDs
    */
-  async getApprovedProviderIds(): Promise<getApprovedProviders.OutputType> {
-    return getApprovedProviders(this._client)
+  async getApprovedProviderIds(): Promise<getApprovedProviderIds.OutputType> {
+    return getApprovedProviderIds(this._client)
   }
 
   /**

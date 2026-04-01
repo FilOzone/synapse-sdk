@@ -273,7 +273,7 @@ export class StorageContext {
         synapse: options.synapse,
         metadata: options.metadata ?? {},
         count,
-        excludeProviderIds: new Set(options.excludeProviderIds ?? []),
+        excludeProviderIds: options.excludeProviderIds ?? [],
         requireEndorsedPrimary: true,
       })
     }
@@ -390,7 +390,7 @@ export class StorageContext {
       synapse,
       metadata: requestedMetadata,
       count: 1,
-      excludeProviderIds: new Set(options.excludeProviderIds ?? []),
+      excludeProviderIds: options.excludeProviderIds ?? [],
       requireEndorsedPrimary: false,
     })
     if (results.length === 0) {
@@ -563,7 +563,7 @@ export class StorageContext {
     synapse: Synapse
     metadata: Record<string, string>
     count: number
-    excludeProviderIds: Set<bigint>
+    excludeProviderIds: bigint[]
     requireEndorsedPrimary: boolean
   }): Promise<ProviderSelectionResult[]> {
     const { synapse, metadata, count, requireEndorsedPrimary } = options
@@ -576,7 +576,7 @@ export class StorageContext {
     // Inline ping-retry loop: select a candidate from core, ping it,
     // exclude on failure, re-select. One outer iteration per copy needed.
     const results: ProviderSelectionResult[] = []
-    const excludeProviderIds = new Set(options.excludeProviderIds)
+    const excludeProviderIds = options.excludeProviderIds
 
     for (let i = 0; i < count; i++) {
       const endorsedSlot = requireEndorsedPrimary && i === 0
@@ -588,7 +588,7 @@ export class StorageContext {
       for (;;) {
         const candidates = selectProviders({
           ...input,
-          endorsedIds: endorsedSlot ? input.endorsedIds : new Set<bigint>(),
+          endorsedIds: endorsedSlot ? input.endorsedIds : [],
           count: 1,
           excludeProviderIds,
           metadata,
@@ -600,7 +600,7 @@ export class StorageContext {
         try {
           await SP.ping(candidate.provider.pdp.serviceURL)
           results.push(StorageContext.toProviderSelectionResult(candidate))
-          excludeProviderIds.add(candidate.provider.id)
+          excludeProviderIds.push(candidate.provider.id)
           found = true
           break
         } catch (error) {
@@ -608,7 +608,7 @@ export class StorageContext {
             `Provider ${candidate.provider.serviceProvider} (ID: ${candidate.provider.id}) failed ping:`,
             error instanceof Error ? error.message : String(error)
           )
-          excludeProviderIds.add(candidate.provider.id)
+          excludeProviderIds.push(candidate.provider.id)
           pingFailures++
         }
       }
