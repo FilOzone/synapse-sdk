@@ -580,7 +580,7 @@ const [primary, secondary] = await synapse.storage.createContexts({
 })
 const pieceCid = null as unknown as PieceCID;
 // ---cut---
-const response = await SP.waitForPullStatus(client, {
+const response = await SP.waitForPullPieces(client, {
   serviceURL: secondary.provider.pdp.serviceURL,
   pieces: [{
     pieceCid,
