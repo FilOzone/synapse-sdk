@@ -1,5 +1,5 @@
-import type { AddPiecesRejected } from '../sp/wait-for-add-pieces.ts'
-import type { CreateDataSetRejected } from '../sp/wait-for-create-dataset.ts'
+import type { AddPiecesRejected } from '../sp/add-pieces.ts'
+import type { CreateDataSetRejected } from '../sp/create-dataset.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { decodePDPError } from '../utils/decode-pdp-errors.ts'
 import { isSynapseError, SynapseError } from './base.ts'
