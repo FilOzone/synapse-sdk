@@ -3,7 +3,7 @@ import { setup } from 'iso-web/msw'
 import { createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { getApprovedProviders, getApprovedProvidersCall } from '../src/warm-storage/get-approved-providers.ts'
+import { getApprovedProvidersIds, getApprovedProvidersIdsCall } from '../src/warm-storage/get-approved-providers-ids.ts'
 
 describe('getApprovedProviders', () => {
   const server = setup()
@@ -22,7 +22,7 @@ describe('getApprovedProviders', () => {
 
   describe('getApprovedProvidersCall', () => {
     it('should create call with calibration chain defaults', () => {
-      const call = getApprovedProvidersCall({
+      const call = getApprovedProvidersIdsCall({
         chain: calibration,
       })
 
@@ -33,7 +33,7 @@ describe('getApprovedProviders', () => {
     })
 
     it('should create call with mainnet chain defaults', () => {
-      const call = getApprovedProvidersCall({
+      const call = getApprovedProvidersIdsCall({
         chain: mainnet,
       })
 
@@ -44,7 +44,7 @@ describe('getApprovedProviders', () => {
     })
 
     it('should use custom offset and limit', () => {
-      const call = getApprovedProvidersCall({
+      const call = getApprovedProvidersIdsCall({
         chain: calibration,
         offset: 10n,
         limit: 50n,
@@ -55,7 +55,7 @@ describe('getApprovedProviders', () => {
 
     it('should use custom address when provided', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
-      const call = getApprovedProvidersCall({
+      const call = getApprovedProvidersIdsCall({
         chain: calibration,
         contractAddress: customAddress,
       })
@@ -73,7 +73,7 @@ describe('getApprovedProviders', () => {
         transport: http(),
       })
 
-      const providerIds = await getApprovedProviders(client)
+      const providerIds = await getApprovedProvidersIds(client)
 
       assert.deepEqual(providerIds, [1n, 2n])
     })
@@ -99,7 +99,7 @@ describe('getApprovedProviders', () => {
         transport: http(),
       })
 
-      const providerIds = await getApprovedProviders(client, {
+      const providerIds = await getApprovedProvidersIds(client, {
         offset: 5n,
         limit: 10n,
       })
@@ -123,7 +123,7 @@ describe('getApprovedProviders', () => {
         transport: http(),
       })
 
-      const providerIds = await getApprovedProviders(client)
+      const providerIds = await getApprovedProvidersIds(client)
 
       assert.deepEqual(providerIds, [])
     })

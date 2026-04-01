@@ -50,7 +50,7 @@ describe('selectProviders', () => {
     it('returns empty when no providers available', () => {
       const result = selectProviders({
         providers: [],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
       })
       assert.equal(result.length, 0)
@@ -59,9 +59,9 @@ describe('selectProviders', () => {
     it('returns empty when all providers are excluded', () => {
       const result = selectProviders({
         providers: [provider1, provider2],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
-        excludeProviderIds: new Set([1n, 2n]),
+        excludeProviderIds: [1n, 2n],
       })
       assert.equal(result.length, 0)
     })
@@ -69,7 +69,7 @@ describe('selectProviders', () => {
     it('selects provider with new dataset when no existing datasets', () => {
       const result = selectProviders({
         providers: [provider1],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
         metadata: { source: 'app' },
       })
@@ -83,7 +83,7 @@ describe('selectProviders', () => {
     it('respects count option', () => {
       const result = selectProviders({
         providers: [provider1, provider2, provider3],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
         count: 2,
       })
@@ -93,7 +93,7 @@ describe('selectProviders', () => {
     it('returns fewer than count if not enough providers', () => {
       const result = selectProviders({
         providers: [provider1],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
         count: 3,
       })
@@ -103,7 +103,7 @@ describe('selectProviders', () => {
     it('selects different providers for each result', () => {
       const result = selectProviders({
         providers: [provider1, provider2, provider3],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
         count: 3,
       })
@@ -116,7 +116,7 @@ describe('selectProviders', () => {
     it('restricts to endorsed providers when endorsedIds is non-empty', () => {
       const result = selectProviders({
         providers: [provider1, provider2, provider3],
-        endorsedIds: new Set([1n]),
+        endorsedIds: [1n],
         clientDataSets: [],
       })
       assert.equal(result.length, 1)
@@ -127,7 +127,7 @@ describe('selectProviders', () => {
     it('prefers existing dataset on endorsed provider', () => {
       const result = selectProviders({
         providers: [provider1, provider2],
-        endorsedIds: new Set([1n]),
+        endorsedIds: [1n],
         clientDataSets: [
           makeDataSet({
             dataSetId: 10n,
@@ -154,7 +154,7 @@ describe('selectProviders', () => {
     it('creates new dataset when endorsed provider has no matching datasets', () => {
       const result = selectProviders({
         providers: [provider1, provider2],
-        endorsedIds: new Set([1n]),
+        endorsedIds: [1n],
         clientDataSets: [
           makeDataSet({
             dataSetId: 20n,
@@ -174,7 +174,7 @@ describe('selectProviders', () => {
     it('defaults metadata to empty object when not provided', () => {
       const result = selectProviders({
         providers: [provider1],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
       })
       assert.equal(result.length, 1)
@@ -184,7 +184,7 @@ describe('selectProviders', () => {
     it('ignores non-endorsed providers when endorsedIds is non-empty', () => {
       const result = selectProviders({
         providers: [provider1, provider2, provider3],
-        endorsedIds: new Set([1n]),
+        endorsedIds: [1n],
         clientDataSets: [
           makeDataSet({
             dataSetId: 20n,
@@ -203,7 +203,7 @@ describe('selectProviders', () => {
     it('uses all providers when endorsedIds is empty', () => {
       const result = selectProviders({
         providers: [provider1, provider2],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [
           makeDataSet({
             dataSetId: 20n,
@@ -222,7 +222,7 @@ describe('selectProviders', () => {
     it('creates new dataset when pool is unrestricted and no matching datasets', () => {
       const result = selectProviders({
         providers: [provider1, provider2],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
         metadata: { source: 'app' },
       })
@@ -236,7 +236,7 @@ describe('selectProviders', () => {
     it('selects multiple providers from the same pool', () => {
       const result = selectProviders({
         providers: [provider1, provider2, provider3],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
         metadata: { source: 'app' },
         count: 2,
@@ -248,7 +248,7 @@ describe('selectProviders', () => {
     it('reuses existing datasets across multiple providers', () => {
       const result = selectProviders({
         providers: [provider1, provider2],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [
           makeDataSet({
             dataSetId: 10n,
@@ -276,7 +276,7 @@ describe('selectProviders', () => {
     it('falls through to new dataset when existing datasets are exhausted', () => {
       const result = selectProviders({
         providers: [provider1, provider2],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [
           makeDataSet({
             dataSetId: 10n,
@@ -303,7 +303,7 @@ describe('selectProviders', () => {
     it('prefers dataset with pieces over empty dataset on same provider', () => {
       const result = selectProviders({
         providers: [provider1],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [
           makeDataSet({
             dataSetId: 5n,
@@ -326,7 +326,7 @@ describe('selectProviders', () => {
     it('prefers older dataset when both have pieces', () => {
       const result = selectProviders({
         providers: [provider1],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [
           makeDataSet({
             dataSetId: 10n,
@@ -351,7 +351,7 @@ describe('selectProviders', () => {
     it('only considers datasets matching requested metadata', () => {
       const result = selectProviders({
         providers: [provider1, provider2],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [
           makeDataSet({
             dataSetId: 10n,
@@ -376,7 +376,7 @@ describe('selectProviders', () => {
     it('creates new dataset when metadata does not match any existing', () => {
       const result = selectProviders({
         providers: [provider1],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [
           makeDataSet({
             dataSetId: 10n,
@@ -396,9 +396,9 @@ describe('selectProviders', () => {
     it('excludes specified provider IDs', () => {
       const result = selectProviders({
         providers: [provider1, provider2, provider3],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
-        excludeProviderIds: new Set([1n]),
+        excludeProviderIds: [1n],
       })
       assert.equal(result.length, 1)
       assert.notEqual(result[0].provider.id, 1n)
@@ -407,9 +407,9 @@ describe('selectProviders', () => {
     it('excludes endorsed provider when specified', () => {
       const result = selectProviders({
         providers: [provider1, provider2],
-        endorsedIds: new Set([1n]),
+        endorsedIds: [1n],
         clientDataSets: [],
-        excludeProviderIds: new Set([1n]),
+        excludeProviderIds: [1n],
       })
       // Provider 1 excluded, and endorsedIds restricts pool to only endorsed
       // So no providers are eligible
@@ -421,7 +421,7 @@ describe('selectProviders', () => {
     it('marks endorsed providers correctly', () => {
       const result = selectProviders({
         providers: [provider1, provider2, provider3],
-        endorsedIds: new Set([2n]),
+        endorsedIds: [2n],
         clientDataSets: [],
         count: 3,
       })
@@ -434,7 +434,7 @@ describe('selectProviders', () => {
     it('marks all as non-endorsed when endorsedIds is empty', () => {
       const result = selectProviders({
         providers: [provider1, provider2],
-        endorsedIds: new Set(),
+        endorsedIds: [],
         clientDataSets: [],
         count: 2,
       })

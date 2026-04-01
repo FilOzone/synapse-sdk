@@ -1,5 +1,5 @@
 export {
-  getProviderIds,
-  getProviderIdsCall,
-  parseGetProviderIds,
-} from './get-provider-ids.ts'
+  getEndorsedProviderIds,
+  getEndorsedProviderIdsCall,
+  parseGetEndorsedProviderIds,
+} from './get-endorsed-provider-ids.ts'
