@@ -28,7 +28,7 @@ describe('getClientDataSets', () => {
       })
 
       assert.equal(call.functionName, 'getClientDataSets')
-      assert.deepEqual(call.args, [ADDRESSES.client1])
+      assert.deepEqual(call.args, [ADDRESSES.client1, 0n, 0n])
       assert.equal(call.address, calibration.contracts.fwssView.address)
       assert.equal(call.abi, calibration.contracts.fwssView.abi)
     })
@@ -40,7 +40,7 @@ describe('getClientDataSets', () => {
       })
 
       assert.equal(call.functionName, 'getClientDataSets')
-      assert.deepEqual(call.args, [ADDRESSES.client1])
+      assert.deepEqual(call.args, [ADDRESSES.client1, 0n, 0n])
       assert.equal(call.address, mainnet.contracts.fwssView.address)
       assert.equal(call.abi, mainnet.contracts.fwssView.abi)
     })
@@ -68,14 +68,14 @@ describe('getClientDataSets', () => {
       assert.deepEqual(call.args, [ADDRESSES.client1, 10n, 50n])
     })
 
-    it('should use unpaginated args when no offset/limit provided', () => {
+    it('should default offset/limit to 0n when not provided', () => {
       const call = getClientDataSetsCall({
         chain: calibration,
         address: ADDRESSES.client1,
       })
 
       assert.equal(call.functionName, 'getClientDataSets')
-      assert.deepEqual(call.args, [ADDRESSES.client1])
+      assert.deepEqual(call.args, [ADDRESSES.client1, 0n, 0n])
     })
   })
 
@@ -108,6 +108,31 @@ describe('getClientDataSets', () => {
       assert.equal(typeof first.pdpEndEpoch, 'bigint')
       assert.equal(typeof first.providerId, 'bigint')
       assert.equal(typeof first.dataSetId, 'bigint')
+    })
+
+    it('should fetch client data sets with pagination', async () => {
+      server.use(JSONRPC(presets.basic))
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const dataSets = await getClientDataSets(client, {
+        address: ADDRESSES.client1,
+        offset: 0n,
+        limit: 10n,
+      })
+
+      assert.ok(dataSets.length > 0)
+      const [first] = dataSets
+      assert.ok(first)
+      if (!first) return
+
+      assert.equal(typeof first.pdpRailId, 'bigint')
+      assert.equal(typeof first.dataSetId, 'bigint')
+      assert.equal(typeof first.payer, 'string')
+      assert.equal(typeof first.payee, 'string')
     })
   })
 })

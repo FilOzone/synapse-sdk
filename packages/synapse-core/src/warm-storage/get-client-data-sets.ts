@@ -19,9 +19,9 @@ export namespace getClientDataSets {
   export type OptionsType = {
     /** Client address to fetch data sets for. */
     address: Address
-    /** Starting index (0-based). Use 0 to start from beginning. Defaults to fetching all (unpaginated). */
+    /** Starting index (0-based). Use `0` to start from the beginning. Defaults to `0n`. */
     offset?: bigint
-    /** Maximum number of data sets to return. Use 0 to get all remaining. Defaults to fetching all (unpaginated). */
+    /** Maximum number of data sets to return. Use `0` to get all remaining. Defaults to `0n` (all). */
     limit?: bigint
     /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
     contractAddress?: Address
@@ -87,7 +87,12 @@ export async function getClientDataSets(
 export namespace getClientDataSetsCall {
   export type OptionsType = Simplify<getClientDataSets.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
-  export type OutputType = ContractFunctionParameters<typeof storageViewAbi, 'pure' | 'view', 'getClientDataSets'>
+  export type OutputType = ContractFunctionParameters<
+    typeof storageViewAbi,
+    'pure' | 'view',
+    'getClientDataSets',
+    [Address, bigint, bigint]
+  >
 }
 
 /**
@@ -123,21 +128,10 @@ export namespace getClientDataSetsCall {
  */
 export function getClientDataSetsCall(options: getClientDataSetsCall.OptionsType) {
   const chain = asChain(options.chain)
-  const base = {
+  return {
     abi: chain.contracts.fwssView.abi,
     address: options.contractAddress ?? chain.contracts.fwssView.address,
     functionName: 'getClientDataSets',
-  } as const
-
-  if (options.offset != null || options.limit != null) {
-    return {
-      ...base,
-      args: [options.address, options.offset ?? 0n, options.limit ?? 0n],
-    } as getClientDataSetsCall.OutputType
-  }
-
-  return {
-    ...base,
-    args: [options.address],
+    args: [options.address, options.offset ?? 0n, options.limit ?? 0n],
   } satisfies getClientDataSetsCall.OutputType
 }
