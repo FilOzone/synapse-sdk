@@ -108,7 +108,7 @@ const publicClient = createPublicClient({ chain: calibration, transport: http() 
 import * as warmStorage from "@filoz/synapse-core/warm-storage"
 
 // List approved providers
-const providers = await warmStorage.getApprovedProviders(publicClient)
+const providers = await warmStorage.getApprovedProviderIds(publicClient)
 console.log(providers) // bigint[] — approved provider IDs
 ```
 
