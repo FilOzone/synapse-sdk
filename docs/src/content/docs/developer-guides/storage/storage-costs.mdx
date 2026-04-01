@@ -5,9 +5,11 @@ sidebar:
   order: 2
 ---
 
-Understanding storage costs helps you budget effectively and avoid service interruptions. This guide explains how to calculate costs and fund your account for Filecoin storage.
+Understanding storage costs helps you budget effectively and avoid service interruptions. This guide covers the SDK APIs for calculating costs, funding your account, and querying account state.
 
-## How Storage Costs Work
+:::tip[How It Works]
+For a deep understanding of the payment model — account state, payment rails, rate mechanics, and deposit calculation — see the [Payments & Storage cookbook](/cookbooks/payments-and-storage/).
+:::
 
 Storage operates on a **pay-per-epoch** model where you deposit USDFC tokens and set allowances that control how much the storage service can spend.
 
@@ -15,7 +17,7 @@ Storage operates on a **pay-per-epoch** model where you deposit USDFC tokens and
 An **epoch** is Filecoin's block time, which is 30 seconds. Storage costs are calculated per epoch, ensuring you only pay for the storage time you actually use.
 :::
 
-### Pricing Components
+## Pricing Components
 
 | Component | Cost | Notes |
 | -------------- | ------------------ | -------------------------------------------------------- |
@@ -35,6 +37,8 @@ Per month means **per 30 days** here, not calendar month like a traditional stor
 - CDN egress credits can be topped up anytime
 
 ### Real-World Cost Examples
+
+These examples use plain arithmetic for clarity. For programmatic cost calculation, use `getUploadCosts()` — see [Querying Upload Costs](#querying-upload-costs) below.
 
 #### Example 1: NFT Collection (10,000 × 5 KiB ≈ 48.82 MiB)
 
@@ -91,76 +95,129 @@ const totalCostFor24Months = totalCostPerMonth * 24;
 | CDN Egress | ≈ 1.334 USDFC | ≈ 32.016 USDFC |
 | **Total** | **≈ 1.572 USDFC** | **≈ 37.728 USDFC** |
 
-## Warm Storage Service Approvals
-
-Before uploading, the **WarmStorage operator** must be approved and your account must be funded. FWSS requires a 30-day prepayment buffer — when your balance drops below 30 days, the provider may remove your data.
-
-The SDK's `prepare()` method handles all of this automatically. It computes the exact deposit needed, checks whether the FWSS operator is approved, and returns a single transaction that handles both.
-
----
-
 ## Querying Upload Costs
 
 Use `getUploadCosts()` to preview costs without executing any transaction. This is useful for displaying pricing in a UI or letting users confirm before proceeding.
 
+Getting the costs for uploading to an existing dataset:
+
 ```ts twoslash
 // @lib: esnext,dom
-import { Synapse, formatUnits } from "@filoz/synapse-sdk";
+// @noErrors
+import { Synapse, SIZE_CONSTANTS } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 // ---cut---
-const costs = await synapse.storage.getUploadCosts({
-  dataSize: 1073741824n, // 1 GiB in bytes
+// With currentDataSetSize — accurate floor-aware delta
+const { rate, depositNeeded } = await synapse.storage.getUploadCosts({
+  isNewDataSet: false,
+  currentDataSetSize: 50n * SIZE_CONSTANTS.MiB,
+  dataSize: 100n * SIZE_CONSTANTS.MiB,
 })
+// Shows incremental cost (newRate - currentRate), handles floor-to-floor
 
+// Without currentDataSetSize — safe overestimate for floor cases
+const costs2 = await synapse.storage.getUploadCosts({
+  isNewDataSet: false,
+  dataSize: 100n * SIZE_CONSTANTS.MiB,
+})
+// Accurate for above-floor datasets, overestimates for floor-priced ones
 ```
 
-The returned `UploadCosts` object contains:
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `rate.perEpoch` | `bigint` | Storage rate per epoch (30 seconds) |
-| `rate.perMonth` | `bigint` | Storage rate per month (for display) |
-| `depositNeeded` | `bigint` | USDFC to deposit (`0n` if sufficient funds) |
-| `needsFwssMaxApproval` | `boolean` | Whether FWSS operator approval is needed |
-| `ready` | `boolean` | `true` when no deposit or approval is needed |
-
----
-
-## Funding Your Account
-
-Use `prepare()` to compute costs and get a ready-to-execute transaction. This is the recommended approach for most use cases — it replaces the previous manual flow of calculating allowances, checking approvals, and branching between deposit/approve methods.
+Getting the costs for uploading to a new dataset:
 
 ```ts twoslash
 // @lib: esnext,dom
-import { Synapse, formatUnits } from "@filoz/synapse-sdk";
+// @noErrors
+import { Synapse, formatUnits, SIZE_CONSTANTS } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
+// ---cut---
+const { rate, depositNeeded, needsFwssMaxApproval, ready } = await synapse.storage.getUploadCosts({
+  dataSize: 100n * SIZE_CONSTANTS.MiB,
+  isNewDataSet: true,
+  withCDN: true,
+})
+
+// Storage rate per epoch (30 seconds)
+console.log("Rate per epoch:", formatUnits(rate.perEpoch), "USDFC")
+// Storage rate per month
+console.log("Rate per month:", formatUnits(rate.perMonth), "USDFC")
+// USDFC to deposit
+console.log("Deposit needed:", formatUnits(depositNeeded), "USDFC")
+// Whether FWSS needs to be approved
+console.log("Needs approval:", needsFwssMaxApproval)
+// Whether the account is ready to upload
+console.log("Ready to upload:", ready)
+```
+
+## Upload Preparation
+
+Before uploading, the **WarmStorage operator** must be approved and your account must be funded. FWSS requires a 30-day prepayment buffer — when your balance drops below 30 days, the provider may remove your data.
+
+:::tip[Typical Flow]
+**Query costs** → **prepare transaction** → **execute** → **upload**. The `prepare()` method handles the middle steps in one call.
+:::
+
+`prepare()` computes costs and returns a ready-to-execute transaction. This is the recommended approach — it handles deposit calculation, operator approval, and contract call routing in one step.
+
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, formatUnits, SIZE_CONSTANTS } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
-const totalCostNeeded = null as unknown as bigint;
-const rateAllowanceNeeded = null as unknown as bigint;
-const lockupAllowanceNeeded = null as unknown as bigint;
-const approval = await synapse.payments.serviceApproval();
-const accountInfo = await synapse.payments.accountInfo();
 // ---cut---
-// Compute costs and get a transaction (if needed)
-const prep = await synapse.storage.prepare({
-  dataSize: 1073741824n, // 1 GiB
+const { costs, transaction } = await synapse.storage.prepare({
+  dataSize: SIZE_CONSTANTS.GiB,
 })
 
 // Inspect costs
-console.log("Rate per month:", formatUnits(prep.costs.rate.perMonth))
-console.log("Deposit needed:", formatUnits(prep.costs.depositNeeded))
+const { rate, depositNeeded } = costs // Upload costs breakdown
+console.log("Rate per month:", formatUnits(rate.perMonth))
+console.log("Deposit needed:", formatUnits(depositNeeded))
 
 // Execute if the account isn't ready
-if (prep.transaction) {
-  console.log("Deposit amount:", formatUnits(prep.transaction.depositAmount))
-  console.log("Includes approval:", prep.transaction.includesApproval)
+if (transaction) {
+  const { depositAmount, includesApproval } = transaction
+  console.log("Deposit amount:", formatUnits(depositAmount))
+  console.log("Includes approval:", includesApproval)
 
-  const { hash } = await prep.transaction.execute()
+  const { hash } = await transaction.execute()
   console.log("Transaction confirmed:", hash)
 }
 
 // Now safe to upload
+```
+
+When storing data across multiple providers, pass an array of contexts. The SDK aggregates per-context lockup while computing account-level values (debt, runway, buffer) once.
+
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, formatUnits, SIZE_CONSTANTS, TIME_CONSTANTS } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
+
+const contexts = await synapse.storage.createContexts({ copies: 3 })
+
+// 1-year runway
+const oneYear = TIME_CONSTANTS.EPOCHS_PER_MONTH * 12n
+
+// Prepare a single deposit covering all 3 copies for 1 year
+const { costs, transaction } = await synapse.storage.prepare({
+  context: contexts,
+  dataSize: 50n * SIZE_CONSTANTS.GiB,
+  extraRunwayEpochs: oneYear,
+})
+
+const { rate, depositNeeded, ready } = costs
+console.log("Monthly rate (per copy):", formatUnits(rate.perMonth), "USDFC")
+console.log("Total deposit needed:", formatUnits(depositNeeded), "USDFC")
+console.log("Account ready:", ready)
+
+if (transaction) {
+  const { hash } = await transaction.execute()
+  console.log("Funded:", hash)
+}
 ```
 
 `prepare()` returns:
@@ -175,7 +232,35 @@ The transaction automatically picks the right contract call:
 - **Needs deposit only**: calls `depositWithPermit`
 - **Already ready**: returns `transaction: null`
 
+## Account Queries
+
+Read-only APIs for account-level cost visibility.
+
+```ts twoslash
+// @noErrors
+// Aggregate rate across all active rails
+const { ratePerEpoch, ratePerMonth } = await synapse.payments.totalAccountRate()
+
+// Sum of lockupFixed across all rails (including terminated but not finalized)
+const { totalFixedLockup } = await synapse.payments.totalAccountLockup()
+
+// Total storage size across all live datasets
+import { getAccountTotalStorageSize } from '@filoz/synapse-core/warm-storage'
+const { totalSizeBytes, datasetCount } = await getAccountTotalStorageSize(client, {
+  address: '0x...',
+})
+```
+
+All rate values come in both per-epoch (contract-native) and per-month (`ratePerEpoch * EPOCHS_PER_MONTH`) units. Note that `ratePerMonth` from `totalAccountRate()` is computed as `ratePerEpoch * EPOCHS_PER_MONTH` — this is slightly less than the full-precision `rate.perMonth` returned by `getUploadCosts()` due to integer truncation. See [Rate Precision](/cookbooks/payments-and-storage/#rate-precision) for details.
+
+:::tip[API Reference]
+For the full API — including pure calculation functions and lower-level utilities — see the [synapse-core pay reference](/reference/filoz/synapse-core/pay/toc/) and [synapse-core warm-storage reference](/reference/filoz/synapse-core/warm-storage/toc/).
+:::
+
 ## Next Steps
 
-- [Storage Operations](/developer-guides/storage/storage-operations/) - Storage concepts and workflows
-- [Storage Context](/developer-guides/storage/storage-context/) - Contexts and data sets
+- [Payments & Storage](/cookbooks/payments-and-storage/) — Deep dive into the payment model mechanics
+- [StorageManager API Reference](/reference/filoz/synapse-sdk/storage/classes/storagemanager/) — Full SDK storage API
+- [PaymentsService API Reference](/reference/filoz/synapse-sdk/payments/classes/paymentsservice/) — Full SDK payments API
+- [Storage Operations](/developer-guides/storage/storage-operations/) — Storage concepts and workflows
+- [Storage Context](/developer-guides/storage/storage-context/) — Contexts and data sets

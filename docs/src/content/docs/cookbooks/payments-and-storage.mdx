@@ -1,0 +1,351 @@
+---
+title: Payments & Storage
+description: How Filecoin Pay and FWSS work together — account model, payment rails, rate mechanics, and deposit calculations.
+sidebar:
+  order: 1
+---
+
+:::tip[What You'll Learn]
+
+- How the account model tracks deposits, lockup, and debt
+- How payment rails stream funds from payer to storage providers
+- Rate mechanics: precision, floor pricing, rate changes
+- Deposit calculation: the four components and the buffer problem
+
+:::
+
+Storage on Filecoin Onchain Cloud uses two connected on-chain systems:
+* **Filecoin Pay**: a generic payment protocol for streaming and one-time payments
+* **Filecoin Warm Storage Service (FWSS)**: a storage service that builds on Filecoin Pay
+
+FWSS acts as the **operator** on Filecoin Pay, managing payment rails between you (the payer) and storage providers (the payees). When you store data, FWSS creates and modifies payment rails on your behalf. When you fund your account or approve the operator, you interact with Filecoin Pay directly.
+
+This creates two distinct flow paths:
+
+1. **Funding path**: SDK → Filecoin Pay — deposits, approvals, withdrawals, account management
+2. **Storage path**: SDK → Storage Provider → FWSS → Filecoin Pay — storage operations (store, create dataset, delete) trigger rail creation and modification
+
+:::tip[SDK Usage]
+This cookbook explains the underlying mechanics. For practical usage:
+
+- **Code examples**: [Storage Costs](/developer-guides/storage/storage-costs/)
+- **Storage API**: [StorageManager](/reference/filoz/synapse-sdk/storage/classes/storagemanager/)
+- **Payments API**: [PaymentsService](/reference/filoz/synapse-sdk/payments/classes/paymentsservice/)
+- **Contract deep-dive**: [Filecoin Pay Technical Overview](/core-concepts/filecoin-pay-overview/)
+
+:::
+
+## Account Model
+
+### Account State
+
+Every payer has an account in the **Filecoin Pay contract** that tracks deposited funds and how much is reserved for active storage. Think of it as a checking account with a running tab — funds go in via deposits, and active storage services continuously draw from it.
+
+The account tracks four fields:
+
+| Field | Description |
+| ------- | ------------- |
+| `funds` | Total USDFC deposited |
+| `lockupCurrent` | Locked amount at last settlement |
+| `lockupRate` | How much lockup grows per epoch (sum of all active rail rates) |
+| `lockupLastSettledAt` | Epoch when lockup was last settled |
+
+Available funds at any epoch T:
+
+```text
+# Available funds at epoch T
+actualLockup = lockupCurrent + lockupRate * (T - lockupLastSettledAt)
+availableFunds = max(0, funds - actualLockup)
+debt = max(0, actualLockup - funds)
+```
+
+Note that `availableFunds` is clamped to zero — when underfunded, the **debt** is hidden by the clamping. See [Underfunded Accounts](#underfunded-accounts) for how debt affects deposits.
+
+The Filecoin Pay contract exposes `getAccountInfoIfSettled(token, owner)` which returns `fundedUntilEpoch` — the epoch at which your account runs out of funds:
+
+```text
+# Funded-until epoch
+fundedUntilEpoch = lockupLastSettledAt + (funds - lockupCurrent) / lockupRate
+```
+
+If `lockupRate == 0` (no active rails), `fundedUntilEpoch = infinity`.
+
+:::caution
+`getAccountInfoIfSettled` clamps `availableFunds` to zero and does not expose the debt amount. To get the actual debt, you need the raw account fields from `accounts(token, owner)` on the Filecoin Pay contract and compute `max(0, actualLockup - funds)` yourself. The SDK does this automatically when calculating deposit amounts.
+:::
+
+### Underfunded Accounts
+
+When your tab exceeds your balance, the account becomes **underfunded**. This has real consequences — new uploads will fail because the Filecoin Pay contract can't settle your account to the current epoch, which is required before any rate change.
+
+When an account's lockup obligations exceed its funds (`actualLockup > funds`), three things happen:
+
+1. **Partial settlement**: The contract can only settle up to the epoch where funds ran out (`fundedUntilEpoch`), not to the current block. After partial settlement: `lockupCurrent = funds`, `lockupLastSettledAt = fundedUntilEpoch`.
+
+2. **Rate changes blocked**: Any rate change (triggered by uploading new data) requires the account to be fully settled to the current epoch. If it can't settle, the transaction **reverts**. This is why uploads fail on underfunded accounts.
+
+3. **Deposit must cover debt first**: When you deposit, Filecoin Pay settles your account before and after. If your deposit doesn't cover the full debt, the account still isn't settled to the current epoch, and the subsequent upload reverts.
+
+Therefore, any deposit must include the **debt** (unsettled lockup beyond available funds) in addition to the new upload's lockup:
+
+```text
+# Deposit must cover debt
+debt = max(0, (lockupCurrent + lockupRate * elapsed) - funds)
+depositNeeded = additionalLockup + runwayAmount + buffer + debt
+```
+
+Without accounting for debt, you'd deposit N USDFC thinking it covers your new upload, but part of it gets consumed settling the outstanding lockup, leaving insufficient funds for the rate change. The SDK handles this automatically via `getUploadCosts()` and `prepare()` — see [Storage Costs](/developer-guides/storage/storage-costs/) for usage.
+
+## Payment Rails
+
+For each dataset you create, FWSS creates payment channels called **rails** that stream funds from your account to the storage provider. A dataset can have up to three rails depending on whether CDN is enabled.
+
+The three rail types are:
+
+- **PDP rail** — streaming payment at `paymentRate` per epoch for storage
+- **CDN rail** — fixed lockup (`lockupFixed = 0.7 USDFC`) for CDN egress credits
+- **Cache miss rail** — fixed lockup (`lockupFixed = 0.3 USDFC`) for cache miss egress credits
+
+Rail lockup formula:
+
+```text
+railLockup = (paymentRate * lockupPeriod) + lockupFixed
+```
+
+Where `lockupPeriod = 86,400 epochs` (30 days) by default.
+
+### Floor Pricing
+
+No matter how small your file, there is a minimum monthly charge per dataset. This floor ensures storage providers are compensated for the overhead of maintaining a dataset, even tiny ones.
+
+The FWSS contract enforces this floor:
+
+```solidity
+function _calculateStorageRate(uint256 totalBytes) internal view returns (uint256) {
+    uint256 naturalRate = calculateStorageSizeBasedRatePerEpoch(totalBytes, storagePricePerTibPerMonth);
+    uint256 minimumRate = minimumStorageRatePerMonth / EPOCHS_PER_MONTH;
+    return naturalRate > minimumRate ? naturalRate : minimumRate;
+}
+```
+
+Current minimum: **0.06 USDFC/month** (= `0.06 / 86400` per epoch).
+
+Small files pay the floor price. The threshold where the natural rate crosses the floor is approximately **24.567 GiB** — below this, every dataset pays the same $0.06/month minimum.
+
+### Dataset Creation Costs
+
+When a new dataset is created, the FWSS contract verifies you have enough available funds to cover the minimum case before proceeding.
+
+| Scenario | Minimum Available Funds Required |
+| -------- | --------------------------------- |
+| No CDN | 0.06 USDFC (floor price to cover 30-day lockup) |
+| With CDN | 1.06 USDFC (0.06 floor lockup + 0.7 CDN + 0.3 cache miss) |
+
+:::note
+The 0.06 USDFC floor is a per-month rate, and FWSS enforces a 30-day (86,400 epoch) lockup period. So the minimum funds required at dataset creation equals the floor rate for one lockup period — which happens to be one month.
+:::
+
+At creation time, the PDP rail starts with **rate = 0**. The rate is set when you add data — FWSS updates the payment rate automatically as part of the piece-addition callback.
+
+## Rate Mechanics
+
+:::note[Time Units]
+Throughout this system, a "month" always means exactly **30 days = 86,400 epochs**. Filecoin epochs are ~30-second intervals. The SDK exports `EPOCHS_PER_MONTH` and `EPOCHS_PER_DAY` constants for convenience. Calendar month alignment is the caller's responsibility.
+:::
+
+### Rate Precision
+
+The FWSS contract stores prices as per-month values but payment rails operate per-epoch. Integer division when converting causes truncation — this is why `perMonth != perEpoch * EPOCHS_PER_MONTH`.
+
+The FWSS contract's native storage:
+
+```solidity
+uint256 private storagePricePerTibPerMonth;       // 2.5 USDFC
+uint256 private minimumStorageRatePerMonth;        // 0.06 USDFC
+```
+
+The per-epoch rate is derived on-chain via integer division:
+
+```solidity
+naturalRate = (totalBytes * storagePricePerTibPerMonth) / (TIB_IN_BYTES * EPOCHS_PER_MONTH)
+```
+
+This truncation means there are two different "monthly rate" values — and using the wrong one leads to deposit miscalculations:
+
+| Value | Formula | Use for |
+| ------- | --------- | --------- |
+| `perMonth` | `(bytes × pricePerTiBPerMonth) / TIB_IN_BYTES` | Display to users (full precision) |
+| `perEpoch` | `perMonth / EPOCHS_PER_MONTH` | Lockup/deposit math (matches on-chain rail) |
+| `perEpoch × EPOCHS_PER_MONTH` | — | **Do not use** — this is less than `perMonth` due to truncation |
+
+### Rate Changes
+
+When you add data to an existing dataset, the storage rate changes. FWSS updates the rail on the Filecoin Pay contract, adjusting your account's lockup proportionally.
+
+The rate change formula (applied by the Filecoin Pay contract):
+
+```text
+# Rate change effect on account
+payer.lockupRate = payer.lockupRate - oldRate + newRate
+payer.lockupCurrent = payer.lockupCurrent - (oldRate * lockupPeriod) + (newRate * lockupPeriod)
+```
+
+Post-condition enforced by the Filecoin Pay contract: `funds >= lockupCurrent`
+
+The net additional lockup for a rate increase is:
+
+```text
+additionalLockup = (newRate - oldRate) * lockupPeriod
+```
+
+<details>
+<summary>**Why `lockupRate * elapsed` is always correct**</summary>
+
+A natural concern: between `lockupLastSettledAt` and the current epoch, couldn't rate changes have occurred that make `lockupRate * elapsed` inaccurate?
+
+No. Every function that modifies `lockupRate` (`modifyRailPayment`, `createRail`, etc.) has the `settleAccountLockupBeforeAndAfterForRail` modifier, which calls `settleAccountLockup` **before** the rate change takes effect. This means:
+
+1. Settlement happens at the old `lockupRate` up to `block.number`
+2. `lockupLastSettledAt` is updated to `block.number`
+3. `lockupRate` is then changed atomically
+4. Post-settlement check runs with new values
+
+So for any elapsed period `(currentEpoch - lockupLastSettledAt)`, the `lockupRate` has been constant the entire time. There is no need to track historical rate changes for account-level lockup calculation.
+
+:::note
+Rate change queues (`RateChangeQueue.Queue`) exist in the Filecoin Pay contract but they are a per-**rail** concept for payment settlement distribution between payer and operator. They do not affect the account-level `lockupRate` calculation.
+:::
+
+**Edge case**: `terminateRail` (operator-initiated) can reduce `lockupRate` on underfunded accounts without requiring full settlement. This is intentional — it is a mercy (rate decrease on a bottomed-out account) and does not invalidate the `lockupRate * elapsed` formula since the rate only decreases.
+
+</details>
+
+### Operator Approval
+
+Before FWSS can create or modify payment rails on your behalf, you need to approve it as a trusted **operator** on your Filecoin Pay account. The SDK treats FWSS as a fully trusted service and always approves with unlimited allowances.
+
+The Filecoin Pay contract's approval system has three-dimensional allowances (`rateAllowance`, `lockupAllowance`, `maxLockupPeriod`) that cap what an operator can commit on your behalf. For FWSS, the SDK always approves with `maxUint256` for all three — this means FWSS can manage any amount of storage without hitting allowance limits.
+
+The approval check is a simple binary:
+
+```text
+Is FWSS approved with maxUint256 allowances?
+  No  → depositWithPermitAndApproveOperator(depositAmount, maxUint256, maxUint256, maxUint256)
+  Yes, need deposit → depositWithPermit(depositAmount)
+  Yes, no deposit   → null (ready to upload)
+```
+
+**Relevant Filecoin Pay contract functions:**
+
+- `depositWithPermit(amount)` — deposit only, no approval changes
+- `depositWithPermitAndApproveOperator(amount, maxUint256, maxUint256, maxUint256)` — deposit + approve FWSS with unlimited allowances. Works for first-time approval AND re-approval (overwrites existing values)
+
+:::note
+Custom operators (non-FWSS) must still provide explicit allowance values. The `maxUint256` default is only for the FWSS trusted path.
+:::
+
+## Deposit Calculation
+
+The deposit amount needed for an upload is determined by four components. Understanding these helps you predict costs and debug failed uploads.
+
+The four components:
+
+1. **Additional lockup** — rate increase × lockup period + CDN fixed lockup
+2. **Runway** — extra funded time beyond the lockup period
+3. **Debt** — unsettled obligations on underfunded accounts
+4. **Buffer** — safety margin for epoch drift
+
+| Component | Formula | When It Matters |
+| ----------- | --------- | ----------------- |
+| Additional lockup | `(newRate - oldRate) * lockupPeriod + cdnFixedLockup` | Always (new or expanded storage) |
+| Runway | `newRate * runwayEpochs` | When caller requests extra funded time |
+| Debt | `max(0, actualLockup - funds)` | Underfunded accounts only |
+| Buffer | `netRate * bufferEpochs` | Existing users with active rails |
+
+Formula:
+
+```text
+rawDepositNeeded = additionalLockup + runwayAmount + debt - availableFunds
+depositNeeded = max(0, rawDepositNeeded) + bufferAmount
+```
+
+The debt term (`max(0, actualLockup - funds)`) is critical for underfunded accounts — see [Underfunded Accounts](#underfunded-accounts) for details on why deposits must cover debt first.
+
+The buffer is conditional: when no deposit is needed AND your `fundedUntilEpoch` extends beyond the buffer window, the account survives the epoch drift naturally.
+
+### The Buffer Problem
+
+Between checking your balance and the deposit transaction landing on-chain, time passes and funds drain. If this epoch drift is not accounted for, your transaction can revert with `InsufficientLockupFunds`.
+
+Consider: you check your balance at epoch T_check, but the transaction executes at epoch T_exec. Each epoch in between, funds are consumed at the current `lockupRate`. In multi-copy uploads, the problem is worse — the first copy's commit creates new rails that start draining at the new rate before later copies execute. The effective drain rate during this window can be as high as `netRate = lockupRate + rateDeltaPerEpoch` (the full post-upload rate).
+
+```text
+At T_check:
+  availableFunds = AF
+  debt = D                    (0 if fully funded)
+  fundedUntilEpoch = FUE      (epoch when account runs out of funds)
+  netRate = lockupRate + rateDeltaPerEpoch
+
+At T_exec (= T_check + bufferEpochs):
+  // Worst case: all new rails active for the full buffer window
+  availableFunds_exec = AF - netRate * bufferEpochs
+
+Post-conditions on chain:
+  1. Account must be fully settled (lockupLastSettledAt == block.number)
+     — otherwise modifyRailPayment reverts. This requires covering debt.
+  2. availableFunds_exec >= additionalLockup
+```
+
+The buffer logic:
+
+```text
+fundedUntilEpoch = lockupLastSettledAt + (funds - lockupCurrent) / lockupRate
+netRate = lockupRate + rateDeltaPerEpoch
+skipBuffer = (currentLockupRate == 0) and allNewDatasets
+
+rawDepositNeeded = additionalLockup + runwayAmount + debt - availableFunds
+
+if skipBuffer:
+    // New user: no existing rails draining, deposit lands before any rail
+    // is created. Buffer is unnecessary.
+    depositNeeded = max(0, rawDepositNeeded)
+
+elif rawDepositNeeded > 0:
+    // Deposit is needed for the new lockup. Add buffer so the deposit
+    // amount is sufficient at T_exec (epoch drift consumes funds).
+    depositNeeded = rawDepositNeeded + netRate * bufferEpochs
+
+elif fundedUntilEpoch <= currentEpoch + bufferEpochs:
+    // No new lockup needed, but the account is about to expire.
+    // The settlement at T_exec would fail without a deposit.
+    depositNeeded = max(0, netRate * bufferEpochs - availableFunds)
+
+else:
+    // No new lockup needed AND the account has plenty of runway.
+    // The settlement at T_exec will succeed naturally.
+    depositNeeded = 0
+```
+
+Summary of buffer logic:
+
+| Case | Condition | Deposit |
+| ------ | ----------- | --------- |
+| New user | `lockupRate == 0`, all new datasets | `max(0, rawDepositNeeded)` |
+| Deposit needed | `rawDepositNeeded > 0` | `rawDepositNeeded + netRate * bufferEpochs` |
+| About to expire | `fundedUntilEpoch ≤ currentEpoch + bufferEpochs` | `max(0, netRate * bufferEpochs - availableFunds)` |
+| Healthy account | Otherwise | `0` |
+
+The `debt` term is often zero for healthy accounts but is critical for underfunded accounts. Without it, the deposit would be insufficient — Filecoin Pay would consume part of it settling old obligations, leaving not enough for the new upload's rate change.
+
+**New users (buffer skipped):** The buffer is skipped when `currentLockupRate === 0` AND all contexts are new datasets. This covers the common new-user flow — nothing is draining between the balance check and deposit, so the buffer would only add an unnecessary charge.
+
+**Existing users:** The `bufferEpochs` parameter controls safety margin. Filecoin has 30-second epochs, so 5 epochs = 2.5 minutes (default), 10 epochs = 5 minutes (conservative). Users with high lockup rates need proportionally larger buffers.
+
+**Why `netRate` instead of `currentLockupRate`:** The buffer uses `netRate = currentLockupRate + rateDeltaPerEpoch` as a conservative safety margin for edge cases in multi-context sequential uploads. For floor-to-floor additions, `rateDeltaPerEpoch = 0` so the buffer is unchanged.
+
+## Next Steps
+
+- [Storage Costs](/developer-guides/storage/storage-costs/) — SDK API usage and code examples
+- [Filecoin Pay Technical Overview](/core-concepts/filecoin-pay-overview/) — Contract internals and architecture
+- [Storage Operations](/developer-guides/storage/storage-operations/) — Upload workflows and data management
+- [Full Storage Cost API spec](https://hackmd.io/@lordforever/SJ6Lwv2dWx) (external) — Complete API specification

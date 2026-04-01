@@ -1,0 +1,285 @@
+---
+title: Split Operations
+description: Manual control over store, pull, and commit phases for advanced upload workflows.
+sidebar:
+  order: 4
+  label: Split Operations
+---
+
+:::tip[Advanced Guide]
+This guide is for developers who need manual control over each phase of the upload pipeline.
+For most use cases, `synapse.storage.upload()` handles everything automatically — see [Storage Operations](/developer-guides/storage/storage-operations/).
+
+**Audience**: Experienced developers building production applications
+**Prerequisites**: Complete the [Storage Context Guide](/developer-guides/storage/storage-context/) first
+**When to use this**: Batch uploads, custom error handling at each phase, pre-signing for wallet UX, explicit provider/dataset targeting
+:::
+
+## When You Need This
+
+The high-level `upload()` handles single-piece multi-copy uploads end-to-end. Use split operations when you need:
+
+:::note[Key Benefit]
+In the split operations pipeline, your client uploads data **once** to the primary provider. Secondary providers fetch directly from the primary via SP-to-SP transfer — your upload bandwidth is used only once regardless of copy count.
+:::
+
+- **Batch uploading** many files to specific providers without repeated context creation
+- **Custom error handling** at each phase — retry store failures, skip failed secondaries, recover from commit failures
+- **Signing control** to control the signing operations to avoid multiple wallet signature prompts during multi-copy uploads
+- **Greater provider/dataset targeting** for uploading to known providers
+
+| | `upload()` | Split Operations |
+| --- | --- | --- |
+| **Control** | Automatic | Manual per-phase |
+| **Error recovery** | Re-upload on commit failure | Retry commit without re-upload |
+| **Batch files** | One call per file | Store many, commit in batch |
+| **Wallet prompts** | Managed internally | Control via `presignForCommit()` |
+| **Best for** | Most use cases | Production pipelines, custom UX |
+
+## The Upload Pipeline
+
+Every upload goes through three phases:
+
+```text
+store ──► pull ──► commit
+  │         │         │
+  │         │         └─ On-chain: create dataset, add piece, start payments
+  │         └─ SP-to-SP: secondary provider fetches from primary
+  └─ Upload: bytes sent to one provider (no on-chain state yet)
+```
+
+- **store**: Upload bytes to a single SP. Returns `{ pieceCid, size }`. The piece is "parked" on the SP but not yet on-chain and subject to garbage collection if not committed.
+- **pull**: SP-to-SP transfer. The destination SP fetches the piece from a source SP. No client bandwidth used.
+- **commit**: Submit an on-chain transaction to add the piece to a data set. Creates the data set and payment rail if needed.
+
+## Example Upload Flow
+
+### Store Phase
+
+Upload data to a provider without committing on-chain:
+
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
+const data = new TextEncoder().encode("Hello, Filecoin!")
+const abortController = new AbortController()
+const preCalculatedCid = null as unknown as PieceCID;
+// ---cut---
+const contexts = await synapse.storage.createContexts({
+  copies: 2,
+})
+const [primary, secondary] = contexts
+
+const { pieceCid, size } = await primary.store(data, {
+  pieceCid: preCalculatedCid,       // skip expensive PieceCID (hash digest) calculation (optional)
+  signal: abortController.signal,   // cancellation (optional)
+  onProgress: (bytes) => {          // progress callback (optional)
+    console.log(`Uploaded ${bytes} bytes`)
+  },
+})
+
+console.log(`Stored: ${pieceCid}, ${size} bytes`)
+```
+
+`store()` accepts `Uint8Array` or `ReadableStream<Uint8Array>`. Use streaming for large files to minimize memory.
+
+After store completes, the piece is parked on the SP and can be:
+
+- Retrieved via the context's `getPieceUrl(pieceCid)`
+- Pulled to other providers via `pull()`
+- Committed on-chain via `commit()`
+
+### Pull Phase (SP-to-SP Transfer)
+
+Request a secondary provider to fetch pieces from the primary:
+
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
+const [primary, secondary] = await synapse.storage.createContexts({
+      copies: 2,
+  metadata: { source: "my-app" },
+})
+const pieceCid = null as unknown as PieceCID;
+const abortController = new AbortController()
+// ---cut---
+// Pre-sign to avoid double wallet prompts during pull + commit
+const extraData = await secondary.presignForCommit([{ pieceCid }])
+
+const pullResult = await secondary.pull({
+  pieces: [pieceCid],
+  from: (cid) => primary.getPieceUrl(cid), // source URL builder (or URL string)
+  extraData,                               // pre-signed auth (optional, reused for commit)
+  signal: abortController.signal,          // cancellation (optional)
+  onProgress: (cid, status) => {           // status callback (optional)
+    console.log(`${cid}: ${status}`)
+  },
+})
+
+if (pullResult.status !== "complete") {
+  for (const piece of pullResult.pieces) {
+    if (piece.status === "failed") {
+      console.error(`Failed to pull ${piece.pieceCid}`)
+    }
+  }
+}
+```
+
+The `from` parameter accepts either a URL string (base service URL) or a function that returns a piece URL for a given PieceCID.
+
+**Pre-signing**: `presignForCommit()` creates an EIP-712 signature that can be reused for both `pull()` and `commit()`. This avoids prompting the wallet twice. Pass the same `extraData` to both calls.
+
+### Commit Phase
+
+Add pieces to an on-chain data set. Creates the data set and payment rail if one doesn't exist:
+
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+import type { Hex } from "viem";
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
+const contexts = await synapse.storage.createContexts({
+      copies: 2,
+  metadata: { source: "my-app" },
+})
+const [primary, secondary] = contexts
+const pieceCid = null as unknown as PieceCID;
+const extraData = null as unknown as Hex;
+const onSubmitted = (txHash: Hex) => {
+  console.log(`Transaction submitted: ${txHash}`)
+}
+// ---cut---
+// Commit on both providers
+const [primaryCommit, secondaryCommit] = await Promise.allSettled([
+  primary.commit({
+    pieces: [{ pieceCid, pieceMetadata: { filename: "doc.pdf" } }],
+    onSubmitted: (txHash) => {
+      console.log(`Transaction submitted: ${txHash}`)
+    },
+  }),
+  secondary.commit({
+    pieces: [{ pieceCid, pieceMetadata: { filename: "doc.pdf" } }],
+    extraData,          // pre-signed auth from presignForCommit() (optional)
+    onSubmitted: (txHash) => {
+      console.log(`Transaction submitted: ${txHash}`)
+    },
+  })
+])
+
+if (primaryCommit.status === "fulfilled") {
+  console.log(`Primary: dataSet=${primaryCommit.value.dataSetId}`)
+}
+if (secondaryCommit.status === "fulfilled") {
+  console.log(`Secondary: dataSet=${secondaryCommit.value.dataSetId}`)
+}
+```
+
+The result:
+
+- **`txHash`** — transaction hash
+- **`pieceIds`** — assigned piece IDs (one per input piece)
+- **`dataSetId`** — data set ID (may be newly created)
+- **`isNewDataSet`** — whether a new data set was created
+
+## Multi-File Batch Example
+
+:::note[Batch Strategy]
+The pattern below follows an optimal sequence: **(1)** store all files on the primary first so they're available for pull, **(2)** pre-sign once for all pieces on the secondary, **(3)** pull all pieces in a single call, **(4)** commit on both providers in parallel. This minimizes wallet prompts and maximizes parallelism.
+:::
+
+Upload multiple files to 2 providers with full error handling:
+
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type PieceCID } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x.."), source: "my-app" })
+
+const files = [
+  new TextEncoder().encode("File 1 content..."),
+  new TextEncoder().encode("File 2 content..."),
+  new TextEncoder().encode("File 3 content..."),
+]
+
+// Create contexts for 2 providers
+const [primary, secondary] = await synapse.storage.createContexts({
+  copies: 2,
+  metadata: { source: "batch-upload" },
+})
+
+// Store all files on primary (note: these could be done in parallel w/ Promise.all)
+const stored: { pieceCid: PieceCID; size: number }[] = []
+for (const file of files) {
+  const result = await primary.store(file)
+  stored.push(result)
+  console.log(`Stored ${result.pieceCid}`)
+}
+
+// Pre-sign for all pieces on secondary
+const pieceCids = stored.map(s => s.pieceCid)
+const extraData = await secondary.presignForCommit(
+  pieceCids.map(cid => ({ pieceCid: cid }))
+)
+
+// Pull all pieces to secondary
+const pullResult = await secondary.pull({
+  pieces: pieceCids,
+  from: (cid) => primary.getPieceUrl(cid),
+  extraData,
+})
+
+// Commit on both providers
+const [primaryCommit, secondaryCommit] = await Promise.allSettled([
+  primary.commit({ pieces: pieceCids.map(cid => ({ pieceCid: cid })) }),
+  pullResult.status === "complete"
+    ? secondary.commit({ pieces: pieceCids.map(cid => ({ pieceCid: cid })), extraData })
+    : Promise.reject(new Error("Pull failed, skipping secondary commit")), // not advised!
+])
+
+if (primaryCommit.status === "fulfilled") {
+  console.log(`Primary: dataSet=${primaryCommit.value.dataSetId}`)
+}
+if (secondaryCommit.status === "fulfilled") {
+  console.log(`Secondary: dataSet=${secondaryCommit.value.dataSetId}`)
+}
+```
+
+:::caution
+The example above skips the secondary commit entirely when pull fails. In production, consider committing successfully-pulled pieces individually, or retrying the pull before giving up.
+:::
+
+## Error Handling Patterns
+
+Each phase's errors are independent. Failures don't cascade — you can retry at any level:
+
+| Phase | Failure | Data state | Recovery |
+| ------- | --------- | ------------ | ---------- |
+| **store** | Upload/network error | No data on SP | Retry `store()` with same or different context |
+| **pull** | SP-to-SP transfer failed | Data on primary only | Retry `pull()`, try different secondary, or skip |
+| **commit** | On-chain transaction failed | Data on SP but not on-chain | Retry `commit()` (no re-upload needed) |
+
+The key advantage of split operations: if commit fails, data is already stored on the SP. You can retry `commit()` without re-uploading the data. With the high-level `upload()`, a `CommitError` would require re-uploading.
+
+For maximum control, use the core library functions without the SDK wrapper classes. This is useful for building custom upload pipelines, integrating into existing frameworks, or server-side applications that don't need the SDK's orchestration.
+
+## Next Steps
+
+- **[Storage Operations](/developer-guides/storage/storage-operations/)** — The high-level multi-copy upload API for most use cases.
+  _Start here if you haven't used `synapse.storage.upload()` yet._
+
+- **[Calculate Storage Costs](/developer-guides/storage/storage-costs/)** — Plan your budget and fund your storage account.
+  _Use the quick calculator to estimate monthly costs._
+
+- **[Payments & Storage](/cookbooks/payments-and-storage/)** — Deep dive into the payment model, deposit calculation, and rate mechanics.
+  _Recommended for understanding how split operations interact with the payment system._
+
+- **[Payment Management](/developer-guides/payments/payment-operations/)** — Manage deposits, approvals, and payment rails.
+  _Required before your first upload._
