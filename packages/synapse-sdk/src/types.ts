@@ -8,7 +8,7 @@
 import type { Chain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
-import type { PullStatus } from '@filoz/synapse-core/sp'
+import type { pullPiecesApiRequest } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { Account, Address, Client, Hash, Hex, Transport } from 'viem'
@@ -16,7 +16,8 @@ import type { Synapse } from './synapse.ts'
 import type { WarmStorageService } from './warm-storage/service.ts'
 
 // Re-export PieceCID, PDPProvider, and PullStatus types
-export type { PDPProvider, PieceCID, PullStatus }
+export type { PDPProvider, PieceCID }
+export type PullStatus = pullPiecesApiRequest.PullStatus
 export type PrivateKey = string
 export type TokenAmount = bigint
 export type DataSetId = bigint
