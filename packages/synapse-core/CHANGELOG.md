@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.4.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.3...synapse-core-v0.4.0) (2026-04-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename getProviderIds to getEndorsedProviderIds and getApprovedProviders to getApprovedProvidersIds
+* cleanup sp entrypoint
+
+### Features
+
+* cleanup sp entrypoint ([9bb9f26](https://github.com/FilOzone/synapse-sdk/commit/9bb9f26d8a8f509f8d6f4825cc6f9724f65cb5d1))
+* **core:** preserve non-standard SP registry capabilities in PDPOffering ([#687](https://github.com/FilOzone/synapse-sdk/issues/687)) ([716e309](https://github.com/FilOzone/synapse-sdk/commit/716e3090885418c4903bc30d454c2a03237cc66b))
+* rename getProviderIds to getEndorsedProviderIds and getApprovedProviders to getApprovedProvidersIds ([eced30c](https://github.com/FilOzone/synapse-sdk/commit/eced30c1f0c5376cd4dfe52ca6fe8908ad5d9266))
+* **synapse-core:** support paginated client dataset reads from FWSS ([#698](https://github.com/FilOzone/synapse-sdk/issues/698)) ([6435cc2](https://github.com/FilOzone/synapse-sdk/commit/6435cc2f23e7b078197923acfe902ef800926d90))
+
+
+### Bug Fixes
+
+* rename getApprovedProvidersIds to getApprovedProviderIds and update related imports ([2407514](https://github.com/FilOzone/synapse-sdk/commit/2407514f2d2a22829215519930b0af83a92054c2))
+
+
+### Chores
+
+* update providers ids new names and return type in more places ([80799c0](https://github.com/FilOzone/synapse-sdk/commit/80799c0579ef7c8f964cc7aac3bd123982770358))
+
 ## [0.3.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.2...synapse-core-v0.3.3) (2026-03-30)
 
 
