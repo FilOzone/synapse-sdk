@@ -28,7 +28,9 @@ import {
   getAllDataSetMetadataCall,
   getAllPieceMetadata,
   getApprovedProviderIds,
+  getClientDataSetIds,
   getClientDataSets,
+  getClientDataSetsLength,
   getDataSet,
   getServicePrice,
   removeApprovedProvider,
@@ -106,11 +108,39 @@ export class WarmStorageService {
    * Get all data sets for a specific client
    * @param options - Options for the client data sets
    * @param options.address - The client address
+   * @param options.offset - Starting index (0-based). Use 0 to start from beginning.
+   * @param options.limit - Maximum number of data sets to return. Use 0 to get all remaining.
    * @returns Array of data set information {@link getClientDataSets.OutputType}
    * @throws Errors {@link getClientDataSets.ErrorType}
    */
-  async getClientDataSets(options: { address: Address }): Promise<getClientDataSets.OutputType> {
+  async getClientDataSets(options: {
+    address: Address
+    offset?: bigint
+    limit?: bigint
+  }): Promise<getClientDataSets.OutputType> {
     return getClientDataSets(this._client, options)
+  }
+
+  /**
+   * Get total count of data sets for a specific client
+   * @param options - Options for the client data sets length
+   * @param options.address - The client address
+   * @returns Total count of data sets
+   */
+  async getClientDataSetsLength(options: { address: Address }): Promise<bigint> {
+    return getClientDataSetsLength(this._client, options)
+  }
+
+  /**
+   * Get data set IDs for a specific client with optional pagination
+   * @param options - Options for the client data set IDs
+   * @param options.address - The client address
+   * @param options.offset - Starting index (0-based). Use 0 to start from beginning.
+   * @param options.limit - Maximum number of IDs to return. Use 0 to get all remaining.
+   * @returns Array of data set IDs
+   */
+  async getClientDataSetIds(options: { address: Address; offset?: bigint; limit?: bigint }): Promise<bigint[]> {
+    return getClientDataSetIds(this._client, options)
   }
 
   /**
@@ -126,12 +156,11 @@ export class WarmStorageService {
     onlyManaged?: boolean
   }): Promise<EnhancedDataSetInfo[]> {
     const { address = this._client.account.address, onlyManaged = false } = options
-    // Query dataset IDs directly from the view contract
-    const ids = await readContract(this._client, {
-      address: this._chain.contracts.fwssView.address,
-      abi: this._chain.contracts.fwssView.abi,
-      functionName: 'clientDataSets',
-      args: [address],
+    // Query dataset IDs (offset=0, limit=0 fetches all)
+    const ids = await getClientDataSetIds(this._client, {
+      address,
+      offset: 0n,
+      limit: 0n,
     })
     if (ids.length === 0) return []
 
