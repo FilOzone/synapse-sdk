@@ -71,4 +71,10 @@ export interface PDPOffering {
    * The IPNI peer ID.
    */
   ipniPeerId?: string
+  /**
+   * Additional non-standard capabilities declared by the provider.
+   * Keys are capability names as registered on-chain (plain strings),
+   * values are the raw hex-encoded bytes from the contract.
+   */
+  extraCapabilities?: Record<string, Hex>
 }
