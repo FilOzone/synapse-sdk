@@ -3,9 +3,9 @@ import { setup } from 'iso-web/msw'
 import { createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { getClientDataSetsIds, getClientDataSetsIdsCall } from '../src/warm-storage/get-client-data-sets-ids.ts'
+import { getClientDataSetIds, getClientDataSetIdsCall } from '../src/warm-storage/get-client-data-set-ids.ts'
 
-describe('getClientDataSetsIds', () => {
+describe('getClientDataSetIds', () => {
   const server = setup()
 
   before(async () => {
@@ -20,9 +20,9 @@ describe('getClientDataSetsIds', () => {
     server.resetHandlers()
   })
 
-  describe('getClientDataSetsIdsCall', () => {
+  describe('getClientDataSetIdsCall', () => {
     it('should create call with calibration chain defaults and default offset/limit', () => {
-      const call = getClientDataSetsIdsCall({
+      const call = getClientDataSetIdsCall({
         chain: calibration,
         address: ADDRESSES.client1,
       })
@@ -34,7 +34,7 @@ describe('getClientDataSetsIds', () => {
     })
 
     it('should create call with mainnet chain defaults', () => {
-      const call = getClientDataSetsIdsCall({
+      const call = getClientDataSetIdsCall({
         chain: mainnet,
         address: ADDRESSES.client1,
       })
@@ -46,7 +46,7 @@ describe('getClientDataSetsIds', () => {
     })
 
     it('should use explicit offset and limit', () => {
-      const call = getClientDataSetsIdsCall({
+      const call = getClientDataSetIdsCall({
         chain: calibration,
         address: ADDRESSES.client1,
         offset: 10n,
@@ -59,7 +59,7 @@ describe('getClientDataSetsIds', () => {
 
     it('should use custom contract address when provided', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
-      const call = getClientDataSetsIdsCall({
+      const call = getClientDataSetIdsCall({
         chain: calibration,
         address: ADDRESSES.client1,
         contractAddress: customAddress,
@@ -69,7 +69,7 @@ describe('getClientDataSetsIds', () => {
     })
 
     it('should default offset to 0n when only limit is provided', () => {
-      const call = getClientDataSetsIdsCall({
+      const call = getClientDataSetIdsCall({
         chain: calibration,
         address: ADDRESSES.client1,
         limit: 100n,
@@ -79,7 +79,7 @@ describe('getClientDataSetsIds', () => {
     })
   })
 
-  describe('getClientDataSetsIds (with mocked RPC)', () => {
+  describe('getClientDataSetIds (with mocked RPC)', () => {
     it('should fetch client data set IDs', async () => {
       server.use(JSONRPC(presets.basic))
 
@@ -88,7 +88,7 @@ describe('getClientDataSetsIds', () => {
         transport: http(),
       })
 
-      const ids = await getClientDataSetsIds(client, {
+      const ids = await getClientDataSetIds(client, {
         address: ADDRESSES.client1,
       })
 
