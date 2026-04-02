@@ -94,7 +94,7 @@ describe('getEndorsedProviderIds', () => {
       assert.deepEqual(providerIds, [1n, 2n, 3n])
     })
 
-    it('should return empty Set when no providers endorsed', async () => {
+    it('should return empty array when no providers endorsed', async () => {
       server.use(
         JSONRPC({
           ...presets.basic,
