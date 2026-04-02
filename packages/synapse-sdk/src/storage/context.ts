@@ -576,7 +576,7 @@ export class StorageContext {
     // Inline ping-retry loop: select a candidate from core, ping it,
     // exclude on failure, re-select. One outer iteration per copy needed.
     const results: ProviderSelectionResult[] = []
-    const excludeProviderIds = options.excludeProviderIds
+    const excludeProviderIds = [...options.excludeProviderIds]
 
     for (let i = 0; i < count; i++) {
       const endorsedSlot = requireEndorsedPrimary && i === 0
