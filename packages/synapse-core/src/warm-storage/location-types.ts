@@ -41,7 +41,7 @@ export interface SelectionDataSet {
 export interface ProviderSelectionInput {
   /** Available PDP providers (typically from getApprovedPDPProviders) */
   providers: PDPProvider[]
-  /** Set of endorsed provider IDs (from endorsements.getProviderIds).
+  /** Array of endorsed provider IDs (from endorsements.getProviderIds).
    *  Non-empty = restrict to endorsed only. Empty = use all providers. */
   endorsedIds: bigint[]
   /** Client's existing datasets with metadata and piece counts */

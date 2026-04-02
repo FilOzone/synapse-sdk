@@ -84,7 +84,7 @@ export namespace getEndorsedProviderIdsCall {
  * To get the same output type as the action, use {@link parseGetEndorsedProviderIds} to transform the contract output.
  *
  * @param options - {@link getEndorsedProviderIdsCall.OptionsType}
- * @returns The call to the getProviderIds function {@link getEndorsedProviderIdsCall.OutputType}
+ * @returns The call to the getEndorsedProviderIdsCall function {@link getEndorsedProviderIdsCall.OutputType}
  * @throws Errors {@link getEndorsedProviderIdsCall.ErrorType}
  *
  * @example
