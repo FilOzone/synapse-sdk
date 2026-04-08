@@ -1,10 +1,11 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   "ignore": [
     "./apps/synapse-playground/src/components/kibo-ui/dropzone/**",
     "./apps/synapse-playground/src/components/ui/**",
     "utils/**"
   ],
+  "exclude": ["namespaceMembers"],
   "ignoreWorkspaces": ["examples/script-tag"],
   "ignoreDependencies": [
     "@types/*",

@@ -34,5 +34,6 @@
     "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
   },
   "markdown.validate.enabled": false,
-  "starlightLinks.configDirectories": ["./docs"]
+  "starlightLinks.configDirectories": ["./docs"],
+  "knip.configFilePath": ".github/knip.jsonc"
 }
