@@ -21,7 +21,7 @@ catalog:
   '@types/react-dom': ^19.2.3
   abitype: ^1.2.0
   mocha: ^11.7.4
-  msw: 2.12.10
+  msw: 2.12.14
   ox: ^0.14.0
   typescript: 5.9.3
   viem: ^2.47.0
