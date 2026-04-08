@@ -338,7 +338,7 @@
 
         function _updateContractAddress() {
             const newAddress = document.getElementById('contractAddressInput').value.trim();
-            if (!newAddress || !newAddress.startsWith('0x') || newAddress.length !== 42) {
+            if (!newAddress?.startsWith('0x') || newAddress.length !== 42) {
                 log('Please enter a valid contract address', 'error');
                 return;
             }
