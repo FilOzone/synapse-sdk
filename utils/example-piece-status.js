@@ -354,7 +354,7 @@ async function runDatasetMode(synapse, dataSetId, options) {
   const spRegistry = new SPRegistryService(provider, spRegistryAddress)
   const providerInfo = await spRegistry.getProvider(dataSetInfo.providerId)
 
-  if (!providerInfo || !providerInfo.products.PDP?.data.serviceURL) {
+  if (!providerInfo?.products.PDP?.data.serviceURL) {
     throw new Error(`Provider ${dataSetInfo.providerId} does not have a PDP product with serviceURL`)
   }
 
