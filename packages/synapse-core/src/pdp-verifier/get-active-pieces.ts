@@ -11,8 +11,10 @@ import type {
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
+import { LimitMustBeGreaterThanZeroError } from '../errors/pdp-verifier.ts'
 import { hexToPieceCID, type PieceCID } from '../piece/piece.ts'
 import type { ActionCallChain } from '../types.ts'
+import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 
 export namespace getActivePieces {
   export type OptionsType = {
@@ -20,7 +22,7 @@ export namespace getActivePieces {
     dataSetId: bigint
     /** The offset for pagination. @default 0n */
     offset?: bigint
-    /** The limit for pagination. @default 100n */
+    /** The limit for pagination. Must be greater than zero. @default 100n */
     limit?: bigint
     /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
     contractAddress?: Address
@@ -38,7 +40,7 @@ export namespace getActivePieces {
    */
   export type ContractOutputType = ContractFunctionReturnType<typeof pdpVerifierAbi, 'pure' | 'view', 'getActivePieces'>
 
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+  export type ErrorType = getActivePiecesCall.ErrorType | ReadContractErrorType
 }
 
 /**
@@ -69,22 +71,32 @@ export async function getActivePieces(
   client: Client<Transport, Chain>,
   options: getActivePieces.OptionsType
 ): Promise<getActivePieces.OutputType> {
-  const data = await readContract(
-    client,
-    getActivePiecesCall({
-      chain: client.chain,
-      dataSetId: options.dataSetId,
-      offset: options.offset,
-      limit: options.limit,
-      contractAddress: options.contractAddress,
-    })
-  )
-  return parseActivePieces(data)
+  try {
+    const data = await readContract(
+      client,
+      getActivePiecesCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+        offset: options.offset,
+        limit: options.limit,
+        contractAddress: options.contractAddress,
+      })
+    )
+    return parseActivePieces(data)
+  } catch (error) {
+    if (stringErrorEquals(error, STRING_ERRORS.PDP_VERIFIER_DATA_SET_NOT_LIVE)) {
+      return {
+        pieces: [],
+        hasMore: false,
+      }
+    }
+    throw error
+  }
 }
 
 export namespace getActivePiecesCall {
   export type OptionsType = Simplify<getActivePieces.OptionsType & ActionCallChain>
-  export type ErrorType = asChain.ErrorType
+  export type ErrorType = asChain.ErrorType | LimitMustBeGreaterThanZeroError
   export type OutputType = ContractFunctionParameters<typeof pdpVerifierAbi, 'pure' | 'view', 'getActivePieces'>
 }
 
@@ -119,6 +131,9 @@ export namespace getActivePiecesCall {
  */
 export function getActivePiecesCall(options: getActivePiecesCall.OptionsType) {
   const chain = asChain(options.chain)
+  if (options.limit && options.limit <= 0n) {
+    throw new LimitMustBeGreaterThanZeroError()
+  }
   return {
     abi: chain.contracts.pdp.abi,
     address: options.contractAddress ?? chain.contracts.pdp.address,

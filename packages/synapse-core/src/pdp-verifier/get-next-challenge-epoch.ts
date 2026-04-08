@@ -12,6 +12,7 @@ import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 
 export namespace getNextChallengeEpoch {
   export type OptionsType = {
@@ -21,7 +22,7 @@ export namespace getNextChallengeEpoch {
     contractAddress?: Address
   }
 
-  export type OutputType = bigint
+  export type OutputType = bigint | null
   /**
    * `uint256`
    */
@@ -55,22 +56,29 @@ export namespace getNextChallengeEpoch {
  *
  * @param client - The client to use to get the active pieces.
  * @param options - {@link getNextChallengeEpoch.OptionsType}
- * @returns The next challenge epoch for the data set {@link getNextChallengeEpoch.OutputType}
+ * @returns The next challenge epoch for the data set {@link getNextChallengeEpoch.OutputType}. Returns null if the data set is not live or no challenge epoch has been set.
  * @throws Errors {@link getNextChallengeEpoch.ErrorType}
  */
 export async function getNextChallengeEpoch(
   client: Client<Transport, Chain>,
   options: getNextChallengeEpoch.OptionsType
 ): Promise<getNextChallengeEpoch.OutputType> {
-  const data = await readContract(
-    client,
-    getNextChallengeEpochCall({
-      chain: client.chain,
-      dataSetId: options.dataSetId,
-      contractAddress: options.contractAddress,
-    })
-  )
-  return data
+  try {
+    const data = await readContract(
+      client,
+      getNextChallengeEpochCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+        contractAddress: options.contractAddress,
+      })
+    )
+    return parseNextChallengeEpoch(data)
+  } catch (error) {
+    if (stringErrorEquals(error, STRING_ERRORS.PDP_VERIFIER_DATA_SET_NOT_LIVE)) {
+      return null
+    }
+    throw error
+  }
 }
 
 export namespace getNextChallengeEpochCall {
@@ -114,4 +122,19 @@ export function getNextChallengeEpochCall(options: getNextChallengeEpochCall.Opt
     functionName: 'getNextChallengeEpoch',
     args: [options.dataSetId],
   } satisfies getNextChallengeEpochCall.OutputType
+}
+
+/**
+ * Parse the contract output into a {@link getNextChallengeEpoch.OutputType}.
+ *
+ * @param data - The contract output from the getNextChallengeEpoch function {@link getNextChallengeEpoch.ContractOutputType}
+ * @returns The next challenge epoch for the data set {@link getNextChallengeEpoch.OutputType}
+ */
+export function parseNextChallengeEpoch(
+  data: getNextChallengeEpoch.ContractOutputType
+): getNextChallengeEpoch.OutputType {
+  if (data <= 0n) {
+    return null
+  }
+  return data
 }

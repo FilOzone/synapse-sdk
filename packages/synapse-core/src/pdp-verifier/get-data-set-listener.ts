@@ -1,9 +1,19 @@
 import type { Simplify } from 'type-fest'
-import type { Address, Chain, Client, ContractFunctionParameters, ReadContractErrorType, Transport } from 'viem'
+import {
+  type Address,
+  type Chain,
+  type Client,
+  type ContractFunctionParameters,
+  type ContractFunctionReturnType,
+  type ReadContractErrorType,
+  type Transport,
+  zeroAddress,
+} from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 
 export namespace getDataSetListener {
   export type OptionsType = {
@@ -13,7 +23,13 @@ export namespace getDataSetListener {
     contractAddress?: Address
   }
 
-  export type OutputType = Address
+  export type OutputType = Address | null
+
+  export type ContractOutputType = ContractFunctionReturnType<
+    typeof pdpVerifierAbi,
+    'pure' | 'view',
+    'getDataSetListener'
+  >
 
   export type ErrorType = asChain.ErrorType | ReadContractErrorType
 }
@@ -37,22 +53,29 @@ export namespace getDataSetListener {
  *
  * @param client - The client to use to get the data set listener.
  * @param options - {@link getDataSetListener.OptionsType}
- * @returns Listener contract address {@link getDataSetListener.OutputType}
+ * @returns Listener contract address {@link getDataSetListener.OutputType}. Returns null if the data set is not live or does not exist (zero address).
  * @throws Errors {@link getDataSetListener.ErrorType}
  */
 export async function getDataSetListener(
   client: Client<Transport, Chain>,
   options: getDataSetListener.OptionsType
 ): Promise<getDataSetListener.OutputType> {
-  const data = await readContract(
-    client,
-    getDataSetListenerCall({
-      chain: client.chain,
-      dataSetId: options.dataSetId,
-      contractAddress: options.contractAddress,
-    })
-  )
-  return data
+  try {
+    const data = await readContract(
+      client,
+      getDataSetListenerCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+        contractAddress: options.contractAddress,
+      })
+    )
+    return parseDataSetListener(data)
+  } catch (error) {
+    if (stringErrorEquals(error, STRING_ERRORS.PDP_VERIFIER_DATA_SET_NOT_LIVE)) {
+      return null
+    }
+    throw error
+  }
 }
 
 export namespace getDataSetListenerCall {
@@ -98,4 +121,17 @@ export function getDataSetListenerCall(options: getDataSetListenerCall.OptionsTy
     functionName: 'getDataSetListener',
     args: [options.dataSetId],
   } satisfies getDataSetListenerCall.OutputType
+}
+
+/**
+ * Parse the contract output into a {@link getDataSetListener.OutputType}.
+ *
+ * @param data - The contract output from the getDataSetListener function {@link getDataSetListener.ContractOutputType}
+ * @returns The listener contract address {@link getDataSetListener.OutputType}
+ */
+export function parseDataSetListener(data: getDataSetListener.ContractOutputType): getDataSetListener.OutputType {
+  if (data === zeroAddress) {
+    return null
+  }
+  return data
 }

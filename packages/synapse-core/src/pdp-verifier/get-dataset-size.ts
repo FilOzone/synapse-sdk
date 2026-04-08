@@ -2,6 +2,7 @@ import type { Address, Chain, Client, MulticallErrorType, Transport } from 'viem
 import { multicall } from 'viem/actions'
 import type { asChain } from '../chains.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
+import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 import { getDataSetLeafCountCall } from './get-data-set-leaf-count.ts'
 
 export namespace getDataSetSizes {
@@ -64,10 +65,20 @@ export async function getDataSetSizes(
     })
   )
 
-  const leafCounts = await multicall(client, {
+  const results = await multicall(client, {
     contracts,
-    allowFailure: false,
+    allowFailure: true,
   })
 
-  return (leafCounts as bigint[]).map((leafCount) => leafCount * SIZE_CONSTANTS.BYTES_PER_LEAF)
+  return results.map((result) => {
+    if (result.error == null) {
+      return result.result * SIZE_CONSTANTS.BYTES_PER_LEAF
+    }
+
+    if (stringErrorEquals(result.error, STRING_ERRORS.PDP_VERIFIER_DATA_SET_NOT_LIVE)) {
+      return 0n
+    }
+
+    throw result.error
+  })
 }

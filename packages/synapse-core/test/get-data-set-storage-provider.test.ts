@@ -1,11 +1,12 @@
 import assert from 'assert'
 import { setup } from 'iso-web/msw'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, zeroAddress } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import {
   getDataSetStorageProvider,
   getDataSetStorageProviderCall,
+  parseDataSetStorageProvider,
 } from '../src/pdp-verifier/get-data-set-storage-provider.ts'
 
 describe('getDataSetStorageProvider', () => {
@@ -69,12 +70,44 @@ describe('getDataSetStorageProvider', () => {
         transport: http(),
       })
 
-      const [storageProvider, proposedStorageProvider] = await getDataSetStorageProvider(client, { dataSetId: 1n })
+      const data = await getDataSetStorageProvider(client, { dataSetId: 1n })
 
-      assert.equal(typeof storageProvider, 'string')
-      assert.ok(storageProvider.startsWith('0x'))
-      assert.equal(typeof proposedStorageProvider, 'string')
-      assert.ok(proposedStorageProvider.startsWith('0x'))
+      if (data == null) {
+        assert.fail('Data set storage provider is null')
+      }
+
+      assert.equal(typeof data[0], 'string')
+      assert.ok(data[0].startsWith('0x'))
+      assert.equal(data[1], null)
+    })
+
+    it('should convert a zero proposed provider address to null', () => {
+      const provider = parseDataSetStorageProvider(['0x1234567890123456789012345678901234567890', zeroAddress])
+
+      assert.equal(provider?.[1], null)
+    })
+
+    it('should return null when the data set is not live', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getDataSetStorageProvider: () => {
+              throw new Error('Data set not live')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const data = await getDataSetStorageProvider(client, { dataSetId: 1n })
+
+      assert.equal(data, null)
     })
   })
 })
