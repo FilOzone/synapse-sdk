@@ -1150,7 +1150,14 @@ export class StorageContext {
       pieceId = pieceData.id
 
       // Calculate timing based on nextChallengeEpoch
-      if (nextChallengeEpoch > 0n) {
+      if (nextChallengeEpoch === null) {
+        // If nextChallengeEpoch is 0, it might mean:
+        // 1. Proof was just submitted and system is updating
+        // 2. Data set is not active
+        // In case 1, we might have just proven, so set lastProven to very recent
+        // This is a temporary state and should resolve quickly
+        console.debug('Data set has nextChallengeEpoch=0, may have just been proven')
+      } else {
         // nextChallengeEpoch is when the challenge window STARTS, not ends!
         // The proving deadline is nextChallengeEpoch + challengeWindowSize
         const challengeWindowStart = nextChallengeEpoch
@@ -1180,13 +1187,6 @@ export class StorageContext {
           const timeUntil = timeUntilEpoch(Number(challengeWindowStart), Number(currentEpoch))
           hoursUntilChallengeWindow = timeUntil.hours
         }
-      } else {
-        // If nextChallengeEpoch is 0, it might mean:
-        // 1. Proof was just submitted and system is updating
-        // 2. Data set is not active
-        // In case 1, we might have just proven, so set lastProven to very recent
-        // This is a temporary state and should resolve quickly
-        console.debug('Data set has nextChallengeEpoch=0, may have just been proven')
       }
     }
 
