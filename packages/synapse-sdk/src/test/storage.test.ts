@@ -1270,6 +1270,7 @@ describe('StorageService', () => {
           minProvingPeriodInEpochs: 30n,
           location: 'us-east',
           paymentTokenAddress: '0xb3042734b608a1b16e9e86b374a3f3e389b4cdf0',
+          extraCapabilities: {},
         },
       })
     })

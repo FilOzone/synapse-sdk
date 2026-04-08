@@ -13,7 +13,7 @@ import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
 
-export namespace getApprovedProviders {
+export namespace getApprovedProviderIds {
   export type OptionsType = {
     /** Starting index (0-based). Use 0 to start from beginning. Defaults to 0. */
     offset?: bigint
@@ -36,19 +36,19 @@ export namespace getApprovedProviders {
 }
 
 /**
- * Get approved provider IDs with optional pagination
+ * Get all approved provider IDs with optional pagination
  *
  * For large lists, use pagination to avoid gas limit issues. If limit=0,
  * returns all remaining providers starting from offset.
  *
  * @param client - The client to use to get the approved providers.
- * @param options - {@link getApprovedProviders.OptionsType}
- * @returns Array of approved provider IDs {@link getApprovedProviders.OutputType}
- * @throws Errors {@link getApprovedProviders.ErrorType}
+ * @param options - {@link getApprovedProviderIds.OptionsType}
+ * @returns Array of approved provider IDs {@link getApprovedProviderIds.OutputType}
+ * @throws Errors {@link getApprovedProviderIds.ErrorType}
  *
  * @example
  * ```ts
- * import { getApprovedProviders } from '@filoz/synapse-core/warm-storage'
+ * import { getApprovedProviderIds } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { calibration } from '@filoz/synapse-core/chains'
  *
@@ -58,7 +58,7 @@ export namespace getApprovedProviders {
  * })
  *
  * // Get first 100 providers
- * const providerIds = await getApprovedProviders(client, {
+ * const providerIds = await getApprovedProviderIds(client, {
  *   offset: 0n,
  *   limit: 100n,
  * })
@@ -66,39 +66,39 @@ export namespace getApprovedProviders {
  * console.log(providerIds)
  * ```
  */
-export async function getApprovedProviders(
+export async function getApprovedProviderIds(
   client: Client<Transport, Chain>,
-  options: getApprovedProviders.OptionsType = {}
-): Promise<getApprovedProviders.OutputType> {
+  options: getApprovedProviderIds.OptionsType = {}
+): Promise<getApprovedProviderIds.OutputType> {
   const data = await readContract(
     client,
 
-    getApprovedProvidersCall({
+    getApprovedProviderIdsCall({
       chain: client.chain,
       offset: options.offset,
       limit: options.limit,
       contractAddress: options.contractAddress,
     })
   )
-  return data as getApprovedProviders.OutputType
+  return data as getApprovedProviderIds.OutputType
 }
 
-export namespace getApprovedProvidersCall {
-  export type OptionsType = Simplify<getApprovedProviders.OptionsType & ActionCallChain>
+export namespace getApprovedProviderIdsCall {
+  export type OptionsType = Simplify<getApprovedProviderIds.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageViewAbi, 'pure' | 'view', 'getApprovedProviders'>
 }
 
 /**
- * Create a call to the {@link getApprovedProviders} function for use with the Viem multicall, readContract, or simulateContract functions.
+ * Create a call to the {@link getApprovedProviderIds} function for use with the Viem multicall, readContract, or simulateContract functions.
  *
- * @param options - {@link getApprovedProvidersCall.OptionsType}
- * @returns Call object {@link getApprovedProvidersCall.OutputType}
- * @throws Errors {@link getApprovedProvidersCall.ErrorType}
+ * @param options - {@link getApprovedProviderIdsCall.OptionsType}
+ * @returns Call object {@link getApprovedProviderIdsCall.OutputType}
+ * @throws Errors {@link getApprovedProviderIdsCall.ErrorType}
  *
  * @example
  * ```ts
- * import { getApprovedProvidersCall } from '@filoz/synapse-core/warm-storage'
+ * import { getApprovedProviderIdsCall } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -111,20 +111,20 @@ export namespace getApprovedProvidersCall {
  * // Paginate through providers in batches of 50
  * const results = await multicall(client, {
  *   contracts: [
- *     getApprovedProvidersCall({ chain: calibration, offset: 0n, limit: 50n }),
- *     getApprovedProvidersCall({ chain: calibration, offset: 50n, limit: 50n }),
+ *     getApprovedProviderIdsCall({ chain: calibration, offset: 0n, limit: 50n }),
+ *     getApprovedProviderIdsCall({ chain: calibration, offset: 50n, limit: 50n }),
  *   ],
  * })
  *
  * console.log(results)
  * ```
  */
-export function getApprovedProvidersCall(options: getApprovedProvidersCall.OptionsType) {
+export function getApprovedProviderIdsCall(options: getApprovedProviderIdsCall.OptionsType) {
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.fwssView.abi,
     address: options.contractAddress ?? chain.contracts.fwssView.address,
     functionName: 'getApprovedProviders',
     args: [options.offset ?? 0n, options.limit ?? 0n],
-  } satisfies getApprovedProvidersCall.OutputType
+  } satisfies getApprovedProviderIdsCall.OutputType
 }

@@ -11,7 +11,7 @@ import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { PullError } from '../src/errors/pull.ts'
 import * as Mocks from '../src/mocks/index.ts'
-import { type PullResponse, type PullStatus, pullPieces, waitForPullStatus } from '../src/sp/sp.ts'
+import { pullPiecesApiRequest, waitForPullPiecesApiRequest } from '../src/sp/pull-pieces.ts'
 
 // Mock server for testing
 const server = setup()
@@ -23,7 +23,7 @@ describe('Pull', () => {
   const TEST_PIECE_CID = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
   const TEST_SOURCE_URL = `https://other-sp.example.com/piece/${TEST_PIECE_CID}`
 
-  const baseOptions = (): pullPieces.OptionsType => ({
+  const baseOptions = (): pullPiecesApiRequest.OptionsType => ({
     serviceURL: TEST_ENDPOINT,
     recordKeeper: TEST_RECORD_KEEPER,
     extraData: TEST_EXTRA_DATA,
@@ -48,7 +48,7 @@ describe('Pull', () => {
 
       server.use(Mocks.pdp.pullPiecesHandler(mockResponse))
 
-      const result = await pullPieces(baseOptions())
+      const result = await pullPiecesApiRequest(baseOptions())
 
       assert.strictEqual(result.status, 'pending')
       assert.strictEqual(result.pieces.length, 1)
@@ -66,7 +66,7 @@ describe('Pull', () => {
         })
       )
 
-      await pullPieces(baseOptions())
+      await pullPiecesApiRequest(baseOptions())
 
       assert.ok(capturedRequest, 'Request should have been captured')
       assert.strictEqual(capturedRequest.recordKeeper, TEST_RECORD_KEEPER)
@@ -86,7 +86,7 @@ describe('Pull', () => {
         })
       )
 
-      await pullPieces({ ...baseOptions(), dataSetId: 123n })
+      await pullPiecesApiRequest({ ...baseOptions(), dataSetId: 123n })
 
       assert.ok(capturedRequest, 'Request should have been captured')
       assert.strictEqual(capturedRequest.dataSetId, 123)
@@ -102,7 +102,7 @@ describe('Pull', () => {
         })
       )
 
-      await pullPieces({ ...baseOptions(), dataSetId: 0n })
+      await pullPiecesApiRequest({ ...baseOptions(), dataSetId: 0n })
 
       assert.ok(capturedRequest, 'Request should have been captured')
       assert.strictEqual(capturedRequest.dataSetId, undefined)
@@ -112,7 +112,7 @@ describe('Pull', () => {
       server.use(Mocks.pdp.pullPiecesErrorHandler('extraData validation failed: invalid signature', 400))
 
       try {
-        await pullPieces(baseOptions())
+        await pullPiecesApiRequest(baseOptions())
         assert.fail('Should have thrown error')
       } catch (error) {
         assert.ok(error instanceof PullError, 'Error should be PullError')
@@ -131,7 +131,7 @@ describe('Pull', () => {
       )
 
       try {
-        await pullPieces(baseOptions())
+        await pullPiecesApiRequest(baseOptions())
         assert.fail('Should have thrown error')
       } catch (error) {
         assert.ok((error as Error).message.includes('Failed to fetch'), 'Error message should mention fetch failure')
@@ -140,7 +140,7 @@ describe('Pull', () => {
 
     it('should handle mixed piece statuses', async () => {
       const pieceCid2 = 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk'
-      const mockResponse: PullResponse = {
+      const mockResponse: pullPiecesApiRequest.ReturnType = {
         status: 'inProgress',
         pieces: [
           { pieceCid: TEST_PIECE_CID, status: 'complete' },
@@ -150,7 +150,7 @@ describe('Pull', () => {
 
       server.use(Mocks.pdp.pullPiecesHandler(mockResponse))
 
-      const result = await pullPieces({
+      const result = await pullPiecesApiRequest({
         ...baseOptions(),
         pieces: [
           { pieceCid: TEST_PIECE_CID, sourceUrl: TEST_SOURCE_URL },
@@ -170,8 +170,8 @@ describe('Pull', () => {
 
       server.use(Mocks.pdp.pullPiecesPollingHandler(2, mockResponse))
 
-      const statusUpdates: PullStatus[] = []
-      const result = await waitForPullStatus({
+      const statusUpdates: pullPiecesApiRequest.PullStatus[] = []
+      const result = await waitForPullPiecesApiRequest({
         ...baseOptions(),
         pollInterval: 10,
         onStatus: (response) => statusUpdates.push(response.status),
@@ -186,7 +186,7 @@ describe('Pull', () => {
 
       server.use(Mocks.pdp.pullPiecesPollingHandler(1, mockResponse))
 
-      const result = await waitForPullStatus({ ...baseOptions(), pollInterval: 10 })
+      const result = await waitForPullPiecesApiRequest({ ...baseOptions(), pollInterval: 10 })
 
       assert.strictEqual(result.status, 'failed')
     })
@@ -196,8 +196,8 @@ describe('Pull', () => {
         Mocks.pdp.pullPiecesProgressionHandler(['pending', 'inProgress', 'complete'], [{ pieceCid: TEST_PIECE_CID }])
       )
 
-      const statusUpdates: PullStatus[] = []
-      await waitForPullStatus({
+      const statusUpdates: pullPiecesApiRequest.PullStatus[] = []
+      await waitForPullPiecesApiRequest({
         ...baseOptions(),
         pollInterval: 10,
         onStatus: (response) => statusUpdates.push(response.status),
@@ -212,7 +212,7 @@ describe('Pull', () => {
       server.use(Mocks.pdp.pullPiecesErrorHandler('Internal server error', 500))
 
       try {
-        await waitForPullStatus({ ...baseOptions(), pollInterval: 10 })
+        await waitForPullPiecesApiRequest({ ...baseOptions(), pollInterval: 10 })
         assert.fail('Should have thrown error')
       } catch (error) {
         assert.ok(error instanceof PullError, 'Error should be PullError')

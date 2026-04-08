@@ -76,9 +76,8 @@ export class SPRegistryService {
 
   /**
    * Register as a new service provider with optional PDP product
-   * @param options - Options for provider registration
-   * @param options.info - Provider registration information
-   * @returns Transaction hash
+   * @param options - {@link ProviderRegistrationInfo}
+   * @returns Transaction hash {@link Hash}
    *
    * @example
    * ```ts

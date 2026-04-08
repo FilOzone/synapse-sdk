@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.40.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.2...synapse-sdk-v0.40.3) (2026-04-02)
+
+
+### Features
+
+* **core:** preserve non-standard SP registry capabilities in PDPOffering ([#687](https://github.com/FilOzone/synapse-sdk/issues/687)) ([716e309](https://github.com/FilOzone/synapse-sdk/commit/716e3090885418c4903bc30d454c2a03237cc66b))
+
+
+### Bug Fixes
+
+* **errors:** export StorageErrorOptions and enhance error constructors with documentation ([7ac439a](https://github.com/FilOzone/synapse-sdk/commit/7ac439adf8384a552e0c39a271535b0ed796d767))
+* keep the clone to new provider ids array ([7124ec9](https://github.com/FilOzone/synapse-sdk/commit/7124ec9b1a2771058b59dff054f373d187900c9f))
+* update getApprovedProviderIds and getEndorsedProviderIds with array return type ([e037cec](https://github.com/FilOzone/synapse-sdk/commit/e037ceca35a68d32dd55f1ec637e3d1e624b32f4))
+
+
+### Chores
+
+* **types:** update PullStatus export and adjust StorageContext to use waitForPullPieces ([eb5566e](https://github.com/FilOzone/synapse-sdk/commit/eb5566e11c7a8b957d62b18d15a3ded9385458de))
+
 ## [0.40.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.1...synapse-sdk-v0.40.2) (2026-03-30)
 
 

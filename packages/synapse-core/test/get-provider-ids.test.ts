@@ -2,10 +2,14 @@ import assert from 'assert'
 import { setup } from 'iso-web/msw'
 import { createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
-import { getProviderIds, getProviderIdsCall, parseGetProviderIds } from '../src/endorsements/get-provider-ids.ts'
+import {
+  getEndorsedProviderIds,
+  getEndorsedProviderIdsCall,
+  parseGetEndorsedProviderIds,
+} from '../src/endorsements/get-endorsed-provider-ids.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 
-describe('getProviderIds', () => {
+describe('getEndorsedProviderIds', () => {
   const server = setup()
 
   before(async () => {
@@ -20,9 +24,9 @@ describe('getProviderIds', () => {
     server.resetHandlers()
   })
 
-  describe('getProviderIdsCall', () => {
+  describe('getEndorsedProviderIdsCall', () => {
     it('should create call with calibration chain defaults', () => {
-      const call = getProviderIdsCall({
+      const call = getEndorsedProviderIdsCall({
         chain: calibration,
       })
 
@@ -33,7 +37,7 @@ describe('getProviderIds', () => {
     })
 
     it('should create call with mainnet chain defaults', () => {
-      const call = getProviderIdsCall({
+      const call = getEndorsedProviderIdsCall({
         chain: mainnet,
       })
 
@@ -45,7 +49,7 @@ describe('getProviderIds', () => {
 
     it('should use custom address when provided', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
-      const call = getProviderIdsCall({
+      const call = getEndorsedProviderIdsCall({
         chain: calibration,
         contractAddress: customAddress,
       })
@@ -54,21 +58,21 @@ describe('getProviderIds', () => {
     })
   })
 
-  describe('parseGetProviderIds', () => {
+  describe('parseGetEndorsedProviderIds', () => {
     it('should convert array to Set', () => {
       const data = [1n, 2n, 3n]
-      const result = parseGetProviderIds(data)
-      assert.deepEqual(result, new Set([1n, 2n, 3n]))
+      const result = parseGetEndorsedProviderIds(data)
+      assert.deepEqual(result, [1n, 2n, 3n])
     })
 
     it('should deduplicate provider IDs', () => {
       const data = [1n, 2n, 1n, 3n, 2n]
-      const result = parseGetProviderIds(data)
-      assert.deepEqual(result, new Set([1n, 2n, 3n]))
+      const result = parseGetEndorsedProviderIds(data)
+      assert.deepEqual(result, [1n, 2n, 3n])
     })
   })
 
-  describe('getProviderIds (with mocked RPC)', () => {
+  describe('getEndorsedProviderIds (with mocked RPC)', () => {
     it('should fetch endorsed provider IDs', async () => {
       server.use(
         JSONRPC({
@@ -85,12 +89,12 @@ describe('getProviderIds', () => {
         transport: http(),
       })
 
-      const providerIds = await getProviderIds(client)
+      const providerIds = await getEndorsedProviderIds(client)
 
-      assert.deepEqual(providerIds, new Set([1n, 2n, 3n]))
+      assert.deepEqual(providerIds, [1n, 2n, 3n])
     })
 
-    it('should return empty Set when no providers endorsed', async () => {
+    it('should return empty array when no providers endorsed', async () => {
       server.use(
         JSONRPC({
           ...presets.basic,
@@ -106,9 +110,9 @@ describe('getProviderIds', () => {
         transport: http(),
       })
 
-      const providerIds = await getProviderIds(client)
+      const providerIds = await getEndorsedProviderIds(client)
 
-      assert.deepEqual(providerIds, new Set())
+      assert.deepEqual(providerIds, [])
     })
   })
 })

@@ -1,1 +1,1 @@
-export { CommitError, StoreError } from './storage.ts'
+export { CommitError, type StorageErrorOptions, StoreError } from './storage.ts'

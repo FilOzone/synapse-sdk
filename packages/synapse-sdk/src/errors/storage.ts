@@ -1,6 +1,6 @@
 import { isSynapseError, SynapseError, type SynapseErrorOptions } from '@filoz/synapse-core/errors'
 
-interface StorageErrorOptions extends SynapseErrorOptions {
+export interface StorageErrorOptions extends SynapseErrorOptions {
   providerId?: bigint
   endpoint?: string
 }
@@ -14,6 +14,12 @@ export class StoreError extends SynapseError {
   providerId?: string
   endpoint?: string
 
+  /**
+   * Create a new StoreError
+   *
+   * @param message - The error message
+   * @param options - {@link StorageErrorOptions}
+   */
   constructor(message: string, options?: StorageErrorOptions) {
     super(message, options)
     this.providerId = options?.providerId?.toString()
@@ -43,6 +49,12 @@ export class CommitError extends SynapseError {
   providerId?: string
   endpoint?: string
 
+  /**
+   * Create a new CommitError
+   *
+   * @param message - The error message
+   * @param options - {@link StorageErrorOptions}
+   */
   constructor(message: string, options?: StorageErrorOptions) {
     super(message, options)
     this.providerId = options?.providerId?.toString()

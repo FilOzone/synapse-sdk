@@ -1,13 +1,90 @@
+import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
 import type { Account, Chain, Client, Transport } from 'viem'
 import { asChain } from '../chains.ts'
+import { InvalidUploadSizeError, LocationHeaderError, PostPieceError, UploadPieceError } from '../errors/pdp.ts'
 import { DataSetNotFoundError } from '../errors/warm-storage.ts'
+import type { PieceCID } from '../piece/piece.ts'
 import * as Piece from '../piece/piece.ts'
-import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
-import { pieceMetadataObjectToEntry } from '../utils/metadata.ts'
+import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
 import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
-import * as SP from './sp.ts'
+import { addPieces, findPiece } from './index.ts'
+
+export namespace uploadPiece {
+  export type OptionsType = {
+    /** The service URL of the PDP API. */
+    serviceURL: string
+    /** The data to upload. */
+    data: Uint8Array
+    /** The piece CID to upload. */
+    pieceCid: PieceCID
+  }
+  export type ErrorType = InvalidUploadSizeError | LocationHeaderError | TimeoutError | NetworkError | AbortError
+}
+
+/**
+ * Upload a piece to the PDP API.
+ *
+ * POST /pdp/piece
+ *
+ * @param options - {@link uploadPiece.OptionsType}
+ * @throws Errors {@link uploadPiece.ErrorType}
+ */
+export async function uploadPiece(options: uploadPiece.OptionsType): Promise<void> {
+  const size = options.data.length
+  if (size < SIZE_CONSTANTS.MIN_UPLOAD_SIZE || size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
+    throw new InvalidUploadSizeError(size)
+  }
+
+  const pieceCid = options.pieceCid
+  if (!Piece.isPieceCID(pieceCid)) {
+    throw new Error(`Invalid PieceCID: ${String(options.pieceCid)}`)
+  }
+  const response = await request.post(new URL(`pdp/piece`, options.serviceURL), {
+    body: JSON.stringify({
+      pieceCid: pieceCid.toString(),
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
+  })
+
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      throw new PostPieceError(await response.error.response.text())
+    }
+    throw response.error
+  }
+  if (response.result.status === 200) {
+    // Piece already exists on server
+    return
+  }
+
+  // Extract upload ID from Location header
+  const location = response.result.headers.get('Location')
+  const uploadUuid = location?.split('/').pop()
+  if (!location || !uploadUuid) {
+    throw new LocationHeaderError(location)
+  }
+
+  const uploadResponse = await request.put(new URL(`pdp/piece/upload/${uploadUuid}`, options.serviceURL), {
+    body: options.data as BufferSource,
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': options.data.length.toString(),
+    },
+    timeout: false,
+  })
+
+  if (uploadResponse.error) {
+    if (HttpError.is(uploadResponse.error)) {
+      throw new UploadPieceError(await uploadResponse.error.response.text())
+    }
+    throw uploadResponse.error
+  }
+}
 
 export namespace upload {
   export type Events = {
@@ -34,16 +111,11 @@ export namespace upload {
     url: string
     metadata: { name: string; type: string }
   }
-  export type ErrorType =
-    | DataSetNotFoundError
-    | SP.uploadPiece.ErrorType
-    | SP.findPiece.ErrorType
-    | SP.addPieces.ErrorType
-    | signAddPieces.ErrorType
+  export type ErrorType = DataSetNotFoundError | uploadPiece.ErrorType | findPiece.ErrorType | addPieces.ErrorType
 }
 
 /**
- * Upload multiplepieces to a data set on the PDP API.
+ * Upload multiple pieces to a data set on the PDP API.
  *
  * @param client - The client to use to upload the pieces.
  * @param options - {@link upload.OptionsType}
@@ -71,14 +143,14 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
         chain: chain,
         serviceURL,
       })
-      await SP.uploadPiece({
+      await uploadPiece({
         data,
         pieceCid,
         serviceURL,
       })
       options.onEvent?.('pieceUploaded', { pieceCid, dataSet })
 
-      await SP.findPiece({
+      await findPiece({
         pieceCid,
         serviceURL,
         retry: true,
@@ -94,18 +166,15 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
     })
   )
 
-  const addPieces = await SP.addPieces({
-    dataSetId: options.dataSetId,
-    pieces: uploadResponses.map((response) => response.pieceCid),
+  const addPiecesResponse = await addPieces(client, {
     serviceURL,
-    extraData: await signAddPieces(client, {
-      clientDataSetId: dataSet.clientDataSetId,
-      pieces: uploadResponses.map((response) => ({
-        pieceCid: response.pieceCid,
-        metadata: pieceMetadataObjectToEntry(response.metadata),
-      })),
-    }),
+    dataSetId: options.dataSetId,
+    pieces: uploadResponses.map((response) => ({
+      pieceCid: response.pieceCid,
+      metadata: response.metadata,
+    })),
+    clientDataSetId: dataSet.clientDataSetId,
   })
 
-  return { ...addPieces, pieces: uploadResponses }
+  return { ...addPiecesResponse, pieces: uploadResponses }
 }

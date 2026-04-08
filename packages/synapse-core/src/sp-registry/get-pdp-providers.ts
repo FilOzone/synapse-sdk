@@ -13,7 +13,7 @@ import { multicall, readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
-import { getApprovedProvidersCall } from '../warm-storage/get-approved-providers.ts'
+import { getApprovedProviderIdsCall } from '../warm-storage/get-approved-provider-ids.ts'
 import { getPDPProviderCall, parsePDPProvider } from './get-pdp-provider.ts'
 import type { getProvidersByProductType } from './get-providers-by-product-type.ts'
 import { type PDPProvider, PRODUCTS, type ProviderWithProduct } from './types.ts'
@@ -151,7 +151,7 @@ export namespace getApprovedPDPProviders {
   export type ErrorType =
     | asChain.ErrorType
     | MulticallErrorType
-    | getApprovedProvidersCall.ErrorType
+    | getApprovedProviderIdsCall.ErrorType
     | getPDPProvidersCall.ErrorType
 }
 
@@ -193,7 +193,7 @@ export async function getApprovedPDPProviders(
         limit: 100n,
         contractAddress: options.contractAddress,
       }),
-      getApprovedProvidersCall({
+      getApprovedProviderIdsCall({
         chain: client.chain,
       }),
     ],
@@ -223,7 +223,7 @@ export namespace getPDPProvidersByIds {
   export type ErrorType =
     | asChain.ErrorType
     | MulticallErrorType
-    | getApprovedProvidersCall.ErrorType
+    | getApprovedProviderIdsCall.ErrorType
     | getPDPProvidersCall.ErrorType
 }
 

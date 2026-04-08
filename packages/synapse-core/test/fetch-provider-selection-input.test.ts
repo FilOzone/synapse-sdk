@@ -37,7 +37,7 @@ describe('fetchProviderSelectionInput', () => {
     assert.ok(result.providers.every((p) => p.pdp != null))
 
     // Endorsed IDs from endorsements contract (empty in basic preset)
-    assert.ok(result.endorsedIds instanceof Set)
+    assert.ok(Array.isArray(result.endorsedIds))
 
     // Client datasets populated with piece counts
     assert.ok(Array.isArray(result.clientDataSets))
@@ -66,7 +66,7 @@ describe('fetchProviderSelectionInput', () => {
     assert.equal(result.clientDataSets.length, 0)
     // Providers and endorsedIds still populated
     assert.ok(result.providers.length > 0)
-    assert.ok(result.endorsedIds instanceof Set)
+    assert.ok(Array.isArray(result.endorsedIds))
   })
 
   it('populates endorsedIds from endorsements contract', async () => {
@@ -89,8 +89,8 @@ describe('fetchProviderSelectionInput', () => {
       address: ADDRESSES.client1,
     })
 
-    assert.ok(result.endorsedIds.has(1n))
-    assert.ok(result.endorsedIds.has(2n))
-    assert.equal(result.endorsedIds.size, 2)
+    assert.ok(result.endorsedIds.includes(1n))
+    assert.ok(result.endorsedIds.includes(2n))
+    assert.equal(result.endorsedIds.length, 2)
   })
 })
