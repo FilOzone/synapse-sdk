@@ -8,7 +8,7 @@ sidebar:
 Understanding storage costs helps you budget effectively and avoid service interruptions. This guide covers the SDK APIs for calculating costs, funding your account, and querying account state.
 
 :::tip[How It Works]
-For a deep understanding of the payment model — account state, payment rails, rate mechanics, and deposit calculation — see the [Payments & Storage cookbook](/cookbooks/payments-and-storage/).
+For a conceptual overview of how payments work: deposits, payment rails, lockup, and what happens when funds run low, see the [Payments & Storage cookbook](/cookbooks/payments-and-storage/).
 :::
 
 Storage operates on a **pay-per-epoch** model where you deposit USDFC tokens and set allowances that control how much the storage service can spend.
@@ -153,7 +153,7 @@ console.log("Ready to upload:", ready)
 
 ## Upload Preparation
 
-Before uploading, the **WarmStorage operator** must be approved and your account must be funded. FWSS requires a 30-day prepayment buffer — when your balance drops below 30 days, the provider may remove your data.
+Before uploading, the **WarmStorage operator** must be approved and your account must be funded. FWSS uses a 30-day lockup (prepayment) period. If your account becomes underfunded, the provider may terminate the storage agreement, after which you have 30 days before data removal.
 
 :::tip[Typical Flow]
 **Query costs** → **prepare transaction** → **execute** → **upload**. The `prepare()` method handles the middle steps in one call.
@@ -262,5 +262,5 @@ For the full API — including pure calculation functions and lower-level utilit
 - [Payments & Storage](/cookbooks/payments-and-storage/) — Deep dive into the payment model mechanics
 - [StorageManager API Reference](/reference/filoz/synapse-sdk/storage/classes/storagemanager/) — Full SDK storage API
 - [PaymentsService API Reference](/reference/filoz/synapse-sdk/payments/classes/paymentsservice/) — Full SDK payments API
-- [Storage Operations](/developer-guides/storage/storage-operations/) — Storage concepts and workflows
-- [Storage Context](/developer-guides/storage/storage-context/) — Contexts and data sets
+- [Upload Pipeline](/developer-guides/storage/upload-pipeline/) — Upload workflows from simple to advanced
+- [Storage Operations](/developer-guides/storage/storage-operations/) — Contexts, data sets, and retrieval

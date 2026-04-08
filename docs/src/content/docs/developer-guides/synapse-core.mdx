@@ -215,4 +215,82 @@ const data = await downloadAndValidate({
 console.log(data) // Uint8Array — downloaded piece data
 ```
 
+### Provider Selection
+
+For custom upload pipelines, you can use the provider selection functions directly to find matching data sets and providers:
+
+```ts twoslash
+// @lib: esnext,dom
+import { createWalletClient, createPublicClient, http } from "viem"
+import { privateKeyToAccount } from "viem/accounts"
+import { calibration } from "@filoz/synapse-core/chains"
+const account = privateKeyToAccount("0x...")
+const walletClient = createWalletClient({ account, chain: calibration, transport: http() })
+const publicClient = createPublicClient({ chain: calibration, transport: http() })
+// ---cut---
+import { fetchProviderSelectionInput, selectProviders } from "@filoz/synapse-core/warm-storage"
+
+// Fetch all chain data needed for selection
+const input = await fetchProviderSelectionInput(publicClient, {
+  address: account.address,
+})
+
+// Primary: pass endorsedIds to restrict pool to endorsed providers only
+const [primary] = selectProviders({
+  ...input,
+  count: 1,
+  metadata: { source: "my-app" },
+})
+
+// Secondary: pass empty set to allow any approved provider
+const [secondary] = selectProviders({
+  ...input,
+  endorsedIds: [],
+  count: 1,
+  excludeProviderIds: [primary.provider.id],
+  metadata: { source: "my-app" },
+})
+```
+
+`fetchProviderSelectionInput()` makes a single multicall to gather providers, endorsements, and existing data sets. `selectProviders()` is a pure function (no network calls) that applies a 2-tier preference within the eligible pool:
+
+1. Existing data set with matching metadata
+2. New data set (no matching data set found)
+
+The `endorsedIds` parameter controls which providers are eligible. When non-empty, **only** endorsed providers can be selected (no fallback to non-endorsed). When empty, all approved providers are eligible.
+
+### SP-to-SP Pull
+
+Transfer pieces between providers without using client bandwidth:
+
+```ts twoslash
+// @lib: esnext,dom
+import { createWalletClient, createPublicClient, http } from "viem"
+import { privateKeyToAccount } from "viem/accounts"
+import { calibration } from "@filoz/synapse-core/chains"
+const account = privateKeyToAccount("0x...")
+const walletClient = createWalletClient({ account, chain: calibration, transport: http() })
+const publicClient = createPublicClient({ chain: calibration, transport: http() })
+import { getPDPProvider } from "@filoz/synapse-core/sp-registry"
+const primaryProvider = await getPDPProvider(publicClient, { providerId: 1n })
+const secondaryProvider = await getPDPProvider(publicClient, { providerId: 2n })
+const pieceCid = "bafkzcib..." as any;
+// ---cut---
+import * as SP from "@filoz/synapse-core/sp"
+
+const response = await SP.waitForPullPieces(walletClient, {
+  serviceURL: secondaryProvider.pdp.serviceURL,
+  pieces: [{
+    pieceCid,
+    sourceUrl: `${primaryProvider.pdp.serviceURL}/pdp/piece/${pieceCid}`,
+  }],
+  payee: secondaryProvider.payee,
+  payer: account.address,
+  cdn: false,
+  metadata: {},
+})
+```
+
+This path requires manual EIP-712 signing. The `signAddPieces` and `signCreateDataSetAndAddPieces` functions from `@filoz/synapse-core/typed-data` handle the signature creation.
+
 Check out the [Synapse Core Reference](/reference/filoz/synapse-core/toc/) for all available modules and functions.
