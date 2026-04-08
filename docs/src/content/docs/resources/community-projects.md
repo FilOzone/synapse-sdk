@@ -62,9 +62,13 @@ Projects in **FOC WG Spotlight** are maintained by the FOC Working Group. Projec
 
 **[fwss-subgraph](https://github.com/FIL-Builders/fwss-subgraph)** — Indexes on-chain data from the Filecoin Warm Storage Service contracts, making it easy to query data sets, pieces, payment rails, and provider activity using GraphQL.
 
-#### FOC Storage MCP
+#### FOC CLI
 
-**[foc-storage-mcp](https://github.com/FIL-Builders/foc-storage-mcp)** — An MCP server for the Filecoin Onchain Cloud storage service.
+**[foc-cli](https://github.com/FIL-Builders/foc-cli)** — A CLI and MCP server for Filecoin Onchain Cloud. Upload files, manage datasets and pieces, check wallet balances, and handle deposits from your terminal or AI agents.
+
+- Add as a Claude Code skill: `npx skills add FIL-Builders/foc-cli`
+- Add as an MCP server: `npx foc-cli mcp add`
+- View available commands: `npx foc-cli --llms`
 
 ## Contributing
 
