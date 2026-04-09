@@ -53,7 +53,7 @@ export async function uploadPieceStreaming(
       retries: 2,
       methods: ['post'],
       minTimeout: 2_000,
-      shouldRetry: () => true,
+      shouldRetry: (ctx) => !HttpError.is(ctx.error),
     },
   })
 
