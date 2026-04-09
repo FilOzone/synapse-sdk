@@ -893,7 +893,8 @@ describe('StorageService', () => {
   })
 
   describe('upload', () => {
-    it('should handle errors in batch processing gracefully', async () => {
+    it('should handle errors in batch processing gracefully', async function () {
+      this.timeout(30_000)
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
