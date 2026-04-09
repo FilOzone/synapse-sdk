@@ -47,8 +47,14 @@ export async function uploadPieceStreaming(
 ): Promise<uploadPieceStreaming.OutputType> {
   // Create upload session (POST /pdp/piece/uploads)
   const createResponse = await request.post(new URL('pdp/piece/uploads', options.serviceURL), {
-    timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
+    timeout: 30_000,
     signal: options.signal,
+    retry: {
+      retries: 2,
+      methods: ['post'],
+      minTimeout: 2_000,
+      shouldRetry: () => true,
+    },
   })
 
   if (createResponse.error) {
