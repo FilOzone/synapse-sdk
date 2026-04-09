@@ -893,8 +893,7 @@ describe('StorageService', () => {
   })
 
   describe('upload', () => {
-    it('should handle errors in batch processing gracefully', async function () {
-      this.timeout(30_000)
+    it('should handle errors in batch processing gracefully', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -906,7 +905,7 @@ describe('StorageService', () => {
         http.post<Record<string, never>, { pieceCid: string }>(
           'https://pdp.example.com/pdp/piece/uploads',
           async () => {
-            return HttpResponse.error()
+            return HttpResponse.text('Internal Server Error', { status: 500 })
           }
         )
       )
@@ -1129,8 +1128,7 @@ describe('StorageService', () => {
       }
     })
 
-    it('should handle upload piece failure', async function () {
-      this.timeout(30_000)
+    it('should handle upload piece failure', async () => {
       const testData = new Uint8Array(127).fill(42)
       const testPieceCID = Piece.calculate(testData).toString()
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
@@ -1139,9 +1137,8 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
         }),
         Mocks.PING(),
-        Mocks.pdp.postPieceHandler(testPieceCID, mockUuid, pdpOptions),
-        http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
-          return HttpResponse.error()
+        http.post('https://pdp.example.com/pdp/piece/uploads', async () => {
+          return HttpResponse.text('Internal Server Error', { status: 500 })
         })
       )
       const synapse = new Synapse({ client, source: null })
