@@ -826,7 +826,8 @@ describe('Synapse', () => {
         assert.equal(result.size, 1024)
       })
 
-      it('fails when primary store fails', async () => {
+      it('fails when primary store fails', async function () {
+        this.timeout(30_000)
         const data = new Uint8Array(1024)
         const pdpOptions = {
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,

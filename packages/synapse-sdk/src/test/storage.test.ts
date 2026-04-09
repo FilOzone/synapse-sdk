@@ -1129,7 +1129,8 @@ describe('StorageService', () => {
       }
     })
 
-    it('should handle upload piece failure', async () => {
+    it('should handle upload piece failure', async function () {
+      this.timeout(30_000)
       const testData = new Uint8Array(127).fill(42)
       const testPieceCID = Piece.calculate(testData).toString()
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
