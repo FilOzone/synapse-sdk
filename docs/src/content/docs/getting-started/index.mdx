@@ -5,64 +5,56 @@ sidebar:
   order: 0
 ---
 
-The **Synapse SDK** is your gateway to **Filecoin Onchain Cloud** — a decentralized, programmable cloud platform built on Filecoin. This comprehensive guide will walk you through everything you need to know to start building with the SDK.
+import { Tabs, TabItem, Steps } from '@astrojs/starlight/components';
 
-The Synapse SDK provides an interface to Filecoin's decentralized services ecosystem:
-
-- **🚀 Recommended Usage**: Use the high-level `Synapse` class for a streamlined experience with sensible defaults
-- **🔧 Composable Components**: Import and use individual components for fine-grained control over specific functionality
-
-The SDK handles all the complexity of blockchain interactions, provider selection, and data management, so you can focus on building your application.
-
-## What You'll Learn
+The **Synapse SDK** is your gateway to **Filecoin Onchain Cloud**, a decentralized, programmable cloud platform built on Filecoin. The SDK handles all the complexity of blockchain interactions, provider selection, and data management, so you can focus on building your application.
 
 By the end of this guide, you'll understand how to:
 
 - Install and configure the Synapse SDK
 - Connect to Filecoin networks (mainnet and calibration)
-- Manage payments and allowances
-- Upload and download data with Synapse SDK
-- Use advanced features like CDN and custom providers
+- Prepare and fund your storage balance
+- Upload and download data
 
 ## Prerequisites
 
-Before installing the Synapse SDK, make sure you have the following:
-
-- **[Node.js](https://nodejs.org/en) 20 or higher** installed.
-- A **supported package manager** (npm, yarn, or pnpm).
-- Added [Filecoin **Calibration**](https://chainlist.org/chain/314159) into you MetaMask.
-
-### Get Test Tokens
-
-Before you start building with Synapse SDK, you'll need to request test tokens from faucets to pay transaction fees and storage fees. For the calibration testnet:
-
-**Get tFIL tokens:**
-
-- Visit the [Filecoin Calibration Faucet](https://faucet.calibnet.chainsafe-fil.io/funds.html)
-- Enter your wallet address to receive free tFIL tokens
-- You need FIL for gas fees
-
-**Get test USDFC tokens:**
-
-- Visit the [Filecoin Calibration USDFC Faucet](https://forest-explorer.chainsafe.dev/faucet/calibnet_usdfc)
-- Enter your wallet address to receive free test USDFC tokens
-- You need USDFC for storage payments
+- **FIL** for gas fees. On testnet, get tFIL from the [Calibration Faucet](https://faucet.calibnet.chainsafe-fil.io/funds.html). For mainnet, see [Getting FIL](/resources/additional-resources/#getting-fil-tokens).
+- **USDFC** for storage payments. On testnet, get tUSDFC from the [USDFC Faucet](https://forest-explorer.chainsafe.dev/faucet/calibnet_usdfc). For mainnet, see [Getting USDFC](/resources/additional-resources/#getting-usdfc-tokens).
 
 ## Installation
 
-The Synapse SDK requires Node.js 20+ and can be installed via npm, yarn, or pnpm:
+The Synapse SDK works in **Node.js** and **the browser**. Install it with your preferred package manager:
 
-```bash
-npm install @filoz/synapse-sdk viem
-```
+<Tabs syncKey="pkg">
+  <TabItem label="npm" icon="seti:npm">
+    ```bash
+    npm install @filoz/synapse-sdk viem
+    ```
+  </TabItem>
+  <TabItem label="pnpm" icon="pnpm">
+    ```bash
+    pnpm add @filoz/synapse-sdk viem
+    ```
+  </TabItem>
+  <TabItem label="yarn" icon="seti:yarn">
+    ```bash
+    yarn add @filoz/synapse-sdk viem
+    ```
+  </TabItem>
+  <TabItem label="bun" icon="bun">
+    ```bash
+    bun add @filoz/synapse-sdk viem
+    ```
+  </TabItem>
+</Tabs>
 
-Note: `viem` is a peer dependency and must be installed separately.
+`viem` is a peer dependency and must be installed separately.
 
 :::tip[Other Languages?]
 Looking for Python or Go? Check out [Community Projects](/resources/community-projects/) for community-maintained SDKs.
 :::
 
-## Quick Start Example
+## Quick Start
 
 The [`Synapse`](/reference/filoz/synapse-sdk/synapse/classes/synapse/) class provides a complete, easy-to-use interface for interacting with Filecoin storage services.
 
@@ -74,259 +66,160 @@ Get started with storage in just a few lines of code.
 
 ```ts twoslash
 // @lib: esnext,dom
-import { Synapse } from "@filoz/synapse-sdk"
-import { mainnet } from "@filoz/synapse-core/chains"
+import { Synapse, mainnet } from "@filoz/synapse-sdk"
 import { privateKeyToAccount } from 'viem/accounts'
 
-async function main() {
-  // 1) Initialize the Synapse SDK
-  const synapse = Synapse.create({
-    account: privateKeyToAccount('0x...'),
-    source: 'my-app',
-    chain: mainnet, // default is calibration testnet
-    // Uncomment for high-performance incentive-aligned data retrievability through Filecoin Beam
-    // withCDN: true
-  })
-
-  // 2) Prepare account (single tx handles deposit + approval)
-  const file = new TextEncoder().encode(
-    `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud!
-    Your data is safe here.
-    🌍 You need to make sure to meet the minimum size
-    requirement of 127 bytes per upload.`
-  );
-  const prep = await synapse.storage.prepare({
-    dataSize: BigInt(file.byteLength),
-  })
-  if (prep.transaction) {
-    const { hash } = await prep.transaction.execute()
-    console.log(`✅ Account funded and approved (tx: ${hash})`)
-  }
-
-  // 3) Upload — stores 2 copies across independent providers for durability
-  const { pieceCid, size, complete, copies, failedAttempts } = await synapse.storage.upload(file)
-  console.log(`✅ Upload complete!`);
-  console.log(`PieceCID: ${pieceCid}`);
-  console.log(`Size: ${size} bytes`);
-  console.log(`Stored on ${copies.length} providers`);
-  if (!complete) console.warn(`${failedAttempts.length} copy attempt(s) failed`);
-
-  // 4) Download
-  const bytes = await synapse.storage.download({ pieceCid })
-  const decodedText = new TextDecoder().decode(bytes);
-  console.log(`✅ Download successful!`);
-  console.log(`Downloaded data: ${decodedText}\n`);
-  console.log("🎉 Data storage and retrieval successful!");
+// 1) Initialize the Synapse SDK
+const synapse = Synapse.create({
+  account: privateKeyToAccount('0x...'),
+  source: 'my-app',
+  chain: mainnet, // default is calibration testnet
+  // Uncomment for high-performance incentive-aligned data retrievability through Filecoin Beam
+  // withCDN: true
+})
+// 2) Prepare account (single tx handles deposit + approval)
+const file = new TextEncoder().encode(
+  `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud!
+  Your data is safe here.
+  🌍 You need to make sure to meet the minimum size
+  requirement of 127 bytes per upload.`
+);
+const prep = await synapse.storage.prepare({
+  dataSize: BigInt(file.byteLength),
+})
+if (prep.transaction) {
+  const { hash } = await prep.transaction.execute()
+  console.log(`✅ Account funded and approved (tx: ${hash})`)
 }
-
-main().then(() => {
-  console.log("✅ Storage workflow completed successfully!");
-}).catch((error) => {
-  console.error("❌ Error occurred:");
-  console.error(error.message); // Clear error description
-  console.error(error.cause); // Underlying error if any
-});
+// 3) Upload — stores 2 copies across independent providers for durability
+const { pieceCid, size, complete, copies, failedAttempts } = await synapse.storage.upload(file)
+console.log(`✅ Upload complete!`);
+console.log(`PieceCID: ${pieceCid}`);
+console.log(`Size: ${size} bytes`);
+console.log(`Stored on ${copies.length} providers`);
+if (!complete) console.warn(`${failedAttempts.length} copy attempt(s) failed`);
+// 4) Download
+const bytes = await synapse.storage.download({ pieceCid })
+const decodedText = new TextDecoder().decode(bytes);
+console.log(`✅ Download successful!`);
+console.log(`Downloaded data: ${decodedText}\n`);
+console.log("🎉 Data storage and retrieval successful!");
 ```
-
-What you just did:
-
-- ✅ Initialized Synapse SDK for Filecoin Calibration
-- ✅ Computed the exact deposit and approval needed for your data size
-- ✅ Executed a single transaction to fund and approve (if needed)
-- ✅ Uploaded data with 2 copies across independent providers for durability
-- ✅ Retrieved it using only the content address (from any provider that has it)
 
 Now let's break down each step...
 
-### 1: Initialize the SDK
+<Steps>
 
-First, set up the Synapse SDK with your credentials. We use wallet private key here as an example, but you can definitely inject signer from any wallet providers, such as MetaMask or wallet connect.
+1. **Initialize the SDK**
 
-```ts twoslash
-// @lib: esnext,dom
-import { Synapse } from "@filoz/synapse-sdk";
-import { privateKeyToAccount } from 'viem/accounts'
-// ---cut---
-// Initialize SDK with your private key and RPC endpoint
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
-```
+   Set up the Synapse SDK with your credentials. In Node.js, you'll typically use a private key:
 
-The `source` parameter identifies your application. It is stored as metadata on each dataset so that multiple apps sharing the same wallet can distinguish their own data.
+   ```ts twoslash
+   // @lib: esnext,dom
+   import { Synapse, mainnet } from "@filoz/synapse-sdk";
+   import { privateKeyToAccount } from 'viem/accounts'
+   // ---cut---
+   const synapse = Synapse.create({ 
+    account: privateKeyToAccount('0x...'), 
+    source: 'my-app',
+    chain: mainnet, // default is calibration testnet
+   })
+   ```
 
-### 2: Payment Setup
+   In the browser, connect to the user's wallet instead:
 
-Before storing data, you need to ensure your account is funded and the storage service is approved. The `prepare()` method calculates the exact deposit needed for your data size and returns a single transaction that handles both funding and approval.
+   ```ts twoslash
+   // @lib: esnext,dom
+   import { Synapse, mainnet } from "@filoz/synapse-sdk";
+   // ---cut---   
+   import 'viem/window'
+   import { custom } from 'viem'
+   const [address] = await window.ethereum!.request({ method: 'eth_requestAccounts' })
+   
+   const synapse = Synapse.create({ 
+    account: address, 
+    transport: custom(window.ethereum!), 
+    source: 'my-app',
+    chain: mainnet, // default is calibration testnet
+   })
+   ```
 
-:::note[Pricing]
-To size your deposit, check the up‑to‑date rates in [**Pricing**](/introduction/about/#pricing) and use the [storage costs guide](/developer-guides/storage/storage-costs/) for a detailed breakdown.
-:::
+   The `source` parameter identifies your application. It is stored as metadata on each dataset so that multiple apps sharing the same wallet can distinguish their own data.
 
-```ts twoslash
-// @lib: esnext,dom
-import { Synapse, TOKENS, formatUnits } from "@filoz/synapse-sdk";
-import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
+2. **Payment Setup**
 
-// ---cut---
-// Check current USDFC balance
-const walletBalance = await synapse.payments.walletBalance({ token: TOKENS.USDFC });
-const formattedBalance = formatUnits(walletBalance);
+   The `prepare()` method calculates the exact deposit needed for your data size and returns a single transaction that handles both funding and approval.
 
-// Prepare account — computes exact deposit + approval for your data size
-const prep = await synapse.storage.prepare({
-  dataSize: 1073741824n, // 1 GiB
-});
+   To size your deposit, check the up-to-date rates in [**Pricing**](/introduction/about/#pricing) and use the [storage costs guide](/developer-guides/storage/storage-costs/) for a detailed breakdown.
 
-console.log("Deposit needed:", prep.costs.depositNeeded);
-console.log("Rate per month:", prep.costs.rate.perMonth);
-console.log("Ready to upload:", prep.costs.ready);
+   ```ts twoslash
+   // @lib: esnext,dom
+   import { Synapse, TOKENS, formatUnits } from "@filoz/synapse-sdk";
+   import { privateKeyToAccount } from 'viem/accounts'
+   const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 
-// Execute the transaction if needed (handles deposit + approval in one tx)
-if (prep.transaction) {
-  const { hash } = await prep.transaction.execute();
-  console.log(`✅ Account funded and approved (tx: ${hash})`);
-}
-```
+   // ---cut---
+   // Check current USDFC balance
+   const walletBalance = await synapse.payments.walletBalance({ token: TOKENS.USDFC });
+   const formattedBalance = formatUnits(walletBalance);
 
-### 3: Store and Download Data
+   // Prepare account
+   const prep = await synapse.storage.prepare({
+     dataSize: 1073741824n, // 1 GiB
+   });
 
-Now you can upload data to decentralized storage and retrieve it:
+   console.log("Deposit needed:", prep.costs.depositNeeded);
+   console.log("Rate per month:", prep.costs.rate.perMonth);
+   console.log("Ready to upload:", prep.costs.ready);
 
-```ts twoslash
-// @lib: esnext,dom
-import { Synapse } from "@filoz/synapse-sdk";
-import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
-// ---cut---
-// Upload data — stores 2 copies by default for durability
-const file = new TextEncoder().encode(
-  `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud!
-    Your data is safe here.
-    🌍 You need to make sure to meet the minimum size
-    requirement of 127 bytes per upload.`
-);
-const { pieceCid, complete, copies, failedAttempts } = await synapse.storage.upload(file);
-console.log(`Stored on ${copies.length} providers`);
-if (!complete) console.warn(`${failedAttempts.length} copy attempt(s) failed`);
+   // Execute the transaction if needed (handles deposit + approval in one tx)
+   if (prep.transaction) {
+     const { hash } = await prep.transaction.execute();
+     console.log(`Account funded and approved (tx: ${hash})`);
+   }
+   ```
 
-// Download data from any provider that has it
-const downloadedData = await synapse.storage.download({ pieceCid });
-const decodedText = new TextDecoder().decode(downloadedData);
+3. **Store and Download Data**
 
-console.log(`Downloaded data: ${decodedText}`);
-```
+   Upload data to decentralized storage and retrieve it:
 
-## What's Next?
+   ```ts twoslash
+   // @lib: esnext,dom
+   import { Synapse } from "@filoz/synapse-sdk";
+   import { privateKeyToAccount } from 'viem/accounts'
+   const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
+   // ---cut---
+   // Upload data (stores 2 copies by default for durability)
+   const file = new TextEncoder().encode(
+     `Welcome to decentralized storage on Filecoin Onchain Cloud!
+       Your data is safe here.
+       You need to make sure to meet the minimum size
+       requirement of 127 bytes per upload.`
+   );
+   const { pieceCid, complete, copies, failedAttempts } = await synapse.storage.upload(file);
+   console.log(`Stored on ${copies.length} providers`);
+   if (!complete) console.warn(`${failedAttempts.length} copy attempt(s) failed`);
 
-Congratulations! You've successfully stored and retrieved data using the Synapse SDK. But this is just the beginning - the SDK offers many powerful features for building decentralized applications:
+   // Download data from any provider that has it
+   const downloadedData = await synapse.storage.download({ pieceCid });
+   const decodedText = new TextDecoder().decode(downloadedData);
 
-### Key Features
+   console.log(`Downloaded data: ${decodedText}`);
+   ```
 
-| Category | Features |
-| --- | --- |
-| 🗄️ **Advanced Storage** | **CDN Integration**: Enable fast global content delivery |
-| | **Metadata Management**: Tag and organize your data |
-| | **Batch Operations**: Upload multiple files efficiently |
-| 💰 **Payment Management** | **Automated Settlements**: Handle payment rails automatically |
-| | **Cost Estimation**: Preview storage costs before uploading |
-| | **Allowance Management**: Control spending limits |
-| 🛠️ **Developer Tools** | **Session Keys**: Improve user experience with delegated signing |
-| | **Progress Callbacks**: Track upload/download progress |
-| | **Error Handling**: Comprehensive error management |
-| 🌐 **Network Integration** | **Provider Discovery**: Find optimal storage providers |
-| | **Proof Verification**: Verify data integrity with PDP |
-| | **[Subgraph Integration](https://github.com/FIL-Builders/fwss-subgraph)**: Query blockchain data efficiently |
+</Steps>
 
-#### Quick Examples
+## Next Steps
 
-##### Advanced Storage with Contexts
+You've just stored and retrieved data on Filecoin. See the [Developer Guides](/developer-guides/) overview to find the right approach for your application, then dive into specific topics:
 
-For more control over provider selection and data set management:
+- [Upload Pipeline](/developer-guides/storage/upload-pipeline/) - From simple one-liner to manual store, pull, and commit control
+- [Storage Operations](/developer-guides/storage/storage-operations/) - Data set management, retrieval, and lifecycle
+- [Payment Operations](/developer-guides/payments/payment-operations/) - Fund your account and manage storage payments
+- [Session Keys](/developer-guides/session-keys/) - Delegate signing to ephemeral keys for better UX
+- [API Reference](/reference/filoz/synapse-sdk/toc/) - Complete SDK classes, methods, and types
+- [Example Application](https://github.com/FIL-Builders/foc-upload-dapp) - Full-stack upload dapp
 
-```ts twoslash
-// @lib: esnext,dom
-import { Synapse } from "@filoz/synapse-sdk";
-import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
-const file = new TextEncoder().encode(
-  `🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! 
-    Your data is safe here. 
-    🌍 You need to make sure to meet the minimum size 
-    requirement of 127 bytes per upload.`
-);
-// ---cut---
-// Create a storage context with specific provider
-const context = await synapse.storage.createContext({
-  providerId: 1n, // Use specific provider
-  withCDN: true, // Enable CDN for faster retrieval
-  metadata: {
-    category: "documents",
-    version: "1.0",
-  },
-});
+Want to understand the protocol? See [Foundations & Architecture](/core-concepts/architecture/) for how PDP, Filecoin Pay, and the service provider network fit together.
 
-// Upload to this specific context
-const result = await context.upload(file);
-
-// Download from this context
-const downloaded = await context.download({ pieceCid: result.pieceCid });
-```
-
-- **providerId**: By specifying `providerId`, you tell Synapse SDK to store (and later retrieve) your data specifically with that provider.
-
-- **withCDN**: Setting `withCDN: true` enables **Filecoin Beam**, the decentralized retrieval and delivery layer. So global users can download data faster, and pay-by-egress billing.
-
-- **metadata**: Attach custom key-value pairs to your data set for easy categorization, tagging, or later querying. This metadata is stored on-chain and can be used by apps or indexing systems.
-
-##### Finding Service Providers
-
-```ts twoslash
-// @lib: esnext,dom
-import { Synapse } from "@filoz/synapse-sdk";
-import { privateKeyToAccount } from 'viem/accounts'
-const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
-// ---cut---
-// Get all approved providers
-const storageInfo = await synapse.storage.getStorageInfo();
-const providers = storageInfo.providers;
-
-console.log("Available providers:");
-providers.forEach((provider) => {
-  console.table({
-    ID: provider.id,
-    Name: provider.name,
-    Description: provider.description,
-    Active: provider.isActive,
-    ProviderAddress: provider.serviceProvider,
-    PDPServiceURL: provider.pdp.serviceURL,
-  });
-});
-```
-
-### Explore More
-
-Ready to dive deeper? Check out these comprehensive guides:
-
-- **[Core Concepts](/core-concepts/architecture/)** - Understand the architecture, PDP, and Filecoin Pay protocols
-- **[Upload Pipeline](/developer-guides/storage/upload-pipeline/)** - Upload data with multi-copy durability
-- **[Storage Operations](/developer-guides/storage/storage-operations/)** - Data set management, retrieval, and lifecycle
-- **[Payment Management](/developer-guides/payments/payment-operations/)** - Learn about deposits, approvals, and monitoring costs
-
-#### Developer Resources
-
-- **[Example Application](https://github.com/FIL-Builders/fs-upload-dapp)** - Full-stack upload application
-
-#### API Reference
-
-For complete API documentation, see the [API Reference](/reference/filoz/synapse-sdk/toc/) which covers:
-
-- All SDK classes and methods
-- TypeScript interfaces and types
-- Configuration options
-- Error handling patterns
-
-#### Community & Support
-
-- **GitHub**: [Report issues and contribute](https://github.com/FilOzone/synapse-sdk)
-- **Slack**: Join the `#fil-builders` on [Filecoin Slack](https://filecoin.io/slac) for help and discussions
-- **Telegram**: Join `FIL Builders` on [Telegram](https://t.me/+Xj6_zTPfcUA4MGQ1)
+Join the `#fil-builders` on [Filecoin Slack](https://filecoin.io/slack) or [Telegram](https://t.me/+Xj6_zTPfcUA4MGQ1) for help and discussions.

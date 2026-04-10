@@ -5,6 +5,8 @@ sidebar:
   order: 6
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 **Synapse Core** (`@filoz/synapse-core`) is the low-level foundation that both the [Synapse SDK](/developer-guides/synapse/) and [Synapse React](/developer-guides/react-integration/) build on. Use Synapse Core when you need:
 
 - Direct control over individual contract calls without the `Synapse` class abstraction
@@ -14,9 +16,28 @@ sidebar:
 
 **Install dependencies:**
 
-```bash
-npm install @filoz/synapse-core viem
-```
+<Tabs syncKey="pkg">
+  <TabItem label="npm" icon="seti:npm">
+    ```bash
+    npm install @filoz/synapse-core viem
+    ```
+  </TabItem>
+  <TabItem label="pnpm" icon="pnpm">
+    ```bash
+    pnpm add @filoz/synapse-core viem
+    ```
+  </TabItem>
+  <TabItem label="yarn" icon="seti:yarn">
+    ```bash
+    yarn add @filoz/synapse-core viem
+    ```
+  </TabItem>
+  <TabItem label="bun" icon="bun">
+    ```bash
+    bun add @filoz/synapse-core viem
+    ```
+  </TabItem>
+</Tabs>
 
 Synapse Core requires [viem](https://viem.sh) 2.x as a peer dependency.
 

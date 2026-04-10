@@ -7,6 +7,17 @@ sidebar:
 
 This section contains additional resources for Filecoin Onchain Cloud.
 
+## Getting FIL Tokens
+
+FIL is needed for gas fees on the Filecoin network.
+
+- Mainnet
+  - Purchase FIL from centralized exchanges (CEXes) or decentralized exchanges (DEXes)
+  - Use crypto onramps to buy FIL directly
+  - Bridge from any chain/token to FIL using the [Squid Router](https://app.squidrouter.com/?fromChain=base&toChain=filecoin&fromToken=eth&toToken=fil)
+- Calibration Testnet
+  - Get tFIL from the [Calibration Faucet](https://faucet.calibnet.chainsafe-fil.io/funds.html)
+
 ## Getting USDFC Tokens
 
 - Mainnet
@@ -29,15 +40,15 @@ Track proofs submitted to the PDP contract.
 
 Track your payment rails and payments.
 
-- **Mainnet**: <https://pay.filecoin.services/>
-- **Calibration Testnet**: <https://staging-pay.filecoin.services/>
+- **Mainnet**: <https://pay.filecoin.cloud/mainnet>
+- **Calibration Testnet**: <https://pay.filecoin.cloud/calibration>
 
 ### Storage Providers DealBot
 
 Track storage providers health and reliability.
 
-- **Mainnet**: <https://dealbot.fwss.io/>
-- **Calibration Testnet**: <https://dealbot-staging.fwss.io>
+- **Mainnet**: <https://dealbot.filoz.org/>
+- **Calibration Testnet**: <https://staging.dealbot.filoz.org/>
 
 ## Network Information
 
@@ -49,7 +60,7 @@ Track storage providers health and reliability.
     - [https://filfox.info](https://filfox.info)
     - [https://beryx.io](https://beryx.io)
 - Calibration Testnet
-  - Chain ID**: 314159
+  - **Chain ID**: 314159
   - **RPC URLs List**: [https://chainlist.org/chain/314159](https://chainlist.org/chain/314159)
   - **Block Explorers**:
     - [https://filecoin-testnet.blockscout.com](https://filecoin-testnet.blockscout.com)
