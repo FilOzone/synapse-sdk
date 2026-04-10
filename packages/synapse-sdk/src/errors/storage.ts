@@ -26,10 +26,9 @@ export class StoreError extends SynapseError {
     this.endpoint = options?.endpoint
   }
 
-  toJSON() {
+  override toJSON() {
     return {
-      name: this.name,
-      message: this.message,
+      ...super.toJSON(),
       providerId: this.providerId,
       endpoint: this.endpoint,
     }
@@ -61,10 +60,9 @@ export class CommitError extends SynapseError {
     this.endpoint = options?.endpoint
   }
 
-  toJSON() {
+  override toJSON() {
     return {
-      name: this.name,
-      message: this.message,
+      ...super.toJSON(),
       providerId: this.providerId,
       endpoint: this.endpoint,
     }
