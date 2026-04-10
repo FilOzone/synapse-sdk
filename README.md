@@ -10,7 +10,7 @@
 
 ## Docs
 
-Check the documentation [website](https://synapse.filecoin.services/)
+Check the documentation [website](https://docs.filecoin.cloud/)
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/FilOzone/synapse-sdk)
 

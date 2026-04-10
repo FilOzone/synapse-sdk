@@ -15,6 +15,16 @@ const site = 'https://docs.filecoin.cloud'
 export default defineConfig({
   site,
   base: '/',
+  redirects: {
+    '/developer-guides/storage/storage-context/':
+      '/developer-guides/storage/storage-operations/',
+    '/developer-guides/storage/split-operations/':
+      '/developer-guides/storage/upload-pipeline/',
+    '/developer-guides/react-integration/':
+      '/developer-guides/synapse-react/',
+    '/developer-guides/devnet/':
+      '/resources/devnet/',
+  },
   markdown: {
     rehypePlugins: [
       [

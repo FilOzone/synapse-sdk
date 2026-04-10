@@ -93,7 +93,7 @@ High-level storage operations with multi-copy durability. Stores data on multipl
 
 Provider-specific split operations (`store` → `pull` → `commit`). Used for batch uploads, custom error handling, and manual orchestration of multi-copy flows.
 
-[View Split Operations Guide →](/developer-guides/storage/storage-context/) - _Manual control over store, pull, and commit_
+[View Upload Pipeline →](/developer-guides/storage/upload-pipeline/) - _From simple uploads to manual store, pull, and commit_
 
 **API Reference**: [StorageContext API Reference](/reference/filoz/synapse-sdk/storage/classes/storagecontext/)
 

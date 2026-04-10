@@ -1,0 +1,142 @@
+---
+title: Payments & Storage
+description: How storage payments work. Deposit funds, FWSS streams to providers, done.
+sidebar:
+  order: 1
+---
+
+:::tip[What You'll Learn]
+
+- The mental model: deposit USDFC, FWSS handles payments to storage providers
+- How much storage costs (pricing, floors, CDN)
+- What payment rails are and why each dataset has up to three
+- What happens if your account runs low on funds
+
+:::
+
+## How It Works
+
+Storage on Filecoin Onchain Cloud uses two connected on-chain systems:
+
+- **Filecoin Pay**: a generic payment protocol for streaming and one-time payments
+- **Filecoin Warm Storage Service (FWSS)**: a storage service that builds on Filecoin Pay
+
+Think of your Filecoin Pay account as a checking account with a running tab. You deposit USDFC, and FWSS continuously streams payments from it to storage providers on your behalf. The developer flow is:
+
+1. **Deposit** USDFC into your Filecoin Pay account
+2. **Approve** FWSS as your operator (one-time)
+3. **Upload** data through the SDK
+4. **FWSS handles the rest**: creating payment channels, streaming funds to storage providers
+
+The SDK's `prepare()` method handles steps 1-2 automatically. See [Storage Costs](/developer-guides/storage/storage-costs/) for code examples.
+
+:::tip[SDK Usage]
+This cookbook explains the underlying payment model. For practical code:
+
+- **Cost calculation & funding**: [Storage Costs](/developer-guides/storage/storage-costs/)
+- **Upload workflows**: [Upload Pipeline](/developer-guides/storage/upload-pipeline/)
+- **API reference**: [StorageManager](/reference/filoz/synapse-sdk/storage/classes/storagemanager/) · [PaymentsService](/reference/filoz/synapse-sdk/payments/classes/paymentsservice/)
+
+:::
+
+## Pricing
+
+| Component | Cost | Notes |
+| -------------- | -------------------- | ------------------------------------------------------- |
+| **Storage** | $2.50/TiB/month | Minimum $0.06/month per dataset (~24.567 GiB threshold) |
+| **Sybil fee** | 0.1 USDFC (one-time) | Per new dataset creation; prevents state-growth spam |
+| **CDN egress** | $14/TiB downloaded | 1 USDFC top-up ≈ 71.5 GiB of downloads |
+| **CDN setup** | 1 USDFC (one-time) | Per dataset; reusing existing datasets incurs no cost |
+
+:::note
+"Month" always means exactly **30 days = 86,400 epochs** throughout the system. Filecoin epochs are ~30 seconds each.
+:::
+
+### Floor Pricing
+
+Every dataset has a minimum monthly charge of **$0.06/month**, regardless of size. This compensates storage providers for the overhead of maintaining a dataset. Files under ~24.567 GiB all pay this same floor rate. Above that threshold, the natural rate (`bytes/TiB × $2.50/month`) takes over.
+
+### Dataset Creation Costs
+
+Creating a new dataset requires minimum available funds to cover the initial lockup plus the sybil fee:
+
+| Scenario | Minimum Funds Required |
+| -------- | ---------------------- |
+| No CDN | 0.16 USDFC (0.06 floor lockup + 0.10 sybil fee) |
+| With CDN | 1.16 USDFC (0.06 floor + 0.10 sybil + 0.70 CDN + 0.30 cache miss) |
+
+The storage rate starts at zero when a dataset is created and is set automatically when you add data.
+
+## Payment Rails
+
+For each dataset, FWSS creates payment channels called **rails** that stream funds from your account to the storage provider. A dataset can have up to three rails:
+
+| Rail | Type | Purpose |
+| -------------- | --------- | ---------------------------------------- |
+| **PDP rail** | Streaming | Pays for storage at a rate per epoch |
+| **CDN rail** | Fixed | 0.7 USDFC lockup for CDN egress credits |
+| **Cache miss** | Fixed | 0.3 USDFC lockup for cache miss credits |
+
+Every dataset gets a PDP rail. CDN and cache miss rails are added only when CDN is enabled.
+
+FWSS enforces a **30-day lockup period**: your account must always have enough funds to cover at least 30 days of storage at the current rate. Think of it as a security deposit. The funds aren't spent upfront, but they're reserved so providers are guaranteed payment even if you stop topping up.
+
+When you add data to an existing dataset, FWSS automatically adjusts the rail's payment rate. The SDK calculates the correct deposit amount for you via `getUploadCosts()` and `prepare()`.
+
+## Operator Approval
+
+Before FWSS can manage payment rails on your behalf, you need to approve it as an **operator** on your Filecoin Pay account. Think of this like approving a token allowance: you're authorizing FWSS to create and modify payment channels using your deposited funds.
+
+The SDK handles this automatically: the first time you call `prepare()`, the returned transaction includes the approval alongside any needed deposit. After that, only deposits are needed.
+
+If you're building custom integrations outside the SDK, FWSS approval uses the Filecoin Pay operator system with three allowance dimensions (rate, lockup amount, and lockup period). See the [Filecoin Pay spec](https://github.com/FilOzone/filecoin-pay/blob/main/SPEC.md) for details.
+
+## Running Low on Funds
+
+Your account has a **funded-until epoch**: the point in time when your balance runs out at the current rate. You can check this via the SDK's account queries (see [Storage Costs: Account Queries](/developer-guides/storage/storage-costs/#account-queries)).
+
+When your balance runs out, the account becomes **underfunded**. This has real consequences:
+
+- **Uploads fail**: new storage operations require the account to be current on payments, and an underfunded account can't settle to the current epoch
+- **Existing data is at risk**: after the 30-day lockup grace period, providers may remove your data
+- **Deposits must cover the shortfall first**: when you deposit into an underfunded account, part of the deposit goes toward settling outstanding obligations before it can fund new storage
+
+The SDK handles this automatically: `getUploadCosts()` and `prepare()` account for any outstanding debt when calculating the deposit amount. If your account is underfunded, the deposit will include the shortfall so your upload can proceed.
+
+**To avoid interruptions**, keep your account funded well beyond the 30-day lockup window. You can request extra runway when preparing uploads via the `extraRunwayEpochs` parameter.
+
+## Advanced Details
+
+:::note
+Most developers won't need this section. The SDK abstracts these mechanics: `prepare()` and `getUploadCosts()` handle deposit calculation, debt recovery, and timing safety automatically.
+:::
+
+### Rate Precision
+
+Storage prices are stored per-month on-chain but rails operate per-epoch. Integer division during conversion means `perEpoch × EPOCHS_PER_MONTH` is slightly less than the true monthly rate due to truncation. The SDK returns both values: use `rate.perMonth` for display and `rate.perEpoch` for on-chain math.
+
+### Deposit Components
+
+The deposit amount for an upload is built from four parts:
+
+| Component | What it covers |
+| ------------------- | ---------------------------------------------------------- |
+| **Additional lockup** | Rate increase × 30-day lockup period, plus any CDN lockup |
+| **Runway** | Extra funded time beyond the lockup (if requested) |
+| **Debt** | Outstanding obligations on underfunded accounts |
+| **Buffer** | Safety margin for time between balance check and transaction execution |
+
+The buffer accounts for the fact that funds drain between when you check your balance and when the transaction lands on-chain. The SDK adds a small buffer (default: 5 epochs ≈ 2.5 minutes) to prevent reverts. New users with no existing storage skip the buffer since nothing is draining yet.
+
+### Further Reading
+
+- [Full Storage Cost API spec](https://hackmd.io/@lordforever/SJ6Lwv2dWx) (external): complete API specification for storage cost calculations
+- [Filecoin Pay spec](https://github.com/FilOzone/filecoin-pay/blob/main/SPEC.md): full protocol specification
+- [Filecoin Pay Technical Overview](/core-concepts/filecoin-pay-overview/): contract architecture deep-dive
+
+## Next Steps
+
+- [Storage Costs](/developer-guides/storage/storage-costs/): SDK API usage and code examples
+- [Upload Pipeline](/developer-guides/storage/upload-pipeline/): Upload workflows from simple to advanced
+- [Storage Operations](/developer-guides/storage/storage-operations/): Data set management, retrieval, and lifecycle
+- [Filecoin Pay Technical Overview](/core-concepts/filecoin-pay-overview/): Contract internals and architecture
