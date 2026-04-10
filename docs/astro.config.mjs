@@ -20,6 +20,10 @@ export default defineConfig({
       '/developer-guides/storage/storage-operations/',
     '/developer-guides/storage/split-operations/':
       '/developer-guides/storage/upload-pipeline/',
+    '/developer-guides/react-integration/':
+      '/developer-guides/synapse-react/',
+    '/developer-guides/devnet/':
+      '/resources/devnet/',
   },
   markdown: {
     rehypePlugins: [

@@ -1,5 +1,5 @@
 ---
-title: Getting Started
+title: Overview
 description: Learn about the available Synapse packages and how they relate.
 sidebar: 
   order: 1
@@ -12,7 +12,7 @@ This page describes the available Synapse packages and how to choose the one tha
 | Package | Best for | Builds on |
 | --------- | ---------- | ----------- |
 | **[Synapse SDK](/developer-guides/synapse/)** | Most applications | Core |
-| **[Synapse React](/developer-guides/react-integration/)** | React applications | Core + Wagmi |
+| **[Synapse React](/developer-guides/synapse-react/)** | React applications | Core + Wagmi |
 | **[Synapse Core](/developer-guides/synapse-core/)** | Fine-grained control, custom integrations | Viem |
 
 ## Synapse SDK
@@ -45,7 +45,7 @@ This page describes the available Synapse packages and how to choose the one tha
 
 React hooks for payments, storage, and provider operations. Built on [Wagmi](https://wagmi.sh) and [TanStack Query](https://tanstack.com/query).
 
-[**Synapse React Guide →**](/developer-guides/react-integration/)
+[**Synapse React Guide →**](/developer-guides/synapse-react/)
 
 [**Synapse React API Reference →**](/reference/filoz/synapse-react/toc/)
 

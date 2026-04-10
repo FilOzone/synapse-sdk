@@ -2,7 +2,7 @@
 title: Devnet Configuration
 description: Configure Synapse SDK for local development
 sidebar:
-  order: 10
+  order: 3
 ---
 
 The Synapse SDK supports local development networks in addition to mainnet and calibration.

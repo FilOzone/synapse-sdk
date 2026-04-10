@@ -2,7 +2,7 @@
 title: Migration Guide
 description: Learn how to migrate to newer versions of the SDK.
 sidebar: 
-  order: 0
+  order: 100
 ---
 
 If you are coming from an earlier version of any of the Synapse packages, you will need to make sure to update the APIs listed below.
