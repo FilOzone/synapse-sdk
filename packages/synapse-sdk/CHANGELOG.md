@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.4](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.3...synapse-sdk-v0.40.4) (2026-04-11)
+
+
+### Chores
+
+* update msw package version to 2.12.14 in workspace and mock service worker files ([4865ff7](https://github.com/FilOzone/synapse-sdk/commit/4865ff79d229ed29987c4b7fe27367f4aadddfcb))
+
 ## [0.40.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.2...synapse-sdk-v0.40.3) (2026-04-02)
 
 
