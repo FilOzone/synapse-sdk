@@ -1415,6 +1415,10 @@ describe('StorageService', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            findPieceIdsByCid: () => [[]],
+          },
         })
       )
       const synapse = new Synapse({ client, source: null })

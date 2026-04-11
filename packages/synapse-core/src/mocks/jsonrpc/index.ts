@@ -526,6 +526,7 @@ export const presets = {
       getDataSetLeafCount: () => [0n],
       getScheduledRemovals: () => [[]],
       getNextChallengeEpoch: () => [5000n],
+      findPieceIdsByCid: () => [[0n]],
     },
     serviceRegistry: {
       registerProvider: () => [1n],
