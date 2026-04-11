@@ -71,5 +71,28 @@ describe('getActivePieceCount', () => {
       assert.equal(typeof count, 'bigint')
       assert.equal(count, 2n)
     })
+
+    it('should return 0 when the data set is not live', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieceCount: () => {
+              throw new Error('Data set not live')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const count = await getActivePieceCount(client, { dataSetId: 1n })
+
+      assert.equal(count, 0n)
+    })
   })
 })

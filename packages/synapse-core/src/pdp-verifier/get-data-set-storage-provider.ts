@@ -1,17 +1,19 @@
 import type { Simplify } from 'type-fest'
-import type {
-  Address,
-  Chain,
-  Client,
-  ContractFunctionParameters,
-  ContractFunctionReturnType,
-  ReadContractErrorType,
-  Transport,
+import {
+  type Address,
+  type Chain,
+  type Client,
+  type ContractFunctionParameters,
+  type ContractFunctionReturnType,
+  type ReadContractErrorType,
+  type Transport,
+  zeroAddress,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 
 export namespace getDataSetStorageProvider {
   export type OptionsType = {
@@ -24,9 +26,9 @@ export namespace getDataSetStorageProvider {
   /**
    * `[storageProvider, proposedStorageProvider]`
    * - `storageProvider`: The storage provider address
-   * - `proposedStorageProvider`: The proposed storage provider address
+   * - `proposedStorageProvider`: The proposed storage provider address or null if no proposed storage provider
    */
-  export type OutputType = readonly [`0x${string}`, `0x${string}`]
+  export type OutputType = readonly [storageProvider: Address, proposedStorageProvider: Address | null] | null
 
   export type ContractOutputType = ContractFunctionReturnType<
     typeof pdpVerifierAbi,
@@ -58,22 +60,29 @@ export namespace getDataSetStorageProvider {
  *
  * @param client - The client to use to get the data set storage provider.
  * @param options - {@link getDataSetStorageProvider.OptionsType}
- * @returns The storage provider addresses for the data set {@link getDataSetStorageProvider.OutputType}
+ * @returns The storage provider addresses for the data set {@link getDataSetStorageProvider.OutputType}. Returns null if the data set is not live or does not exist.
  * @throws Errors {@link getDataSetStorageProvider.ErrorType}
  */
 export async function getDataSetStorageProvider(
   client: Client<Transport, Chain>,
   options: getDataSetStorageProvider.OptionsType
 ): Promise<getDataSetStorageProvider.OutputType> {
-  const [storageProvider, proposedStorageProvider] = await readContract(
-    client,
-    getDataSetStorageProviderCall({
-      chain: client.chain,
-      dataSetId: options.dataSetId,
-      contractAddress: options.contractAddress,
-    })
-  )
-  return [storageProvider, proposedStorageProvider]
+  try {
+    const data = await readContract(
+      client,
+      getDataSetStorageProviderCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+        contractAddress: options.contractAddress,
+      })
+    )
+    return parseDataSetStorageProvider(data)
+  } catch (error) {
+    if (stringErrorEquals(error, STRING_ERRORS.PDP_VERIFIER_DATA_SET_NOT_LIVE)) {
+      return null
+    }
+    throw error
+  }
 }
 
 export namespace getDataSetStorageProviderCall {
@@ -123,4 +132,16 @@ export function getDataSetStorageProviderCall(options: getDataSetStorageProvider
     functionName: 'getDataSetStorageProvider',
     args: [options.dataSetId],
   } satisfies getDataSetStorageProviderCall.OutputType
+}
+
+/**
+ * Parse the contract output into a {@link getDataSetStorageProvider.OutputType}.
+ *
+ * @param data - The contract output from the getDataSetStorageProvider function {@link getDataSetStorageProvider.ContractOutputType}
+ * @returns The storage provider addresses for the data set {@link getDataSetStorageProvider.OutputType}
+ */
+export function parseDataSetStorageProvider(
+  data: getDataSetStorageProvider.ContractOutputType
+): getDataSetStorageProvider.OutputType {
+  return [data[0], data[1] === zeroAddress ? null : data[1]]
 }

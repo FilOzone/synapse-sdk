@@ -2,6 +2,7 @@ import assert from 'assert'
 import { setup } from 'iso-web/msw'
 import { createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
+import { LimitMustBeGreaterThanZeroError } from '../src/errors/pdp-verifier.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { getActivePieces, getActivePiecesCall } from '../src/pdp-verifier/get-active-pieces.ts'
 import * as Piece from '../src/piece/piece.ts'
@@ -67,6 +68,18 @@ describe('getActivePieces', () => {
 
       assert.equal(call.address, customAddress)
     })
+
+    it('should throw when limit is negative', () => {
+      assert.throws(
+        () =>
+          getActivePiecesCall({
+            chain: calibration,
+            dataSetId: 1n,
+            limit: -1n,
+          }),
+        LimitMustBeGreaterThanZeroError
+      )
+    })
   })
 
   describe('getActivePieces (with mocked RPC)', () => {
@@ -88,6 +101,32 @@ describe('getActivePieces', () => {
         hasMore: false,
       })
       assert.equal(typeof result.hasMore, 'boolean')
+    })
+
+    it('should return an empty result when the data set is not live', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieces: () => {
+              throw new Error('Data set not live')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const result = await getActivePieces(client, { dataSetId: 1n })
+
+      assert.deepEqual(result, {
+        pieces: [],
+        hasMore: false,
+      })
     })
   })
 })

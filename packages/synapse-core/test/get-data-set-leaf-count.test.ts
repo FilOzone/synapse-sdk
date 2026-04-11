@@ -71,5 +71,28 @@ describe('getDataSetLeafCount', () => {
       assert.equal(typeof count, 'bigint')
       assert.equal(count, 0n)
     })
+
+    it('should return 0 when the data set is not live', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getDataSetLeafCount: () => {
+              throw new Error('Data set not live')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const count = await getDataSetLeafCount(client, { dataSetId: 1n })
+
+      assert.equal(count, 0n)
+    })
   })
 })

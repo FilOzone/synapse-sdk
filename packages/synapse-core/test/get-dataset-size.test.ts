@@ -112,4 +112,30 @@ describe('getDataSetSizes', () => {
     assert.equal(sizes[1], 200n * SIZE_CONSTANTS.BYTES_PER_LEAF)
     assert.equal(sizes[2], 0n)
   })
+
+  it('should return 0 for a data set that is not live', async () => {
+    server.use(
+      JSONRPC({
+        ...presets.basic,
+        pdpVerifier: {
+          ...presets.basic.pdpVerifier,
+          getDataSetLeafCount: (args) => {
+            if (args[0] === 2n) {
+              throw new Error('Data set not live')
+            }
+            return [10n]
+          },
+        },
+      })
+    )
+
+    const client = createPublicClient({
+      chain: calibration,
+      transport: http(),
+    })
+
+    const sizes = await getDataSetSizes(client, { dataSetIds: [1n, 2n] })
+
+    assert.deepEqual(sizes, [10n * SIZE_CONSTANTS.BYTES_PER_LEAF, 0n])
+  })
 })

@@ -1,9 +1,13 @@
 import assert from 'assert'
 import { setup } from 'iso-web/msw'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, zeroAddress } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { getDataSetListener, getDataSetListenerCall } from '../src/pdp-verifier/get-data-set-listener.ts'
+import {
+  getDataSetListener,
+  getDataSetListenerCall,
+  parseDataSetListener,
+} from '../src/pdp-verifier/get-data-set-listener.ts'
 
 describe('getDataSetListener', () => {
   const server = setup()
@@ -68,8 +72,39 @@ describe('getDataSetListener', () => {
 
       const listener = await getDataSetListener(client, { dataSetId: 1n })
 
+      if (listener == null) {
+        assert.fail('Listener is null')
+      }
+
       assert.equal(typeof listener, 'string')
       assert.ok(listener.startsWith('0x'))
+    })
+
+    it('should return null when the listener address is the zero address', () => {
+      assert.equal(parseDataSetListener(zeroAddress), null)
+    })
+
+    it('should return null when the data set is not live', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getDataSetListener: () => {
+              throw new Error('Data set not live')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const listener = await getDataSetListener(client, { dataSetId: 1n })
+
+      assert.equal(listener, null)
     })
   })
 })
