@@ -182,6 +182,81 @@ describe('WarmStorageService', () => {
       assert.equal(dataSets[1].cdnRailId, 100n)
     })
 
+    it('should support pagination with offset and limit', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          warmStorageView: {
+            getClientDataSets: (args) => {
+              const [, offset, limit] = args
+              // Return first dataset when offset=0, limit=1
+              if (offset === 0n && limit === 1n) {
+                return [
+                  [
+                    {
+                      pdpRailId: 1n,
+                      cacheMissRailId: 0n,
+                      cdnRailId: 0n,
+                      payer: Mocks.ADDRESSES.client1,
+                      payee: Mocks.ADDRESSES.serviceProvider1,
+                      serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                      commissionBps: 100n,
+                      clientDataSetId: 0n,
+                      pdpEndEpoch: 0n,
+                      providerId: 1n,
+                      cdnEndEpoch: 0n,
+                      dataSetId: 1n,
+                    },
+                  ],
+                ]
+              }
+              // Return second dataset when offset=1, limit=1
+              if (offset === 1n && limit === 1n) {
+                return [
+                  [
+                    {
+                      pdpRailId: 2n,
+                      cacheMissRailId: 0n,
+                      cdnRailId: 100n,
+                      payer: Mocks.ADDRESSES.client1,
+                      payee: Mocks.ADDRESSES.serviceProvider1,
+                      serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                      commissionBps: 200n,
+                      clientDataSetId: 1n,
+                      pdpEndEpoch: 0n,
+                      providerId: 1n,
+                      cdnEndEpoch: 0n,
+                      dataSetId: 2n,
+                    },
+                  ],
+                ]
+              }
+              return [[]]
+            },
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+
+      // Get first page
+      const firstPage = await warmStorageService.getClientDataSets({
+        address: Mocks.ADDRESSES.client1,
+        offset: 0n,
+        limit: 1n,
+      })
+      assert.lengthOf(firstPage, 1)
+      assert.equal(firstPage[0].dataSetId, 1n)
+
+      // Get second page
+      const secondPage = await warmStorageService.getClientDataSets({
+        address: Mocks.ADDRESSES.client1,
+        offset: 1n,
+        limit: 1n,
+      })
+      assert.lengthOf(secondPage, 1)
+      assert.equal(secondPage[0].dataSetId, 2n)
+    })
+
     it('should handle contract call errors gracefully', async () => {
       server.use(
         Mocks.JSONRPC({
@@ -203,6 +278,130 @@ describe('WarmStorageService', () => {
     })
   })
 
+  describe('getClientDataSetsLength', () => {
+    it('should return total count of data sets for a client', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          warmStorageView: {
+            getClientDataSetsLength: () => [5n],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      const count = await warmStorageService.getClientDataSetsLength({ address: Mocks.ADDRESSES.client1 })
+      assert.equal(count, 5n)
+    })
+
+    it('should return zero when client has no data sets', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          warmStorageView: {
+            getClientDataSetsLength: () => [0n],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      const count = await warmStorageService.getClientDataSetsLength({ address: Mocks.ADDRESSES.client1 })
+      assert.equal(count, 0n)
+    })
+  })
+
+  describe('getClientDataSetIds', () => {
+    it('should return data set IDs for a client', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          warmStorageView: {
+            clientDataSets: () => [[1n, 2n, 3n]],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      const ids = await warmStorageService.getClientDataSetIds({ address: Mocks.ADDRESSES.client1 })
+      assert.isArray(ids)
+      assert.lengthOf(ids, 3)
+      assert.equal(ids[0], 1n)
+      assert.equal(ids[1], 2n)
+      assert.equal(ids[2], 3n)
+    })
+
+    it('should return empty array when client has no data sets', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          warmStorageView: {
+            clientDataSets: () => [[]],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      const ids = await warmStorageService.getClientDataSetIds({ address: Mocks.ADDRESSES.client1 })
+      assert.isArray(ids)
+      assert.lengthOf(ids, 0)
+    })
+
+    it('should support pagination with offset and limit', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          warmStorageView: {
+            clientDataSets: (args) => {
+              const [, offset, limit] = args
+              // Return first ID when offset=0, limit=1
+              if (offset === 0n && limit === 1n) {
+                return [[1n]]
+              }
+              // Return second ID when offset=1, limit=1
+              if (offset === 1n && limit === 1n) {
+                return [[2n]]
+              }
+              return [[]]
+            },
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+
+      // Get first page
+      const firstPage = await warmStorageService.getClientDataSetIds({
+        address: Mocks.ADDRESSES.client1,
+        offset: 0n,
+        limit: 1n,
+      })
+      assert.lengthOf(firstPage, 1)
+      assert.equal(firstPage[0], 1n)
+
+      // Get second page
+      const secondPage = await warmStorageService.getClientDataSetIds({
+        address: Mocks.ADDRESSES.client1,
+        offset: 1n,
+        limit: 1n,
+      })
+      assert.lengthOf(secondPage, 1)
+      assert.equal(secondPage[0], 2n)
+    })
+
+    it('should fetch all IDs when limit is 0n', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          warmStorageView: {
+            clientDataSets: () => [[1n, 2n, 3n, 4n, 5n]],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      const ids = await warmStorageService.getClientDataSetIds({
+        address: Mocks.ADDRESSES.client1,
+        offset: 0n,
+        limit: 0n,
+      })
+      assert.lengthOf(ids, 5)
+    })
+  })
+
   describe('getClientDataSetsWithDetails', () => {
     it('should enhance data sets with PDPVerifier details', async () => {
       server.use(
@@ -210,6 +409,7 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
+            getClientDataSetsLength: () => [1n],
             clientDataSets: () => [[242n]],
             getDataSet: () => [
               {
@@ -254,6 +454,7 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
+            getClientDataSetsLength: () => [2n],
             clientDataSets: () => [[242n, 243n]],
             getDataSet: (args) => {
               const [dataSetId] = args
@@ -331,6 +532,7 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
+            getClientDataSetsLength: () => [1n],
             clientDataSets: () => [[242n]],
             getDataSet: () => [
               {
@@ -376,6 +578,7 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
+            getClientDataSetsLength: () => [1n],
             clientDataSets: () => [[242n]],
             getDataSet: () => [
               {
@@ -421,6 +624,7 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
+            getClientDataSetsLength: () => [1n],
             clientDataSets: () => [[242n]],
             getDataSet: () => {
               throw new Error('Contract call failed')

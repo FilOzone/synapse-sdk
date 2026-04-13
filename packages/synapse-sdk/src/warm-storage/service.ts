@@ -108,8 +108,8 @@ export class WarmStorageService {
    * Get all data sets for a specific client
    * @param options - Options for the client data sets
    * @param options.address - The client address
-   * @param options.offset - Starting index (0-based). Use 0 to start from beginning.
-   * @param options.limit - Maximum number of data sets to return. Use 0 to get all remaining.
+   * @param options.offset - Starting index (0-based). Use `0n` to start from beginning.
+   * @param options.limit - Maximum number of data sets to return. Use `0n` to get all remaining.
    * @returns Array of data set information {@link getClientDataSets.OutputType}
    * @throws Errors {@link getClientDataSets.ErrorType}
    */
@@ -127,7 +127,7 @@ export class WarmStorageService {
    * @param options.address - The client address
    * @returns Total count of data sets
    */
-  async getClientDataSetsLength(options: { address: Address }): Promise<bigint> {
+  async getClientDataSetsLength(options: { address: Address }): Promise<getClientDataSetsLength.OutputType> {
     return getClientDataSetsLength(this._client, options)
   }
 
@@ -135,11 +135,15 @@ export class WarmStorageService {
    * Get data set IDs for a specific client with optional pagination
    * @param options - Options for the client data set IDs
    * @param options.address - The client address
-   * @param options.offset - Starting index (0-based). Use 0 to start from beginning.
-   * @param options.limit - Maximum number of IDs to return. Use 0 to get all remaining.
-   * @returns Array of data set IDs
+   * @param options.offset - Starting index (0-based). Use `0n` to start from beginning.
+   * @param options.limit - Maximum number of IDs to return. Use `0n` to get all remaining.
+   * @returns Array of data set IDs {@link getClientDataSetIds.OutputType}
    */
-  async getClientDataSetIds(options: { address: Address; offset?: bigint; limit?: bigint }): Promise<bigint[]> {
+  async getClientDataSetIds(options: {
+    address: Address
+    offset?: bigint
+    limit?: bigint
+  }): Promise<getClientDataSetIds.OutputType> {
     return getClientDataSetIds(this._client, options)
   }
 
@@ -156,12 +160,28 @@ export class WarmStorageService {
     onlyManaged?: boolean
   }): Promise<EnhancedDataSetInfo[]> {
     const { address = this._client.account.address, onlyManaged = false } = options
-    // Query dataset IDs (offset=0, limit=0 fetches all)
-    const ids = await getClientDataSetIds(this._client, {
-      address,
-      offset: 0n,
-      limit: 0n,
-    })
+
+    // Get total count first
+    const totalDataSets = await this.getClientDataSetsLength({ address })
+    if (totalDataSets === 0n) return []
+
+    // Fetch IDs in chunks to avoid unbounded response size
+    const pageSize = 100n
+    const ids: bigint[] = []
+
+    for (let offset = 0n; offset < totalDataSets; offset += pageSize) {
+      const remaining = totalDataSets - offset
+      const limit = remaining < pageSize ? remaining : pageSize
+      const pageIds = await this.getClientDataSetIds({
+        address,
+        offset,
+        limit,
+      })
+
+      if (pageIds.length === 0) break
+      ids.push(...pageIds)
+    }
+
     if (ids.length === 0) return []
 
     // Enhance all in parallel using dataset IDs
