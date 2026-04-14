@@ -14,6 +14,7 @@ export type getDataSetStorageProvider = ExtractAbiFunction<typeof Abis.pdp, 'get
 export type getDataSetLeafCount = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetLeafCount'>
 export type getScheduledRemovals = ExtractAbiFunction<typeof Abis.pdp, 'getScheduledRemovals'>
 export type getNextChallengeEpoch = ExtractAbiFunction<typeof Abis.pdp, 'getNextChallengeEpoch'>
+export type findPieceIdsByCid = ExtractAbiFunction<typeof Abis.pdp, 'findPieceIdsByCid'>
 
 export interface PDPVerifierOptions {
   dataSetLive?: (args: AbiToType<dataSetLive['inputs']>) => AbiToType<dataSetLive['outputs']>
@@ -29,6 +30,7 @@ export interface PDPVerifierOptions {
   getNextChallengeEpoch?: (
     args: AbiToType<getNextChallengeEpoch['inputs']>
   ) => AbiToType<getNextChallengeEpoch['outputs']>
+  findPieceIdsByCid?: (args: AbiToType<findPieceIdsByCid['inputs']>) => AbiToType<findPieceIdsByCid['outputs']>
 }
 
 /**
@@ -122,6 +124,15 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
       return encodeAbiParameters(
         Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getNextChallengeEpoch')!.outputs,
         options.pdpVerifier.getNextChallengeEpoch(args)
+      )
+    }
+    case 'findPieceIdsByCid': {
+      if (!options.pdpVerifier?.findPieceIdsByCid) {
+        throw new Error('PDP Verifier: findPieceIdsByCid is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'findPieceIdsByCid')!.outputs,
+        options.pdpVerifier.findPieceIdsByCid(args)
       )
     }
     default: {

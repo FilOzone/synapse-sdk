@@ -1048,15 +1048,16 @@ export class StorageContext {
       throw createError('StorageContext', 'deletePiece', 'Invalid PieceCID provided')
     }
 
-    const dataSetData = await SP.getDataSet({
-      serviceURL: this._pdpEndpoint,
+    const pieceIds = await PDPVerifier.findPieceIdsByCid(this._client, {
       dataSetId: this.dataSetId,
+      pieceCid: parsedPieceCID,
+      startPieceId: 0n,
+      limit: 1n,
     })
-    const pieceData = dataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
-    if (pieceData == null) {
+    if (pieceIds.length === 0) {
       throw createError('StorageContext', 'deletePiece', 'Piece not found in data set')
     }
-    return pieceData.pieceId
+    return pieceIds[0]
   }
 
   /**
@@ -1108,9 +1109,12 @@ export class StorageContext {
     }
 
     // Run multiple operations in parallel for better performance
-    const [activePieces, nextChallengeEpoch, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
-      PDPVerifier.getActivePieces(this._client, {
+    const [pieceIds, nextChallengeEpoch, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
+      PDPVerifier.findPieceIdsByCid(this._client, {
         dataSetId: this.dataSetId,
+        pieceCid: parsedPieceCID,
+        startPieceId: 0n,
+        limit: 1n,
       }),
       PDPVerifier.getNextChallengeEpoch(this._client, {
         dataSetId: this.dataSetId,
@@ -1123,14 +1127,13 @@ export class StorageContext {
       this.getProviderInfo().catch(() => null),
     ])
 
-    const pieceData = activePieces.pieces.find((piece) => piece.cid.equals(parsedPieceCID))
-    if (pieceData === undefined) {
+    if (pieceIds.length === 0) {
       return null
     }
+    const pieceId = pieceIds[0]
 
     // Initialize return values
     let retrievalUrl: string | null = null
-    let pieceId: bigint | undefined
     let lastProven: Date | null = null
     let nextProofDue: Date | null = null
     let inChallengeWindow = false
@@ -1147,8 +1150,6 @@ export class StorageContext {
 
     // Process proof timing data if we have data set data and PDP config
     if (pdpConfig != null) {
-      pieceId = pieceData.id
-
       // Calculate timing based on nextChallengeEpoch
       if (nextChallengeEpoch > 0n) {
         // nextChallengeEpoch is when the challenge window STARTS, not ends!

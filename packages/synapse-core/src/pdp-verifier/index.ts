@@ -10,6 +10,7 @@ import {
 import { asChain } from '../chains.ts'
 
 export * from './data-set-live.ts'
+export * from './find-piece-ids-by-cid.ts'
 export * from './get-active-piece-count.ts'
 export * from './get-active-pieces.ts'
 export * from './get-data-set-leaf-count.ts'
