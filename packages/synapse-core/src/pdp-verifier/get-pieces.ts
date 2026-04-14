@@ -60,7 +60,7 @@ export async function getPieces(
 ): Promise<getPieces.OutputType> {
   const chain = asChain(client.chain)
 
-  if (options.limit && options.limit <= 0n) {
+  if (options.limit != null && options.limit <= 0n) {
     throw new LimitMustBeGreaterThanZeroError()
   }
 
@@ -164,7 +164,7 @@ export async function getPiecesWithMetadata(
   client: Client<Transport, Chain>,
   options: getPiecesWithMetadata.OptionsType
 ): Promise<getPiecesWithMetadata.OutputType> {
-  if (options.limit && options.limit <= 0n) {
+  if (options.limit != null && options.limit <= 0n) {
     throw new LimitMustBeGreaterThanZeroError()
   }
 
@@ -172,7 +172,7 @@ export async function getPiecesWithMetadata(
   if (pieces.pieces.length === 0) {
     return {
       pieces: [],
-      hasMore: false,
+      hasMore: pieces.hasMore,
     }
   }
   const metadata = await multicall(client, {

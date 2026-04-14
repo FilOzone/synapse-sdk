@@ -131,7 +131,7 @@ export namespace getActivePiecesCall {
  */
 export function getActivePiecesCall(options: getActivePiecesCall.OptionsType) {
   const chain = asChain(options.chain)
-  if (options.limit && options.limit <= 0n) {
+  if (options.limit != null && options.limit <= 0n) {
     throw new LimitMustBeGreaterThanZeroError()
   }
   return {
