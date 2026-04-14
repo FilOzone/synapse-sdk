@@ -4,7 +4,7 @@ import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import { createWalletClient, http as viemHttp, zeroAddress } from 'viem'
+import { createWalletClient, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { METADATA_KEYS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
@@ -31,82 +31,53 @@ describe('Metadata-based Data Set Selection', () => {
         ...Mocks.presets.basic,
         warmStorageView: {
           ...Mocks.presets.basic.warmStorageView,
-          clientDataSets: () => [[1n, 2n, 3n]],
-          // Provide base dataset info per dataset id
-          getDataSet: (args: any) => {
-            const [dataSetId] = args as [bigint]
-            if (dataSetId === 1n) {
-              return [
-                {
-                  pdpRailId: 1n,
-                  cacheMissRailId: 0n,
-                  cdnRailId: 0n,
-                  payer: Mocks.ADDRESSES.client1,
-                  payee: Mocks.ADDRESSES.serviceProvider1,
-                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                  commissionBps: 100n,
-                  clientDataSetId: 0n,
-                  pdpEndEpoch: 0n,
-                  providerId: 1n,
-                  cdnEndEpoch: 0n,
-                  dataSetId,
-                },
-              ]
-            }
-            if (dataSetId === 2n) {
-              return [
-                {
-                  pdpRailId: 2n,
-                  cacheMissRailId: 0n,
-                  cdnRailId: 100n,
-                  payer: Mocks.ADDRESSES.client1,
-                  payee: Mocks.ADDRESSES.serviceProvider1,
-                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                  commissionBps: 100n,
-                  clientDataSetId: 1n,
-                  pdpEndEpoch: 0n,
-                  providerId: 1n,
-                  cdnEndEpoch: 0n,
-                  dataSetId,
-                },
-              ]
-            }
-            if (dataSetId === 3n) {
-              return [
-                {
-                  pdpRailId: 3n,
-                  cacheMissRailId: 0n,
-                  cdnRailId: 0n,
-                  payer: Mocks.ADDRESSES.client1,
-                  payee: Mocks.ADDRESSES.serviceProvider2,
-                  serviceProvider: Mocks.ADDRESSES.serviceProvider2,
-                  commissionBps: 100n,
-                  clientDataSetId: 2n,
-                  pdpEndEpoch: 0n,
-                  providerId: 2n,
-                  cdnEndEpoch: 0n,
-                  dataSetId,
-                },
-              ]
-            }
-            // default empty/non-existent
-            return [
+          getClientDataSets: () => [
+            [
               {
-                pdpRailId: 0n,
+                pdpRailId: 1n,
                 cacheMissRailId: 0n,
                 cdnRailId: 0n,
-                payer: zeroAddress,
-                payee: zeroAddress,
-                serviceProvider: zeroAddress,
-                commissionBps: 0n,
+                payer: Mocks.ADDRESSES.client1,
+                payee: Mocks.ADDRESSES.serviceProvider1,
+                serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                commissionBps: 100n,
                 clientDataSetId: 0n,
                 pdpEndEpoch: 0n,
-                providerId: 0n,
+                providerId: 1n,
                 cdnEndEpoch: 0n,
-                dataSetId,
+                dataSetId: 1n,
               },
-            ]
-          },
+              {
+                pdpRailId: 2n,
+                cacheMissRailId: 0n,
+                cdnRailId: 100n,
+                payer: Mocks.ADDRESSES.client1,
+                payee: Mocks.ADDRESSES.serviceProvider1,
+                serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                commissionBps: 100n,
+                clientDataSetId: 1n,
+                pdpEndEpoch: 0n,
+                providerId: 1n,
+                cdnEndEpoch: 0n,
+                dataSetId: 2n,
+              },
+              {
+                pdpRailId: 3n,
+                cacheMissRailId: 0n,
+                cdnRailId: 0n,
+                payer: Mocks.ADDRESSES.client1,
+                payee: Mocks.ADDRESSES.serviceProvider2,
+                serviceProvider: Mocks.ADDRESSES.serviceProvider2,
+                commissionBps: 100n,
+                clientDataSetId: 2n,
+                pdpEndEpoch: 0n,
+                providerId: 2n,
+                cdnEndEpoch: 0n,
+                dataSetId: 3n,
+              },
+            ],
+          ],
+
           getAllDataSetMetadata: (args: any) => {
             const [dataSetId] = args
             if (dataSetId === 1n) {
@@ -122,16 +93,6 @@ describe('Metadata-based Data Set Selection', () => {
               return [[METADATA_KEYS.WITH_IPFS_INDEXING], ['']]
             }
             return [[], []]
-          },
-        },
-        pdpVerifier: {
-          ...Mocks.presets.basic.pdpVerifier,
-          getNextPieceId: (args: any) => {
-            const [dataSetId] = args
-            if (dataSetId === 1n) return [5n] as const // Has pieces
-            if (dataSetId === 2n) return [0n] as const // Empty
-            if (dataSetId === 3n) return [2n] as const // Has pieces
-            return [0n] as const
           },
         },
       }

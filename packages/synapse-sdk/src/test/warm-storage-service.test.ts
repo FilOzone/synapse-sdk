@@ -411,20 +411,22 @@ describe('WarmStorageService', () => {
             ...Mocks.presets.basic.warmStorageView,
             getClientDataSetsLength: () => [1n],
             clientDataSets: () => [[242n]],
-            getDataSet: () => [
-              {
-                pdpRailId: 48n,
-                cacheMissRailId: 0n,
-                cdnRailId: 0n,
-                payer: Mocks.ADDRESSES.client1,
-                payee: Mocks.ADDRESSES.payee1,
-                serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                commissionBps: 100n,
-                clientDataSetId: 0n,
-                pdpEndEpoch: 0n,
-                providerId: 1n,
-                dataSetId: 242n,
-              },
+            getClientDataSets: () => [
+              [
+                {
+                  pdpRailId: 48n,
+                  cacheMissRailId: 0n,
+                  cdnRailId: 0n,
+                  payer: Mocks.ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.payee1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                  commissionBps: 100n,
+                  clientDataSetId: 0n,
+                  pdpEndEpoch: 0n,
+                  providerId: 1n,
+                  dataSetId: 242n,
+                },
+              ],
             ],
           },
           pdpVerifier: {
@@ -456,10 +458,9 @@ describe('WarmStorageService', () => {
             ...Mocks.presets.basic.warmStorageView,
             getClientDataSetsLength: () => [2n],
             clientDataSets: () => [[242n, 243n]],
-            getDataSet: (args) => {
-              const [dataSetId] = args
-              if (dataSetId === 242n) {
-                return [
+            getClientDataSets: (args) => {
+              return [
+                [
                   {
                     pdpRailId: 48n,
                     cacheMissRailId: 0n,
@@ -473,9 +474,6 @@ describe('WarmStorageService', () => {
                     providerId: 1n,
                     dataSetId: 242n,
                   },
-                ]
-              } else {
-                return [
                   {
                     pdpRailId: 49n,
                     cacheMissRailId: 0n,
@@ -489,8 +487,8 @@ describe('WarmStorageService', () => {
                     providerId: 2n,
                     dataSetId: 243n,
                   },
-                ]
-              }
+                ],
+              ]
             },
           },
           pdpVerifier: {
@@ -534,20 +532,22 @@ describe('WarmStorageService', () => {
             ...Mocks.presets.basic.warmStorageView,
             getClientDataSetsLength: () => [1n],
             clientDataSets: () => [[242n]],
-            getDataSet: () => [
-              {
-                pdpRailId: 48n,
-                cacheMissRailId: 50n,
-                cdnRailId: 51n, // CDN rail exists
-                payer: Mocks.ADDRESSES.client1,
-                payee: Mocks.ADDRESSES.payee1,
-                serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                commissionBps: 100n,
-                clientDataSetId: 0n,
-                pdpEndEpoch: 0n,
-                providerId: 1n,
-                dataSetId: 242n,
-              },
+            getClientDataSets: () => [
+              [
+                {
+                  pdpRailId: 48n,
+                  cacheMissRailId: 50n,
+                  cdnRailId: 51n, // CDN rail exists
+                  payer: Mocks.ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.payee1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                  commissionBps: 100n,
+                  clientDataSetId: 0n,
+                  pdpEndEpoch: 0n,
+                  providerId: 1n,
+                  dataSetId: 242n,
+                },
+              ],
             ],
             getAllDataSetMetadata: () => [
               ['withCDN'], // withCDN key present
@@ -580,20 +580,22 @@ describe('WarmStorageService', () => {
             ...Mocks.presets.basic.warmStorageView,
             getClientDataSetsLength: () => [1n],
             clientDataSets: () => [[242n]],
-            getDataSet: () => [
-              {
-                pdpRailId: 48n,
-                cacheMissRailId: 50n,
-                cdnRailId: 51n, // CDN rail still exists
-                payer: Mocks.ADDRESSES.client1,
-                payee: Mocks.ADDRESSES.payee1,
-                serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                commissionBps: 100n,
-                clientDataSetId: 0n,
-                pdpEndEpoch: 0n,
-                providerId: 1n,
-                dataSetId: 242n,
-              },
+            getClientDataSets: () => [
+              [
+                {
+                  pdpRailId: 48n,
+                  cacheMissRailId: 50n,
+                  cdnRailId: 51n, // CDN rail still exists
+                  payer: Mocks.ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.payee1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                  commissionBps: 100n,
+                  clientDataSetId: 0n,
+                  pdpEndEpoch: 0n,
+                  providerId: 1n,
+                  dataSetId: 242n,
+                },
+              ],
             ],
             getAllDataSetMetadata: () => [
               [], // No metadata keys - CDN was terminated
@@ -626,7 +628,7 @@ describe('WarmStorageService', () => {
             ...Mocks.presets.basic.warmStorageView,
             getClientDataSetsLength: () => [1n],
             clientDataSets: () => [[242n]],
-            getDataSet: () => {
+            getClientDataSets: () => {
               throw new Error('Contract call failed')
             },
           },
@@ -638,7 +640,6 @@ describe('WarmStorageService', () => {
         await warmStorageService.getClientDataSetsWithDetails({ address: Mocks.ADDRESSES.client1 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to get details for data set')
         assert.include(error.message, 'Contract call failed')
       }
     })
