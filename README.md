@@ -1,6 +1,6 @@
 # ⨎ Synapse
 
-> Javascript packages for Filecoin Onchain Cloud.
+> Javascript packages for Filecoin Onchain Cloud. Works in Node.js, browsers, and all major bundlers.
 
 ## Packages
 
@@ -16,11 +16,12 @@ Check the documentation [website](https://docs.filecoin.cloud/)
 
 ## Examples
 
-The `examples` folder has many examples on how to start using Synapse in different environments and frameworks.
+Examples on how to start using Synapse in different environments and frameworks.
 
+- [`synapse-playground`](https://github.com/FilOzone/synapse-sdk/tree/master/apps/synapse-playground) - How to build a React app using Synapse
+- [`cli`](https://github.com/FilOzone/synapse-sdk/tree/master/examples/cli) - How to build a CLI in Node JS using Synapse
 - [`script-tag`](https://github.com/FilOzone/synapse-sdk/tree/master/examples/script-tag) - Use Synapse with CDN script tag.
 [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/FilOzone/synapse-sdk/tree/master/examples/script-tag?title=Synapse%20Script%20Tag&hideExplorer=1&theme=dark)
-- [`cli`](https://github.com/FilOzone/synapse-sdk/tree/master/examples/cli) - How to build a CLI in Node JS using Synapse
 
 To clone it locally:
 
