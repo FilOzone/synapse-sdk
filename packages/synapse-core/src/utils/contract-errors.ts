@@ -32,8 +32,9 @@ export function stringErrorEquals(error: unknown, expected: StringErrorType): bo
   if (!isViemError(error)) return false
 
   // Try viem reason extraction
-  if ('cause' in error && error.cause instanceof Error && 'reason' in error.cause) {
-    return error.cause.reason === expected
+  const reasonError = error.walk((cause) => cause instanceof Error && 'reason' in cause)
+  if (reasonError && typeof reasonError === 'object' && 'reason' in reasonError) {
+    return reasonError.reason === expected
   }
 
   // Fallback to regex extraction

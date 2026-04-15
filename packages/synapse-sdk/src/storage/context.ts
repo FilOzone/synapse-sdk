@@ -1151,7 +1151,7 @@ export class StorageContext {
 
       // Calculate timing based on nextChallengeEpoch
       if (nextChallengeEpoch === null) {
-        // If nextChallengeEpoch is 0, it might mean:
+        // If nextChallengeEpoch is null, it might mean:
         // 1. Proof was just submitted and system is updating
         // 2. Data set is not active
         // In case 1, we might have just proven, so set lastProven to very recent
