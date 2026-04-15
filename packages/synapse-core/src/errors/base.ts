@@ -42,8 +42,28 @@ export class SynapseError extends Error {
     this.shortMessage = message
   }
 
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      message: this.message,
+      ...(this.details ? { details: this.details } : {}),
+      ...(this.cause ? { cause: serializeErrorCause(this.cause) } : {}),
+    }
+  }
+
   static is(value: unknown): value is SynapseError {
     return isSynapseError(value) && value.name === 'SynapseError'
+  }
+}
+
+function serializeErrorCause(error: Error, depth: number = 0): Record<string, unknown> {
+  if (depth > 4) {
+    return { name: error.name, message: error.message }
+  }
+  return {
+    name: error.name,
+    message: error.message,
+    ...(error.cause instanceof Error ? { cause: serializeErrorCause(error.cause, depth + 1) } : {}),
   }
 }
 
