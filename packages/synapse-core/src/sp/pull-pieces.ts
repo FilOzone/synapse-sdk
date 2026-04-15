@@ -173,18 +173,9 @@ export async function waitForPullPiecesApiRequest(
   const body = buildPullRequestBody(options)
   const headers = { 'Content-Type': 'application/json' }
 
-  // Custom fetch that creates a fresh Request each time to avoid body consumption issues
-  // (iso-web creates Request once and reuses it, but POST bodies can only be read once)
-  const fetchWithFreshRequest: typeof globalThis.fetch = (input, init) => {
-    // iso-web passes the Request object as input, extract signal from it
-    const signal = input instanceof Request ? input.signal : init?.signal
-    return globalThis.fetch(url, { method: 'POST', body, headers, signal })
-  }
-
   const response = await request.post(url, {
     body,
     headers,
-    fetch: fetchWithFreshRequest,
     async onResponse(response) {
       if (response.ok) {
         const data = (await response.clone().json()) as pullPiecesApiRequest.ReturnType
