@@ -4,6 +4,7 @@ import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 
 export namespace getActivePieceCount {
   export type OptionsType = {
@@ -44,15 +45,22 @@ export async function getActivePieceCount(
   client: Client<Transport, Chain>,
   options: getActivePieceCount.OptionsType
 ): Promise<getActivePieceCount.OutputType> {
-  const data = await readContract(
-    client,
-    getActivePieceCountCall({
-      chain: client.chain,
-      dataSetId: options.dataSetId,
-      contractAddress: options.contractAddress,
-    })
-  )
-  return data
+  try {
+    const data = await readContract(
+      client,
+      getActivePieceCountCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+        contractAddress: options.contractAddress,
+      })
+    )
+    return data
+  } catch (error) {
+    if (stringErrorEquals(error, STRING_ERRORS.PDP_VERIFIER_DATA_SET_NOT_LIVE)) {
+      return 0n
+    }
+    throw error
+  }
 }
 
 export namespace getActivePieceCountCall {

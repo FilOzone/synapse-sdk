@@ -2,13 +2,15 @@ import type { Simplify } from 'type-fest'
 import type { Address, Chain, Client, ReadContractErrorType, Transport } from 'viem'
 import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
+import { LimitMustBeGreaterThanZeroError } from '../errors/pdp-verifier.ts'
 import { hexToPieceCID } from '../piece/piece.ts'
+import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 import { metadataArrayToObject } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
 import { getAllPieceMetadataCall } from '../warm-storage/get-all-piece-metadata.ts'
 import type { PdpDataSet, Piece, PieceWithMetadata } from '../warm-storage/types.ts'
 import { type getActivePieces, getActivePiecesCall } from './get-active-pieces.ts'
-import { getScheduledRemovalsCall } from './get-scheduled-removals.ts'
+import { getScheduledRemovalsCall, parseScheduledRemovals } from './get-scheduled-removals.ts'
 
 export namespace getPieces {
   export type OptionsType = Simplify<
@@ -58,47 +60,61 @@ export async function getPieces(
 ): Promise<getPieces.OutputType> {
   const chain = asChain(client.chain)
 
+  if (options.limit != null && options.limit <= 0n) {
+    throw new LimitMustBeGreaterThanZeroError()
+  }
+
   const address = options.address
   const serviceURL = options.dataSet.provider.pdp.serviceURL
-  const [activePiecesResult, removalsResult] = await multicall(client, {
-    contracts: [
-      getActivePiecesCall({
-        chain: client.chain,
-        dataSetId: options.dataSet.dataSetId,
-        offset: options.offset,
-        limit: options.limit,
-        contractAddress: options.contractAddress,
-      }),
-      getScheduledRemovalsCall({
-        chain: client.chain,
-        dataSetId: options.dataSet.dataSetId,
-        contractAddress: options.contractAddress,
-      }),
-    ],
-    allowFailure: false,
-  })
+  try {
+    const [activePiecesResult, removalsResult] = await multicall(client, {
+      contracts: [
+        getActivePiecesCall({
+          chain: client.chain,
+          dataSetId: options.dataSet.dataSetId,
+          offset: options.offset,
+          limit: options.limit,
+          contractAddress: options.contractAddress,
+        }),
+        getScheduledRemovalsCall({
+          chain: client.chain,
+          dataSetId: options.dataSet.dataSetId,
+          contractAddress: options.contractAddress,
+        }),
+      ],
+      allowFailure: false,
+    })
 
-  // deduplicate the removals
-  const removals = Array.from(new Set(removalsResult))
+    // deduplicate the removals
+    const removals = parseScheduledRemovals(removalsResult)
 
-  return {
-    hasMore: activePiecesResult[2],
-    pieces: activePiecesResult[0]
-      .map((piece, index) => {
-        const cid = hexToPieceCID(piece.data)
-        return {
-          cid,
-          id: activePiecesResult[1][index],
-          url: createPieceUrl({
-            cid: cid.toString(),
-            cdn: options.dataSet.cdn,
-            address,
-            chain,
-            serviceURL,
-          }),
-        }
-      })
-      .filter((piece) => !removals.includes(piece.id)),
+    return {
+      hasMore: activePiecesResult[2],
+      pieces: activePiecesResult[0]
+        .map((piece, index) => {
+          const cid = hexToPieceCID(piece.data)
+          return {
+            cid,
+            id: activePiecesResult[1][index],
+            url: createPieceUrl({
+              cid: cid.toString(),
+              cdn: options.dataSet.cdn,
+              address,
+              chain,
+              serviceURL,
+            }),
+          }
+        })
+        .filter((piece) => !removals.includes(piece.id)),
+    }
+  } catch (error) {
+    if (stringErrorEquals(error, STRING_ERRORS.PDP_VERIFIER_DATA_SET_NOT_LIVE)) {
+      return {
+        pieces: [],
+        hasMore: false,
+      }
+    }
+    throw error
   }
 }
 
@@ -148,7 +164,17 @@ export async function getPiecesWithMetadata(
   client: Client<Transport, Chain>,
   options: getPiecesWithMetadata.OptionsType
 ): Promise<getPiecesWithMetadata.OutputType> {
+  if (options.limit != null && options.limit <= 0n) {
+    throw new LimitMustBeGreaterThanZeroError()
+  }
+
   const pieces = await getPieces(client, options)
+  if (pieces.pieces.length === 0) {
+    return {
+      pieces: [],
+      hasMore: pieces.hasMore,
+    }
+  }
   const metadata = await multicall(client, {
     allowFailure: false,
     contracts: pieces.pieces.map((piece) =>

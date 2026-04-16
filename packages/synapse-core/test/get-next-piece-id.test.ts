@@ -71,5 +71,28 @@ describe('getNextPieceId', () => {
       assert.equal(typeof nextPieceId, 'bigint')
       assert.equal(nextPieceId, 2n)
     })
+
+    it('should return 0 when the data set is not live', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getNextPieceId: () => {
+              throw new Error('Data set not live')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const nextPieceId = await getNextPieceId(client, { dataSetId: 1n })
+
+      assert.equal(nextPieceId, 0n)
+    })
   })
 })

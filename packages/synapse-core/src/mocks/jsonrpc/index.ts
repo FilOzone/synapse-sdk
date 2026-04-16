@@ -38,6 +38,17 @@ export type { ServiceRegistryOptions } from './service-registry.ts'
 export type { SessionKeyRegistryOptions } from './session-key-registry.ts'
 export type { WarmStorageOptions, WarmStorageViewOptions } from './warm-storage.ts'
 
+function getMockErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Unknown error'
+}
+
+function encodeMockRevertData(error: unknown): Hex {
+  if (!(error instanceof Error)) {
+    return '0x'
+  }
+  return `0x08c379a0${encodeAbiParameters([{ type: 'string' }], [error.message]).slice(2)}`
+}
+
 function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse {
   const { id } = item
   try {
@@ -56,12 +67,9 @@ function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse
         code: 11,
         message:
           error instanceof Error
-            ? `message execution failed (exit=[33], revert reason=[message failed with backtrace:\n00: f0176092 (method 3844450837) -- contract reverted at 75 (33)\n01: f0176092 (method 6) -- contract reverted at 15151 (33)\n (RetCode=33)], vm error=[Error(${error.message})])`
+            ? `message execution failed (exit=[33], revert reason=[message failed with backtrace:\n00: f0176092 (method 3844450837) -- contract reverted at 75 (33)\n01: f0176092 (method 6) -- contract reverted at 15151 (33)\n (RetCode=33)], vm error=[Error(${getMockErrorMessage(error)})])`
             : 'Unknown error',
-        data:
-          error instanceof Error
-            ? `0x08c379a0${encodeAbiParameters([{ type: 'string' }], [error.message]).slice(2)}`
-            : '0x',
+        data: encodeMockRevertData(error),
       },
       id: id ?? 1,
     }
@@ -241,7 +249,7 @@ function multicall3CallHandler(data: Hex, options: JSONRPCOptions): Hex {
     data: data as Hex,
   })
 
-  const results = []
+  const results: Array<{ success: boolean; returnData: Hex }> = []
 
   for (const arg of decoded.args[0] ?? []) {
     if (typeof arg === 'string') {
@@ -261,10 +269,16 @@ function multicall3CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         },
         options
       )
-      results.push(result)
+      results.push({
+        success: true,
+        returnData: result as Hex,
+      })
     } catch (error) {
       if (arg.allowFailure) {
-        results.push('0x')
+        results.push({
+          success: false,
+          returnData: encodeMockRevertData(error),
+        })
       } else {
         throw error
       }
@@ -288,12 +302,7 @@ function multicall3CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         type: 'tuple[]',
       },
     ],
-    [
-      results.map((result) => ({
-        success: true,
-        returnData: result as Hex,
-      })),
-    ]
+    [results]
   )
   return result
 }
