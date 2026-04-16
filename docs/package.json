@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@astrojs/starlight": "^0.38.2",
-    "@hugomrdias/docs": "^0.1.10",
+    "@hugomrdias/docs": "^0.2.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "astro": "^6.0.8",
