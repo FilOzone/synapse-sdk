@@ -11,8 +11,8 @@ const explorerUrl = chain.blockExplorers?.default?.url ?? ''
 
 const contractNames: Record<string, string> = {
   multicall3: 'Multicall3',
-  storage: 'Warm Storage Service',
-  storageView: 'Warm Storage Service StateView',
+  fwss: 'Warm Storage Service',
+  fwssView: 'Warm Storage Service StateView',
   pdp: 'PDPVerifier',
   payments: 'Filecoin Pay',
   usdfc: 'USDFC Token',
@@ -23,8 +23,8 @@ const contractNames: Record<string, string> = {
 
 const contractOrder = [
   'multicall3',
-  'storage',
-  'storageView',
+  'fwss',
+  'fwssView',
   'pdp',
   'payments',
   'usdfc',

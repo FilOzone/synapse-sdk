@@ -45,3 +45,4 @@ trustPolicyExclude:
   - langium@3.3.1
   - reselect@5.1.1
   - astro-mermaid@2.0.1
+  - '@hugomrdias/docs@0.2.0'
