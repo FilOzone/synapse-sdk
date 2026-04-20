@@ -1,6 +1,8 @@
+import PQueue from 'p-queue'
 import type { Chain, Client, ReadContractErrorType, Transport } from 'viem'
 import type { asChain } from '../chains.ts'
-import { getClientDataSets } from './get-client-data-sets.ts'
+
+import { type getClientDataSets, getClientDataSetsIterable } from './get-client-data-sets.ts'
 import { readPdpDataSetInfo } from './get-pdp-data-set.ts'
 import type { PdpDataSet } from './types.ts'
 
@@ -43,18 +45,41 @@ export async function getPdpDataSets(
   client: Client<Transport, Chain>,
   options: getPdpDataSets.OptionsType
 ): Promise<getPdpDataSets.OutputType> {
-  const data = await getClientDataSets(client, options)
-
-  const promises = data.map(async (dataSet) => {
-    const pdDataSetInfo = await readPdpDataSetInfo(client, {
-      dataSetInfo: dataSet,
-      providerId: dataSet.providerId,
-    })
-
-    return {
-      ...dataSet,
-      ...pdDataSetInfo,
-    }
+  const queue = new PQueue({
+    concurrency: 10,
+    interval: 1000,
+    intervalCap: 20,
+    strict: true, // sliding window
   })
-  return Promise.all(promises)
+
+  const dataSets: PdpDataSet[] = []
+
+  try {
+    for await (const dataSet of getClientDataSetsIterable(client, {
+      address: options.address,
+      offset: options.offset,
+    })) {
+      await queue.onSizeLessThan(20)
+
+      queue
+        .add(async () => {
+          const pdDataSetInfo = await readPdpDataSetInfo(client, {
+            dataSetInfo: dataSet,
+            providerId: dataSet.providerId,
+          })
+          dataSets.push({
+            ...dataSet,
+            ...pdDataSetInfo,
+          })
+        })
+        .catch(() => {
+          /* ignore */
+        })
+    }
+    await Promise.race([queue.onError(), queue.onIdle()])
+    return dataSets
+  } catch (error) {
+    queue.pause()
+    throw error
+  }
 }

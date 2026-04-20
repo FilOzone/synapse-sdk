@@ -118,7 +118,11 @@ export class WarmStorageService {
     offset?: bigint
     limit?: bigint
   }): Promise<getClientDataSets.OutputType> {
-    return getClientDataSets(this._client, options)
+    return getClientDataSets(this._client, {
+      address: options.address,
+      offset: options.offset,
+      limit: options.limit,
+    })
   }
 
   /**
@@ -161,49 +165,25 @@ export class WarmStorageService {
   }): Promise<EnhancedDataSetInfo[]> {
     const { address = this._client.account.address, onlyManaged = false } = options
 
-    // Get total count first
-    const totalDataSets = await this.getClientDataSetsLength({ address })
-    if (totalDataSets === 0n) return []
-
-    // Fetch IDs in chunks to avoid unbounded response size
-    const pageSize = 100n
-    const ids: bigint[] = []
-
-    for (let offset = 0n; offset < totalDataSets; offset += pageSize) {
-      const remaining = totalDataSets - offset
-      const limit = remaining < pageSize ? remaining : pageSize
-      const pageIds = await this.getClientDataSetIds({
-        address,
-        offset,
-        limit,
-      })
-
-      if (pageIds.length === 0) break
-      ids.push(...pageIds)
-    }
-
-    if (ids.length === 0) return []
+    const dataSets = await getClientDataSets(this._client, { address })
 
     // Enhance all in parallel using dataset IDs
-    const enhancedDataSetsPromises = ids.map(async (dataSetId) => {
+    const enhancedDataSetsPromises = dataSets.map(async (dataSet) => {
       try {
-        const base = await this.getDataSet({ dataSetId })
-        if (base == null) return null
-
         const [isLive, listener, metadata] = await multicall(this._client, {
           allowFailure: false,
           contracts: [
             dataSetLiveCall({
               chain: this._client.chain,
-              dataSetId: dataSetId,
+              dataSetId: dataSet.dataSetId,
             }),
             getDataSetListenerCall({
               chain: this._client.chain,
-              dataSetId: dataSetId,
+              dataSetId: dataSet.dataSetId,
             }),
             getAllDataSetMetadataCall({
               chain: this._client.chain,
-              dataSetId: dataSetId,
+              dataSetId: dataSet.dataSetId,
             }),
           ],
         })
@@ -217,20 +197,22 @@ export class WarmStorageService {
         }
 
         // Get active piece count only if the data set is live
-        const activePieceCount = isLive ? await PDPVerifier.getActivePieceCount(this._client, { dataSetId }) : 0n
+        const activePieceCount = isLive
+          ? await PDPVerifier.getActivePieceCount(this._client, { dataSetId: dataSet.dataSetId })
+          : 0n
 
         return {
-          ...base,
-          pdpVerifierDataSetId: dataSetId,
+          ...dataSet,
+          pdpVerifierDataSetId: dataSet.dataSetId,
           activePieceCount,
           isLive,
           isManaged,
-          withCDN: base.cdnRailId > 0 && metadata[0].includes(METADATA_KEYS.WITH_CDN),
+          withCDN: dataSet.cdnRailId > 0 && metadata[0].includes(METADATA_KEYS.WITH_CDN),
           metadata: metadataArrayToObject(metadata),
         }
       } catch (error) {
         throw new Error(
-          `Failed to get details for data set ${dataSetId}: ${error instanceof Error ? error.message : String(error)}`
+          `Failed to get details for data set ${dataSet.dataSetId}: ${error instanceof Error ? error.message : String(error)}`
         )
       }
     })
