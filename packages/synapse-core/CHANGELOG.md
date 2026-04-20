@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.4.0...synapse-core-v0.4.1) (2026-04-20)
+
+
+### Features
+
+* use PDPVerifier.findPieceIdsByCid for efficient CID→ID lookups ([#718](https://github.com/FilOzone/synapse-sdk/issues/718)) ([3ac48a9](https://github.com/FilOzone/synapse-sdk/commit/3ac48a93d1f1cdae4dd1498a5d90d7ebff0e4c4c))
+
+
+### Bug Fixes
+
+* capture error cause in serialisation ([#727](https://github.com/FilOzone/synapse-sdk/issues/727)) ([d0f3372](https://github.com/FilOzone/synapse-sdk/commit/d0f3372d1e998f2a714feb1dc8508a85b9d78897))
+* fix out of gas problems with `getClientDataSets` ([#734](https://github.com/FilOzone/synapse-sdk/issues/734)) ([c49c18e](https://github.com/FilOzone/synapse-sdk/commit/c49c18e9dcd1fc2ec8fb42cb11eb12b5eb01827e))
+* normalize empty outputs for pdp-verifier ([#723](https://github.com/FilOzone/synapse-sdk/issues/723)) ([187e8a4](https://github.com/FilOzone/synapse-sdk/commit/187e8a4152719c485f2d6f09e3f6c770752a78c3))
+* remove custom fetch for pulled POSTs ([#732](https://github.com/FilOzone/synapse-sdk/issues/732)) ([9b63e7e](https://github.com/FilOzone/synapse-sdk/commit/9b63e7eb4bdae6c41474c94d64614735137cadaf))
+
+
+### Chores
+
+* update msw package version to 2.12.14 in workspace and mock service worker files ([4865ff7](https://github.com/FilOzone/synapse-sdk/commit/4865ff79d229ed29987c4b7fe27367f4aadddfcb))
+* update to knip 6 ([c61d771](https://github.com/FilOzone/synapse-sdk/commit/c61d7711d439791fccf07acd6fc9b42f16592a28))
+
 ## [0.4.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.3.3...synapse-core-v0.4.0) (2026-04-02)
 
 
