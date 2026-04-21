@@ -153,6 +153,9 @@ import { getPDPProvider } from "@filoz/synapse-core/sp-registry"
 
 // 1. Select a provider
 const provider = await getPDPProvider(publicClient, { providerId: 1n })
+if(!provider) {
+  throw new Error('Provider not found.');
+}
 
 // 2. Calculate PieceCID and upload data
 const pieceCid = piece.calculate(data)
@@ -225,6 +228,7 @@ import { getPDPProvider } from "@filoz/synapse-core/sp-registry"
 import { calibration } from "@filoz/synapse-core/chains"
 const publicClient = createPublicClient({ chain: calibration, transport: http() })
 const provider = await getPDPProvider(publicClient, { providerId: 1n })
+if(!provider) throw new Error('Provider not found.')
 // ---cut---
 import { downloadAndValidate } from "@filoz/synapse-core/piece"
 
@@ -295,6 +299,8 @@ const publicClient = createPublicClient({ chain: calibration, transport: http() 
 import { getPDPProvider } from "@filoz/synapse-core/sp-registry"
 const primaryProvider = await getPDPProvider(publicClient, { providerId: 1n })
 const secondaryProvider = await getPDPProvider(publicClient, { providerId: 2n })
+if(!secondaryProvider) throw Error('not found')
+if(!primaryProvider) throw Error('not found')
 const pieceCid = "bafkzcib..." as any;
 // ---cut---
 import * as SP from "@filoz/synapse-core/sp"
