@@ -93,7 +93,7 @@ describe('getProviderIdByAddress', () => {
       assert.equal(providerId, 2n)
     })
 
-    it('should return 0 for unregistered address', async () => {
+    it('should return null for unregistered address', async () => {
       server.use(JSONRPC(presets.basic))
 
       const client = createPublicClient({
@@ -105,7 +105,7 @@ describe('getProviderIdByAddress', () => {
         providerAddress: '0x9999999999999999999999999999999999999999',
       })
 
-      assert.equal(providerId, 0n)
+      assert.equal(providerId, null)
     })
   })
 })
