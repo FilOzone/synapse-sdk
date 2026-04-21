@@ -17,7 +17,9 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ValidationError } from '../errors/base.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import { validateProviderInfo } from './validation.ts'
 
 export namespace updateProviderInfo {
   export type OptionsType = {
@@ -31,7 +33,11 @@ export namespace updateProviderInfo {
 
   export type OutputType = Hash
 
-  export type ErrorType = updateProviderInfoCall.ErrorType | SimulateContractErrorType | WriteContractErrorType
+  export type ErrorType =
+    | updateProviderInfoCall.ErrorType
+    | SimulateContractErrorType
+    | WriteContractErrorType
+    | ValidationError
 }
 
 /**
@@ -96,6 +102,7 @@ export namespace updateProviderInfoSync {
     | SimulateContractErrorType
     | WriteContractErrorType
     | WaitForTransactionReceiptErrorType
+    | ValidationError
 }
 
 /**
@@ -150,7 +157,7 @@ export async function updateProviderInfoSync(
 
 export namespace updateProviderInfoCall {
   export type OptionsType = Simplify<updateProviderInfo.OptionsType & ActionCallChain>
-  export type ErrorType = asChain.ErrorType
+  export type ErrorType = asChain.ErrorType | ValidationError
   export type OutputType = ContractFunctionParameters<
     typeof serviceProviderRegistryAbi,
     'nonpayable',
@@ -194,6 +201,7 @@ export namespace updateProviderInfoCall {
  */
 export function updateProviderInfoCall(options: updateProviderInfoCall.OptionsType) {
   const chain = asChain(options.chain)
+  validateProviderInfo({ name: options.name, description: options.description })
   return {
     abi: chain.contracts.serviceProviderRegistry.abi,
     address: options.contractAddress ?? chain.contracts.serviceProviderRegistry.address,

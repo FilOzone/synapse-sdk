@@ -29,7 +29,7 @@ describe('addProduct', () => {
         chain: calibration,
         productType: 0,
         capabilityKeys: ['serviceURL'],
-        capabilityValues: ['0x'],
+        capabilityValues: ['0x01'],
       })
 
       assert.equal(call.functionName, 'addProduct')
@@ -37,7 +37,7 @@ describe('addProduct', () => {
       assert.equal(call.abi, calibration.contracts.serviceProviderRegistry.abi)
       assert.equal(call.args[0], 0)
       assert.deepEqual(call.args[1], ['serviceURL'])
-      assert.deepEqual(call.args[2], ['0x'])
+      assert.deepEqual(call.args[2], ['0x01'])
     })
 
     it('should create call with mainnet chain defaults', () => {
@@ -45,7 +45,7 @@ describe('addProduct', () => {
         chain: mainnet,
         productType: 0,
         capabilityKeys: ['serviceURL'],
-        capabilityValues: ['0x'],
+        capabilityValues: ['0x01'],
       })
 
       assert.equal(call.functionName, 'addProduct')
@@ -59,7 +59,7 @@ describe('addProduct', () => {
         chain: calibration,
         productType: 0,
         capabilityKeys: ['serviceURL'],
-        capabilityValues: ['0x'],
+        capabilityValues: ['0x01'],
         contractAddress: customAddress,
       })
 
