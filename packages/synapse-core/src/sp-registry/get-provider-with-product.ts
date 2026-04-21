@@ -12,6 +12,7 @@ import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { isProviderExistsRevert } from '../utils/contract-errors.ts'
 
 export namespace getProviderWithProduct {
   export type OptionsType = {
@@ -29,8 +30,8 @@ export namespace getProviderWithProduct {
     'getProviderWithProduct'
   >
 
-  /** The provider with product details */
-  export type OutputType = ContractOutputType
+  /** The provider with product details, or `null` when the provider does not exist. */
+  export type OutputType = ContractOutputType | null
 
   export type ErrorType = asChain.ErrorType | ReadContractErrorType
 }
@@ -38,9 +39,19 @@ export namespace getProviderWithProduct {
 /**
  * Get provider details with specific product information
  *
+ * The underlying contract method is guarded by the `providerExists` modifier
+ * and will revert for unknown provider IDs. This wrapper normalizes those
+ * reverts to `null`. Reverts from any other source (e.g. RPC failures) still
+ * propagate.
+ *
+ * Note: the contract does not revert when the provider exists but the
+ * requested product is missing or inactive — in that case it returns a
+ * default-initialized product and callers must inspect `product.isActive`
+ * and `product.capabilityKeys`.
+ *
  * @param client - The client to use to get the provider details.
  * @param options - {@link getProviderWithProduct.OptionsType}
- * @returns The provider with product details {@link getProviderWithProduct.OutputType}
+ * @returns The provider with product details, or `null` when the provider does not exist {@link getProviderWithProduct.OutputType}
  * @throws Errors {@link getProviderWithProduct.ErrorType}
  *
  * @example
@@ -59,23 +70,31 @@ export namespace getProviderWithProduct {
  *   productType: 0, // ProductType.PDP
  * })
  *
- * console.log(provider.providerInfo.name)
+ * if (provider) {
+ *   console.log(provider.providerInfo.name)
+ * }
  * ```
  */
 export async function getProviderWithProduct(
   client: Client<Transport, Chain>,
   options: getProviderWithProduct.OptionsType
 ): Promise<getProviderWithProduct.OutputType> {
-  const data = await readContract(
-    client,
-    getProviderWithProductCall({
-      chain: client.chain,
-      providerId: options.providerId,
-      productType: options.productType,
-      contractAddress: options.contractAddress,
-    })
-  )
-  return data
+  try {
+    return await readContract(
+      client,
+      getProviderWithProductCall({
+        chain: client.chain,
+        providerId: options.providerId,
+        productType: options.productType,
+        contractAddress: options.contractAddress,
+      })
+    )
+  } catch (error) {
+    if (isProviderExistsRevert(error)) {
+      return null
+    }
+    throw error
+  }
 }
 
 export namespace getProviderWithProductCall {

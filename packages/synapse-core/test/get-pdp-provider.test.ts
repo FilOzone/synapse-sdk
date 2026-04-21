@@ -74,6 +74,40 @@ describe('getPDPProvider', () => {
       assert.equal(provider, null)
     })
 
+    it('should return null when the provider does not exist', async () => {
+      server.use(JSONRPC(presets.basic))
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const provider = await getPDPProvider(client, { providerId: 999n })
+      assert.equal(provider, null)
+    })
+
+    it('should return null when contract reverts with "Provider does not exist"', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            getProviderWithProduct: () => {
+              throw new Error('Provider does not exist')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const provider = await getPDPProvider(client, { providerId: 42n })
+      assert.equal(provider, null)
+    })
+
     it('should return null when PDP product is inactive', async () => {
       server.use(
         JSONRPC({

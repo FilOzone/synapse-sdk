@@ -22,7 +22,11 @@ export namespace getPDPProvider {
     'getProviderWithProduct'
   >
 
-  /** The PDP provider details, or `null` when the provider exists but has no active PDP product. */
+  /**
+   * The PDP provider details, or `null` when:
+   * - the provider does not exist (e.g. unknown `providerId`), or
+   * - the provider exists but has no active PDP product (never added or removed).
+   */
   export type OutputType = PDPProvider | null
 
   export type ErrorType = getProviderWithProduct.ErrorType | ZodValidationError
@@ -44,12 +48,15 @@ export function hasActivePDPProduct(data: getPDPProvider.ContractOutputType): bo
 /**
  * Get PDP provider details
  *
- * Returns `null` when the provider exists but has no active PDP product
- * (e.g., product was never added or was removed).
+ * Returns `null` when:
+ * - the provider does not exist (the underlying contract call reverts with
+ *   `Provider does not exist` / `Provider not found`), or
+ * - the provider exists but has no active PDP product (e.g. never added or
+ *   removed).
  *
  * @param client - The client to use to get the provider details.
  * @param options - {@link getPDPProvider.OptionsType}
- * @returns The PDP provider details, or `null` when the provider has no active PDP product {@link getPDPProvider.OutputType}
+ * @returns The PDP provider details, or `null` when unavailable {@link getPDPProvider.OutputType}
  * @throws Errors {@link getPDPProvider.ErrorType}
  *
  * @example
@@ -81,7 +88,7 @@ export async function getPDPProvider(
     productType: PRODUCTS.PDP,
   })
 
-  if (!hasActivePDPProduct(data)) {
+  if (data === null || !hasActivePDPProduct(data)) {
     return null
   }
 
@@ -193,7 +200,7 @@ export async function getPDPProviderByAddress(
     contractAddress: options.contractAddress,
   })
 
-  if (providerId === 0n) {
+  if (providerId === null) {
     return null
   }
 

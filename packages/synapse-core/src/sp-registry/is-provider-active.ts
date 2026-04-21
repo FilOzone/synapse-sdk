@@ -12,6 +12,7 @@ import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { isProviderExistsRevert } from '../utils/contract-errors.ts'
 
 export namespace isProviderActive {
   export type OptionsType = {
@@ -36,9 +37,14 @@ export namespace isProviderActive {
 /**
  * Check if a provider is active
  *
+ * The underlying contract method is guarded by the `providerExists` modifier
+ * and will revert for unknown provider IDs. This wrapper normalizes those
+ * reverts to `false` so callers can use it as a simple existence + active
+ * check.
+ *
  * @param client - The client to use to check the provider status.
  * @param options - {@link isProviderActive.OptionsType}
- * @returns Whether the provider is active {@link isProviderActive.OutputType}
+ * @returns Whether the provider exists and is active {@link isProviderActive.OutputType}
  * @throws Errors {@link isProviderActive.ErrorType}
  *
  * @example
@@ -63,15 +69,21 @@ export async function isProviderActive(
   client: Client<Transport, Chain>,
   options: isProviderActive.OptionsType
 ): Promise<isProviderActive.OutputType> {
-  const data = await readContract(
-    client,
-    isProviderActiveCall({
-      chain: client.chain,
-      providerId: options.providerId,
-      contractAddress: options.contractAddress,
-    })
-  )
-  return data
+  try {
+    return await readContract(
+      client,
+      isProviderActiveCall({
+        chain: client.chain,
+        providerId: options.providerId,
+        contractAddress: options.contractAddress,
+      })
+    )
+  } catch (error) {
+    if (isProviderExistsRevert(error)) {
+      return false
+    }
+    throw error
+  }
 }
 
 export namespace isProviderActiveCall {
