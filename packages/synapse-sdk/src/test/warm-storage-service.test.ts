@@ -458,7 +458,7 @@ describe('WarmStorageService', () => {
             ...Mocks.presets.basic.warmStorageView,
             getClientDataSetsLength: () => [2n],
             clientDataSets: () => [[242n, 243n]],
-            getClientDataSets: (args) => {
+            getClientDataSets: (_args) => {
               return [
                 [
                   {
