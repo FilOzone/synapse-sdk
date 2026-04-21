@@ -11,6 +11,7 @@ How to upload data to Filecoin Onchain Cloud, from the simplest one-liner to ful
 
 1. **`upload()`** handles everything automatically (most users)
 2. **Split operations** give you manual control over store, pull, and commit phases
+
 :::
 
 ## Simple Upload
@@ -231,6 +232,7 @@ The high-level `upload()` handles single-piece multi-copy uploads end-to-end. Us
 - **Custom error handling** at each phase, with the ability to retry store failures, skip failed secondaries, or recover from commit failures without re-uploading
 - **Signing control** to avoid multiple wallet signature prompts during multi-copy uploads
 - **Greater provider/dataset targeting** for uploading to known providers
+
 :::
 
 :::note[Key Benefit]

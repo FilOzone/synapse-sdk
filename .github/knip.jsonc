@@ -10,7 +10,6 @@
   "ignoreDependencies": [
     "@types/*",
     "assert",
-    "sharp",
     "mocha",
     "wrangler",
     "typedoc",
