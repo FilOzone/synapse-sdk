@@ -141,3 +141,41 @@ export const RETRY_CONSTANTS = {
   DELAY_TIME: 4000, // 4 seconds in milliseconds between retries
   MAX_RETRY_TIME: 1000 * 60 * 5, // 5 minutes in milliseconds
 } as const
+
+/**
+ * Limits mirrored from
+ * [ServiceProviderRegistry.sol](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/ServiceProviderRegistry.sol).
+ * Sync with `VERSION` in that contract (currently `1.1.0`) when upgrading.
+ */
+export const SERVICE_PROVIDER_REGISTRY = {
+  /** Maximum UTF-8 byte length for `ServiceProviderInfo.name`. */
+  MAX_NAME_LENGTH: 128,
+
+  /** Maximum UTF-8 byte length for `ServiceProviderInfo.description`. */
+  MAX_DESCRIPTION_LENGTH: 256,
+
+  /**
+   * Maximum UTF-8 byte length for the `location` capability value.
+   *
+   * Declared on-chain but not currently enforced in a dedicated require — the
+   * stricter `MAX_CAPABILITY_VALUE_LENGTH` already covers it.
+   */
+  MAX_LOCATION_LENGTH: 128,
+
+  /** Maximum UTF-8 byte length for each capability key. */
+  MAX_CAPABILITY_KEY_LENGTH: 32,
+
+  /** Maximum byte length for each capability value (raw bytes, not hex chars). */
+  MAX_CAPABILITY_VALUE_LENGTH: 128,
+
+  /** Maximum number of capability key/value pairs per product. */
+  MAX_CAPABILITIES: 24,
+
+  /**
+   * Registration fee in attoFIL (5 FIL) required by `registerProvider`.
+   *
+   * Callers that pass `value` explicitly are validated against this value.
+   * Callers that omit `value` fetch the live `REGISTRATION_FEE()` from the contract.
+   */
+  REGISTRATION_FEE_WEI: 5_000_000_000_000_000_000n,
+} as const
