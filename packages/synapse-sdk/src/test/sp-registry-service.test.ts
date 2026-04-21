@@ -109,7 +109,7 @@ describe('SPRegistryService', () => {
       assert.equal(id, 1n)
     })
 
-    it('should return 0 for unregistered address', async () => {
+    it('should return null for unregistered address', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -120,7 +120,7 @@ describe('SPRegistryService', () => {
         })
       )
       const id = await service.getProviderIdByAddress({ address: Mocks.ADDRESSES.zero })
-      assert.equal(id, 0n)
+      assert.isNull(id)
     })
 
     it('should check if provider is active', async () => {
