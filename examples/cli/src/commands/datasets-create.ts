@@ -38,6 +38,10 @@ export const datasetsCreate: Command = command(
           })
         : await selectProvider(client, argv.flags)
 
+      if (!provider) {
+        throw new Error('Provider not found')
+      }
+
       p.log.info(
         `Selected provider: #${provider.id} - ${provider.serviceProvider} ${provider.pdp.serviceURL}`
       )

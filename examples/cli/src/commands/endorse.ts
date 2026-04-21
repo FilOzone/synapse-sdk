@@ -39,15 +39,20 @@ export const endorse: Command = command(
         endorsements.read.owner(),
         endorsements.read.getProviderIds(),
       ])
-      const serviceUrls = (
-        await Promise.all(
-          endorsed.map((providerId) => getPDPProvider(client, { providerId }))
-        )
-      ).reduce<Record<number, string>>((serviceUrls, providerWithProduct) => {
-        serviceUrls[Number(providerWithProduct.id)] =
-          providerWithProduct.pdp.serviceURL
-        return serviceUrls
-      }, {})
+
+      const providers = await Promise.all(
+        endorsed.map((providerId) => getPDPProvider(client, { providerId }))
+      )
+      const serviceUrls = endorsed.reduce<Record<number, string>>(
+        (acc, providerId, i) => {
+          const p = providers[i]
+          acc[Number(providerId)] =
+            p?.pdp.serviceURL ?? '(PDP details unavailable)'
+          return acc
+        },
+        {}
+      )
+
       const lines = [
         `Current User: ${client.account.address}`,
         `Owner: ${owner}`,
@@ -139,6 +144,9 @@ export const endorse: Command = command(
             const providerWithProduct = await getPDPProvider(client, {
               providerId: BigInt(providerId),
             })
+            if (!providerWithProduct) {
+              throw new Error(`Provider ${providerId} not found`)
+            }
             const confirmed = await confirm({
               message: `Add provider ${providerId} (${providerWithProduct.pdp.serviceURL})?`,
             })
