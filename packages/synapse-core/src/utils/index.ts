@@ -1,6 +1,7 @@
 export * from './calibration.ts'
 export * from './capabilities.ts'
 export * from './constants.ts'
+export * from './contract-errors.ts'
 export * from './decode-pdp-errors.ts'
 export * from './epoch.ts'
 export * from './format.ts'
