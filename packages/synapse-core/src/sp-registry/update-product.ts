@@ -17,9 +17,11 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ValidationError } from '../errors/base.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { encodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 import type { PDPOffering } from './types.ts'
+import { validateCapabilities, validateProductType } from './validation.ts'
 
 export namespace updateProduct {
   export type OptionsType = {
@@ -35,7 +37,11 @@ export namespace updateProduct {
 
   export type OutputType = Hash
 
-  export type ErrorType = updateProductCall.ErrorType | SimulateContractErrorType | WriteContractErrorType
+  export type ErrorType =
+    | updateProductCall.ErrorType
+    | SimulateContractErrorType
+    | WriteContractErrorType
+    | ValidationError
 }
 
 /**
@@ -108,6 +114,7 @@ export namespace updateProductSync {
     | SimulateContractErrorType
     | WriteContractErrorType
     | WaitForTransactionReceiptErrorType
+    | ValidationError
 }
 
 /**
@@ -178,7 +185,7 @@ export namespace updateProductCall {
     } & ActionCallChain
   >
 
-  export type ErrorType = asChain.ErrorType
+  export type ErrorType = asChain.ErrorType | ValidationError
   export type OutputType = ContractFunctionParameters<typeof serviceProviderRegistryAbi, 'nonpayable', 'updateProduct'>
 }
 
@@ -231,11 +238,14 @@ export namespace updateProductCall {
  */
 export function updateProductCall(options: updateProductCall.OptionsType) {
   const chain = asChain(options.chain)
+  const productType = options.productType ?? 0
+  validateProductType(productType)
+  validateCapabilities(options.capabilityKeys, options.capabilityValues)
   return {
     abi: chain.contracts.serviceProviderRegistry.abi,
     address: options.contractAddress ?? chain.contracts.serviceProviderRegistry.address,
     functionName: 'updateProduct',
-    args: [options.productType ?? 0, options.capabilityKeys, options.capabilityValues],
+    args: [productType, options.capabilityKeys, options.capabilityValues],
   } satisfies updateProductCall.OutputType
 }
 

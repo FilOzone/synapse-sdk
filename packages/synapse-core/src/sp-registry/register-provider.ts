@@ -17,9 +17,18 @@ import { readContract, simulateContract, waitForTransactionReceipt, writeContrac
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ValidationError } from '../errors/base.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { encodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 import type { PDPOffering } from './types.ts'
+import {
+  validateCapabilities,
+  validateLocation,
+  validatePayee,
+  validateProductType,
+  validateProviderInfo,
+  validateRegistrationFee,
+} from './validation.ts'
 
 export namespace registerProvider {
   export type OptionsType = {
@@ -43,7 +52,11 @@ export namespace registerProvider {
 
   export type OutputType = Hash
 
-  export type ErrorType = registerProviderCall.ErrorType | SimulateContractErrorType | WriteContractErrorType
+  export type ErrorType =
+    | registerProviderCall.ErrorType
+    | SimulateContractErrorType
+    | WriteContractErrorType
+    | ValidationError
 }
 
 /**
@@ -97,7 +110,6 @@ export async function registerProvider(
   const chain = asChain(client.chain)
   const contractAddress = options.contractAddress ?? chain.contracts.serviceProviderRegistry.address
 
-  // Get registration fee if not provided
   let registrationFee: bigint
   if (options.value === undefined) {
     registrationFee = await readContract(client, {
@@ -106,6 +118,7 @@ export async function registerProvider(
       functionName: 'REGISTRATION_FEE',
     })
   } else {
+    validateRegistrationFee(options.value)
     registrationFee = options.value
   }
 
@@ -136,6 +149,7 @@ export namespace registerProviderSync {
     | SimulateContractErrorType
     | WriteContractErrorType
     | WaitForTransactionReceiptErrorType
+    | ValidationError
 }
 
 /**
@@ -202,7 +216,7 @@ export async function registerProviderSync(
 
 export namespace registerProviderCall {
   export type OptionsType = Simplify<SetRequired<registerProvider.OptionsType, 'value'> & ActionCallChain>
-  export type ErrorType = asChain.ErrorType
+  export type ErrorType = asChain.ErrorType | ValidationError
   export type OutputType = ContractFunctionParameters<
     typeof serviceProviderRegistryAbi,
     'payable',
@@ -266,20 +280,20 @@ export namespace registerProviderCall {
  */
 export function registerProviderCall(options: registerProviderCall.OptionsType) {
   const chain = asChain(options.chain)
-  // Encode PDP capabilities
+  const productType = options.productType ?? 0
+  validateProductType(productType)
+  validatePayee(options.payee)
+  validateProviderInfo({ name: options.name, description: options.description })
+  validateLocation(options.pdpOffering.location)
+
   const [capabilityKeys, capabilityValues] = encodePDPCapabilities(options.pdpOffering, options.capabilities)
+  validateCapabilities(capabilityKeys, capabilityValues)
+
   return {
     abi: chain.contracts.serviceProviderRegistry.abi,
     address: options.contractAddress ?? chain.contracts.serviceProviderRegistry.address,
     functionName: 'registerProvider',
-    args: [
-      options.payee,
-      options.name,
-      options.description,
-      options.productType ?? 0,
-      capabilityKeys,
-      capabilityValues,
-    ],
+    args: [options.payee, options.name, options.description, productType, capabilityKeys, capabilityValues],
     value: options.value,
   } satisfies registerProviderCall.OutputType
 }
