@@ -27,8 +27,8 @@ export namespace getProviderIdByAddress {
     'getProviderIdByAddress'
   >
 
-  /** The provider ID (0 if not found) */
-  export type OutputType = bigint
+  /** The provider ID, or `null` when the address is not registered. */
+  export type OutputType = bigint | null
 
   export type ErrorType = asChain.ErrorType | ReadContractErrorType
 }
@@ -36,11 +36,13 @@ export namespace getProviderIdByAddress {
 /**
  * Get provider ID by address
  *
- * Returns the provider ID for a given provider address. Returns 0 if the address is not registered as a provider.
+ * Returns the provider ID for a given provider address, or `null` when the
+ * address is not registered as a provider (the contract returns `0` in that
+ * case; this wrapper normalizes it to `null`).
  *
  * @param client - The client to use to get the provider ID.
  * @param options - {@link getProviderIdByAddress.OptionsType}
- * @returns The provider ID (0 if not found) {@link getProviderIdByAddress.OutputType}
+ * @returns The provider ID, or `null` when the address is not registered {@link getProviderIdByAddress.OutputType}
  * @throws Errors {@link getProviderIdByAddress.ErrorType}
  *
  * @example
@@ -58,7 +60,7 @@ export namespace getProviderIdByAddress {
  *   providerAddress: '0x1234567890123456789012345678901234567890',
  * })
  *
- * if (providerId === 0n) {
+ * if (providerId === null) {
  *   console.log('Provider not found')
  * } else {
  *   console.log(`Provider ID: ${providerId}`)
@@ -77,7 +79,7 @@ export async function getProviderIdByAddress(
       contractAddress: options.contractAddress,
     })
   )
-  return data
+  return data === 0n ? null : data
 }
 
 export namespace getProviderIdByAddressCall {

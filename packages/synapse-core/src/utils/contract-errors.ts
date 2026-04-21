@@ -5,6 +5,17 @@ import type { BaseError } from 'viem'
  */
 export const STRING_ERRORS = {
   PDP_VERIFIER_DATA_SET_NOT_LIVE: 'Data set not live',
+  /**
+   * Revert raised by `ServiceProviderRegistry.providerExists` when the given
+   * provider ID is `0` or greater than `numProviders`.
+   */
+  SP_REGISTRY_PROVIDER_DOES_NOT_EXIST: 'Provider does not exist',
+  /**
+   * Revert raised by `ServiceProviderRegistry.providerExists` when the given
+   * provider ID is within range but the underlying storage slot has no
+   * associated service provider address (e.g. after removal).
+   */
+  SP_REGISTRY_PROVIDER_NOT_FOUND: 'Provider not found',
 } as const
 
 /**
@@ -47,4 +58,16 @@ export function stringErrorEquals(error: unknown, expected: StringErrorType): bo
     }
   }
   return false
+}
+
+/**
+ * Check whether the given error is a revert emitted by the
+ * `ServiceProviderRegistry.providerExists` modifier (i.e. the provider ID is
+ * out of range or maps to an unoccupied storage slot).
+ */
+export function isProviderExistsRevert(error: unknown): boolean {
+  return (
+    stringErrorEquals(error, STRING_ERRORS.SP_REGISTRY_PROVIDER_DOES_NOT_EXIST) ||
+    stringErrorEquals(error, STRING_ERRORS.SP_REGISTRY_PROVIDER_NOT_FOUND)
+  )
 }
