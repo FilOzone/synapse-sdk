@@ -1045,7 +1045,7 @@ export class StorageContext {
     }
     const parsedPieceCID = Piece.asPieceCID(pieceCid)
     if (parsedPieceCID == null) {
-      throw createError('StorageContext', 'deletePiece', 'Invalid PieceCID provided')
+      throw createError('StorageContext', 'getPieceIdByCID', 'Invalid PieceCID provided')
     }
 
     const pieceIds = await PDPVerifier.findPieceIdsByCid(this._client, {
@@ -1055,7 +1055,7 @@ export class StorageContext {
       limit: 1n,
     })
     if (pieceIds.length === 0) {
-      throw createError('StorageContext', 'deletePiece', 'Piece not found in data set')
+      throw createError('StorageContext', 'getPieceIdByCID', 'Piece not found in data set')
     }
     return pieceIds[0]
   }
