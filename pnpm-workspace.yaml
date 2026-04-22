@@ -24,7 +24,7 @@ catalog:
   msw: 2.12.14
   ox: ^0.14.0
   typescript: 5.9.3
-  viem: ^2.47.0
+  viem: ^2.47.17
   wagmi: ^3.0.2
   zod: ^4.3.5
 
