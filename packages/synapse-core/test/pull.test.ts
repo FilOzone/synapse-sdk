@@ -134,7 +134,10 @@ describe('Pull', () => {
         await pullPiecesApiRequest(baseOptions())
         assert.fail('Should have thrown error')
       } catch (error) {
-        assert.ok((error as Error).message.includes('Failed to fetch'), 'Error message should mention fetch failure')
+        assert.ok(
+          (error as Error).message.includes('Network request failed'),
+          'Error message should mention fetch failure'
+        )
       }
     })
 
