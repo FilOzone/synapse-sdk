@@ -74,7 +74,7 @@ describe('WarmStorageService', () => {
       const dataSetId = 999n
 
       const result = await warmStorageService.getDataSet({ dataSetId })
-      assert.isUndefined(result, 'Should return undefined for non-existent data set')
+      assert.isNull(result, 'Should return null for non-existent data set')
     })
 
     it('should handle contract revert gracefully', async () => {

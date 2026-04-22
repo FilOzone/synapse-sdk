@@ -26,7 +26,7 @@ export namespace getDataSet {
   export type ContractOutputType = ContractFunctionReturnType<typeof storageViewAbi, 'pure' | 'view', 'getDataSet'>
 
   /** Data set info or undefined if the data set does not exist. */
-  export type OutputType = DataSetInfo | undefined
+  export type OutputType = DataSetInfo | null
 
   export type ErrorType = asChain.ErrorType | ReadContractErrorType
 }
@@ -76,7 +76,7 @@ export async function getDataSet(
     })
   )
   if (data.pdpRailId === 0n) {
-    return undefined
+    return null
   }
   return data
 }
