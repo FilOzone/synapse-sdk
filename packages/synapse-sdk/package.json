@@ -152,7 +152,7 @@
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
     "chai": "^6.2.1",
-    "iso-web": "^2.2.0",
+    "iso-web": "^2.2.1",
     "mocha": "catalog:",
     "msw": "catalog:",
     "p-defer": "^4.0.1",
