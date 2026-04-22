@@ -3,7 +3,11 @@ import { setup } from 'iso-web/msw'
 import { createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { getClientDataSets, getClientDataSetsCall } from '../src/warm-storage/get-client-data-sets.ts'
+import {
+  getClientDataSets,
+  getClientDataSetsCall,
+  getClientDataSetsIterable,
+} from '../src/warm-storage/get-client-data-sets.ts'
 
 describe('getClientDataSets', () => {
   const server = setup()
@@ -134,5 +138,189 @@ describe('getClientDataSets', () => {
       assert.equal(typeof first.payer, 'string')
       assert.equal(typeof first.payee, 'string')
     })
+
+    it('should return all remaining data sets when limit is 0n', async () => {
+      const expectedDataSets = Array.from({ length: 150 }, (_, index) => makeDataSet(BigInt(index + 1)))
+      const calls: Array<[string, bigint, bigint]> = []
+
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            ...presets.basic.warmStorageView,
+            getClientDataSets: (args) => {
+              const [address, offset = 0n, limit = 0n] = args
+              calls.push([address, offset, limit])
+              if (offset === 0n && limit === 100n) {
+                return [expectedDataSets.slice(0, 100)]
+              }
+
+              if (offset === 100n && limit === 100n) {
+                return [expectedDataSets.slice(100)]
+              }
+
+              return [[]]
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const dataSets = await getClientDataSets(client, {
+        address: ADDRESSES.client1,
+        limit: 0n,
+      })
+
+      assert.deepEqual(dataSets, expectedDataSets)
+      assert.deepEqual(calls, [
+        [ADDRESSES.client1, 0n, 100n],
+        [ADDRESSES.client1, 100n, 100n],
+      ])
+    })
+
+    it('should paginate when limit is greater than 100n', async () => {
+      const expectedDataSets = Array.from({ length: 150 }, (_, index) => makeDataSet(BigInt(index + 1)))
+      const calls: Array<[string, bigint, bigint]> = []
+
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            ...presets.basic.warmStorageView,
+            getClientDataSets: (args) => {
+              const [address, offset = 0n, limit = 0n] = args
+              calls.push([address, offset, limit])
+
+              if (offset === 0n && limit === 100n) {
+                return [expectedDataSets.slice(0, 100)]
+              }
+
+              if (offset === 100n && limit === 50n) {
+                return [expectedDataSets.slice(100)]
+              }
+
+              return [[]]
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const dataSets = await getClientDataSets(client, {
+        address: ADDRESSES.client1,
+        limit: 150n,
+      })
+
+      assert.deepEqual(dataSets, expectedDataSets)
+      assert.deepEqual(calls, [
+        [ADDRESSES.client1, 0n, 100n],
+        [ADDRESSES.client1, 100n, 50n],
+      ])
+    })
+
+    it('should fetch all data sets with paginated iterable reads', async () => {
+      const expectedDataSets = [makeDataSet(1n), makeDataSet(2n), makeDataSet(3n)]
+      const calls: Array<[string, bigint, bigint]> = []
+
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            ...presets.basic.warmStorageView,
+            getClientDataSets: (args) => {
+              const [address, offset = 0n, limit = 0n] = args
+              calls.push([address, offset, limit])
+              assert.equal(limit, 2n)
+
+              if (offset === 0n) {
+                return [expectedDataSets.slice(0, 2)]
+              }
+
+              if (offset === 2n) {
+                return [expectedDataSets.slice(2)]
+              }
+
+              return [[]]
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const dataSets = []
+      for await (const dataSet of getClientDataSetsIterable(client, {
+        address: ADDRESSES.client1,
+        batchSize: 2n,
+      })) {
+        dataSets.push(dataSet)
+      }
+
+      assert.deepEqual(dataSets, expectedDataSets)
+      assert.deepEqual(calls, [
+        [ADDRESSES.client1, 0n, 2n],
+        [ADDRESSES.client1, 2n, 2n],
+      ])
+    })
+
+    it('should reject non-positive iterable batch sizes', async () => {
+      let calls = 0
+
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            ...presets.basic.warmStorageView,
+            getClientDataSets: (args) => {
+              calls += 1
+              return presets.basic.warmStorageView?.getClientDataSets?.(args) ?? [[]]
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      await assert.rejects(async () => {
+        for await (const _dataSet of getClientDataSetsIterable(client, {
+          address: ADDRESSES.client1,
+          batchSize: 0n,
+        })) {
+          // no-op
+        }
+      }, /`batchSize` must be greater than 0n\./)
+
+      assert.equal(calls, 0)
+    })
   })
 })
+
+function makeDataSet(dataSetId: bigint) {
+  return {
+    pdpRailId: 1n,
+    cacheMissRailId: 0n,
+    cdnRailId: 0n,
+    payer: ADDRESSES.client1,
+    payee: ADDRESSES.serviceProvider1,
+    serviceProvider: ADDRESSES.serviceProvider1,
+    commissionBps: 100n,
+    clientDataSetId: 0n,
+    pdpEndEpoch: 0n,
+    providerId: 1n,
+    dataSetId,
+  }
+}
