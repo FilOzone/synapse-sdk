@@ -1,9 +1,17 @@
 /* globals describe it */
 
 import { assert } from 'chai'
+import { maxUint256 } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
 import { TIME_CONSTANTS } from '../src/utils/constants.ts'
-import { calculateLastProofDate, dateToEpoch, epochToDate, timeUntilEpoch } from '../src/utils/epoch.ts'
+import {
+  calculateLastProofDate,
+  dateToEpoch,
+  epochsToDays,
+  epochsToHours,
+  epochToDate,
+  timeUntilEpoch,
+} from '../src/utils/epoch.ts'
 
 describe('Epoch Utilities', () => {
   describe('epochToDate', () => {
@@ -89,6 +97,46 @@ describe('Epoch Utilities', () => {
       assert.equal(result.minutes, -60)
       assert.equal(result.hours, -1)
       assert.equal(result.days, -1 / 24)
+    })
+  })
+
+  describe('epochsToHours', () => {
+    it('should convert exact multiples of EPOCHS_PER_HOUR', () => {
+      assert.equal(epochsToHours(0n), 0n)
+      assert.equal(epochsToHours(TIME_CONSTANTS.EPOCHS_PER_HOUR), 1n)
+      assert.equal(epochsToHours(240n), 2n)
+      assert.equal(epochsToHours(TIME_CONSTANTS.EPOCHS_PER_DAY), 24n)
+    })
+
+    it('should floor non-exact values', () => {
+      // 119 epochs is less than 1 hour
+      assert.equal(epochsToHours(119n), 0n)
+      // 121 epochs is 1 hour + 1 epoch
+      assert.equal(epochsToHours(121n), 1n)
+    })
+
+    it('should pass maxUint256 through unchanged', () => {
+      assert.equal(epochsToHours(maxUint256), maxUint256)
+    })
+  })
+
+  describe('epochsToDays', () => {
+    it('should convert exact multiples of EPOCHS_PER_DAY', () => {
+      assert.equal(epochsToDays(0n), 0n)
+      assert.equal(epochsToDays(TIME_CONSTANTS.EPOCHS_PER_DAY), 1n)
+      assert.equal(epochsToDays(8640n), 3n)
+      assert.equal(epochsToDays(TIME_CONSTANTS.EPOCHS_PER_MONTH), 30n)
+    })
+
+    it('should floor non-exact values', () => {
+      // 2879 epochs is less than 1 day
+      assert.equal(epochsToDays(2879n), 0n)
+      // 2881 epochs is 1 day + 1 epoch
+      assert.equal(epochsToDays(2881n), 1n)
+    })
+
+    it('should pass maxUint256 through unchanged', () => {
+      assert.equal(epochsToDays(maxUint256), maxUint256)
     })
   })
 
