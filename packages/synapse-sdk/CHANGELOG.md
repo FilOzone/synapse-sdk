@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.40.5](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.4...synapse-sdk-v0.40.5) (2026-04-24)
+
+
+### Bug Fixes
+
+* correct error method names in StorageContext._getPieceIdByCID ([#745](https://github.com/FilOzone/synapse-sdk/issues/745)) ([5140caf](https://github.com/FilOzone/synapse-sdk/commit/5140caf9bc787f75c67c3c0e5dc57e01ac99593f))
+* normalize empty outputs in fwss ([#752](https://github.com/FilOzone/synapse-sdk/issues/752)) ([52cd636](https://github.com/FilOzone/synapse-sdk/commit/52cd636ee7cefc00c9b5d4cb116c3917dfd90dca))
+* normalize network error message ([#747](https://github.com/FilOzone/synapse-sdk/issues/747)) ([1b18451](https://github.com/FilOzone/synapse-sdk/commit/1b184516bcaafd9daabe86130f8a7bc0faff8d05))
+
+
+### Chores
+
+* update dependencies and knip fixes ([#746](https://github.com/FilOzone/synapse-sdk/issues/746)) ([5e1dac8](https://github.com/FilOzone/synapse-sdk/commit/5e1dac868fa7baa52cf9c889b26cecc37df37fda))
+
 ## [0.40.4](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.3...synapse-sdk-v0.40.4) (2026-04-20)
 
 
