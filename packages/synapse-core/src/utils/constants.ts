@@ -8,6 +8,11 @@ export const TIME_CONSTANTS = {
   EPOCH_DURATION: 30,
 
   /**
+   * Number of epochs in an hour (60 minutes * 2 epochs per minute)
+   */
+  EPOCHS_PER_HOUR: 120n,
+
+  /**
    * Number of epochs in a day (24 hours * 60 minutes * 2 epochs per minute)
    */
   EPOCHS_PER_DAY: 2880n,

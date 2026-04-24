@@ -2,6 +2,7 @@
  * Epoch to date conversion utilities for Filecoin networks
  */
 
+import { maxUint256 } from 'viem'
 import { TIME_CONSTANTS } from './constants.ts'
 
 /**
@@ -55,6 +56,56 @@ export function timeUntilEpoch(
     hours: seconds / 3600,
     days: seconds / 86400,
   }
+}
+
+/**
+ * Convert a number of epochs to whole hours (floor division).
+ *
+ * Each Filecoin epoch is 30 seconds, so 120 epochs = 1 hour.
+ *
+ * Passes `maxUint256` through unchanged so callers can use it as an
+ * "infinite" sentinel (e.g. `resolveAccountState().runwayInEpochs` when
+ * `lockupRate` is 0n).
+ *
+ * @param epochs - The number of epochs to convert
+ * @returns The number of whole hours
+ *
+ * @example
+ * ```ts
+ * import { epochsToHours } from '@filoz/synapse-core/utils'
+ *
+ * epochsToHours(240n)   // 2n
+ * epochsToHours(2880n)  // 24n
+ * ```
+ */
+export function epochsToHours(epochs: bigint): bigint {
+  if (epochs === maxUint256) return maxUint256
+  return epochs / TIME_CONSTANTS.EPOCHS_PER_HOUR
+}
+
+/**
+ * Convert a number of epochs to whole days (floor division).
+ *
+ * Each Filecoin epoch is 30 seconds, so 2880 epochs = 1 day.
+ *
+ * Passes `maxUint256` through unchanged so callers can use it as an
+ * "infinite" sentinel (e.g. `resolveAccountState().runwayInEpochs` when
+ * `lockupRate` is 0n).
+ *
+ * @param epochs - The number of epochs to convert
+ * @returns The number of whole days
+ *
+ * @example
+ * ```ts
+ * import { epochsToDays } from '@filoz/synapse-core/utils'
+ *
+ * epochsToDays(2880n)  // 1n
+ * epochsToDays(8640n)  // 3n
+ * ```
+ */
+export function epochsToDays(epochs: bigint): bigint {
+  if (epochs === maxUint256) return maxUint256
+  return epochs / TIME_CONSTANTS.EPOCHS_PER_DAY
 }
 
 /**

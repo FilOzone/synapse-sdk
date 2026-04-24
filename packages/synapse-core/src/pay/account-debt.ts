@@ -1,11 +1,7 @@
+import type { AccountState } from './types.ts'
+
 export namespace calculateAccountDebt {
-  export type ParamsType = {
-    funds: bigint
-    lockupCurrent: bigint
-    lockupRate: bigint
-    lockupLastSettledAt: bigint
-    currentEpoch: bigint
-  }
+  export type ParamsType = AccountState
 }
 
 /**
