@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.4.1...synapse-core-v0.4.2) (2026-04-24)
+
+
+### Bug Fixes
+
+* normalize empty outputs in fwss ([#752](https://github.com/FilOzone/synapse-sdk/issues/752)) ([52cd636](https://github.com/FilOzone/synapse-sdk/commit/52cd636ee7cefc00c9b5d4cb116c3917dfd90dca))
+* normalize network error message ([#747](https://github.com/FilOzone/synapse-sdk/issues/747)) ([1b18451](https://github.com/FilOzone/synapse-sdk/commit/1b184516bcaafd9daabe86130f8a7bc0faff8d05))
+
+
+### Chores
+
+* update dependencies and knip fixes ([#746](https://github.com/FilOzone/synapse-sdk/issues/746)) ([5e1dac8](https://github.com/FilOzone/synapse-sdk/commit/5e1dac868fa7baa52cf9c889b26cecc37df37fda))
+
 ## [0.4.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.4.0...synapse-core-v0.4.1) (2026-04-20)
 
 
