@@ -61,6 +61,7 @@ describe('getAccountSummary', () => {
     assert.equal(result.totalFixedLockup, 0n)
     assert.equal(result.totalRateBasedLockup, 0n)
     assert.equal(result.fundedUntilEpoch, maxUint256)
+    assert.equal(result.runwayInEpochs, maxUint256)
     assert.equal(result.epoch, 1000000n)
   })
 
@@ -125,6 +126,8 @@ describe('getAccountSummary', () => {
     assert.equal(result.totalLockup, funds - result.availableFunds)
     // totalRateBasedLockup = totalLockup - totalFixedLockup
     assert.equal(result.totalRateBasedLockup, result.totalLockup - result.totalFixedLockup)
+    // runwayInEpochs = fundedUntilEpoch - epoch
+    assert.equal(result.runwayInEpochs, result.fundedUntilEpoch - epoch)
   })
 
   it('should show debt when funds are insufficient', async () => {
@@ -158,6 +161,8 @@ describe('getAccountSummary', () => {
     assert.ok(result.debt > 0n, 'should have debt')
     // fundedUntilEpoch should be before current epoch
     assert.ok(result.fundedUntilEpoch < epoch, 'funded until should be in the past')
+    // runway is exhausted when account is insolvent
+    assert.equal(result.runwayInEpochs, 0n)
   })
 
   it('should use provided epoch parameter', async () => {
