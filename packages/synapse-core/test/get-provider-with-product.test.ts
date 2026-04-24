@@ -74,14 +74,67 @@ describe('getProviderWithProduct', () => {
         productType: 0,
       })
 
+      assert.isNotNull(provider)
       assert.equal(provider.providerId, 1n)
       assert.equal(provider.providerInfo.name, 'Test Provider')
       assert.equal(provider.product.isActive, true)
       assert.equal(provider.productCapabilityValues.length, 7)
     })
 
-    it('should return inactive provider structure for non-existent provider', async () => {
+    it('should return null when the contract reverts with providerExists', async () => {
       server.use(JSONRPC(presets.basic))
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const result = await getProviderWithProduct(client, {
+        providerId: 999n,
+        productType: 0,
+      })
+
+      assert.equal(result, null)
+    })
+
+    it('should return null for "Provider does not exist" revert as well', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            getProviderWithProduct: () => {
+              throw new Error('Provider does not exist')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const result = await getProviderWithProduct(client, {
+        providerId: 42n,
+        productType: 0,
+      })
+
+      assert.equal(result, null)
+    })
+
+    it('should propagate non-providerExists reverts', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            getProviderWithProduct: () => {
+              throw new Error('Service does not exist')
+            },
+          },
+        })
+      )
 
       const client = createPublicClient({
         chain: calibration,
@@ -90,13 +143,13 @@ describe('getProviderWithProduct', () => {
 
       try {
         await getProviderWithProduct(client, {
-          providerId: 999n,
+          providerId: 1n,
           productType: 0,
         })
         assert.fail('Should have thrown error')
       } catch (error) {
         assert.instanceOf(error, Error)
-        assert.include(error.message, 'Provider not found')
+        assert.include((error as Error).message, 'Service does not exist')
       }
     })
   })

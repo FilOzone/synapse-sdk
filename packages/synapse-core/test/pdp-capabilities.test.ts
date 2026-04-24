@@ -1,7 +1,17 @@
 import assert from 'assert'
 import type { Hex } from 'viem'
-import { toHex } from 'viem'
-import { decodePDPCapabilities } from '../src/utils/pdp-capabilities.ts'
+import { bytesToHex, hexToString, parseEther, toBytes, toHex } from 'viem'
+import { ValidationError } from '../src/errors/base.ts'
+import type { PDPOffering } from '../src/sp-registry/types.ts'
+import {
+  CAP_IPNI_IPFS,
+  CAP_IPNI_PIECE,
+  CAP_LOCATION,
+  CAP_SERVICE_URL,
+  decodePDPCapabilities,
+  encodePDPCapabilities,
+  RESERVED_PDP_CAPABILITY_KEYS,
+} from '../src/utils/pdp-capabilities.ts'
 
 describe('decodePDPCapabilities', () => {
   describe('IPNIPeerID decoding', () => {
@@ -79,3 +89,117 @@ function createMinimalCapabilities(overrides: Record<string, Hex> = {}): Record<
     ...overrides,
   }
 }
+
+const baseOffering: PDPOffering = {
+  serviceURL: 'https://provider.example.com',
+  minPieceSizeInBytes: 1024n,
+  maxPieceSizeInBytes: 1073741824n,
+  storagePricePerTibPerDay: parseEther('0.1'),
+  minProvingPeriodInEpochs: 2880n,
+  location: 'us-east',
+  paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+  ipniPiece: false,
+  ipniIpfs: false,
+}
+
+describe('encodePDPCapabilities', () => {
+  it('writes the 7 required keys in order', () => {
+    const [keys] = encodePDPCapabilities(baseOffering)
+    assert.deepStrictEqual(keys, [
+      'serviceURL',
+      'minPieceSizeInBytes',
+      'maxPieceSizeInBytes',
+      'storagePricePerTibPerDay',
+      'minProvingPeriodInEpochs',
+      'location',
+      'paymentTokenAddress',
+    ])
+  })
+
+  it('emits the ipniPiece / ipniIpfs flag keys only when truthy', () => {
+    const [keysOff] = encodePDPCapabilities({ ...baseOffering, ipniPiece: false, ipniIpfs: false })
+    assert.ok(!keysOff.includes(CAP_IPNI_PIECE))
+    assert.ok(!keysOff.includes(CAP_IPNI_IPFS))
+
+    const [keysOn, valuesOn] = encodePDPCapabilities({ ...baseOffering, ipniPiece: true, ipniIpfs: true })
+    const pieceIdx = keysOn.indexOf(CAP_IPNI_PIECE)
+    const ipfsIdx = keysOn.indexOf(CAP_IPNI_IPFS)
+    assert.strictEqual(valuesOn[pieceIdx], '0x01')
+    assert.strictEqual(valuesOn[ipfsIdx], '0x01')
+  })
+
+  it('encodes string extras as UTF-8 bytes', () => {
+    const [keys, values] = encodePDPCapabilities(baseOffering, { tier: 'premium' })
+    const idx = keys.indexOf('tier')
+    assert.ok(idx >= 0)
+    assert.strictEqual(hexToString(values[idx]), 'premium')
+  })
+
+  it('passes through values that are already hex verbatim', () => {
+    const [keys, values] = encodePDPCapabilities(baseOffering, { customFlag: '0x01' })
+    const idx = keys.indexOf('customFlag')
+    assert.strictEqual(values[idx], '0x01')
+  })
+
+  it('rejects reserved PDP capability keys with a ValidationError', () => {
+    for (const reserved of RESERVED_PDP_CAPABILITY_KEYS) {
+      assert.throws(
+        () => encodePDPCapabilities(baseOffering, { [reserved]: 'whatever' }),
+        (error: unknown) => {
+          assert.ok(ValidationError.is(error), `expected ValidationError for "${reserved}"`)
+          assert.match(error.message, /reserved for the PDP offering/)
+          return true
+        }
+      )
+    }
+  })
+
+  it('rejects empty-string capability values (no silent 0x01 fallback)', () => {
+    assert.throws(
+      () => encodePDPCapabilities(baseOffering, { customFlag: '' }),
+      (error: unknown) => {
+        assert.ok(ValidationError.is(error))
+        assert.match(error.message, /empty value/)
+        return true
+      }
+    )
+  })
+
+  it('accepts explicit 0x01 for flag-style extras', () => {
+    const [keys, values] = encodePDPCapabilities(baseOffering, { trustMe: '0x01' })
+    const idx = keys.indexOf('trustMe')
+    assert.strictEqual(values[idx], '0x01')
+  })
+
+  it('round-trips location through hexToString', () => {
+    const [keys, values] = encodePDPCapabilities({ ...baseOffering, location: 'eu-west' })
+    const idx = keys.indexOf(CAP_LOCATION)
+    assert.strictEqual(hexToString(values[idx]), 'eu-west')
+  })
+
+  it('matches bytesToHex(toBytes(value)) for non-hex string extras', () => {
+    const [keys, values] = encodePDPCapabilities(baseOffering, { note: 'hello' })
+    const idx = keys.indexOf('note')
+    assert.strictEqual(values[idx], bytesToHex(toBytes('hello')))
+  })
+})
+
+describe('RESERVED_PDP_CAPABILITY_KEYS', () => {
+  it('covers every required + optional PDP key', () => {
+    for (const key of [
+      CAP_SERVICE_URL,
+      'minPieceSizeInBytes',
+      'maxPieceSizeInBytes',
+      'storagePricePerTibPerDay',
+      'minProvingPeriodInEpochs',
+      CAP_LOCATION,
+      'paymentTokenAddress',
+      CAP_IPNI_PIECE,
+      CAP_IPNI_IPFS,
+      'ipniPeerId',
+      'IPNIPeerID',
+    ]) {
+      assert.ok(RESERVED_PDP_CAPABILITY_KEYS.has(key), `missing reserved key: ${key}`)
+    }
+  })
+})

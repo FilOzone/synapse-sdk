@@ -245,16 +245,16 @@ describe('registerProvider', () => {
         ipniIpfs: false,
       }
 
-      const customFee = parseEther('10')
+      const explicitFee = parseEther('5')
       await registerProvider(client, {
         payee: account.address,
         name: 'Test Provider',
         description: 'Test Description',
         pdpOffering,
-        value: customFee,
+        value: explicitFee,
       })
 
-      assert.equal(capturedValue, customFee)
+      assert.equal(capturedValue, explicitFee)
     })
   })
 })

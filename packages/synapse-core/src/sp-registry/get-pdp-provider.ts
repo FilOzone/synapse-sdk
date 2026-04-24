@@ -1,6 +1,7 @@
 import type { Simplify } from 'type-fest'
 import type { Address, Chain, Client, ContractFunctionReturnType, Transport } from 'viem'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
+import type { ZodValidationError } from '../errors/base.ts'
 import type { ActionCallChain } from '../types.ts'
 import { decodePDPOffering } from '../utils/pdp-capabilities.ts'
 import { getProviderIdByAddress } from './get-provider-id-by-address.ts'
@@ -21,18 +22,41 @@ export namespace getPDPProvider {
     'getProviderWithProduct'
   >
 
-  /** The PDP provider details */
-  export type OutputType = PDPProvider
+  /**
+   * The PDP provider details, or `null` when:
+   * - the provider does not exist (e.g. unknown `providerId`), or
+   * - the provider exists but has no active PDP product (never added or removed).
+   */
+  export type OutputType = PDPProvider | null
 
-  export type ErrorType = getProviderWithProduct.ErrorType
+  export type ErrorType = getProviderWithProduct.ErrorType | ZodValidationError
+}
+
+/**
+ * Returns `true` when the contract response carries an active, populated PDP product.
+ *
+ * The contract's `getProviderWithProduct` view only enforces `providerExists`,
+ * so it will happily return a default-initialized `ServiceProduct` with
+ * `isActive: false` and an empty `capabilityKeys` array for providers that
+ * never registered a PDP product or had it removed. Detect that case before
+ * attempting to parse capabilities.
+ */
+export function hasActivePDPProduct(data: getPDPProvider.ContractOutputType): boolean {
+  return data.product.isActive && data.product.capabilityKeys.length > 0
 }
 
 /**
  * Get PDP provider details
  *
+ * Returns `null` when:
+ * - the provider does not exist (the underlying contract call reverts with
+ *   `Provider does not exist` / `Provider not found`), or
+ * - the provider exists but has no active PDP product (e.g. never added or
+ *   removed).
+ *
  * @param client - The client to use to get the provider details.
  * @param options - {@link getPDPProvider.OptionsType}
- * @returns The PDP provider details {@link getPDPProvider.OutputType}
+ * @returns The PDP provider details, or `null` when unavailable {@link getPDPProvider.OutputType}
  * @throws Errors {@link getPDPProvider.ErrorType}
  *
  * @example
@@ -50,7 +74,9 @@ export namespace getPDPProvider {
  *   providerId: 1n,
  * })
  *
- * console.log(provider.name)
+ * if (provider) {
+ *   console.log(provider.name)
+ * }
  * ```
  */
 export async function getPDPProvider(
@@ -61,6 +87,10 @@ export async function getPDPProvider(
     ...options,
     productType: PRODUCTS.PDP,
   })
+
+  if (data === null || !hasActivePDPProduct(data)) {
+    return null
+  }
 
   return parsePDPProvider(data)
 }
@@ -170,7 +200,7 @@ export async function getPDPProviderByAddress(
     contractAddress: options.contractAddress,
   })
 
-  if (providerId === 0n) {
+  if (providerId === null) {
     return null
   }
 

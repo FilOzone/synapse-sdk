@@ -158,7 +158,7 @@ export class SPRegistryService {
    */
   async getProviderByAddress(options: { address: Address }): Promise<SP.getPDPProvider.OutputType | null> {
     const providerId = await SP.getProviderIdByAddress(this._client, { providerAddress: options.address })
-    if (providerId === 0n) {
+    if (providerId === null) {
       return null
     }
 
@@ -169,9 +169,9 @@ export class SPRegistryService {
    * Get provider ID by address
    * @param options - Options for provider ID lookup
    * @param options.address - Provider address
-   * @returns Provider ID (0 if not found)
+   * @returns Provider ID, or `null` when the address is not registered
    */
-  async getProviderIdByAddress(options: { address: Address }): Promise<bigint> {
+  async getProviderIdByAddress(options: { address: Address }): Promise<bigint | null> {
     return SP.getProviderIdByAddress(this._client, { providerAddress: options.address })
   }
 

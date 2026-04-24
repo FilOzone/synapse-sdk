@@ -87,5 +87,73 @@ describe('isProviderActive', () => {
 
       assert.equal(isActive, false)
     })
+
+    it('should return false when contract reverts with "Provider does not exist"', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            isProviderActive: () => {
+              throw new Error('Provider does not exist')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const isActive = await isProviderActive(client, { providerId: 999n })
+      assert.equal(isActive, false)
+    })
+
+    it('should return false when contract reverts with "Provider not found"', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            isProviderActive: () => {
+              throw new Error('Provider not found')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const isActive = await isProviderActive(client, { providerId: 1n })
+      assert.equal(isActive, false)
+    })
+
+    it('should propagate non-providerExists reverts', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            isProviderActive: () => {
+              throw new Error('Unexpected revert')
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      await assert.rejects(
+        () => isProviderActive(client, { providerId: 1n }),
+        (error: unknown) => error instanceof Error && error.message.includes('Unexpected revert')
+      )
+    })
   })
 })

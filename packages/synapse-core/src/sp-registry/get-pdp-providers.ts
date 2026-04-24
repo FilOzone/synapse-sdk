@@ -14,7 +14,7 @@ import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../a
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
 import { getApprovedProviderIdsCall } from '../warm-storage/get-approved-provider-ids.ts'
-import { getPDPProviderCall, parsePDPProvider } from './get-pdp-provider.ts'
+import { getPDPProviderCall, hasActivePDPProduct, parsePDPProvider } from './get-pdp-provider.ts'
 import type { getProvidersByProductType } from './get-providers-by-product-type.ts'
 import { type PDPProvider, PRODUCTS, type ProviderWithProduct } from './types.ts'
 
@@ -268,8 +268,12 @@ export async function getPDPProvidersByIds(
     ),
   })
 
-  return parsePDPProviders({
-    providers: result.filter((result) => result.status === 'success').map((result) => result.result),
-    hasMore: false,
-  }).providers
+  const providers: ProviderWithProduct[] = []
+  for (const r of result) {
+    if (r.status === 'success' && hasActivePDPProduct(r.result)) {
+      providers.push(r.result)
+    }
+  }
+
+  return parsePDPProviders({ providers, hasMore: false }).providers
 }
