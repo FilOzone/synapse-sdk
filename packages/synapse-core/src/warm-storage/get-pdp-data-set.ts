@@ -18,7 +18,7 @@ export namespace getPdpDataSet {
   }
 
   /** PDP data set or undefined if the data set does not exist. */
-  export type OutputType = PdpDataSet | undefined
+  export type OutputType = PdpDataSet | null
 
   export type ErrorType = asChain.ErrorType | ReadContractErrorType
 }
@@ -59,7 +59,7 @@ export async function getPdpDataSet(
 ): Promise<getPdpDataSet.OutputType> {
   const data = await getDataSet(client, options)
   if (!data) {
-    return undefined
+    return null
   }
 
   const pdpInfo = await readPdpDataSetInfo(client, {
