@@ -38,8 +38,18 @@ export namespace getAccountSummary {
     /** Rate-based portion of lockup (totalLockup - totalFixedLockup) */
     totalRateBasedLockup: bigint
 
-    /** Epoch at which funds run out at current rate */
+    /**
+     * Absolute epoch at which funds run out at the current lockup rate.
+     * `maxUint256` when `lockupRate` is 0n.
+     */
     fundedUntilEpoch: bigint
+    /**
+     * Number of epochs that can pass from `epoch` before the account runs out
+     * of funds at the current lockup rate — i.e. how long until the user needs
+     * to deposit more funds. `maxUint256` when `lockupRatePerEpoch` is 0n
+     * (no drain), `0n` when the account is already insolvent.
+     */
+    runwayInEpochs: bigint
     /** The epoch used for all calculations */
     epoch: bigint
   }
@@ -76,6 +86,7 @@ export namespace getAccountSummary {
  *
  * console.log('Available:', summary.availableFunds)
  * console.log('Funded until epoch:', summary.fundedUntilEpoch)
+ * console.log('Runway in epochs:', summary.runwayInEpochs)
  * ```
  */
 export async function getAccountSummary(
@@ -99,7 +110,7 @@ export async function getAccountSummary(
     currentEpoch: resolvedEpoch,
   }
 
-  const { fundedUntilEpoch, availableFunds } = resolveAccountState(params)
+  const { fundedUntilEpoch, availableFunds, runwayInEpochs } = resolveAccountState(params)
   const debt = calculateAccountDebt(params)
 
   const totalLockup = accountInfo.funds > availableFunds ? accountInfo.funds - availableFunds : 0n
@@ -119,6 +130,7 @@ export async function getAccountSummary(
     totalRateBasedLockup,
 
     fundedUntilEpoch,
+    runwayInEpochs,
     epoch: resolvedEpoch,
   }
 }
