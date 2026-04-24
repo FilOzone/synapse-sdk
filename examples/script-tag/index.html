@@ -8,22 +8,22 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
   <script type="module">
     import { RPC_URLS, Synapse } from 'https://esm.sh/@filoz/synapse-sdk'
-    import { ethers } from 'https://esm.sh/ethers'
+        import { ethers } from 'https://esm.sh/ethers'
 
-    const rpcUrl = document.getElementById('rpc')
-    rpcUrl.value = JSON.stringify(RPC_URLS, null, 2)
+        const rpcUrl = document.getElementById('rpc')
+        rpcUrl.value = JSON.stringify(RPC_URLS, null, 2)
 
 
-    const provider = new ethers.BrowserProvider(window.ethereum)
-    try {
-      await Synapse.create({ provider, source: 'synapse-example' })
-    } catch (error) {
+        const provider = new ethers.BrowserProvider(window.ethereum)
+        try {
+          await Synapse.create({ provider, source: 'synapse-example' })
+        } catch (error) {
 
-      console.log("🚀 ~ error:", error)
+          console.log("🚀 ~ error:", error)
 
-      const errorEl = document.getElementById('error')
-      errorEl.value = error.message
-    }
+          const errorEl = document.getElementById('error')
+          errorEl.value = error.message
+        }
 
   </script>
 </head>
