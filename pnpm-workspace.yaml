@@ -23,7 +23,7 @@ catalog:
   mocha: ^11.7.4
   msw: 2.12.14
   ox: ^0.14.16
-  typescript: 5.9.3
+  typescript: 6.0.3
   viem: ^2.47.17
   wagmi: ^3.0.2
   zod: ^4.3.5
