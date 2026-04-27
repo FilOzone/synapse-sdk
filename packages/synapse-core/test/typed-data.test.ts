@@ -33,6 +33,11 @@ const FIXTURES = {
       clientDataSetId: 12345n,
       pieceIds: [1n, 3n, 5n],
     },
+    deleteDataSet: {
+      extraData:
+        '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004182d85f7517c3ebcf68b9ebe200a46627d451219a3a71a95ea7ffce1cd661cc6d553db47958d27c33ccf1105388e1b640cf575a966b0bd4814ed0ec428daa628a1b00000000000000000000000000000000000000000000000000000000000000' as Hex,
+      dataSetId: 67890n,
+    },
   },
 }
 
@@ -124,6 +129,18 @@ describe('Typed Data', () => {
       extraDataActual,
       FIXTURES.signatures.schedulePieceRemovals.extraData,
       'SchedulePieceRemovals extraData should match Solidity reference'
+    )
+  })
+
+  it('should sign delete data set', async () => {
+    const extraDataActual = await TypedData.signDeleteDataSet(client, {
+      dataSetId: FIXTURES.signatures.deleteDataSet.dataSetId,
+    })
+
+    assert.strictEqual(
+      extraDataActual,
+      FIXTURES.signatures.deleteDataSet.extraData,
+      'DeleteDataSet extraData should match Solidity reference'
     )
   })
 
