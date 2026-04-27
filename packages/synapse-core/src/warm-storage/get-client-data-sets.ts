@@ -16,7 +16,7 @@ import type { ActionCallChain } from '../types.ts'
 import type { getPdpDataSets } from './get-pdp-data-sets.ts'
 import type { DataSetInfo } from './types.ts'
 
-const GET_CLIENT_DATA_SETS_PAGE_SIZE = 100n
+const DATA_SETS_PAGE_SIZE = 100n
 
 export namespace getClientDataSets {
   export type OptionsType = {
@@ -74,29 +74,13 @@ export async function getClientDataSets(
   client: Client<Transport, Chain>,
   options: getClientDataSets.OptionsType
 ): Promise<getClientDataSets.OutputType> {
-  const limit = options.limit ?? 0n
-  if (limit > 0n && limit <= GET_CLIENT_DATA_SETS_PAGE_SIZE) {
-    return [
-      ...(await readContract(
-        client,
-        getClientDataSetsCall({
-          chain: client.chain,
-          address: options.address,
-          offset: options.offset,
-          limit,
-          contractAddress: options.contractAddress,
-        })
-      )),
-    ]
-  }
-
   const dataSets: getClientDataSets.OutputType = []
+  const limit = options.limit ?? 0n
   let offset = options.offset ?? 0n
   let remaining = limit
 
   while (true) {
-    const pageLimit =
-      remaining === 0n || remaining > GET_CLIENT_DATA_SETS_PAGE_SIZE ? GET_CLIENT_DATA_SETS_PAGE_SIZE : remaining
+    const pageLimit = remaining === 0n || remaining > DATA_SETS_PAGE_SIZE ? DATA_SETS_PAGE_SIZE : remaining
 
     const data = await readContract(
       client,
@@ -177,7 +161,7 @@ export async function* getClientDataSetsIterable(
   client: Client<Transport, Chain>,
   options: getClientDataSetsIterable.OptionsType
 ): getClientDataSetsIterable.OutputType {
-  const batchSize = options.batchSize ?? GET_CLIENT_DATA_SETS_PAGE_SIZE
+  const batchSize = options.batchSize ?? DATA_SETS_PAGE_SIZE
   if (batchSize <= 0n) {
     throw new ValidationError('`batchSize` must be greater than 0n.')
   }
