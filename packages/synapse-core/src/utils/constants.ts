@@ -177,5 +177,34 @@ export const SERVICE_PROVIDER_REGISTRY = {
    * Callers that pass `value` explicitly are validated against this value.
    * Callers that omit `value` fetch the live `REGISTRATION_FEE()` from the contract.
    */
-  REGISTRATION_FEE_WEI: 5_000_000_000_000_000_000n,
+  REGISTRATION_FEE: 5_000_000_000_000_000_000n,
 } as const
+
+/**
+ * Capability keys that are decoded into typed PDPOffering fields.
+ * (must match ServiceProviderRegistry.sol REQUIRED_PDP_KEYS)
+ *
+ * @see https://github.com/FilOzone/filecoin-services/blob/c02491bac1f41f12a6fcc7c6d4f211d97b0baf63/service_contracts/src/ServiceProviderRegistry.sol#L14-L25
+ *
+ */
+export const PDP_OFFERING_KEYS = {
+  SERVICE_URL: 'serviceURL',
+  MIN_PIECE_SIZE: 'minPieceSizeInBytes',
+  MAX_PIECE_SIZE: 'maxPieceSizeInBytes',
+  STORAGE_PRICE: 'storagePricePerTibPerDay',
+  MIN_PROVING_PERIOD: 'minProvingPeriodInEpochs',
+  LOCATION: 'location',
+  PAYMENT_TOKEN: 'paymentTokenAddress',
+  IPNI_PIECE: 'ipniPiece', // Optional (not validated by Bloom filter)
+  IPNI_IPFS: 'ipniIpfs', // Optional (not validated by Bloom filter)
+  IPNI_PEER_ID: 'ipniPeerId', // Optional (not validated by Bloom filter)
+  /** @deprecated Use CAP_IPNI_PEER_ID - kept for reading legacy entries */
+  IPNI_PEER_ID_LEGACY: 'IPNIPeerID',
+} as const
+
+/**
+ * Set of PDP offering keys.
+ *
+ * @see {@link PDP_OFFERING_KEYS}
+ */
+export const PDP_OFFERING_KEYS_SET = new Set(Object.values(PDP_OFFERING_KEYS))

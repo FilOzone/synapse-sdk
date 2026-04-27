@@ -129,7 +129,7 @@ export function validateCapabilities(keys: readonly string[], values: readonly H
  * @throws Errors {@link ValidationError} when `value !== SERVICE_PROVIDER_REGISTRY.REGISTRATION_FEE_WEI`
  */
 export function validateRegistrationFee(value: bigint): void {
-  const expected = spRegistry.REGISTRATION_FEE_WEI
+  const expected = spRegistry.REGISTRATION_FEE
   if (value !== expected) {
     throw new ValidationError(
       `Incorrect registration fee: ${value}. Expected ${expected} (5 FIL). Omit \`value\` to fetch the live fee from the contract.`
