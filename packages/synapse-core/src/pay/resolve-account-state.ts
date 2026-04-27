@@ -13,7 +13,7 @@ export namespace resolveAccountState {
     /** Funds available after accounting for all lockup (fixed + rate) at `currentEpoch`. */
     availableFunds: bigint
     /**
-     * Number of epochs that can pass from `currentEpoch` before the account
+     * Number of epochs that can pass from `currentEpoch` (on the input params) before the account
      * runs out of funds at the current lockup rate — i.e. how long until the
      * user needs to deposit more funds.
      *
