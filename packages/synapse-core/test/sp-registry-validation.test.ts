@@ -168,12 +168,12 @@ describe('sp-registry validation', () => {
 
   describe('validateRegistrationFee', () => {
     it('accepts the exact sp.REGISTRATION_FEE_WEI value', () => {
-      validateRegistrationFee(sp.REGISTRATION_FEE_WEI)
+      validateRegistrationFee(sp.REGISTRATION_FEE)
     })
 
     it('rejects any other value', () => {
       assert.throws(() => validateRegistrationFee(0n), /Incorrect registration fee/)
-      assert.throws(() => validateRegistrationFee(sp.REGISTRATION_FEE_WEI + 1n), /Incorrect registration fee/)
+      assert.throws(() => validateRegistrationFee(sp.REGISTRATION_FEE + 1n), /Incorrect registration fee/)
       assert.throws(() => validateRegistrationFee(parseEther('10')), /Incorrect registration fee/)
     })
   })
