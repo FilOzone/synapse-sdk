@@ -8,7 +8,6 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    "baseUrl": ".",
     "paths": {
       "@filoz/synapse-core": ["../../packages/synapse-core/src"],
       "@filoz/synapse-react": ["../../packages/synapse-react/src"],
