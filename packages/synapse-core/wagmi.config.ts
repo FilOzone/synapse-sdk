@@ -1,175 +1,119 @@
 import { defineConfig } from '@wagmi/cli'
-import { fetch } from '@wagmi/cli/plugins'
-import { type Address, type Chain, type Client, createClient, http, type Transport } from 'viem'
-import { multicall } from 'viem/actions'
-import { calibration, mainnet } from './src/chains.ts'
+import { fetch as fetchPlugin } from '@wagmi/cli/plugins'
+import { request } from 'iso-web/http'
+import { zeroAddress } from 'viem'
+import * as z from 'zod'
+import { ZodValidationError } from './src/errors/base.ts'
+import { zAddress, zAddressLoose } from './src/utils/schemas.ts'
 
 // GIT_REF can be one of: '<branch name>', '<commit>' or 'tags/<tag>'
-const GIT_REF = 'ed85348ebad54196b5bfefc5cb0dbe7e8bfd6f7c' // v1.2.0
-const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${GIT_REF.replace(/^(?![a-f0-9]{40}$)/, 'refs/')}/service_contracts/abi`
-const FWSS_ADDRESS_CALIBRATION = '0x02925630df557F957f70E112bA06e50965417CA0' as Address
-const FWSS_ADDRESS_MAINNET = '0x8408502033C418E1bbC97cE9ac48E5528F371A9f' as Address
-const ENDORSEMENTS_ADDRESS_CALIBRATION = '0xAA2f7CfC7ecAc616EC9C1f6d700fAd19087FAC84' as Address
-const ENDORSEMENTS_ADDRESS_MAINNET = '0x59eFa2e8324E1551d46010d7B0B140eE2F5c726b' as Address
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+const GIT_REF = 'd08214e1b3d200e0bc80f0d4f2e5ea3e1e4d603e' // v1.2.0
+const FILECOIN_SERVICES_REF = GIT_REF.replace(/^(?![a-f0-9]{40}$)/, 'refs/')
+const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${FILECOIN_SERVICES_REF}/service_contracts/abi`
+const DEPLOYMENTS_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${FILECOIN_SERVICES_REF}/service_contracts/deployments.json`
 
-async function readAddresses(client: Client<Transport, Chain>, fwssAddress: Address) {
-  const abi = [
-    {
-      type: 'function',
-      inputs: [],
-      name: 'paymentsContractAddress',
-      outputs: [{ name: '', internalType: 'address', type: 'address' }],
-      stateMutability: 'view',
+const DeploymentSchema = z.object({
+  metadata: z.object({
+    commit: z.string().regex(/^[a-f0-9]{40}$/),
+    deployed_at: z.iso.datetime(),
+  }),
+  FILECOIN_PAY_ADDRESS: zAddress,
+  PDP_VERIFIER_PROXY_ADDRESS: zAddress,
+  PDP_VERIFIER_IMPLEMENTATION_ADDRESS: zAddressLoose,
+  SESSION_KEY_REGISTRY_ADDRESS: zAddress,
+  SERVICE_PROVIDER_REGISTRY_PROXY_ADDRESS: zAddress,
+  SERVICE_PROVIDER_REGISTRY_IMPLEMENTATION_ADDRESS: zAddress,
+  SIGNATURE_VERIFICATION_LIB_ADDRESS: zAddress,
+  FWSS_PROXY_ADDRESS: zAddress,
+  FWSS_IMPLEMENTATION_ADDRESS: zAddress,
+  FWSS_VIEW_ADDRESS: zAddress,
+  ENDORSEMENT_SET_ADDRESS: zAddress,
+})
+
+const DeploymentsSchema = z.object({
+  '314': DeploymentSchema,
+  '314159': DeploymentSchema,
+})
+
+async function readDeployments() {
+  const result = await request.get(DEPLOYMENTS_URL, {
+    retry: {
+      retries: 5,
     },
-    {
-      type: 'function',
-      inputs: [],
-      name: 'pdpVerifierAddress',
-      outputs: [{ name: '', internalType: 'address', type: 'address' }],
-      stateMutability: 'view',
-    },
-    {
-      type: 'function',
-      inputs: [],
-      name: 'serviceProviderRegistry',
-      outputs: [
-        {
-          name: '',
-          internalType: 'contract ServiceProviderRegistry',
-          type: 'address',
-        },
-      ],
-      stateMutability: 'view',
-    },
-    {
-      type: 'function',
-      inputs: [],
-      name: 'sessionKeyRegistry',
-      outputs: [
-        {
-          name: '',
-          internalType: 'contract SessionKeyRegistry',
-          type: 'address',
-        },
-      ],
-      stateMutability: 'view',
-    },
-    {
-      type: 'function',
-      inputs: [],
-      name: 'viewContractAddress',
-      outputs: [{ name: '', internalType: 'address', type: 'address' }],
-      stateMutability: 'view',
-    },
-  ] as const
-  const addresses = await multicall(client, {
-    allowFailure: false,
-    contracts: [
-      {
-        address: fwssAddress,
-        abi,
-        functionName: 'paymentsContractAddress',
-      },
-      {
-        address: fwssAddress,
-        abi,
-        functionName: 'viewContractAddress',
-      },
-      {
-        address: fwssAddress,
-        abi,
-        functionName: 'pdpVerifierAddress',
-      },
-      {
-        address: fwssAddress,
-        abi,
-        functionName: 'serviceProviderRegistry',
-      },
-      {
-        address: fwssAddress,
-        abi,
-        functionName: 'sessionKeyRegistry',
-      },
-    ],
   })
-  return {
-    payments: addresses[0],
-    warmStorageView: addresses[1],
-    pdpVerifier: addresses[2],
-    serviceProviderRegistry: addresses[3],
-    sessionKeyRegistry: addresses[4],
+
+  if (result.error) {
+    throw result.error
   }
+
+  const parsed = DeploymentsSchema.safeParse(await result.result.json())
+
+  if (parsed.error) {
+    throw new ZodValidationError(parsed.error)
+  }
+
+  return parsed.data
 }
 
-const mainnetClient = createClient({
-  chain: mainnet,
-  transport: http(),
-})
-
-const calibrationClient = createClient({
-  chain: calibration,
-  transport: http(),
-})
-
 const config: ReturnType<typeof defineConfig> = defineConfig(async () => {
-  const mainnetAddresses = await readAddresses(mainnetClient, FWSS_ADDRESS_MAINNET)
-  const calibrationAddresses = await readAddresses(calibrationClient, FWSS_ADDRESS_CALIBRATION)
+  const deployments = await readDeployments()
+  const mainnetAddresses = deployments['314']
+  const calibrationAddresses = deployments['314159']
   const contracts = [
     {
       name: 'Errors',
       address: {
-        314: ZERO_ADDRESS,
-        314159: ZERO_ADDRESS,
+        314: zeroAddress,
+        314159: zeroAddress,
       },
     },
     {
       name: 'FilecoinPayV1',
       address: {
-        314: mainnetAddresses.payments,
-        314159: calibrationAddresses.payments,
+        314: mainnetAddresses.FILECOIN_PAY_ADDRESS,
+        314159: calibrationAddresses.FILECOIN_PAY_ADDRESS,
       },
     },
     {
       name: 'FilecoinWarmStorageService',
       address: {
-        314: FWSS_ADDRESS_MAINNET,
-        314159: FWSS_ADDRESS_CALIBRATION,
+        314: mainnetAddresses.FWSS_PROXY_ADDRESS,
+        314159: calibrationAddresses.FWSS_PROXY_ADDRESS,
       },
     },
     {
       name: 'FilecoinWarmStorageServiceStateView',
       address: {
-        314: mainnetAddresses.warmStorageView,
-        314159: calibrationAddresses.warmStorageView,
+        314: mainnetAddresses.FWSS_VIEW_ADDRESS,
+        314159: calibrationAddresses.FWSS_VIEW_ADDRESS,
       },
     },
     {
       name: 'PDPVerifier',
       address: {
-        314: mainnetAddresses.pdpVerifier,
-        314159: calibrationAddresses.pdpVerifier,
+        314: mainnetAddresses.PDP_VERIFIER_PROXY_ADDRESS,
+        314159: calibrationAddresses.PDP_VERIFIER_PROXY_ADDRESS,
       },
     },
     {
       name: 'ServiceProviderRegistry',
       address: {
-        314: mainnetAddresses.serviceProviderRegistry,
-        314159: calibrationAddresses.serviceProviderRegistry,
+        314: mainnetAddresses.SERVICE_PROVIDER_REGISTRY_PROXY_ADDRESS,
+        314159: calibrationAddresses.SERVICE_PROVIDER_REGISTRY_PROXY_ADDRESS,
       },
     },
     {
       name: 'SessionKeyRegistry',
       address: {
-        314: mainnetAddresses.sessionKeyRegistry,
-        314159: calibrationAddresses.sessionKeyRegistry,
+        314: mainnetAddresses.SESSION_KEY_REGISTRY_ADDRESS,
+        314159: calibrationAddresses.SESSION_KEY_REGISTRY_ADDRESS,
       },
     },
     {
       name: 'ProviderIdSet',
       address: {
-        314: ENDORSEMENTS_ADDRESS_MAINNET,
-        314159: ENDORSEMENTS_ADDRESS_CALIBRATION,
+        314: mainnetAddresses.ENDORSEMENT_SET_ADDRESS,
+        314159: calibrationAddresses.ENDORSEMENT_SET_ADDRESS,
       },
     },
   ]
@@ -178,7 +122,7 @@ const config: ReturnType<typeof defineConfig> = defineConfig(async () => {
     {
       out: 'src/abis/generated.ts',
       plugins: [
-        fetch({
+        fetchPlugin({
           contracts,
 
           cacheDuration: 100,
