@@ -76,6 +76,9 @@ export async function getClientDataSets(
 ): Promise<getClientDataSets.OutputType> {
   const dataSets: getClientDataSets.OutputType = []
   const limit = options.limit ?? 0n
+  if (limit < 0n) {
+    throw new ValidationError('`limit` must be >= 0n.')
+  }
   let offset = options.offset ?? 0n
   let remaining = limit
 
@@ -184,7 +187,6 @@ export async function* getClientDataSetsIterable(
     }
     if (data.length < batchSize) {
       hasMore = false
-      continue
     }
     offset += batchSize
   }
