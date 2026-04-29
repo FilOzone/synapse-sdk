@@ -93,9 +93,9 @@ If you're building custom integrations outside the SDK, FWSS approval uses the F
 
 ## Running Low on Funds
 
-Your account has a **funded-until epoch**: the point in time when your balance runs out at the current rate. You can check this via the SDK's account queries (see [Storage Costs: Account Queries](/developer-guides/storage/storage-costs/#account-queries)).
+Your account has a **runway**: how many epochs until your account enters deficit and the standard payment flow to providers halts. The SDK's account queries return this as `runwayInEpochs` alongside `grossCoverageInEpochs` (the total horizon of your deposit at the current spend rate, including the reserve held against future settlement). See [Storage Costs: Account Queries](/developer-guides/storage/storage-costs/#account-queries) and [Payment Operations: Account Health Monitoring](/developer-guides/payments/payment-operations/#account-health-monitoring) for examples.
 
-When your balance runs out, the account becomes **underfunded**. This has real consequences:
+When your runway hits zero, the account becomes **underfunded** (in deficit). This has real consequences:
 
 - **Uploads fail**: new storage operations require the account to be current on payments, and an underfunded account can't settle to the current epoch
 - **Existing data is at risk**: after the 30-day lockup grace period, providers may remove your data

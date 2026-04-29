@@ -80,7 +80,7 @@ This requires two transactions and higher gas costs. Use `depositWithPermit` ins
 
 ### Account Summary
 
-Get a comprehensive snapshot of your account's payment state in a single call. This is the recommended way to check account health — it returns derived values like debt, lockup breakdown, and funded-until epoch.
+Get a comprehensive snapshot of your account's payment state in a single call. This is the recommended way to check account health: it returns derived values like debt, lockup breakdown, and runway.
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -98,8 +98,16 @@ console.log("Rate per month:", formatUnits(summary.lockupRatePerMonth));
 console.log("Total lockup:", formatUnits(summary.totalLockup));
 console.log("  Fixed lockup:", formatUnits(summary.totalFixedLockup));
 console.log("  Rate-based lockup:", formatUnits(summary.totalRateBasedLockup));
-console.log("Funded until epoch:", summary.fundedUntilEpoch);
+console.log("Runway (epochs):", summary.runwayInEpochs);
+console.log("Gross coverage (epochs):", summary.grossCoverageInEpochs);
 ```
+
+`runwayInEpochs` and `grossCoverageInEpochs` answer different questions and generally diverge by roughly the size of the safety reserve:
+
+- **`runwayInEpochs`**: how long until your account enters deficit and the standard payment flow to providers halts. The operational "when must I act?" number. After this point the safety reserve is not automatically spent: it can only be claimed by a provider terminating their rail (which gives them up to one lockup period of guaranteed payment from the deficit point). Providers may keep serving for a while in deficit, but the relationship is at risk.
+- **`grossCoverageInEpochs`**: total spend your deposit covers at the current rate (`funds / lockupRate`). The explanatory "how much have I prepaid?" number. Treats `funds` as a single bucket: it uses the *whole* deposit, including the portion held in reserve, without modeling whether the reserve is actually flowing as ongoing payment.
+
+In a healthy account the gap between them is roughly the lockup period of spend; when in deficit `runwayInEpochs` clamps to `0n` while `grossCoverageInEpochs` still reflects the funds sitting in the account.
 
 ### Account Health Monitoring
 
@@ -111,16 +119,24 @@ import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
-import { TIME_CONSTANTS } from "@filoz/synapse-sdk";
+import { epochsToDays } from "@filoz/synapse-core/utils";
 
 const summary = await synapse.payments.accountSummary();
-const epochsRemaining = summary.availableFunds / summary.lockupRatePerEpoch;
-const daysRemaining =
-  Number(epochsRemaining) / Number(TIME_CONSTANTS.EPOCHS_PER_DAY);
 
-console.log(`Days remaining: ${daysRemaining.toFixed(1)}`);
-if (daysRemaining < 7) console.warn("Low balance!");
+const runwayDays = epochsToDays(summary.runwayInEpochs);
+const totalDays = epochsToDays(summary.grossCoverageInEpochs);
+
+console.log(`Runway: ${runwayDays} days`);
+console.log(`Gross coverage: ${totalDays} days`);
+
+if (runwayDays === 0n && summary.funds > 0n) {
+  console.warn("Account in deficit: standard settlement to providers has halted. Deposit to resume.");
+} else if (runwayDays < 7n) {
+  console.warn("Low runway, top up soon to avoid service interruption.");
+}
 ```
+
+`epochsToDays` floors to whole days and passes `maxUint256` through unchanged (use that as the "infinite" sentinel when the account has no spend rate).
 
 ### Withdrawing Unlocked Funds
 

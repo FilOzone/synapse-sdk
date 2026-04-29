@@ -19,38 +19,91 @@ export namespace getAccountSummary {
   }
 
   export type OutputType = {
-    /** Total deposited funds in the contract */
+    /** Total deposited funds in the contract. */
     funds: bigint
-    /** Funds available for withdrawal or new commitments */
+    /**
+     * Funds available for withdrawal or new rail commitments at `epoch`.
+     * Equal to `funds - totalLockup`, the *unreserved* portion described on
+     * {@link runwayInEpochs}. Active payments draw from this; once it reaches
+     * zero, settlement halts.
+     */
     availableFunds: bigint
-    /** Outstanding debt (0n if healthy) */
+    /**
+     * Outstanding payment obligation that couldn't be moved into
+     * `lockupCurrent` because `funds` was insufficient. `0n` when the account
+     * is healthy; positive when in deficit. Effectively the gap between the
+     * lockup the account should be holding and what it actually holds.
+     */
     debt: bigint
 
-    /** Per-epoch lockup rate (aggregate across all rails) */
+    /** Per-epoch lockup rate (aggregate across all rails). */
     lockupRatePerEpoch: bigint
-    /** Per-month lockup rate (lockupRatePerEpoch * EPOCHS_PER_MONTH) */
+    /** Per-month lockup rate (`lockupRatePerEpoch * EPOCHS_PER_MONTH`). */
     lockupRatePerMonth: bigint
 
-    /** Total effective lockup at the given epoch (fixed + rate-based) */
+    /** Total effective lockup at `epoch` (fixed + rate-based). */
     totalLockup: bigint
-    /** Sum of lockupFixed across all rails (CDN deposits, etc.) */
+    /**
+     * Sum of `lockupFixed` across all rails. Reserved for one-time payments
+     * rather than streaming rate (e.g. FWSS CDN egress and cache miss
+     * credits).
+     */
     totalFixedLockup: bigint
-    /** Rate-based portion of lockup (totalLockup - totalFixedLockup) */
+    /** Rate-based portion of lockup (`totalLockup - totalFixedLockup`). */
     totalRateBasedLockup: bigint
 
     /**
-     * Absolute epoch at which funds run out at the current lockup rate.
-     * `maxUint256` when `lockupRate` is 0n.
-     */
-    fundedUntilEpoch: bigint
-    /**
-     * Number of epochs that can pass from `epoch` before the account runs out
-     * of funds at the current lockup rate — i.e. how long until the user needs
-     * to deposit more funds. `maxUint256` when `lockupRatePerEpoch` is 0n
-     * (no drain), `0n` when the account is already insolvent.
+     * Epochs from `epoch` until this account enters deficit and the standard
+     * payment flow to providers halts. Treat as "when must the user act?".
+     *
+     * The account holds a reserve in `totalLockup`, set aside as a payment
+     * guarantee for the providers this account is paying. Each rail
+     * contributes its own piece of the reserve under its own terms (typically
+     * a streaming guarantee tied to that rail's payment period). Active
+     * payments draw from `availableFunds` (`funds - totalLockup`). Once
+     * `availableFunds` reaches zero, the account is in deficit: standard
+     * settlement of active rails halts and providers stop being paid for
+     * new epochs even though `funds` is still positive. The reserve is not
+     * automatically spent. It becomes claimable only after a provider
+     * terminates the rail (settlement then proceeds up to one `lockupPeriod`
+     * from the last solvent epoch, drawing from the reserve). Providers may
+     * keep serving for a while in deficit (their choice), but the
+     * relationship is now at risk and the user should top up promptly.
+     *
+     * - `maxUint256` when `lockupRatePerEpoch` is 0n (nothing is being spent).
+     * - `0n` when the account is already past this point (in deficit).
+     *
+     * To get the absolute epoch form, add `epoch` (skip when this is
+     * `maxUint256`).
      */
     runwayInEpochs: bigint
-    /** The epoch used for all calculations */
+    /**
+     * Total spend the account's `funds` would cover at `lockupRatePerEpoch`,
+     * calculated as `funds / lockupRatePerEpoch`. Treat as "how much
+     * coverage has the user prepaid in total?".
+     *
+     * Always >= {@link runwayInEpochs}, typically by roughly the size of
+     * the reserve held in `totalLockup`. The two answer different
+     * questions: `runwayInEpochs` is the operational "act-by" number,
+     * accounting for the reserve as a floor that halts settlement;
+     * `grossCoverageInEpochs` treats `funds` as a single bucket without
+     * modeling whether the reserve is actually flowing as ongoing payment.
+     * They converge in degenerate cases (e.g. `totalLockup == 0` at
+     * `lockupLastSettledAt == epoch`, or trivially at zero `funds`), but
+     * generally diverge.
+     *
+     * The reserve portion of `funds` is real money in the account but can
+     * only flow to providers via rail termination, not as ongoing coverage.
+     * Useful as a complement to `runwayInEpochs` in user-facing displays,
+     * e.g. "your deposit covers ~X days of storage in total; you have ~Y
+     * days before you need to top up to keep paying".
+     *
+     * - `maxUint256` when `lockupRatePerEpoch` is 0n (nothing is being
+     *   spent; takes precedence over `funds === 0n`).
+     * - `0n` when `funds` is 0n and `lockupRatePerEpoch` is positive.
+     */
+    grossCoverageInEpochs: bigint
+    /** The epoch used for all calculations. */
     epoch: bigint
   }
 
@@ -61,8 +114,8 @@ export namespace getAccountSummary {
  * Get a comprehensive account summary from the Payments contract.
  *
  * Fetches account state, fixed lockup totals, and (optionally) current epoch
- * in parallel, then derives debt, available funds, lockup breakdown, and
- * funded-until timeline client-side.
+ * in parallel, then derives debt, available funds, lockup breakdown, runway,
+ * and gross coverage client-side.
  *
  * @param client - The client to use for the query.
  * @param options - {@link getAccountSummary.OptionsType}
@@ -85,8 +138,8 @@ export namespace getAccountSummary {
  * })
  *
  * console.log('Available:', summary.availableFunds)
- * console.log('Funded until epoch:', summary.fundedUntilEpoch)
  * console.log('Runway in epochs:', summary.runwayInEpochs)
+ * console.log('Gross coverage in epochs:', summary.grossCoverageInEpochs)
  * ```
  */
 export async function getAccountSummary(
@@ -110,7 +163,7 @@ export async function getAccountSummary(
     currentEpoch: resolvedEpoch,
   }
 
-  const { fundedUntilEpoch, availableFunds, runwayInEpochs } = resolveAccountState(params)
+  const { availableFunds, runwayInEpochs, grossCoverageInEpochs } = resolveAccountState(params)
   const debt = calculateAccountDebt(params)
 
   const totalLockup = accountInfo.funds > availableFunds ? accountInfo.funds - availableFunds : 0n
@@ -129,8 +182,8 @@ export async function getAccountSummary(
     totalFixedLockup,
     totalRateBasedLockup,
 
-    fundedUntilEpoch,
     runwayInEpochs,
+    grossCoverageInEpochs,
     epoch: resolvedEpoch,
   }
 }
