@@ -11,9 +11,12 @@ import type {
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import { ValidationError } from '../errors/base.ts'
 import type { ActionCallChain } from '../types.ts'
 import type { getPdpDataSets } from './get-pdp-data-sets.ts'
 import type { DataSetInfo } from './types.ts'
+
+const DATA_SETS_PAGE_SIZE = 100n
 
 export namespace getClientDataSets {
   export type OptionsType = {
@@ -71,36 +74,44 @@ export async function getClientDataSets(
   client: Client<Transport, Chain>,
   options: getClientDataSets.OptionsType
 ): Promise<getClientDataSets.OutputType> {
-  const limit = options.limit ?? 100n
-  let offset = options.offset ?? 0n
-  let needsMore = true
   const dataSets: getClientDataSets.OutputType = []
+  const limit = options.limit ?? 0n
+  if (limit < 0n) {
+    throw new ValidationError('`limit` must be >= 0n.')
+  }
+  let offset = options.offset ?? 0n
+  let remaining = limit
 
-  while (needsMore) {
+  while (true) {
+    const pageLimit = remaining === 0n || remaining > DATA_SETS_PAGE_SIZE ? DATA_SETS_PAGE_SIZE : remaining
+
     const data = await readContract(
       client,
       getClientDataSetsCall({
         chain: client.chain,
         address: options.address,
         offset,
-        limit,
+        limit: pageLimit,
         contractAddress: options.contractAddress,
       })
     )
 
-    for (const dataSet of data) {
-      if (dataSets.length < limit) {
-        dataSets.push(dataSet)
-      } else {
-        needsMore = false
+    dataSets.push(...data)
+
+    const pageLength = BigInt(data.length)
+    if (pageLength < pageLimit) {
+      break
+    }
+
+    offset += pageLength
+    if (remaining > 0n) {
+      remaining -= pageLength
+      if (remaining === 0n) {
         break
       }
     }
-    if (data.length < limit) {
-      needsMore = false
-    }
-    offset += limit
   }
+
   return dataSets
 }
 
@@ -110,7 +121,7 @@ export namespace getClientDataSetsIterable {
     address: Address
     /** Starting index (0-based). Use `0` to start from the beginning. Defaults to `0n`. */
     offset?: bigint
-    /** Batch size for each pagination call. Defaults to `100n`. */
+    /** Batch size for each pagination call. Must be greater than `0n`. Defaults to `100n`. */
     batchSize?: bigint
     /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
     contractAddress?: Address
@@ -118,7 +129,7 @@ export namespace getClientDataSetsIterable {
 
   export type OutputType = AsyncGenerator<DataSetInfo>
 
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType | ValidationError
 }
 
 /**
@@ -153,7 +164,10 @@ export async function* getClientDataSetsIterable(
   client: Client<Transport, Chain>,
   options: getClientDataSetsIterable.OptionsType
 ): getClientDataSetsIterable.OutputType {
-  const batchSize = options.batchSize ?? 100n
+  const batchSize = options.batchSize ?? DATA_SETS_PAGE_SIZE
+  if (batchSize <= 0n) {
+    throw new ValidationError('`batchSize` must be greater than 0n.')
+  }
   let offset = options.offset ?? 0n
   let hasMore = true
 
