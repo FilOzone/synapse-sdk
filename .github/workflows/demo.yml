@@ -26,7 +26,8 @@ jobs:
       - run: pnpm install
       - run: pnpm run build
       - run: pnpm -r --filter synapse-playground run build
-      - run: pnpm exec wrangler deploy --cwd synapse-playground --env production
+      - run: pnpm --dir apps/synapse-playground exec wrangler deploy --cwd
+          synapse-playground --env production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
