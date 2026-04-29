@@ -1,10 +1,18 @@
-import { type Hex, isHex } from 'viem'
+import { type Address, type Hex, isAddress, isHex } from 'viem'
 import * as z from 'zod'
 import { isPieceCID, type PieceCID, parse } from '../piece/piece.ts'
 
 export const zHex = z.custom<Hex>((val) => {
   return typeof val === 'string' ? isHex(val) : false
 }, 'Invalid hex value')
+
+export const zAddress = z.custom<Address>((value) => {
+  return typeof value === 'string' && isAddress(value)
+}, 'Invalid address')
+
+export const zAddressLoose = z.custom<Address>((value) => {
+  return typeof value === 'string' && isAddress(value, { strict: false })
+}, 'Invalid address')
 
 export const zNumberToBigInt = z.codec(z.int(), z.bigint(), {
   decode: (num) => BigInt(num),
