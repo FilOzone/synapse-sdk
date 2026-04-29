@@ -44,9 +44,9 @@ export namespace getAccountSummary {
     /** Total effective lockup at `epoch` (fixed + rate-based). */
     totalLockup: bigint
     /**
-     * Sum of `lockupFixed` across all rails. Reserved for one-time payments
-     * rather than streaming rate (e.g. FWSS CDN egress and cache miss
-     * credits).
+     * Sum of `lockupFixed` across all rails. Reserved for one-time payments,
+     * for example, FWSS CDN egress and cache miss credits, rather than
+     * streaming rate.
      */
     totalFixedLockup: bigint
     /** Rate-based portion of lockup (`totalLockup - totalFixedLockup`). */
@@ -83,17 +83,11 @@ export namespace getAccountSummary {
      * coverage has the user prepaid in total?".
      *
      * Always >= {@link runwayInEpochs}, typically by roughly the size of
-     * the reserve held in `totalLockup`. The two answer different
-     * questions: `runwayInEpochs` is the operational "act-by" number,
-     * accounting for the reserve as a floor that halts settlement;
-     * `grossCoverageInEpochs` treats `funds` as a single bucket without
-     * modeling whether the reserve is actually flowing as ongoing payment.
-     * They converge in degenerate cases (e.g. `totalLockup == 0` at
-     * `lockupLastSettledAt == epoch`, or trivially at zero `funds`), but
-     * generally diverge.
+     * the reserve held in `totalLockup`. `runwayInEpochs` accounts for the
+     * reserve as a floor that halts settlement; `grossCoverageInEpochs`
+     * treats `funds` as a single bucket without modeling whether the
+     * reserve is actually flowing as ongoing payment.
      *
-     * The reserve portion of `funds` is real money in the account but can
-     * only flow to providers via rail termination, not as ongoing coverage.
      * Useful as a complement to `runwayInEpochs` in user-facing displays,
      * e.g. "your deposit covers ~X days of storage in total; you have ~Y
      * days before you need to top up to keep paying".

@@ -45,17 +45,11 @@ export namespace resolveAccountState {
      * the user prepaid in total?".
      *
      * Always >= {@link runwayInEpochs}, typically by roughly the size of
-     * the reserve held in `lockupCurrent`. The two answer different
-     * questions: `runwayInEpochs` is the operational "act-by" number,
-     * accounting for the reserve as a floor that halts settlement;
-     * `grossCoverageInEpochs` treats `funds` as a single bucket without
-     * modeling whether the reserve is actually flowing as ongoing payment.
-     * They converge in degenerate cases (e.g. `lockupCurrent == 0` at
-     * `currentEpoch == lockupLastSettledAt`, or trivially at zero `funds`),
-     * but generally diverge.
+     * the reserve held in `lockupCurrent`. `runwayInEpochs` accounts for
+     * the reserve as a floor that halts settlement; `grossCoverageInEpochs`
+     * treats `funds` as a single bucket without modeling whether the
+     * reserve is actually flowing as ongoing payment.
      *
-     * The reserve portion of `funds` is real money in the account but can
-     * only flow to providers via rail termination, not as ongoing coverage.
      * Useful as a complement to `runwayInEpochs` in user-facing displays,
      * e.g. "your deposit covers ~X days of storage in total; you have ~Y
      * days before you need to top up to keep paying".
@@ -72,30 +66,19 @@ export namespace resolveAccountState {
  * Project account state forward to `currentEpoch` by simulating settlement locally.
  *
  * Pure function, no RPC call. Takes raw account fields from `accounts()` plus
- * `currentEpoch` and returns:
+ * `currentEpoch` and returns `availableFunds`, `runwayInEpochs`, and
+ * `grossCoverageInEpochs`. See {@link resolveAccountState.OutputType} for
+ * each field's full semantics.
  *
- * - `availableFunds`: `funds - lockupCurrent` simulated forward to
- *   `currentEpoch`. Withdrawable, available to back new rail commitments.
- * - `runwayInEpochs`: how long until the account enters deficit and
- *   settlement of active rails halts. Use for "when must the user act?".
- * - `grossCoverageInEpochs`: `funds / lockupRate`, the total horizon the
- *   deposit covers at the current rate. Use for "how much coverage has the
- *   user prepaid in total?".
- *
- * `runwayInEpochs` and `grossCoverageInEpochs` answer different questions
- * and generally diverge by roughly the reserve held in `lockupCurrent`,
- * even for a healthy account. They only converge in degenerate cases
- * (`lockupCurrent == 0` at `currentEpoch == lockupLastSettledAt`, or
- * trivially at zero `funds`). Worked examples (in token units, with
- * `lockupRate = 1 token / day`):
+ * Worked examples (in token units, with `lockupRate = 1 token / day`):
  *
  *   Healthy account: funds=100, lockupCurrent=30
- *     runwayInEpochs           ~= 70 days  (unreserved 70 / 1)
- *     grossCoverageInEpochs   = 100 days (100 / 1)
+ *     runwayInEpochs        ~= 70 days  (unreserved 70 / 1)
+ *     grossCoverageInEpochs  = 100 days (100 / 1)
  *
  *   In deficit: funds=10, lockupCurrent=30
- *     runwayInEpochs            = 0 days   (already past the trigger)
- *     grossCoverageInEpochs   = 10 days  (10 / 1)
+ *     runwayInEpochs         = 0 days   (already past the trigger)
+ *     grossCoverageInEpochs  = 10 days  (10 / 1)
  *
  * The reserve in `lockupCurrent` is the sum of each rail's contribution; its
  * size depends on the operators and rails configured for this account.
