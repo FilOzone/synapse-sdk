@@ -102,12 +102,12 @@ console.log("Runway (epochs):", summary.runwayInEpochs);
 console.log("Gross coverage (epochs):", summary.grossCoverageInEpochs);
 ```
 
-`runwayInEpochs` and `grossCoverageInEpochs` answer different questions and generally diverge by roughly the size of the safety reserve:
+Two runway numbers, differing by the safety reserve:
 
-- **`runwayInEpochs`**: how long until your account enters deficit and the standard payment flow to providers halts. The operational "when must I act?" number. After this point the safety reserve is not automatically spent: it can only be claimed by a provider terminating their rail (which gives them up to one lockup period of guaranteed payment from the deficit point). Providers may keep serving for a while in deficit, but the relationship is at risk.
-- **`grossCoverageInEpochs`**: total spend your deposit covers at the current rate (`funds / lockupRate`). The explanatory "how much have I prepaid?" number. Treats `funds` as a single bucket: it uses the *whole* deposit, including the portion held in reserve, without modeling whether the reserve is actually flowing as ongoing payment.
+- **`runwayInEpochs`**: runway *excluding* the safety reserve. How long until your account enters deficit and the standard payment flow halts. Use for "when must I act?".
+- **`grossCoverageInEpochs`**: runway *including* the safety reserve (`funds / lockupRate`). The full prepaid horizon, treating `funds` as a single bucket. Use for "how much storage have I prepaid in total?".
 
-In a healthy account the gap between them is roughly the lockup period of spend; when in deficit `runwayInEpochs` clamps to `0n` while `grossCoverageInEpochs` still reflects the funds sitting in the account.
+The **safety reserve** (`totalLockup`) is held in your account as a payment guarantee for providers. While you're funded, payments draw from the unreserved portion of `funds` and the reserve sits as a floor. Once you enter deficit (runway hits zero), the reserve is no longer ongoing-payment material: a provider can terminate the rail to claim it as a final settlement window. Termination is one-way: once a rail has an `endEpoch` it's heading to finalization and topping up your account won't revive it. Top up before deficit to keep your existing rails alive.
 
 ### Account Health Monitoring
 

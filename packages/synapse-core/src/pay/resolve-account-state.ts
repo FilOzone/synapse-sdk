@@ -28,9 +28,11 @@ export namespace resolveAccountState {
      * still positive. The reserve is not automatically spent. It becomes
      * claimable only after a provider terminates the rail (settlement then
      * proceeds up to one `lockupPeriod` from the last solvent epoch,
-     * drawing from the reserve). Providers may keep serving for a while in
-     * deficit (their choice), but reaching this point means service is at
-     * risk and the user should top up promptly.
+     * drawing from the reserve). Termination is one-way: once a rail has
+     * an `endEpoch` it's heading to finalization and topping up the
+     * account won't revive it. Providers may keep serving briefly in
+     * deficit, but the user should top up before reaching this point to
+     * keep existing rails alive.
      *
      * - `maxUint256` when `lockupRate` is 0n (nothing is being spent).
      * - `0n` when the account is already past this point (in deficit).
@@ -52,7 +54,7 @@ export namespace resolveAccountState {
      *
      * Useful as a complement to `runwayInEpochs` in user-facing displays,
      * e.g. "your deposit covers ~X days of storage in total; you have ~Y
-     * days before you need to top up to keep paying".
+     * days of runway before your account enters deficit".
      *
      * - `maxUint256` when `lockupRate` is 0n (nothing is being spent;
      *   takes precedence over `funds === 0n`).
