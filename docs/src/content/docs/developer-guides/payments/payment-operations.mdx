@@ -80,7 +80,7 @@ This requires two transactions and higher gas costs. Use `depositWithPermit` ins
 
 ### Account Summary
 
-Get a comprehensive snapshot of your account's payment state in a single call. This is the recommended way to check account health — it returns derived values like debt, lockup breakdown, and funded-until epoch.
+Get a comprehensive snapshot of your account's payment state in a single call. This is the recommended way to check account health: it returns derived values like debt, lockup breakdown, and runway.
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -98,8 +98,16 @@ console.log("Rate per month:", formatUnits(summary.lockupRatePerMonth));
 console.log("Total lockup:", formatUnits(summary.totalLockup));
 console.log("  Fixed lockup:", formatUnits(summary.totalFixedLockup));
 console.log("  Rate-based lockup:", formatUnits(summary.totalRateBasedLockup));
-console.log("Funded until epoch:", summary.fundedUntilEpoch);
+console.log("Runway (epochs):", summary.runwayInEpochs);
+console.log("Gross coverage (epochs):", summary.grossCoverageInEpochs);
 ```
+
+Two runway numbers, differing by the lockup reserve:
+
+- **`runwayInEpochs`**: runway *excluding* the lockup reserve. How long until your account enters deficit and the standard payment flow halts. Use for "when must I act?".
+- **`grossCoverageInEpochs`**: runway *including* the lockup reserve (`funds / lockupRate`). The full horizon your deposit covers at the current rate. Use for "how much have I prepaid in total?".
+
+The **lockup reserve** (`totalLockup`) is the portion of `funds` each rail has set aside under its terms. The funds are locked at the contract level while the rail is active, they can't be withdrawn. Active payments draw from the unreserved portion of `funds`; the reserve sits as a floor. Once you enter deficit, standard settlement halts. A provider can then terminate the rail to claim against the reserve for up to one lockup period. Termination is one-way: once a rail has an `endEpoch` it's heading to finalization and topping up your account won't revive it. Top up before deficit to keep existing rails open.
 
 ### Account Health Monitoring
 
@@ -111,16 +119,24 @@ import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
-import { TIME_CONSTANTS } from "@filoz/synapse-sdk";
+import { epochsToDays } from "@filoz/synapse-core/utils";
 
 const summary = await synapse.payments.accountSummary();
-const epochsRemaining = summary.availableFunds / summary.lockupRatePerEpoch;
-const daysRemaining =
-  Number(epochsRemaining) / Number(TIME_CONSTANTS.EPOCHS_PER_DAY);
 
-console.log(`Days remaining: ${daysRemaining.toFixed(1)}`);
-if (daysRemaining < 7) console.warn("Low balance!");
+const runwayDays = epochsToDays(summary.runwayInEpochs);
+const totalDays = epochsToDays(summary.grossCoverageInEpochs);
+
+console.log(`Runway: ${runwayDays} days`);
+console.log(`Gross coverage: ${totalDays} days`);
+
+if (runwayDays === 0n && summary.funds > 0n) {
+  console.warn("Account in deficit: standard settlement to providers has halted. Deposit to resume.");
+} else if (runwayDays < 7n) {
+  console.warn("Low runway, top up soon to avoid service interruption.");
+}
 ```
+
+`epochsToDays` floors to whole days and passes `maxUint256` through unchanged (use that as the "infinite" sentinel when the account has no spend rate).
 
 ### Withdrawing Unlocked Funds
 

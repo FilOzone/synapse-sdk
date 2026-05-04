@@ -6,41 +6,81 @@ export namespace resolveAccountState {
 
   export type OutputType = {
     /**
-     * Absolute epoch at which funds run out at the current lockup rate.
-     * `maxUint256` when `lockupRate` is 0n.
+     * Funds available for withdrawal or new rail commitments at
+     * `currentEpoch`. Equal to `funds - lockupCurrent` once lockup is
+     * simulated forward to `currentEpoch`. The "unreserved" portion of
+     * `funds` described on {@link runwayInEpochs}.
      */
-    fundedUntilEpoch: bigint
-    /** Funds available after accounting for all lockup (fixed + rate) at `currentEpoch`. */
     availableFunds: bigint
     /**
-     * Number of epochs that can pass from `currentEpoch` (on the input params) before the account
-     * runs out of funds at the current lockup rate — i.e. how long until the
-     * user needs to deposit more funds.
+     * Epochs from `currentEpoch` until this account enters deficit and the
+     * standard payment flow to providers halts. Treat as "when must the user
+     * act?".
      *
-     * `maxUint256` when `lockupRate` is 0n (no drain), `0n` when the account
-     * is already insolvent.
+     * The account holds a reserve in `lockupCurrent` that each rail has set
+     * aside under its terms. The funds are locked at the contract level: the
+     * user can't withdraw them while the rail is active. Active payments
+     * draw from the *unreserved* portion of `funds` (`funds - lockupCurrent`).
+     * Once the unreserved portion is exhausted, the account is in deficit:
+     * standard settlement of active rails halts even though `funds` is still
+     * positive. A provider can then terminate the rail to claim against the
+     * reserve for a final payment window of up to one `lockupPeriod`.
+     * Termination is one-way: once a rail has an `endEpoch` it's heading to
+     * finalization and topping up the account won't revive it. Top up
+     * before deficit to keep existing rails open.
+     *
+     * - `maxUint256` when `lockupRate` is 0n (nothing is being spent).
+     * - `0n` when the account is already past this point (in deficit).
+     *
+     * To get the absolute epoch form, add `currentEpoch` (skip when this is
+     * `maxUint256`).
      */
     runwayInEpochs: bigint
+    /**
+     * Total spend the account's `funds` would cover at `lockupRate`,
+     * calculated as `funds / lockupRate`. Treat as "how much coverage has
+     * the user prepaid in total?".
+     *
+     * Always >= {@link runwayInEpochs}, typically by roughly the size of
+     * the reserve held in `lockupCurrent`. `runwayInEpochs` accounts for
+     * the reserve as a floor that halts settlement; `grossCoverageInEpochs`
+     * treats `funds` as a single bucket without modeling whether the
+     * reserve is actually flowing as ongoing payment.
+     *
+     * Useful as a complement to `runwayInEpochs` in user-facing displays,
+     * e.g. "your deposit covers ~X days of storage in total; you have ~Y
+     * days of runway before your account enters deficit".
+     *
+     * - `maxUint256` when `lockupRate` is 0n (nothing is being spent;
+     *   takes precedence over `funds === 0n`).
+     * - `0n` when `funds` is 0n and `lockupRate` is positive.
+     */
+    grossCoverageInEpochs: bigint
   }
 }
 
 /**
  * Project account state forward to `currentEpoch` by simulating settlement locally.
  *
- * Pure function — no RPC call. Takes raw account fields from `accounts()` +
- * currentEpoch and computes:
+ * Pure function, no RPC call. Takes raw account fields from `accounts()` plus
+ * `currentEpoch` and returns `availableFunds`, `runwayInEpochs`, and
+ * `grossCoverageInEpochs`. See {@link resolveAccountState.OutputType} for
+ * each field's full semantics.
  *
- * - `fundedUntilEpoch` — the absolute epoch at which
- *   `lockupCurrent + lockupRate × elapsed === funds`. Past this point,
- *   settlement stops advancing and the payer must deposit more funds (or
- *   have rails terminated) to keep services running.
- * - `availableFunds` — funds minus all lockup (fixed + rate) at `currentEpoch`.
- * - `runwayInEpochs` — `fundedUntilEpoch - currentEpoch`, clamped to `0n`
- *   when insolvent and `maxUint256` when `lockupRate` is 0n.
+ * Worked examples (in token units, with `lockupRate = 1 token / day`):
  *
- * Note: `funds` already includes fixed lockup from rails (it's reflected in
- * `lockupCurrent`), so runway accounts for both fixed lockup and rate-based
- * lockup automatically.
+ *   Healthy account: funds=100, lockupCurrent=30
+ *     runwayInEpochs        ~= 70 days  (unreserved 70 / 1)
+ *     grossCoverageInEpochs  = 100 days (100 / 1)
+ *
+ *   In deficit: funds=10, lockupCurrent=30
+ *     runwayInEpochs         = 0 days   (already past the trigger)
+ *     grossCoverageInEpochs  = 10 days  (10 / 1)
+ *
+ * The reserve in `lockupCurrent` is the sum of each rail's contribution; its
+ * size depends on the operators and rails configured for this account.
+ * `funds` already includes fixed lockup (it's reflected in `lockupCurrent`),
+ * so both numbers account for fixed and rate-based lockup automatically.
  *
  * @param params - Raw account fields + current epoch
  * @returns The projected account state {@link resolveAccountState.OutputType}
@@ -61,8 +101,8 @@ export function resolveAccountState(params: resolveAccountState.ParamsType): res
   const availableFunds = rawAvailable > 0n ? rawAvailable : 0n
 
   // runwayInEpochs = fundedUntilEpoch - currentEpoch, with edge cases:
-  // - lockupRate === 0n → maxUint256 (already the value of fundedUntilEpoch)
-  // - insolvent (fundedUntilEpoch <= currentEpoch) → 0n
+  // - lockupRate === 0n -> maxUint256 (already the value of fundedUntilEpoch)
+  // - in deficit (fundedUntilEpoch <= currentEpoch) -> 0n
   const runwayInEpochs =
     fundedUntilEpoch === maxUint256
       ? maxUint256
@@ -70,9 +110,14 @@ export function resolveAccountState(params: resolveAccountState.ParamsType): res
         ? fundedUntilEpoch - currentEpoch
         : 0n
 
+  // grossCoverageInEpochs = funds / lockupRate. Total horizon the deposit
+  // covers at the current rate, treating funds as a single bucket. Always
+  // >= runwayInEpochs.
+  const grossCoverageInEpochs = lockupRate === 0n ? maxUint256 : funds / lockupRate
+
   return {
-    fundedUntilEpoch,
     availableFunds,
     runwayInEpochs,
+    grossCoverageInEpochs,
   }
 }

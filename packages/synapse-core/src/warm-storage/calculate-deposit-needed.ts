@@ -29,10 +29,8 @@ export namespace calculateBufferAmount {
     rawDepositNeeded: bigint
     /** Projected account rate after this upload: currentLockupRate + rateDeltaPerEpoch. */
     netRateAfterUpload: bigint
-    /** From resolveAccountState().fundedUntilEpoch. */
-    fundedUntilEpoch: bigint
-    /** Current epoch (block number). */
-    currentEpoch: bigint
+    /** From resolveAccountState().runwayInEpochs. */
+    runwayInEpochs: bigint
     /** From resolveAccountState().availableFunds. */
     availableFunds: bigint
     /** Safety margin in epochs. */
@@ -50,21 +48,23 @@ export namespace calculateBufferAmount {
  * @returns The buffer amount in token base units
  */
 export function calculateBufferAmount(params: calculateBufferAmount.ParamsType): bigint {
-  const { rawDepositNeeded, netRateAfterUpload, fundedUntilEpoch, currentEpoch, availableFunds, bufferEpochs } = params
+  const { rawDepositNeeded, netRateAfterUpload, runwayInEpochs, availableFunds, bufferEpochs } = params
 
   if (rawDepositNeeded > 0n) {
-    // Deposit is needed — add buffer so it's sufficient at T_exec
+    // Deposit is needed, add buffer so it's sufficient at T_exec
     return netRateAfterUpload * bufferEpochs
   }
 
-  if (fundedUntilEpoch <= currentEpoch + bufferEpochs) {
-    // No new lockup needed, but account expires within buffer window
+  if (runwayInEpochs <= bufferEpochs) {
+    // No new lockup needed, but account expires within buffer window.
+    // (runwayInEpochs is maxUint256 when lockupRate is 0n, so this branch
+    // is only entered for actively-draining accounts.)
     const bufferCost = netRateAfterUpload * bufferEpochs
     const needed = bufferCost - availableFunds
     return needed > 0n ? needed : 0n
   }
 
-  // Account has sufficient runway — no buffer needed
+  // Account has sufficient runway, no buffer needed
   return 0n
 }
 
@@ -90,10 +90,9 @@ export namespace calculateDepositNeeded {
     // Account debt + resolved state
     debt: bigint
     availableFunds: bigint
-    fundedUntilEpoch: bigint
+    runwayInEpochs: bigint
 
     // Buffer parameters
-    currentEpoch: bigint
     /** Safety margin in epochs for tx execution delay. Defaults to DEFAULT_BUFFER_EPOCHS (5). */
     bufferEpochs?: bigint
   }
@@ -138,8 +137,7 @@ export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType
     : calculateBufferAmount({
         rawDepositNeeded,
         netRateAfterUpload,
-        fundedUntilEpoch: params.fundedUntilEpoch,
-        currentEpoch: params.currentEpoch,
+        runwayInEpochs: params.runwayInEpochs,
         availableFunds: params.availableFunds,
         bufferEpochs,
       })
