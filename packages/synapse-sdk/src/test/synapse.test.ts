@@ -834,7 +834,7 @@ describe('Synapse', () => {
         // Primary SP rejects upload
         server.use(
           http.post(`${pdpOptions.baseUrl}/pdp/piece/uploads`, async () => {
-            return HttpResponse.error()
+            return HttpResponse.text('Internal Server Error', { status: 500 })
           })
         )
         try {
