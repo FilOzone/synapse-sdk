@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.5.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.4.1...synapse-core-v0.5.0) (2026-05-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **typehash:** existing session keys for DeleteDataSetPermission must be re-minted. Passing a stale session key to Synapse.create() throws because the permission hash no longer matches.
+
+### Features
+
+* enhance PDP provider handling with active product checks and add tests ([e20d2e5](https://github.com/FilOzone/synapse-sdk/commit/e20d2e541106d11194a66b443a481246d9fcb2d8))
+* **synapse-core:** add epochsToHours and epochsToDays utilities ([32622ff](https://github.com/FilOzone/synapse-sdk/commit/32622ffbbcf1e8f1667e3f9bf4544f6600a048e6))
+* **synapse-core:** add runwayInEpochs to account state resolution ([d6d566c](https://github.com/FilOzone/synapse-sdk/commit/d6d566c3fe64a051441eae2615e5077e19be65be))
+* **synapse-core:** harden encodePDPCapabilities ([d5e49cd](https://github.com/FilOzone/synapse-sdk/commit/d5e49cd828e10e129844038c583ced7fc5379550))
+* **synapse-core:** normalize sp-registry zero-state returns ([96b8f2a](https://github.com/FilOzone/synapse-sdk/commit/96b8f2ab4b5287ceba0f2634f6fdcb5819d8c25d))
+* **synapse-core:** refactor PDP capability handling and improve validation ([4607b96](https://github.com/FilOzone/synapse-sdk/commit/4607b96a5ef3dd9e98f87affd0f437e30f1c4b98))
+* **synapse-core:** validate sp-registry writes before simulate ([d14ca74](https://github.com/FilOzone/synapse-sdk/commit/d14ca748973051bfa514f5ef11908cc6dde8bdea))
+
+
+### Bug Fixes
+
+* adjust tsconfigs for TypeScript 6 compatibility ([a1dc9e5](https://github.com/FilOzone/synapse-sdk/commit/a1dc9e5ebb94856bb9a6a6a81375394919e82ba8))
+* enhance pagination logic and add validation for batch size ([#750](https://github.com/FilOzone/synapse-sdk/issues/750)) ([cbe3bd6](https://github.com/FilOzone/synapse-sdk/commit/cbe3bd64b99c8a81c9ab05b10e6571aa76c80d9a))
+* normalize empty outputs in fwss ([#752](https://github.com/FilOzone/synapse-sdk/issues/752)) ([52cd636](https://github.com/FilOzone/synapse-sdk/commit/52cd636ee7cefc00c9b5d4cb116c3917dfd90dca))
+* normalize network error message ([#747](https://github.com/FilOzone/synapse-sdk/issues/747)) ([1b18451](https://github.com/FilOzone/synapse-sdk/commit/1b184516bcaafd9daabe86130f8a7bc0faff8d05))
+* **typehash:** rename DeleteDataSet typehash param ([#757](https://github.com/FilOzone/synapse-sdk/issues/757)) ([5ce89d0](https://github.com/FilOzone/synapse-sdk/commit/5ce89d09fa717be5734283053749952e2f9b4ea6))
+
+
+### Chores
+
+* clarify `currentEpoch` in `resolveAccountState` ([ca589fa](https://github.com/FilOzone/synapse-sdk/commit/ca589fa17598943dd448ded20f5c721e4767c0b5))
+* update dependencies and knip fixes ([#746](https://github.com/FilOzone/synapse-sdk/issues/746)) ([5e1dac8](https://github.com/FilOzone/synapse-sdk/commit/5e1dac868fa7baa52cf9c889b26cecc37df37fda))
+
 ## [0.4.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.4.0...synapse-core-v0.4.1) (2026-04-20)
 
 
