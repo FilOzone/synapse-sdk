@@ -93,17 +93,17 @@ If you're building custom integrations outside the SDK, FWSS approval uses the F
 
 ## Running Low on Funds
 
-Your account has a **runway**: how many epochs until your account enters deficit and the standard payment flow to providers halts. The SDK's account queries return this as `runwayInEpochs` alongside `grossCoverageInEpochs` (the total horizon of your deposit at the current spend rate, including the reserve held against future settlement). See [Storage Costs: Account Queries](/developer-guides/storage/storage-costs/#account-queries) and [Payment Operations: Account Health Monitoring](/developer-guides/payments/payment-operations/#account-health-monitoring) for examples.
+Your account has a **runway**: how many epochs until your account enters deficit and the standard payment flow to providers halts. The SDK exposes this as `runwayInEpochs` alongside `grossCoverageInEpochs` (the full horizon your deposit covers at the current rate, including the lockup reserve). See [Storage Costs: Account Queries](/developer-guides/storage/storage-costs/#account-queries) and [Payment Operations: Account Health Monitoring](/developer-guides/payments/payment-operations/#account-health-monitoring) for examples.
 
-When your runway hits zero, the account becomes **underfunded** (in deficit). This has real consequences:
+When your runway hits zero, the account is **in deficit** and several things change:
 
-- **Uploads fail**: new storage operations require the account to be current on payments, and an underfunded account can't settle to the current epoch
-- **Existing data is at risk**: after the 30-day lockup grace period, providers may remove your data
-- **Deposits must cover the shortfall first**: when you deposit into an underfunded account, part of the deposit goes toward settling outstanding obligations before it can fund new storage
+- **Uploads fail**: new storage operations require the account to be current on payments
+- **Existing rails are at risk**: providers can terminate rails and claim against the lockup for up to one lockup period of payment. Termination is one-way; once a rail has an `endEpoch`, topping up your account won't bring it back. Pieces remain at the provider until they're garbage-collected, so a fresh rail can re-reference them.
+- **Deposits must cover the shortfall first**: depositing into a deficit account first settles outstanding obligations before funding new storage
 
-The SDK handles this automatically: `getUploadCosts()` and `prepare()` account for any outstanding debt when calculating the deposit amount. If your account is underfunded, the deposit will include the shortfall so your upload can proceed.
+The SDK handles the deposit math automatically: `getUploadCosts()` and `prepare()` include any outstanding debt in the deposit amount, so a fresh upload can proceed.
 
-**To avoid interruptions**, keep your account funded well beyond the 30-day lockup window. You can request extra runway when preparing uploads via the `extraRunwayEpochs` parameter.
+**To avoid interruptions**, keep your account funded with headroom beyond the lockup reserve. Use `extraRunwayEpochs` when preparing uploads to add additional buffer.
 
 ## Advanced Details
 

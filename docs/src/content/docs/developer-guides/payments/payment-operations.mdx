@@ -102,12 +102,12 @@ console.log("Runway (epochs):", summary.runwayInEpochs);
 console.log("Gross coverage (epochs):", summary.grossCoverageInEpochs);
 ```
 
-Two runway numbers, differing by the safety reserve:
+Two runway numbers, differing by the lockup reserve:
 
-- **`runwayInEpochs`**: runway *excluding* the safety reserve. How long until your account enters deficit and the standard payment flow halts. Use for "when must I act?".
-- **`grossCoverageInEpochs`**: runway *including* the safety reserve (`funds / lockupRate`). The full prepaid horizon, treating `funds` as a single bucket. Use for "how much storage have I prepaid in total?".
+- **`runwayInEpochs`**: runway *excluding* the lockup reserve. How long until your account enters deficit and the standard payment flow halts. Use for "when must I act?".
+- **`grossCoverageInEpochs`**: runway *including* the lockup reserve (`funds / lockupRate`). The full horizon your deposit covers at the current rate. Use for "how much have I prepaid in total?".
 
-The **safety reserve** (`totalLockup`) is held in your account as a payment guarantee for providers. While you're funded, payments draw from the unreserved portion of `funds` and the reserve sits as a floor. Once you enter deficit (runway hits zero), the reserve is no longer ongoing-payment material: a provider can terminate the rail to claim it as a final settlement window. Termination is one-way: once a rail has an `endEpoch` it's heading to finalization and topping up your account won't revive it. Top up before deficit to keep your existing rails alive.
+The **lockup reserve** (`totalLockup`) is the portion of `funds` each rail has set aside under its terms. The funds are locked at the contract level while the rail is active, they can't be withdrawn. Active payments draw from the unreserved portion of `funds`; the reserve sits as a floor. Once you enter deficit, standard settlement halts. A provider can then terminate the rail to claim against the reserve for up to one lockup period. Termination is one-way: once a rail has an `endEpoch` it's heading to finalization and topping up your account won't revive it. Top up before deficit to keep existing rails open.
 
 ### Account Health Monitoring
 

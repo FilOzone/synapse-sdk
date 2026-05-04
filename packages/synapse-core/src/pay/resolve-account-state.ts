@@ -17,22 +17,17 @@ export namespace resolveAccountState {
      * standard payment flow to providers halts. Treat as "when must the user
      * act?".
      *
-     * The account holds a reserve in `lockupCurrent`, set aside as a payment
-     * guarantee for the providers this account is paying. Each rail
-     * contributes its own piece of the reserve under its own terms (typically
-     * a streaming guarantee tied to that rail's payment period). Active
-     * payments draw from the *unreserved* portion of `funds`
-     * (`funds - lockupCurrent`). Once the unreserved portion is exhausted,
-     * the account is in deficit: standard settlement of active rails halts
-     * and providers stop being paid for new epochs even though `funds` is
-     * still positive. The reserve is not automatically spent. It becomes
-     * claimable only after a provider terminates the rail (settlement then
-     * proceeds up to one `lockupPeriod` from the last solvent epoch,
-     * drawing from the reserve). Termination is one-way: once a rail has
-     * an `endEpoch` it's heading to finalization and topping up the
-     * account won't revive it. Providers may keep serving briefly in
-     * deficit, but the user should top up before reaching this point to
-     * keep existing rails alive.
+     * The account holds a reserve in `lockupCurrent` that each rail has set
+     * aside under its terms. The funds are locked at the contract level: the
+     * user can't withdraw them while the rail is active. Active payments
+     * draw from the *unreserved* portion of `funds` (`funds - lockupCurrent`).
+     * Once the unreserved portion is exhausted, the account is in deficit:
+     * standard settlement of active rails halts even though `funds` is still
+     * positive. A provider can then terminate the rail to claim against the
+     * reserve for a final payment window of up to one `lockupPeriod`.
+     * Termination is one-way: once a rail has an `endEpoch` it's heading to
+     * finalization and topping up the account won't revive it. Top up
+     * before deficit to keep existing rails open.
      *
      * - `maxUint256` when `lockupRate` is 0n (nothing is being spent).
      * - `0n` when the account is already past this point (in deficit).
