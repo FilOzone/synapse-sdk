@@ -14,7 +14,7 @@
     "@filoz/synapse-react": "workspace:*",
     "@filoz/synapse-sdk": "workspace:*",
     "@tanstack/react-query": "~5.99.0",
-    "starlight-auto-sidebar": "^0.2.0",
+    "starlight-auto-sidebar": "^0.3.0",
     "starlight-changelogs": "^0.5.0",
     "starlight-links-validator": "^0.23.0",
     "viem": "catalog:",
