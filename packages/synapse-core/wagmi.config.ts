@@ -7,28 +7,30 @@ import { ZodValidationError } from './src/errors/base.ts'
 import { zAddress, zAddressLoose } from './src/utils/schemas.ts'
 
 // GIT_REF can be one of: '<branch name>', '<commit>' or 'tags/<tag>'
-const GIT_REF = 'd08214e1b3d200e0bc80f0d4f2e5ea3e1e4d603e' // v1.2.0
-const FILECOIN_SERVICES_REF = GIT_REF.replace(/^(?![a-f0-9]{40}$)/, 'refs/')
+const FILECOIN_SERVICES_GIT_REF = 'd08214e1b3d200e0bc80f0d4f2e5ea3e1e4d603e' // v1.2.0
+const FILECOIN_SERVICES_REF = FILECOIN_SERVICES_GIT_REF.replace(/^(?![a-f0-9]{40}$)/, 'refs/')
 const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${FILECOIN_SERVICES_REF}/service_contracts/abi`
 const DEPLOYMENTS_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${FILECOIN_SERVICES_REF}/service_contracts/deployments.json`
 
-const DeploymentSchema = z.object({
-  metadata: z.object({
-    commit: z.string().regex(/^[a-f0-9]{40}$/),
-    deployed_at: z.iso.datetime(),
-  }),
-  FILECOIN_PAY_ADDRESS: zAddress,
-  PDP_VERIFIER_PROXY_ADDRESS: zAddress,
-  PDP_VERIFIER_IMPLEMENTATION_ADDRESS: zAddressLoose,
-  SESSION_KEY_REGISTRY_ADDRESS: zAddress,
-  SERVICE_PROVIDER_REGISTRY_PROXY_ADDRESS: zAddress,
-  SERVICE_PROVIDER_REGISTRY_IMPLEMENTATION_ADDRESS: zAddress,
-  SIGNATURE_VERIFICATION_LIB_ADDRESS: zAddress,
-  FWSS_PROXY_ADDRESS: zAddress,
-  FWSS_IMPLEMENTATION_ADDRESS: zAddress,
-  FWSS_VIEW_ADDRESS: zAddress,
-  ENDORSEMENT_SET_ADDRESS: zAddress,
-})
+const DeploymentSchema = z
+  .object({
+    metadata: z.object({
+      commit: z.string().regex(/^[a-f0-9]{40}$/),
+      deployed_at: z.iso.datetime(),
+    }),
+    FILECOIN_PAY_ADDRESS: zAddress,
+    PDP_VERIFIER_PROXY_ADDRESS: zAddress,
+    PDP_VERIFIER_IMPLEMENTATION_ADDRESS: zAddressLoose,
+    SESSION_KEY_REGISTRY_ADDRESS: zAddress,
+    SERVICE_PROVIDER_REGISTRY_PROXY_ADDRESS: zAddress,
+    SERVICE_PROVIDER_REGISTRY_IMPLEMENTATION_ADDRESS: zAddress,
+    SIGNATURE_VERIFICATION_LIB_ADDRESS: zAddress,
+    FWSS_PROXY_ADDRESS: zAddress,
+    FWSS_IMPLEMENTATION_ADDRESS: zAddress,
+    FWSS_VIEW_ADDRESS: zAddress,
+    ENDORSEMENT_SET_ADDRESS: zAddress,
+  })
+  .strict()
 
 const DeploymentsSchema = z.object({
   '314': DeploymentSchema,
