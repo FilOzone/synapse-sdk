@@ -92,7 +92,7 @@ export async function getUploadCosts(
     currentEpoch,
   }
   const debt = calculateAccountDebt(accountParams)
-  const { availableFunds, fundedUntilEpoch } = resolveAccountState(accountParams)
+  const { availableFunds, runwayInEpochs } = resolveAccountState(accountParams)
 
   // Calculate deposit needed
   const depositNeeded = calculateDepositNeeded({
@@ -108,8 +108,7 @@ export async function getUploadCosts(
     extraRunwayEpochs,
     debt,
     availableFunds,
-    fundedUntilEpoch,
-    currentEpoch,
+    runwayInEpochs,
     bufferEpochs,
   })
 

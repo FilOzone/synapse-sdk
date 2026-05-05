@@ -773,7 +773,7 @@ export class StorageManager {
       currentEpoch,
     }
     const debt = calculateAccountDebt(accountParams)
-    const { availableFunds, fundedUntilEpoch } = resolveAccountState(accountParams)
+    const { availableFunds, runwayInEpochs } = resolveAccountState(accountParams)
 
     const netRateAfterUpload = accountInfo.lockupRate + totalRateDeltaPerEpoch
 
@@ -797,8 +797,7 @@ export class StorageManager {
       : calculateBufferAmount({
           rawDepositNeeded,
           netRateAfterUpload,
-          fundedUntilEpoch,
-          currentEpoch,
+          runwayInEpochs,
           availableFunds,
           bufferEpochs,
         })
