@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.5.0...synapse-core-v0.5.1) (2026-05-06)
+
+
+### Bug Fixes
+
+* update README.md to provide an overview of the @filoz/synapse-core package and its utilities ([#773](https://github.com/FilOzone/synapse-sdk/issues/773)) ([59e439c](https://github.com/FilOzone/synapse-sdk/commit/59e439c2aef821968ba6496ef38502bb243e875a))
+
 ## [0.5.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.4.1...synapse-core-v0.5.0) (2026-05-05)
 
 
