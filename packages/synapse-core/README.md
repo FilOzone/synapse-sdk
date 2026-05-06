@@ -6,7 +6,11 @@
 
 ## Overview
 
-TODO
+`@filoz/synapse-core` is the low-level protocol package for building on Filecoin Onchain Cloud. It provides typed, composable JavaScript and TypeScript utilities for directly using FOC smart contracts, storage provider HTTP APIs, EIP-712 signing flows, and Filecoin-specific data formats.
+
+The package is designed for developers who need finer control than the high-level `@filoz/synapse-sdk` API. Its modules are organized around protocol boundaries, including Filecoin Pay payment rails, PDP verification, warm storage, service provider discovery, session keys, typed-data signing, PieceCID utilities, devnet helpers, and test mocks.
+
+Most contract helpers follow viem's action style: single-purpose functions that accept a viem client and return strongly typed results. You can import only the protocol area you need, compose actions with viem primitives such as `multicall` and `simulateContract`, or use the package as a foundation for higher-level storage workflows.
 
 ## Installation
 
