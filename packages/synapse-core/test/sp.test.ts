@@ -1145,6 +1145,33 @@ InvalidSignature(address expected, address actual)
       assert.strictEqual(progressCalls[progressCalls.length - 1], testData.length)
     })
 
+    it('should not set Content-Length on a streaming ReadableStream body', async () => {
+      // Length on a streaming body is conveyed via chunked encoding.
+      const pieceCid = Piece.parse(mockPieceCidStr)
+      const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
+      let capturedHeaders: Headers | undefined
+
+      server.use(
+        postPieceUploadsHandler(mockUuid),
+        http.put(`https://pdp.example.com/pdp/piece/uploads/${mockUuid}`, async ({ request }) => {
+          capturedHeaders = request.headers
+          // Drain the body so the upstream pipeline runs to completion.
+          await request.arrayBuffer()
+          return HttpResponse.text('No Content', { status: 204 })
+        }),
+        finalizePieceUploadHandler(mockUuid, mockPieceCidStr)
+      )
+
+      await uploadPieceStreaming({
+        serviceURL: 'https://pdp.example.com',
+        data: testData,
+        pieceCid,
+      })
+
+      assert.isDefined(capturedHeaders)
+      assert.strictEqual(capturedHeaders?.get('content-length'), null)
+    })
+
     it('should fail when session creation returns error', async () => {
       const pieceCid = Piece.parse(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)

@@ -142,7 +142,8 @@ export function supportsStreamingFetchBody(): boolean {
   if (_supportsStreamBody !== undefined) return _supportsStreamBody
   try {
     let duplexAccessed = false
-    const hasContentType = new Request('', {
+    // Absolute URL required: Node throws on `''` (no base URL).
+    const hasContentType = new Request('http://x', {
       body: new ReadableStream(),
       method: 'POST',
       get duplex() {

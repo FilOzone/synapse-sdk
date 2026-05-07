@@ -89,7 +89,7 @@ export async function uploadPieceStreaming(
     ? new Blob([options.data as Uint8Array<ArrayBuffer>]).stream()
     : (options.data as ReadableStream) // ReadableStream types dont match between browsers and Node.js
 
-  let size = isUint8Array(options.data) ? options.data.length : options.size
+  const size = isUint8Array(options.data) ? options.data.length : options.size
 
   // Add size tracking and progress reporting
   let bytesUploaded = 0
@@ -140,10 +140,15 @@ export async function uploadPieceStreaming(
   // both execute regardless of path.
   let fetchBody: ReadableStream | Blob
   let fetchOptions: Record<string, string> = {}
+  // PUT /pdp/piece/uploads/{uuid}
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/octet-stream',
+  }
 
   if (supportsStreamingFetchBody()) {
     fetchBody = bodyStream
     fetchOptions = { duplex: 'half' }
+    // Length on a ReadableStream body is conveyed via chunked encoding.
   } else {
     const chunks: Uint8Array[] = []
     let totalSize = 0
@@ -155,17 +160,7 @@ export async function uploadPieceStreaming(
       totalSize += value.length
     }
     fetchBody = new Blob(chunks as BlobPart[])
-    // Override Content-Length with the actual accumulated size since we now
-    // know it precisely, even for ReadableStream inputs without a pre-set size
-    if (size == null) {
-      size = totalSize
-    }
-  }
-
-  // PUT /pdp/piece/uploads/{uuid}
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/octet-stream',
-    ...(size == null ? {} : { 'Content-Length': size.toString() }),
+    headers['Content-Length'] = (size ?? totalSize).toString()
   }
 
   const uploadResponse = await request.put(new URL(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL), {
