@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.5.1...synapse-core-v0.5.2) (2026-05-07)
+
+
+### Bug Fixes
+
+* **core:** make streaming upload reachable in Node ([#776](https://github.com/FilOzone/synapse-sdk/issues/776)) ([3236a27](https://github.com/FilOzone/synapse-sdk/commit/3236a27606ef337b70b4f1f6b85bf2405469dc19))
+
 ## [0.5.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.5.0...synapse-core-v0.5.1) (2026-05-06)
 
 
