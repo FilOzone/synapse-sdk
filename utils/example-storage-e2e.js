@@ -211,7 +211,11 @@ async function main() {
       console.log(`\nPulling ${pieceCids.length} piece(s) to SP ${secondary.provider.id}...`)
       try {
         const extraData = await secondary.presignForCommit(pieceInputs)
-        const pullResult = await secondary.pull({ pieces: pieceCids, from: primary, extraData })
+        const pullResult = await secondary.pull({
+          pieces: pieceCids,
+          from: (cid) => primary.getPieceUrl(cid),
+          extraData,
+        })
 
         if (pullResult.status === 'complete') {
           console.log('  Pull complete')
@@ -245,6 +249,7 @@ async function main() {
     }
 
     // Build upload results (same shape as upload() returns)
+    const requestedCopies = 1 + secondaries.length
     for (const { file, pieceCid, size } of stored) {
       const i = stored.findIndex((s) => s.pieceCid === pieceCid)
       const copies = [
@@ -261,7 +266,15 @@ async function main() {
           role: 'secondary',
         })),
       ]
-      uploadResults.push({ file, result: { pieceCid, size, copies, failures: [] } })
+      const result = {
+        pieceCid,
+        size,
+        complete: copies.length === requestedCopies,
+        copies,
+        failedAttempts: [],
+        requestedCopies,
+      }
+      uploadResults.push({ file, result })
     }
   }
 
