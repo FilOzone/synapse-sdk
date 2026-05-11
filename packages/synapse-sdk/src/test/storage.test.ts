@@ -905,7 +905,7 @@ describe('StorageService', () => {
         http.post<Record<string, never>, { pieceCid: string }>(
           'https://pdp.example.com/pdp/piece/uploads',
           async () => {
-            return HttpResponse.error()
+            return HttpResponse.text('Internal Server Error', { status: 500 })
           }
         )
       )
@@ -1137,9 +1137,8 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
         }),
         Mocks.PING(),
-        Mocks.pdp.postPieceHandler(testPieceCID, mockUuid, pdpOptions),
-        http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
-          return HttpResponse.error()
+        http.post('https://pdp.example.com/pdp/piece/uploads', async () => {
+          return HttpResponse.text('Internal Server Error', { status: 500 })
         })
       )
       const synapse = new Synapse({ client, source: null })
