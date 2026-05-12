@@ -6,7 +6,9 @@ on:
     paths:
       - "packages/**"
       - "apps/**"
+      - .github/scripts/**
       - .github/workflows/ci.yml
+      - .github/workflows/update-filecoin-services-ref.yml
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -14,7 +16,9 @@ on:
     paths:
       - "packages/**"
       - "apps/**"
+      - .github/scripts/**
       - .github/workflows/ci.yml
+      - .github/workflows/update-filecoin-services-ref.yml
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml

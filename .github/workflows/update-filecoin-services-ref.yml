@@ -1,0 +1,200 @@
+name: Update filecoin-services ref
+
+# Required repository secret:
+# SYNAPSE_SDK_DISPATCH_TOKEN - Token allowed to push branches and create PRs in this repository.
+# Fine-grained PAT permissions: Contents read/write and Pull requests read/write for FilOzone/synapse-sdk.
+
+on:
+  repository_dispatch:
+    types:
+      - filecoin-services-release
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: filecoin-services release tag, for example v1.2.3
+        required: true
+        type: string
+      sha:
+        description: Commit SHA resolved from the release tag
+        required: true
+        type: string
+      source_repo:
+        default: FilOzone/filecoin-services
+        description: Source repository that produced the release
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    name: Update generated contract bindings
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve update request
+        id: request
+        env:
+          DISPATCH_SHA: ${{ github.event.client_payload.sha }}
+          DISPATCH_SOURCE_REPO: ${{ github.event.client_payload.source_repo }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SHA: ${{ inputs.sha }}
+          INPUT_SOURCE_REPO: ${{ inputs.source_repo }}
+          INPUT_TAG: ${{ inputs.tag }}
+          SYNAPSE_SDK_DISPATCH_TOKEN: ${{ secrets.SYNAPSE_SDK_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SYNAPSE_SDK_DISPATCH_TOKEN:-}" ]; then
+            echo "Error: SYNAPSE_SDK_DISPATCH_TOKEN is not configured."
+            exit 1
+          fi
+
+          tag="$DISPATCH_TAG"
+          sha="$DISPATCH_SHA"
+          source_repo="$DISPATCH_SOURCE_REPO"
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$INPUT_TAG"
+            sha="$INPUT_SHA"
+            source_repo="${INPUT_SOURCE_REPO:-FilOzone/filecoin-services}"
+          fi
+
+          sha="$(printf '%s' "$sha" | tr '[:upper:]' '[:lower:]')"
+
+          if [ "$source_repo" = "FilOzone/filecoin-services" ]; then
+            :
+          else
+            echo "Error: expected source_repo 'FilOzone/filecoin-services', got '$source_repo'."
+            exit 1
+          fi
+
+          if printf '%s' "$tag" | grep -Eq '^v[0-9][0-9A-Za-z._-]*$'; then
+            :
+          else
+            echo "Error: expected a release tag like 'v1.2.3', got '$tag'."
+            exit 1
+          fi
+
+          if printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            :
+          else
+            echo "Error: expected a 40-character commit SHA, got '$sha'."
+            exit 1
+          fi
+
+          branch_slug="$(printf '%s' "$tag" | sed -E 's/[^A-Za-z0-9._-]+/-/g')"
+          branch="codex/update-filecoin-services-${branch_slug}"
+
+          {
+            echo "branch=$branch"
+            echo "sha=$sha"
+            echo "source_repo=$source_repo"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SYNAPSE_SDK_DISPATCH_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Use Node.js lts/*
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Update filecoin-services ref
+        run: |
+          node .github/scripts/update-filecoin-services-ref.mjs \
+            "${{ steps.request.outputs.sha }}" \
+            "${{ steps.request.outputs.tag }}"
+
+      - name: Generate ABIs
+        run: pnpm -r --filter @filoz/synapse-core run generate-abi
+
+      - name: Detect changes
+        id: changes
+        run: |
+          set -euo pipefail
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git status --short
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No SDK changes were produced."
+          fi
+
+      - name: Lint
+        if: steps.changes.outputs.changed == 'true'
+        run: pnpm run lint
+
+      - name: Build
+        if: steps.changes.outputs.changed == 'true'
+        run: pnpm run build
+
+      - name: Create pull request
+        if: steps.changes.outputs.changed == 'true'
+        id: pull-request
+        env:
+          BRANCH: ${{ steps.request.outputs.branch }}
+          GH_TOKEN: ${{ secrets.SYNAPSE_SDK_DISPATCH_TOKEN }}
+          SHA: ${{ steps.request.outputs.sha }}
+          SOURCE_REPO: ${{ steps.request.outputs.source_repo }}
+          TAG: ${{ steps.request.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          title="chore(synapse-core): update filecoin-services ref to $TAG"
+          body_file="$RUNNER_TEMP/update-filecoin-services-ref.md"
+
+          cat > "$body_file" <<EOF
+          Updates the pinned filecoin-services ref used by synapse-core contract generation.
+
+          - Source release: https://github.com/$SOURCE_REPO/releases/tag/$TAG
+          - Source commit: https://github.com/$SOURCE_REPO/commit/$SHA
+          - Triggered by: filecoin-services-release repository_dispatch
+          - Refs: https://github.com/FilOzone/synapse-sdk/issues/567
+
+          This PR was created automatically after a filecoin-services release tag.
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add packages/synapse-core/wagmi.config.ts packages/synapse-core/src/abis/generated.ts
+          git commit -m "$title"
+
+          git fetch origin "$BRANCH" || true
+          git push --force-with-lease --set-upstream origin "$BRANCH"
+
+          pr_url="$(gh pr list --base master --head "$BRANCH" --state open --json url --jq '.[0].url // ""')"
+          if [ -n "$pr_url" ]; then
+            gh pr edit "$pr_url" --title "$title" --body-file "$body_file"
+          else
+            pr_url="$(gh pr create --base master --head "$BRANCH" --title "$title" --body-file "$body_file")"
+          fi
+
+          echo "pr_url=$pr_url" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          {
+            echo "## filecoin-services ref update"
+            echo ""
+            echo "**Tag**: \`${{ steps.request.outputs.tag }}\`"
+            echo "**SHA**: \`${{ steps.request.outputs.sha }}\`"
+            echo "**Changed**: \`${{ steps.changes.outputs.changed }}\`"
+            if [ -n "${{ steps.pull-request.outputs.pr_url }}" ]; then
+              echo "**PR**: ${{ steps.pull-request.outputs.pr_url }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
