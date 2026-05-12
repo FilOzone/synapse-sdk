@@ -3,6 +3,7 @@ name: Update filecoin-services ref
 # Required repository secret:
 # SYNAPSE_SDK_DISPATCH_TOKEN - Token allowed to push branches and create PRs in this repository.
 # Fine-grained PAT permissions: Contents read/write and Pull requests read/write for FilOzone/synapse-sdk.
+# As of 2026-05-12, this org secret is backed by a PAT created with the FilOzzy account.
 
 on:
   repository_dispatch:
