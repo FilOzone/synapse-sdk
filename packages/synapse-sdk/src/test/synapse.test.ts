@@ -792,7 +792,7 @@ describe('Synapse', () => {
 
       it('succeeds for ArrayBuffer data when upload found', async () => {
         const data = new Uint8Array(1024)
-        const pieceCid = Piece.calculate(data)
+        const pieceCid = await Piece.calculate(data)
         const mockUUID = '12345678-90ab-cdef-1234-567890abcdef'
         const found = true
         for (const provider of [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]) {

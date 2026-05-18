@@ -27,7 +27,7 @@ import {
   uploadPieceHandler,
   uploadPieceStreamingHandler,
 } from '../src/mocks/pdp.ts'
-import * as Piece from '../src/piece/piece.ts'
+import * as Piece from '../src/piece/index.ts'
 import {
   addPiecesApiRequest,
   createDataSetAndAddPiecesApiRequest,
@@ -456,11 +456,11 @@ InvalidSignature(address expected, address actual)
       const result = await createDataSetAndAddPiecesApiRequest({
         serviceURL: 'http://pdp.local',
         recordKeeper: ADDRESSES.calibration.warmStorage,
-        pieces: [Piece.parse(pieceCid)],
+        pieces: [Piece.from(pieceCid)],
         extraData: await TypedData.signCreateDataSetAndAddPieces(client, {
           clientDataSetId: 0n,
           payee: ADDRESSES.client1,
-          pieces: [{ pieceCid: Piece.parse(pieceCid) }],
+          pieces: [{ pieceCid: Piece.from(pieceCid) }],
         }),
       })
       assert.strictEqual(result.txHash, mockTxHash)
@@ -473,7 +473,7 @@ InvalidSignature(address expected, address actual)
 
     it('should handle successful piece addition', async () => {
       const mockTxHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
-      const pieceCid = Piece.parse(validPieceCid)
+      const pieceCid = Piece.from(validPieceCid)
 
       server.use(
         http.post<{ id: string }, addPiecesApiRequest.RequestBody>(
@@ -519,7 +519,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should handle server errors appropriately', async () => {
-      const pieceCid = Piece.parse(validPieceCid)
+      const pieceCid = Piece.from(validPieceCid)
 
       server.use(
         http.post('http://pdp.local/pdp/data-sets/:id/pieces', () => {
@@ -552,8 +552,8 @@ InvalidSignature(address expected, address actual)
 
     it('should handle multiple pieces', async () => {
       const mockTxHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
-      const pieceCid1 = Piece.parse(validPieceCid)
-      const pieceCid2 = Piece.parse(validPieceCid)
+      const pieceCid1 = Piece.from(validPieceCid)
+      const pieceCid2 = Piece.from(validPieceCid)
 
       server.use(
         http.post<{ id: string }, addPiecesApiRequest.RequestBody>(
@@ -593,7 +593,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail with bad location header', async () => {
-      const pieceCid = Piece.parse(validPieceCid)
+      const pieceCid = Piece.from(validPieceCid)
 
       server.use(
         http.post('http://pdp.local/pdp/data-sets/:id/pieces', () => {
@@ -624,7 +624,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail with no location header', async () => {
-      const pieceCid = Piece.parse(validPieceCid)
+      const pieceCid = Piece.from(validPieceCid)
 
       server.use(
         http.post('http://pdp.local/pdp/data-sets/:id/pieces', () => {
@@ -863,7 +863,7 @@ InvalidSignature(address expected, address actual)
     const mockPieceCidStr = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
     it('should find a piece successfully', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
 
       server.use(findPieceHandler(mockPieceCidStr, true))
 
@@ -875,7 +875,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should handle piece not found (timeout)', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
 
       server.use(findPieceHandler(mockPieceCidStr, false))
 
@@ -895,7 +895,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should handle server errors', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
 
       server.use(
         http.get('https://pdp.example.com/pdp/piece', () => {
@@ -919,7 +919,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should retry on 202 status and eventually succeed', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       let attemptCount = 0
 
       server.use(
@@ -954,7 +954,7 @@ InvalidSignature(address expected, address actual)
     }
 
     it('should upload a piece successfully', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = createTestData(SIZE_CONSTANTS.MIN_UPLOAD_SIZE)
 
       server.use(postPieceHandler(mockPieceCidStr, mockUuid), uploadPieceHandler(mockUuid))
@@ -968,7 +968,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should handle piece already exists', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = createTestData(SIZE_CONSTANTS.MIN_UPLOAD_SIZE)
 
       // postPieceHandler without uuid returns 200 (piece exists)
@@ -983,7 +983,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail with size too small', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = createTestData(SIZE_CONSTANTS.MIN_UPLOAD_SIZE - 1)
 
       try {
@@ -1000,7 +1000,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail with size too large', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       // Create a typed array descriptor without actually allocating the memory
       const testData = { length: SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1 } as Uint8Array
 
@@ -1018,7 +1018,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail with invalid Location header', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = createTestData(SIZE_CONSTANTS.MIN_UPLOAD_SIZE)
 
       server.use(
@@ -1044,7 +1044,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should handle POST errors', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = createTestData(SIZE_CONSTANTS.MIN_UPLOAD_SIZE)
 
       server.use(
@@ -1067,7 +1067,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should handle PUT errors', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = createTestData(SIZE_CONSTANTS.MIN_UPLOAD_SIZE)
 
       server.use(
@@ -1096,7 +1096,7 @@ InvalidSignature(address expected, address actual)
     const mockUuid = '12345678-1234-1234-1234-123456789012'
 
     it('should upload a piece successfully with provided PieceCID', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
 
       server.use(
@@ -1116,7 +1116,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should track progress during upload', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(256).fill(0x42)
       const progressCalls: number[] = []
 
@@ -1147,7 +1147,7 @@ InvalidSignature(address expected, address actual)
 
     it('should not set Content-Length on a streaming ReadableStream body', async () => {
       // Length on a streaming body is conveyed via chunked encoding.
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
       let capturedHeaders: Headers | undefined
 
@@ -1173,7 +1173,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail when session creation returns error', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
 
       server.use(
@@ -1196,7 +1196,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail when session creation returns wrong status', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
 
       server.use(
@@ -1219,7 +1219,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail with missing Location header', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
 
       server.use(
@@ -1242,7 +1242,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail with invalid Location header format', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
 
       server.use(
@@ -1268,7 +1268,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail when PUT upload returns error', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
 
       server.use(
@@ -1292,7 +1292,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail when PUT upload returns wrong status', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
 
       server.use(
@@ -1316,7 +1316,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail when finalize returns error', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
 
       server.use(
@@ -1341,7 +1341,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should fail when finalize returns wrong status', async () => {
-      const pieceCid = Piece.parse(mockPieceCidStr)
+      const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
 
       server.use(

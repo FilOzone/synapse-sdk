@@ -1,7 +1,7 @@
 import { HttpError, request } from 'iso-web/http'
 import { InvalidUploadSizeError, LocationHeaderError, PostPieceError, UploadPieceError } from '../errors/pdp.ts'
-import type { PieceCID } from '../piece/piece.ts'
-import * as Piece from '../piece/piece.ts'
+import * as Piece from '../piece/index.ts'
+import type { PieceCID } from '../piece/piece-cid.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { isUint8Array, supportsStreamingFetchBody } from '../utils/streams.ts'
 
@@ -75,14 +75,14 @@ export async function uploadPieceStreaming(
 
   const uploadUuid = locationMatch[1]
 
-  // Create CommP calculator stream only if PieceCID not provided
-  let getPieceCID: () => PieceCID | null = () => options.pieceCid ?? null
+  // Create CommP calculator stream only if PieceCID not provided.
+  let pieceCidPromise: Promise<PieceCID> = Promise.resolve(options.pieceCid as PieceCID)
   let pieceCidStream: TransformStream<Uint8Array, Uint8Array> | null = null
 
   if (options.pieceCid == null) {
-    const result = Piece.createPieceCIDStream()
-    pieceCidStream = result.stream
-    getPieceCID = result.getPieceCID
+    const { transform, result } = Piece.transformStream()
+    pieceCidStream = transform
+    pieceCidPromise = result
   }
 
   const dataStream = isUint8Array(options.data)
@@ -182,11 +182,8 @@ export async function uploadPieceStreaming(
     throw new UploadPieceError(`Expected 204 No Content, got ${uploadResponse.result.status}`)
   }
 
-  // Get PieceCID (either provided or calculated) and finalize
-  const pieceCid = getPieceCID()
-  if (pieceCid === null) {
-    throw new Error('Failed to calculate PieceCID during upload')
-  }
+  // Get PieceCID (either provided or calculated) and finalize.
+  const pieceCid = await pieceCidPromise
 
   const finalizeBody = JSON.stringify({
     pieceCid: pieceCid.toString(),

@@ -4,7 +4,7 @@ import { HttpResponse, http } from 'msw'
 import { createPublicClient, http as viemHttp } from 'viem'
 import { calibration, devnet } from '../src/chains.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import * as Piece from '../src/piece/piece.ts'
+import * as Piece from '../src/piece/index.ts'
 import {
   chainResolver,
   filbeamResolver,
@@ -21,7 +21,7 @@ describe('resolve-piece-url', () => {
     transport: viemHttp(),
   })
   const pieceCidString = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-  const pieceCid = Piece.parse(pieceCidString)
+  const pieceCid = Piece.from(pieceCidString)
   const expectedPdpUrl = `https://pdp.example.com/piece/${pieceCidString}`
 
   function createProvider(serviceURL: string, id: bigint = 1n): PDPProvider {

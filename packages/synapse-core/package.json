@@ -230,7 +230,6 @@
     }
   },
   "dependencies": {
-    "@web3-storage/data-segment": "^5.3.0",
     "dnum": "^2.15.0",
     "iso-web": "^2.2.1",
     "multiformats": "^13.4.1",
@@ -238,6 +237,7 @@
     "p-locate": "^7.0.0",
     "p-queue": "^9.1.2",
     "p-some": "^7.0.0",
+    "sync-multihash-sha2": "^1.0.0",
     "zod": "catalog:"
   },
   "devDependencies": {

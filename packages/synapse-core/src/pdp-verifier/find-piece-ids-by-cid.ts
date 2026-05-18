@@ -12,7 +12,7 @@ import {
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import type { PieceCID } from '../piece/piece.ts'
+import type { PieceCID } from '../piece/piece-cid.ts'
 import type { ActionCallChain } from '../types.ts'
 
 export namespace findPieceIdsByCid {
@@ -60,7 +60,7 @@ export namespace findPieceIdsByCid {
  *   transport: http(),
  * })
  *
- * const pieceCid = Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+ * const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
  * const pieceIds = await findPieceIdsByCid(client, {
  *   dataSetId: 1n,
  *   pieceCid,
@@ -112,7 +112,7 @@ export namespace findPieceIdsByCidCall {
  *   transport: http(),
  * })
  *
- * const pieceCid = Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+ * const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
  * const result = await readContract(client, findPieceIdsByCidCall({
  *   chain: calibration,
  *   dataSetId: 1n,

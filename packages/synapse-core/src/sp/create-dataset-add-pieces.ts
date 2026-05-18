@@ -9,7 +9,7 @@ import type {
   WaitForCreateDataSetError,
   WaitForCreateDataSetRejectedError,
 } from '../errors/pdp.ts'
-import type { PieceCID } from '../piece/piece.ts'
+import type { PieceCID } from '../piece/piece-cid.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'

@@ -815,7 +815,7 @@ describe('StorageService', () => {
   describe('download', () => {
     it('should download and verify a piece', async () => {
       const testData = new Uint8Array(127).fill(42) // 127 bytes to meet minimum
-      const testPieceCID = calculate(testData).toString()
+      const testPieceCID = (await calculate(testData)).toString()
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -841,7 +841,7 @@ describe('StorageService', () => {
 
     it('should handle download errors', async () => {
       const testData = new Uint8Array(127).fill(42) // 127 bytes to meet minimum
-      const testPieceCID = calculate(testData).toString()
+      const testPieceCID = (await calculate(testData)).toString()
 
       server.use(
         Mocks.JSONRPC({
@@ -867,7 +867,7 @@ describe('StorageService', () => {
 
     it('should accept empty download options', async () => {
       const testData = new Uint8Array(127).fill(42) // 127 bytes to meet minimum
-      const testPieceCID = calculate(testData).toString()
+      const testPieceCID = (await calculate(testData)).toString()
 
       server.use(
         Mocks.JSONRPC({
@@ -1130,7 +1130,7 @@ describe('StorageService', () => {
 
     it('should handle upload piece failure', async () => {
       const testData = new Uint8Array(127).fill(42)
-      const testPieceCID = Piece.calculate(testData).toString()
+      const testPieceCID = (await Piece.calculate(testData)).toString()
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
         Mocks.JSONRPC({
@@ -1156,7 +1156,7 @@ describe('StorageService', () => {
 
     it('should handle add pieces failure', async () => {
       const testData = new Uint8Array(127).fill(42)
-      const testPieceCID = Piece.calculate(testData).toString()
+      const testPieceCID = (await Piece.calculate(testData)).toString()
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
         Mocks.JSONRPC({
@@ -1608,9 +1608,9 @@ describe('StorageService', () => {
   describe('getPieces', () => {
     it('should get all active pieces with pagination', async () => {
       // Use actual valid PieceCIDs from test data
-      const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
-      const piece2Cid = calculatePieceCID(new Uint8Array(256).fill(2))
-      const piece3Cid = calculatePieceCID(new Uint8Array(512).fill(3))
+      const piece1Cid = await calculatePieceCID(new Uint8Array(128).fill(1))
+      const piece2Cid = await calculatePieceCID(new Uint8Array(256).fill(2))
+      const piece3Cid = await calculatePieceCID(new Uint8Array(512).fill(3))
 
       // Mock getActivePieces to return paginated results
       server.use(
@@ -1682,8 +1682,8 @@ describe('StorageService', () => {
 
     it('should work with getPieces generator', async () => {
       // Use actual valid PieceCIDs from test data
-      const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
-      const piece2Cid = calculatePieceCID(new Uint8Array(256).fill(2))
+      const piece1Cid = await calculatePieceCID(new Uint8Array(128).fill(1))
+      const piece2Cid = await calculatePieceCID(new Uint8Array(256).fill(2))
 
       // Mock getActivePieces to return paginated results
       server.use(

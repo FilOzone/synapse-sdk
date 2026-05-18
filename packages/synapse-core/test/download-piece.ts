@@ -3,7 +3,7 @@ import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { DownloadPieceError } from '../src/errors/pdp.ts'
 import { downloadAndValidate } from '../src/piece/download.ts'
-import * as Piece from '../src/piece/piece.ts'
+import * as Piece from '../src/piece/index.ts'
 
 describe('Piece download and validation', () => {
   const server = setup()
@@ -23,7 +23,7 @@ describe('Piece download and validation', () => {
   describe('downloadAndValidate', () => {
     it('should successfully download and verify piece', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const pieceCid = Piece.calculate(testData)
+      const pieceCid = await Piece.calculate(testData)
 
       server.use(
         http.get('http://pdp.local/piece/:pieceCid', () => {
@@ -40,7 +40,7 @@ describe('Piece download and validation', () => {
 
     it('should throw on download failure (404)', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const pieceCid = Piece.calculate(testData)
+      const pieceCid = await Piece.calculate(testData)
 
       server.use(
         http.get('http://pdp.local/piece/:pieceCid', () => {
@@ -64,7 +64,7 @@ describe('Piece download and validation', () => {
 
     it('should throw on server error (500)', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const pieceCid = Piece.calculate(testData)
+      const pieceCid = await Piece.calculate(testData)
 
       server.use(
         http.get('http://pdp.local/piece/:pieceCid', () => {
@@ -88,7 +88,7 @@ describe('Piece download and validation', () => {
 
     it('should throw on PieceCID verification failure', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const pieceCid = Piece.calculate(testData)
+      const pieceCid = await Piece.calculate(testData)
       const wrongData = new Uint8Array([9, 9, 9, 9]) // Different data
 
       server.use(
@@ -111,7 +111,7 @@ describe('Piece download and validation', () => {
 
     it('should handle null response body', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const pieceCid = Piece.calculate(testData)
+      const pieceCid = await Piece.calculate(testData)
 
       server.use(
         http.get('http://pdp.local/piece/:pieceCid', () => {
@@ -134,7 +134,7 @@ describe('Piece download and validation', () => {
 
     it('should correctly stream and verify chunked data', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const pieceCid = Piece.calculate(testData)
+      const pieceCid = await Piece.calculate(testData)
 
       server.use(
         http.get('http://pdp.local/piece/:pieceCid', () => {
@@ -172,7 +172,7 @@ describe('Piece download and validation', () => {
       for (let i = 0; i < testData.length; i++) {
         testData[i] = i % 256
       }
-      const pieceCid = Piece.calculate(testData)
+      const pieceCid = await Piece.calculate(testData)
 
       server.use(
         http.get('http://pdp.local/piece/:pieceCid', () => {

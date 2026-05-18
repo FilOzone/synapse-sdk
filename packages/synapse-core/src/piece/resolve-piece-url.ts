@@ -7,7 +7,7 @@ import { findPiece } from '../sp/find-piece.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
 import { createPieceUrlPDP } from '../utils/piece-url.ts'
 import { getPdpDataSets } from '../warm-storage/get-pdp-data-sets.ts'
-import type { PieceCID } from './piece.ts'
+import type { PieceCID } from './piece-cid.ts'
 
 export namespace resolvePieceUrl {
   export type ResolverFnType = (options: ResolverFnOptionsType) => Promise<string>

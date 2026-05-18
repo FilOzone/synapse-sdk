@@ -2,7 +2,7 @@ import { type AbortError, HttpError, type NetworkError, request, type TimeoutErr
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { PullError } from '../errors/pull.ts'
-import type { PieceCID } from '../piece/piece.ts'
+import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import type { MetadataEntry } from '../typed-data/type-definitions.ts'
