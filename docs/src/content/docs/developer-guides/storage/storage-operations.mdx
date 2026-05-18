@@ -261,10 +261,10 @@ Extract the size directly from a PieceCID using Synapse Core:
 
 ```ts twoslash
 // @lib: esnext,dom
-import { getSizeFromPieceCID } from "@filoz/synapse-core/piece";
+import * as Piece from "@filoz/synapse-core/piece";
 
 const pieceCid = "bafkzcib...";
-const size = getSizeFromPieceCID(pieceCid);
+const size = Piece.from(pieceCid).size;
 console.log(`Piece size: ${size} bytes`);
 ```
 
