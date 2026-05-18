@@ -5,7 +5,7 @@
  *
  * ## Disclaimer
  *
- * FilBeam is not currently fully supported -- use with caution. If you have a
+ * FilBeam is not currently a priority for active support and development, use with caution. If you have a
  * use case for FilBeam, please open an issue at
  * {@link https://github.com/filbeam/roadmap/issues} describing it, so we can
  * prioritize the work accordingly.
