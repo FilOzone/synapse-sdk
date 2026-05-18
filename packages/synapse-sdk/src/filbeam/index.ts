@@ -3,6 +3,13 @@
  *
  * Client for the FilBeam stats API.
  *
+ * ## Disclaimer
+ *
+ * FilBeam is not currently fully supported -- use with caution. If you have a
+ * use case for FilBeam, please open an issue at
+ * {@link https://github.com/filbeam/roadmap/issues} describing it, so we can
+ * prioritize the work accordingly.
+ *
  * ## Overview
  *
  * FilBeam enables retrieval incentives for Filecoin PDP (Proof of Data Possession)
