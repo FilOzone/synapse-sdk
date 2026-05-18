@@ -1,7 +1,7 @@
 import { type AbortError, HttpError, type NetworkError, request, TimeoutError } from 'iso-web/http'
 import { FindPieceError } from '../errors/pdp.ts'
-import type { PieceCID } from '../piece/piece.ts'
-import * as Piece from '../piece/piece.ts'
+import * as Piece from '../piece/index.ts'
+import type { PieceCID } from '../piece/piece-cid.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 
 export namespace findPiece {
@@ -58,5 +58,5 @@ export async function findPiece(options: findPiece.OptionsType): Promise<findPie
     throw response.error
   }
   const data = response.result
-  return Piece.parse(data.pieceCid)
+  return Piece.from(data.pieceCid)
 }

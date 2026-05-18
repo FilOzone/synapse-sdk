@@ -575,7 +575,7 @@ export class StorageManager {
       })
     }
 
-    const parsedPieceCID = Piece.asPieceCID(options.pieceCid)
+    const parsedPieceCID = Piece.tryFrom(options.pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageManager', 'download', `Invalid PieceCID: ${String(options.pieceCid)}`)
     }

@@ -5,7 +5,7 @@ import { calibration, mainnet } from '../src/chains.ts'
 import { LimitMustBeGreaterThanZeroError } from '../src/errors/pdp-verifier.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { getActivePieces, getActivePiecesCall } from '../src/pdp-verifier/get-active-pieces.ts'
-import * as Piece from '../src/piece/piece.ts'
+import * as Piece from '../src/piece/index.ts'
 
 describe('getActivePieces', () => {
   const server = setup()
@@ -95,8 +95,8 @@ describe('getActivePieces', () => {
 
       assert.deepEqual(result, {
         pieces: [
-          { cid: Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'), id: 0n },
-          { cid: Piece.parse('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'), id: 1n },
+          { cid: Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'), id: 0n },
+          { cid: Piece.from('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'), id: 1n },
         ],
         hasMore: false,
       })

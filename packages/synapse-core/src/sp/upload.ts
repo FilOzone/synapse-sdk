@@ -3,8 +3,8 @@ import type { Account, Chain, Client, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { InvalidUploadSizeError, LocationHeaderError, PostPieceError, UploadPieceError } from '../errors/pdp.ts'
 import { DataSetNotFoundError } from '../errors/warm-storage.ts'
-import type { PieceCID } from '../piece/piece.ts'
-import * as Piece from '../piece/piece.ts'
+import * as Piece from '../piece/index.ts'
+import type { PieceCID } from '../piece/piece-cid.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
 import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
@@ -38,7 +38,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
   }
 
   const pieceCid = options.pieceCid
-  if (!Piece.isPieceCID(pieceCid)) {
+  if (!Piece.is(pieceCid)) {
     throw new Error(`Invalid PieceCID: ${String(options.pieceCid)}`)
   }
   const response = await request.post(new URL(`pdp/piece`, options.serviceURL), {
@@ -135,7 +135,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
   const uploadResponses = await Promise.all(
     options.data.map(async (file: File) => {
       const data = new Uint8Array(await file.arrayBuffer())
-      const pieceCid = Piece.calculate(data)
+      const pieceCid = await Piece.calculate(data)
       const url = createPieceUrl({
         cid: pieceCid.toString(),
         cdn: dataSet.cdn,

@@ -4,7 +4,7 @@ import { createPublicClient, http, toHex } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { findPieceIdsByCid, findPieceIdsByCidCall } from '../src/pdp-verifier/find-piece-ids-by-cid.ts'
-import * as Piece from '../src/piece/piece.ts'
+import * as Piece from '../src/piece/index.ts'
 
 describe('findPieceIdsByCid', () => {
   const server = setup()
@@ -22,7 +22,7 @@ describe('findPieceIdsByCid', () => {
   })
 
   describe('findPieceIdsByCidCall', () => {
-    const pieceCid = Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+    const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
 
     it('should create call with calibration chain defaults', () => {
       const call = findPieceIdsByCidCall({
@@ -84,7 +84,7 @@ describe('findPieceIdsByCid', () => {
         transport: http(),
       })
 
-      const pieceCid = Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
       const result = await findPieceIdsByCid(client, { dataSetId: 1n, pieceCid })
 
       assert.ok(Array.isArray(result))
@@ -108,7 +108,7 @@ describe('findPieceIdsByCid', () => {
         transport: http(),
       })
 
-      const pieceCid = Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
       const result = await findPieceIdsByCid(client, { dataSetId: 1n, pieceCid })
 
       assert.ok(Array.isArray(result))
@@ -131,7 +131,7 @@ describe('findPieceIdsByCid', () => {
         transport: http(),
       })
 
-      const pieceCid = Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
       const result = await findPieceIdsByCid(client, { dataSetId: 1n, pieceCid, limit: 10n })
 
       assert.ok(Array.isArray(result))

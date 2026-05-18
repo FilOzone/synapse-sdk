@@ -3,7 +3,7 @@ import type { Address, Chain, Client, ReadContractErrorType, Transport } from 'v
 import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { LimitMustBeGreaterThanZeroError } from '../errors/pdp-verifier.ts'
-import { hexToPieceCID } from '../piece/piece.ts'
+import { from as pieceFrom } from '../piece/parse.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 import { metadataArrayToObject } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
@@ -92,7 +92,7 @@ export async function getPieces(
       hasMore: activePiecesResult[2],
       pieces: activePiecesResult[0]
         .map((piece, index) => {
-          const cid = hexToPieceCID(piece.data)
+          const cid = pieceFrom(piece.data)
           return {
             cid,
             id: activePiecesResult[1][index],

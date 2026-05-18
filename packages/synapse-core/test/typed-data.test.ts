@@ -2,7 +2,7 @@ import { assert } from 'chai'
 import { type Address, createWalletClient, decodeAbiParameters, type Hex, http, parseSignature } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import * as Chains from '../src/chains.ts'
-import * as Piece from '../src/piece/piece.ts'
+import * as Piece from '../src/piece/index.ts'
 import * as TypedData from '../src/typed-data/index.ts'
 import { getStorageDomain } from '../src/typed-data/type-definitions.ts'
 
@@ -86,7 +86,7 @@ describe('Typed Data', () => {
       clientDataSetId: FIXTURES.signatures.addPieces.clientDataSetId,
       nonce: FIXTURES.signatures.addPieces.nonce,
       pieces: PIECE_DATA.map((piece) => ({
-        pieceCid: Piece.parse(piece),
+        pieceCid: Piece.from(piece),
       })),
     })
 
@@ -107,7 +107,7 @@ describe('Typed Data', () => {
       clientDataSetId: FIXTURES.signatures.addPieces.clientDataSetId,
       nonce: FIXTURES.signatures.addPieces.nonce,
       pieces: PIECE_DATA.map((piece) => ({
-        pieceCid: Piece.parse(piece),
+        pieceCid: Piece.from(piece),
         metadata: [{ key: 'title', value: 'TestDataSet' }],
       })),
     })
@@ -151,7 +151,7 @@ describe('Typed Data', () => {
       metadata: FIXTURES.signatures.createDataSet.metadata,
       nonce: FIXTURES.signatures.addPieces.nonce,
       pieces: PIECE_DATA.map((piece) => ({
-        pieceCid: Piece.parse(piece),
+        pieceCid: Piece.from(piece),
       })),
     })
 
