@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.41.0...synapse-sdk-v0.41.1) (2026-05-18)
+
+
+### Documentation
+
+* **filbeam:** add disclaimer about limited support ([#793](https://github.com/FilOzone/synapse-sdk/issues/793)) ([5ef945c](https://github.com/FilOzone/synapse-sdk/commit/5ef945cd43a2058a0d2dcb04e20f21a634382103))
+
 ## [0.41.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.4...synapse-sdk-v0.41.0) (2026-05-06)
 
 
