@@ -7,7 +7,7 @@ import { EIP712Types } from '../typed-data/type-definitions.ts'
 export type CreateDataSetPermission = Tagged<Hex, 'CreateDataSetPermission'>
 export type AddPiecesPermission = Tagged<Hex, 'AddPiecesPermission'>
 export type SchedulePieceRemovalsPermission = Tagged<Hex, 'SchedulePieceRemovalsPermission'>
-export type DeleteDataSetPermission = Tagged<Hex, 'DeleteDataSetPermission'>
+export type TerminateServicePermission = Tagged<Hex, 'TerminateServicePermission'>
 
 function typeHash(type: TypedData.encodeType.Value) {
   return keccak256(stringToHex(TypedData.encodeType(type)))
@@ -28,23 +28,23 @@ export const SchedulePieceRemovalsPermission = typeHash({
   primaryType: 'SchedulePieceRemovals',
 }) as SchedulePieceRemovalsPermission
 
-export const DeleteDataSetPermission = typeHash({
+export const TerminateServicePermission = typeHash({
   types: EIP712Types,
-  primaryType: 'DeleteDataSet',
-}) as DeleteDataSetPermission
+  primaryType: 'TerminateService',
+}) as TerminateServicePermission
 
 export const DefaultFwssPermissions = [
   CreateDataSetPermission,
   AddPiecesPermission,
   SchedulePieceRemovalsPermission,
-  DeleteDataSetPermission,
+  TerminateServicePermission,
 ]
 
 export type Permission =
   | CreateDataSetPermission
   | AddPiecesPermission
   | SchedulePieceRemovalsPermission
-  | DeleteDataSetPermission
+  | TerminateServicePermission
   | Hex
 
 export type Expirations = {
@@ -55,5 +55,5 @@ export const DefaultEmptyExpirations: Expirations = {
   [CreateDataSetPermission]: 0n,
   [AddPiecesPermission]: 0n,
   [SchedulePieceRemovalsPermission]: 0n,
-  [DeleteDataSetPermission]: 0n,
+  [TerminateServicePermission]: 0n,
 }

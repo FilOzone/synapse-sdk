@@ -7,8 +7,8 @@ import { authorizationExpiry, authorizationExpiryCall } from '../src/session-key
 import {
   AddPiecesPermission,
   CreateDataSetPermission,
-  DeleteDataSetPermission,
   SchedulePieceRemovalsPermission,
+  TerminateServicePermission,
 } from '../src/session-key/permissions.ts'
 
 describe('authorizationExpiry', () => {
@@ -76,7 +76,7 @@ describe('authorizationExpiry', () => {
         chain: calibration,
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: DeleteDataSetPermission,
+        permission: TerminateServicePermission,
       })
 
       assert.ok(typeof call.args[2] === 'string')
@@ -159,14 +159,14 @@ describe('authorizationExpiry', () => {
         permission: SchedulePieceRemovalsPermission,
       })
 
-      const expiryDelete = await authorizationExpiry(client, {
+      const expiryTerminate = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        permission: DeleteDataSetPermission,
+        permission: TerminateServicePermission,
       })
 
       assert.equal(expirySchedule, expiry1)
-      assert.equal(expiryDelete, expiry2)
+      assert.equal(expiryTerminate, expiry2)
     })
 
     it('should return 0 when authorization does not exist', async () => {
