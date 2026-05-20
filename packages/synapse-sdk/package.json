@@ -144,7 +144,7 @@
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",
-    "multiformats": "^13.4.1"
+    "multiformats": "^14.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
