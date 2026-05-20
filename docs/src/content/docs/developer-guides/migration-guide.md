@@ -9,6 +9,24 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ---
 
+## 0.42.0
+
+### Action: Re-mint session keys for service termination
+
+`DeleteDataSetPermission` has been replaced by `TerminateServicePermission`.
+
+Existing session keys granted with `DeleteDataSetPermission` will fail the `Synapse.create()` permission check. Re-authorize session keys so they include `TerminateServicePermission`.
+
+```ts
+// before
+SessionKey.DeleteDataSetPermission
+TypedData.signDeleteDataSet(client, { dataSetId })
+
+// after
+SessionKey.TerminateServicePermission
+TypedData.signTerminateService(client, { dataSetId })
+```
+
 ## 0.37.0
 
 `synapse-sdk` moved to a viem-first API, removed deprecated modules/methods, and standardized method signatures around options objects plus `bigint` identifiers.

@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+
+### ⚠ BREAKING CHANGES
+
+* **typehash:** `DeleteDataSetPermission` has been replaced by `TerminateServicePermission`. Existing session keys must be re-minted. Passing a stale session key to `Synapse.create()` throws because the full default permission set no longer matches.
+
+
+### Features
+
+* **typehash:** rename DeleteDataSet typed data to TerminateService
+
 ## [0.5.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.5.1...synapse-core-v0.5.2) (2026-05-07)
 
 
