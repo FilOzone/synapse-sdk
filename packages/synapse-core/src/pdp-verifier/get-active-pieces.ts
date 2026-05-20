@@ -12,7 +12,8 @@ import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import { LimitMustBeGreaterThanZeroError } from '../errors/pdp-verifier.ts'
-import { hexToPieceCID, type PieceCID } from '../piece/piece.ts'
+import { from as pieceFrom } from '../piece/parse.ts'
+import type { PieceCID } from '../piece/piece-cid.ts'
 import type { ActionCallChain } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 
@@ -151,7 +152,7 @@ export function getActivePiecesCall(options: getActivePiecesCall.OptionsType) {
 export function parseActivePieces(data: getActivePieces.ContractOutputType): getActivePieces.OutputType {
   return {
     pieces: data[0].map((piece, index) => ({
-      cid: hexToPieceCID(piece.data),
+      cid: pieceFrom(piece.data),
       id: data[1][index],
     })),
     hasMore: data[2],

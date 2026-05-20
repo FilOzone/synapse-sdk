@@ -16,7 +16,7 @@ import {
   stringToHex,
   toHex,
 } from 'viem'
-import * as Piece from '../../piece/piece.ts'
+import * as Piece from '../../piece/index.ts'
 import { TIME_CONSTANTS } from '../../utils/constants.ts'
 import { ADDRESSES } from './constants.ts'
 import { endorsementsCallHandler } from './endorsements.ts'
@@ -525,8 +525,8 @@ export const presets = {
       getActivePieceCount: () => [2n],
       getActivePieces: () => [
         [
-          { data: toHex(Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy').bytes) },
-          { data: toHex(Piece.parse('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace').bytes) },
+          { data: toHex(Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy').bytes) },
+          { data: toHex(Piece.from('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace').bytes) },
         ],
         [0n, 1n],
         false,

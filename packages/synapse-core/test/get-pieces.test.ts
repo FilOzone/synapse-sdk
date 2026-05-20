@@ -5,13 +5,13 @@ import { calibration } from '../src/chains.ts'
 import { LimitMustBeGreaterThanZeroError } from '../src/errors/pdp-verifier.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { getPieces, getPiecesWithMetadata } from '../src/pdp-verifier/get-pieces.ts'
-import * as Piece from '../src/piece/piece.ts'
+import * as Piece from '../src/piece/index.ts'
 import type { PdpDataSet } from '../src/warm-storage/types.ts'
 
 describe('getPieces', () => {
   const server = setup()
 
-  const firstPieceCid = Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+  const firstPieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
 
   function createDataSet(): PdpDataSet {
     return {

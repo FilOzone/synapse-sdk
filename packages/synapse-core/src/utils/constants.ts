@@ -82,10 +82,7 @@ export const SIZE_CONSTANTS = {
    */
   MAX_UPLOAD_SIZE: 1_065_353_216, // 1 GiB * 127/128
 
-  /**
-   * Minimum upload size (127 bytes)
-   * PieceCIDv2 calculation requires at least 127 bytes payload
-   */
+  /** Minimum upload size; matches what storage providers currently accept. */
   MIN_UPLOAD_SIZE: 127,
 
   /**

@@ -45,7 +45,7 @@ export const uploadDataset: Command = command(
 
     p.log.info(`Uploading file ${absolutePath}...`)
     try {
-      const pieceCid = Piece.calculate(fileData)
+      const pieceCid = await Piece.calculate(fileData)
       await SP.uploadPiece({
         data: fileData,
         serviceURL: provider.pdp.serviceURL,

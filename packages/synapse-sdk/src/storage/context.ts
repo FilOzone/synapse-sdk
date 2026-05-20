@@ -961,7 +961,7 @@ export class StorageContext {
    * Download data from this specific service provider
    */
   async download(options: DownloadOptions): Promise<Uint8Array> {
-    const parsedPieceCID = Piece.asPieceCID(options.pieceCid)
+    const parsedPieceCID = Piece.tryFrom(options.pieceCid)
     if (parsedPieceCID == null) {
       throw new InvalidPieceCIDError(options.pieceCid)
     }
@@ -1043,7 +1043,7 @@ export class StorageContext {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'getPieceIdByCID', 'Data set not found')
     }
-    const parsedPieceCID = Piece.asPieceCID(pieceCid)
+    const parsedPieceCID = Piece.tryFrom(pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageContext', 'getPieceIdByCID', 'Invalid PieceCID provided')
     }
@@ -1103,7 +1103,7 @@ export class StorageContext {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'pieceStatus', 'Data set not found')
     }
-    const parsedPieceCID = Piece.asPieceCID(options.pieceCid)
+    const parsedPieceCID = Piece.tryFrom(options.pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageContext', 'pieceStatus', 'Invalid PieceCID provided')
     }

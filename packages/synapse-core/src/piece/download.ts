@@ -1,7 +1,9 @@
 import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
 import { DownloadPieceError } from '../errors/pdp.ts'
 import { InvalidPieceCIDError } from '../errors/piece.ts'
-import { asPieceCID, createPieceCIDStream, type PieceCID } from './piece.ts'
+import { transformStream } from './calculate.ts'
+import { tryFrom } from './parse.ts'
+import type { PieceCID } from './piece-cid.ts'
 
 export namespace download {
   export type OptionsType = {
@@ -64,7 +66,7 @@ export async function downloadAndValidate(options: downloadAndValidate.OptionsTy
   const { url, expectedPieceCid } = options
 
   // Parse and validate the expected PieceCID
-  const parsedPieceCid = asPieceCID(expectedPieceCid)
+  const parsedPieceCid = tryFrom(expectedPieceCid)
   if (parsedPieceCid == null) {
     throw new InvalidPieceCIDError(expectedPieceCid)
   }
@@ -81,10 +83,9 @@ export async function downloadAndValidate(options: downloadAndValidate.OptionsTy
     throw new DownloadPieceError('Response body is null')
   }
 
-  // Create PieceCID calculation stream
-  const { stream: pieceCidStream, getPieceCID } = createPieceCIDStream()
+  const { transform, result: pieceCidPromise } = transformStream()
 
-  // Create a stream that collects all chunks into an array
+  // Collect chunks as they pass through the PieceCID stream.
   const chunks: Uint8Array[] = []
   const collectStream = new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
@@ -93,10 +94,8 @@ export async function downloadAndValidate(options: downloadAndValidate.OptionsTy
     },
   })
 
-  // Pipe the response through both streams
-  const pipelineStream = rsp.result.body.pipeThrough(pieceCidStream).pipeThrough(collectStream)
+  const pipelineStream = rsp.result.body.pipeThrough(transform).pipeThrough(collectStream)
 
-  // Consume the stream to completion
   const reader = pipelineStream.getReader()
   try {
     while (true) {
@@ -111,15 +110,9 @@ export async function downloadAndValidate(options: downloadAndValidate.OptionsTy
     throw new DownloadPieceError('Response body is empty')
   }
 
-  // Get the calculated PieceCID
-  const calculatedPieceCid = getPieceCID()
+  const calculatedPieceCid = await pieceCidPromise
 
-  if (calculatedPieceCid == null) {
-    throw new DownloadPieceError('Failed to calculate PieceCID from stream')
-  }
-
-  // Verify the PieceCID
-  if (calculatedPieceCid.toString() !== parsedPieceCid.toString()) {
+  if (!calculatedPieceCid.equals(parsedPieceCid)) {
     throw new DownloadPieceError(
       `PieceCID verification failed. Expected: ${String(parsedPieceCid)}, Got: ${String(calculatedPieceCid)}`
     )

@@ -158,9 +158,8 @@ if (!provider) {
 }
 
 // 2. Calculate PieceCID and upload data
-const pieceCid = piece.calculate(data)
-const size = piece.getSize(pieceCid)
-console.log(size) // size of the piece in bytes
+const pieceCid = await piece.calculate(data)
+console.log(pieceCid.size) // size of the piece in bytes
 // Upload the piece to the provider
 await sp.uploadPiece({
   data,
