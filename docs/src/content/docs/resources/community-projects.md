@@ -56,6 +56,13 @@ Projects in **FOC WG Spotlight** are maintained by the FOC Working Group. Projec
 - Native Go implementation
 - Suitable for backend services and CLI tools
 
+**[synapse-go](https://github.com/strahe/synapse-go)** — A Go SDK for building Filecoin Onchain Cloud applications.
+
+- Idiomatic Go API for FOC workflows
+- Upload, download, provider discovery, payments, approvals, and cost estimation
+- Warm Storage, session keys, FilBeam retrieval, and PieceCID utilities
+- Resources: [API docs](https://pkg.go.dev/github.com/strahe/synapse-go) and [examples](https://github.com/strahe/synapse-go/tree/main/examples)
+
 ### Tools
 
 #### FWSS Subgraph
