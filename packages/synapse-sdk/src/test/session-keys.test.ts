@@ -206,5 +206,55 @@ describe('Synapse', () => {
 
       await context.deletePiece({ piece: result.pieceCid })
     })
+
+    describe('Synapse.create permission validation', () => {
+      it('should throw an informative error listing not-authorized and expired permissions', () => {
+        const now = BigInt(Math.floor(Date.now() / 1000))
+        const sessionKey = SessionKey.fromSecp256k1({
+          chain: calibration,
+          privateKey: Mocks.PRIVATE_KEYS.key2,
+          root: client.account,
+          expirations: {
+            [SessionKey.CreateDataSetPermission]: now + 3600n,
+            [SessionKey.AddPiecesPermission]: 0n,
+            [SessionKey.SchedulePieceRemovalsPermission]: now - 3600n,
+            [SessionKey.TerminateServicePermission]: now + 3600n,
+          },
+        })
+
+        try {
+          Synapse.create({ chain: calibration, account, source: null, sessionKey })
+          assert.fail('expected Synapse.create to throw')
+        } catch (error) {
+          assert.instanceOf(error, Error)
+          assert.match(error.message, /Session key is missing required FWSS permissions/)
+          assert.include(error.message, 'AddPieces (not authorized)')
+          assert.include(error.message, 'SchedulePieceRemovals (expired at ')
+          assert.notInclude(error.message, 'CreateDataSet (')
+          assert.notInclude(error.message, 'TerminateService (')
+          assert.include(error.message, '@filoz/synapse-core')
+          assert.include(error.message, 'https://docs.filecoin.cloud/developer-guides/session-keys/')
+        }
+      })
+
+      it('should not throw when all FWSS permissions are valid', () => {
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
+        const now = BigInt(Math.floor(Date.now() / 1000))
+        const sessionKey = SessionKey.fromSecp256k1({
+          chain: calibration,
+          privateKey: Mocks.PRIVATE_KEYS.key2,
+          root: client.account,
+          expirations: {
+            [SessionKey.CreateDataSetPermission]: now + 3600n,
+            [SessionKey.AddPiecesPermission]: now + 3600n,
+            [SessionKey.SchedulePieceRemovalsPermission]: now + 3600n,
+            [SessionKey.TerminateServicePermission]: now + 3600n,
+          },
+        })
+
+        const synapse = Synapse.create({ chain: calibration, account, source: null, sessionKey })
+        assert.exists(synapse)
+      })
+    })
   })
 })
