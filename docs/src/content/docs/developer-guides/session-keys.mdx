@@ -198,6 +198,25 @@ const synapse = Synapse.create({
 
 `Synapse.create()` validates that the session key has all four FWSS permissions (`DefaultFwssPermissions`) and that none are expired. This means the session key's expirations must be populated before construction, either by passing `expirations` to `fromSecp256k1()`, or by calling `sessionKey.syncExpirations()` after login.
 
+#### Narrowing the required scope
+
+If your app only exercises a subset of the SDK's operations — for example an upload-only client that needs `CreateDataSet` + `AddPieces` but never schedules removals or terminates services — pass `requiredPermissions` so that `Synapse.create()` validates only what you actually use:
+
+```ts
+const synapse = Synapse.create({
+  account: rootAccount,
+  chain: calibration,
+  transport: http(rpcUrl),
+  sessionKey: sessionKey,
+  requiredPermissions: [
+    SessionKey.CreateDataSetPermission,
+    SessionKey.AddPiecesPermission,
+  ],
+})
+```
+
+`requiredPermissions` defaults to `SessionKey.DefaultFwssPermissions`, so existing callers see no behavior change. The SDK does **not** enforce per-operation checks — calling an SDK method whose permission is not in `requiredPermissions` will still go through, and if the session key is not authorized for that operation it will revert on-chain. Use `requiredPermissions` to gate construction, and only call SDK methods you have authorized.
+
 ### Revoke the session key
 
 When done, the root wallet can revoke permissions:

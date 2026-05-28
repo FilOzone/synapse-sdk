@@ -58,10 +58,13 @@ export class Synapse {
       throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
     }
 
-    if (options.sessionKey != null && !options.sessionKey.hasPermissions(SessionKey.DefaultFwssPermissions)) {
-      throw new Error(
-        'Session key does not have the required permissions. Please login and sync expirations with the session key first.'
-      )
+    if (options.sessionKey != null) {
+      const requiredPermissions = options.requiredPermissions ?? SessionKey.DefaultFwssPermissions
+      if (!options.sessionKey.hasPermissions(requiredPermissions)) {
+        throw new Error(
+          'Session key does not have the required permissions. Please login and sync expirations with the session key first.'
+        )
+      }
     }
 
     return new Synapse({
