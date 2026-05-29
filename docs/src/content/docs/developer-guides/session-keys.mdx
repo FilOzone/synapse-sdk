@@ -198,6 +198,14 @@ const synapse = Synapse.create({
 
 `Synapse.create()` validates that the session key has all four FWSS permissions (`DefaultFwssPermissions`) and that none are expired. This means the session key's expirations must be populated before construction, either by passing `expirations` to `fromSecp256k1()`, or by calling `sessionKey.syncExpirations()` after login.
 
+#### All-or-nothing in `@filoz/synapse-sdk`
+
+`@filoz/synapse-sdk` is the high-level "golden path" entry point and deliberately takes an all-or-nothing stance on session key permissions: `Synapse.create()` will throw if any of `CreateDataSet`, `AddPieces`, `SchedulePieceRemovals`, or `TerminateService` is missing or expired. This keeps the API surface predictable — every operation the high-level SDK exposes will work once construction succeeds.
+
+If you want a narrower scope (for example, only `CreateDataSet` + `AddPieces` for an upload-only client), drop down to [`@filoz/synapse-core`](/developer-guides/synapse-core/) directly. The core package's `SessionKey` and SP-client functions check permissions per operation, so you can authorize the minimum set you need and call those operations directly without going through `Synapse.create()`.
+
+The error thrown by `Synapse.create()` names the specific permissions that are missing or expired so you can decide whether to extend the session key's authorizations or switch to `@filoz/synapse-core` for that flow.
+
 ### Revoke the session key
 
 When done, the root wallet can revoke permissions:
