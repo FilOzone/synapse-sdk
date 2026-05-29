@@ -196,11 +196,13 @@ const synapse = Synapse.create({
 })
 ```
 
-`Synapse.create()` validates that the session key has all four FWSS permissions (`DefaultFwssPermissions`) and that none are expired. This means the session key's expirations must be populated before construction, either by passing `expirations` to `fromSecp256k1()`, or by calling `sessionKey.syncExpirations()` after login.
+By default, `Synapse.create()` validates that the session key has all four FWSS permissions (`SessionKey.DefaultFwssPermissions`) and that none are expired. This means the session key's expirations must be populated before construction, either by passing `expirations` to `fromSecp256k1()`, or by calling `sessionKey.syncExpirations()` after login.
+
+The error thrown by `Synapse.create()` names the specific permissions that are missing or expired (distinguishing "not authorized" from "expired at &lt;timestamp&gt;") so you can decide whether to extend the session key's authorizations or narrow the required set.
 
 #### Narrowing the required scope
 
-If your app only exercises a subset of the SDK's operations — for example an upload-only client that needs `CreateDataSet` + `AddPieces` but never schedules removals or terminates services — pass `requiredPermissions` so that `Synapse.create()` validates only what you actually use:
+By default `@filoz/synapse-sdk` takes an all-or-nothing stance: every operation the high-level SDK exposes works once construction succeeds. If your app only exercises a subset of those operations — for example an upload-only client that needs `CreateDataSet` + `AddPieces` but never schedules removals or terminates services — pass `requiredPermissions` so that `Synapse.create()` validates only what you actually use:
 
 ```ts
 const synapse = Synapse.create({
@@ -215,7 +217,9 @@ const synapse = Synapse.create({
 })
 ```
 
-`requiredPermissions` defaults to `SessionKey.DefaultFwssPermissions`, so existing callers see no behavior change. The SDK does **not** enforce per-operation checks — calling an SDK method whose permission is not in `requiredPermissions` will still go through, and if the session key is not authorized for that operation it will revert on-chain. Use `requiredPermissions` to gate construction, and only call SDK methods you have authorized.
+`requiredPermissions` defaults to `SessionKey.DefaultFwssPermissions`, so existing callers see no behavior change. Note that `requiredPermissions` only gates construction — the SDK does **not** enforce per-operation checks. Calling an SDK method whose permission is not in `requiredPermissions` will still go through, and if the session key is not authorized for that operation it will revert on-chain. Use `requiredPermissions` to gate construction, and only call SDK methods you have authorized.
+
+If you want per-operation permission enforcement, drop down to [`@filoz/synapse-core`](/developer-guides/synapse-core/) directly. The core package's `SessionKey` and SP-client functions check permissions per operation, so you can authorize the minimum set you need and call those operations directly without going through `Synapse.create()`.
 
 ### Revoke the session key
 

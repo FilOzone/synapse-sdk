@@ -40,6 +40,18 @@ export const DefaultFwssPermissions = [
   TerminateServicePermission,
 ]
 
+/**
+ * Human-readable EIP-712 primary type names for each FWSS permission hash.
+ * Useful for building error messages and debug output that reference
+ * permissions by name instead of opaque bytes32 hashes.
+ */
+export const PermissionNames: Record<Hex, string> = {
+  [CreateDataSetPermission]: 'CreateDataSet',
+  [AddPiecesPermission]: 'AddPieces',
+  [SchedulePieceRemovalsPermission]: 'SchedulePieceRemovals',
+  [TerminateServicePermission]: 'TerminateService',
+}
+
 export type Permission =
   | CreateDataSetPermission
   | AddPiecesPermission
