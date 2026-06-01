@@ -34,6 +34,8 @@ minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - iso-ledger
   - iso-web
+  - iso-kv
+  - iso-base
   - '@hugomrdias/docs'
   - viem
   - ox

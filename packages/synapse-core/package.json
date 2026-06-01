@@ -231,7 +231,7 @@
   },
   "dependencies": {
     "dnum": "^2.15.0",
-    "iso-web": "^2.2.1",
+    "iso-web": "^2.3.0",
     "multiformats": "^14.0.0",
     "ox": "catalog:",
     "p-locate": "^7.0.0",
