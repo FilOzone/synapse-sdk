@@ -28,6 +28,7 @@ catalog:
   viem: ^2.52.0
   wagmi: ^3.0.2
   zod: ^4.3.5
+  iso-web: 2.2.1
 
 minimumReleaseAge: 10080
 
