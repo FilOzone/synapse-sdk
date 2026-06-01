@@ -7,6 +7,7 @@ packages:
 
 allowBuilds:
   esbuild: true
+  keccak: false
   msw: true
   sharp: true
   workerd: true
@@ -14,17 +15,17 @@ allowBuilds:
 blockExoticSubdeps: true
 
 catalog:
-  '@biomejs/biome': 2.4.11
+  '@biomejs/biome': 2.4.15
   '@types/mocha': ^10.0.10
   '@types/node': ^25.6.0
   '@types/react': ^19.2.7
   '@types/react-dom': ^19.2.3
   abitype: ^1.2.0
   mocha: ^11.7.4
-  msw: 2.14.5
+  msw: 2.14.6
   ox: ^0.14.16
   typescript: 6.0.3
-  viem: ^2.47.17
+  viem: ^2.52.0
   wagmi: ^3.0.2
   zod: ^4.3.5
 
@@ -34,15 +35,13 @@ minimumReleaseAgeExclude:
   - iso-ledger
   - iso-web
   - '@hugomrdias/docs'
+  - viem
+  - ox
 
 trustPolicy: no-downgrade
 
 trustPolicyExclude:
-  - vite@6.4.1
-  - chokidar@4.0.3
-  - semver@6.3.1
-  - undici-types@6.19.8
-  - langium@3.3.1
-  - reselect@5.1.1
-  - astro-mermaid@2.0.1
   - '@hugomrdias/docs@0.2.0'
+  - 'astro-mermaid@2.0.1'
+  - 'tinyexec@1.2.2'
+  - chokidar@4.0.3

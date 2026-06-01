@@ -1,12 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
-  "ignore": [
-    "./apps/synapse-playground/src/components/kibo-ui/dropzone/**",
-    "./apps/synapse-playground/src/components/ui/**",
-    "utils/**"
-  ],
+  "ignore": ["./apps/synapse-playground/src/components/ui/**", "utils/**"],
   "exclude": ["namespaceMembers"],
   "ignoreWorkspaces": ["examples/script-tag"],
+  "ignoreBinaries": ["wrangler"],
   "ignoreDependencies": [
     "@types/*",
     "assert",
@@ -58,9 +55,6 @@
         "src/devnet/index.ts"
       ],
       "ignoreFiles": ["wagmi.config.ts"]
-    },
-    "apps/synapse-playground": {
-      "ignoreDependencies": ["buffer", "globals"]
     }
   }
 }
