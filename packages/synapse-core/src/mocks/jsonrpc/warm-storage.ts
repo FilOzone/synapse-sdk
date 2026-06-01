@@ -8,19 +8,19 @@ import type { AbiToType, JSONRPCOptions } from './types.ts'
  * Warm Storage View ABI types
  */
 
-export type isProviderApproved = ExtractAbiFunction<typeof Abis.fwssView, 'isProviderApproved'>
-export type railToDataSet = ExtractAbiFunction<typeof Abis.fwssView, 'railToDataSet'>
-export type getClientDataSets = ExtractAbiFunction<typeof Abis.fwssView, 'getClientDataSets'>
-export type clientDataSets = ExtractAbiFunction<typeof Abis.fwssView, 'clientDataSets'>
-export type getDataSet = ExtractAbiFunction<typeof Abis.fwssView, 'getDataSet'>
-export type getApprovedProviders = ExtractAbiFunction<typeof Abis.fwssView, 'getApprovedProviders'>
-export type getAllDataSetMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getAllDataSetMetadata'>
-export type getDataSetMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getDataSetMetadata'>
-export type getAllPieceMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getAllPieceMetadata'>
-export type getPieceMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getPieceMetadata'>
-export type clientNonces = ExtractAbiFunction<typeof Abis.fwssView, 'clientNonces'>
-export type getPDPConfig = ExtractAbiFunction<typeof Abis.fwssView, 'getPDPConfig'>
-export type getClientDataSetsLength = ExtractAbiFunction<typeof Abis.fwssView, 'getClientDataSetsLength'>
+type isProviderApproved = ExtractAbiFunction<typeof Abis.fwssView, 'isProviderApproved'>
+type railToDataSet = ExtractAbiFunction<typeof Abis.fwssView, 'railToDataSet'>
+type getClientDataSets = ExtractAbiFunction<typeof Abis.fwssView, 'getClientDataSets'>
+type clientDataSets = ExtractAbiFunction<typeof Abis.fwssView, 'clientDataSets'>
+type getDataSet = ExtractAbiFunction<typeof Abis.fwssView, 'getDataSet'>
+type getApprovedProviders = ExtractAbiFunction<typeof Abis.fwssView, 'getApprovedProviders'>
+type getAllDataSetMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getAllDataSetMetadata'>
+type getDataSetMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getDataSetMetadata'>
+type getAllPieceMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getAllPieceMetadata'>
+type getPieceMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getPieceMetadata'>
+type clientNonces = ExtractAbiFunction<typeof Abis.fwssView, 'clientNonces'>
+type getPDPConfig = ExtractAbiFunction<typeof Abis.fwssView, 'getPDPConfig'>
+type getClientDataSetsLength = ExtractAbiFunction<typeof Abis.fwssView, 'getClientDataSetsLength'>
 
 export interface WarmStorageViewOptions {
   isProviderApproved?: (args: AbiToType<isProviderApproved['inputs']>) => AbiToType<isProviderApproved['outputs']>
@@ -46,19 +46,19 @@ export interface WarmStorageViewOptions {
  * Warm Storage ABI types
  */
 
-export type addApprovedProvider = ExtractAbiFunction<typeof Abis.fwss, 'addApprovedProvider'>
-export type removeApprovedProvider = ExtractAbiFunction<typeof Abis.fwss, 'removeApprovedProvider'>
-export type pdpVerifierAddress = ExtractAbiFunction<typeof Abis.fwss, 'pdpVerifierAddress'>
-export type paymentsContractAddress = ExtractAbiFunction<typeof Abis.fwss, 'paymentsContractAddress'>
-export type usdfcTokenAddress = ExtractAbiFunction<typeof Abis.fwss, 'usdfcTokenAddress'>
-export type filBeamBeneficiaryAddress = ExtractAbiFunction<typeof Abis.fwss, 'filBeamBeneficiaryAddress'>
-export type viewContractAddress = ExtractAbiFunction<typeof Abis.fwss, 'viewContractAddress'>
-export type serviceProviderRegistry = ExtractAbiFunction<typeof Abis.fwss, 'serviceProviderRegistry'>
-export type sessionKeyRegistry = ExtractAbiFunction<typeof Abis.fwss, 'sessionKeyRegistry'>
-export type getServicePrice = ExtractAbiFunction<typeof Abis.fwss, 'getServicePrice'>
-export type owner = ExtractAbiFunction<typeof Abis.fwss, 'owner'>
-export type terminateService = ExtractAbiFunction<typeof Abis.fwss, 'terminateService'>
-export type topUpCDNPaymentRails = ExtractAbiFunction<typeof Abis.fwss, 'topUpCDNPaymentRails'>
+type addApprovedProvider = ExtractAbiFunction<typeof Abis.fwss, 'addApprovedProvider'>
+type removeApprovedProvider = ExtractAbiFunction<typeof Abis.fwss, 'removeApprovedProvider'>
+type pdpVerifierAddress = ExtractAbiFunction<typeof Abis.fwss, 'pdpVerifierAddress'>
+type paymentsContractAddress = ExtractAbiFunction<typeof Abis.fwss, 'paymentsContractAddress'>
+type usdfcTokenAddress = ExtractAbiFunction<typeof Abis.fwss, 'usdfcTokenAddress'>
+type filBeamBeneficiaryAddress = ExtractAbiFunction<typeof Abis.fwss, 'filBeamBeneficiaryAddress'>
+type viewContractAddress = ExtractAbiFunction<typeof Abis.fwss, 'viewContractAddress'>
+type serviceProviderRegistry = ExtractAbiFunction<typeof Abis.fwss, 'serviceProviderRegistry'>
+type sessionKeyRegistry = ExtractAbiFunction<typeof Abis.fwss, 'sessionKeyRegistry'>
+type getServicePrice = ExtractAbiFunction<typeof Abis.fwss, 'getServicePrice'>
+type owner = ExtractAbiFunction<typeof Abis.fwss, 'owner'>
+type terminateService = ExtractAbiFunction<typeof Abis.fwss, 'terminateService'>
+type topUpCDNPaymentRails = ExtractAbiFunction<typeof Abis.fwss, 'topUpCDNPaymentRails'>
 
 export interface WarmStorageOptions {
   addApprovedProvider?: (args: AbiToType<addApprovedProvider['inputs']>) => AbiToType<addApprovedProvider['outputs']>

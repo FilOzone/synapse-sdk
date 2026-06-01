@@ -5,14 +5,14 @@ import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
 import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type balanceOf = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'balanceOf'>
-export type decimals = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'decimals'>
-export type allowance = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'allowance'>
-export type name = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'name'>
-export type approve = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'approve'>
-export type nonces = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'nonces'>
-export type version = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'version'>
-export type _symbol = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'symbol'>
+type balanceOf = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'balanceOf'>
+type decimals = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'decimals'>
+type allowance = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'allowance'>
+type name = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'name'>
+type approve = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'approve'>
+type nonces = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'nonces'>
+type version = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'version'>
+type _symbol = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'symbol'>
 
 export interface ERC20Options {
   balanceOf?: (args: AbiToType<balanceOf['inputs']>) => AbiToType<balanceOf['outputs']>
