@@ -118,30 +118,54 @@ export default defineConfig({
       sidebar: [
         {
           label: 'Introduction',
-          autogenerate: { directory: 'introduction' },
+          items: [
+            {
+              autogenerate: { directory: 'introduction' },
+            },
+          ],
         },
         {
           label: 'Core Concepts',
-          autogenerate: { directory: 'core-concepts' },
+          items: [
+            {
+              autogenerate: { directory: 'core-concepts' },
+            },
+          ],
         },
         {
           label: 'Getting Started',
-          autogenerate: { directory: 'getting-started' },
+          items: [
+            {
+              autogenerate: { directory: 'getting-started' },
+            },
+          ],
         },
         {
           label: 'Developer Guides',
           collapsed: false,
-          autogenerate: { directory: 'developer-guides', collapsed: true },
+          items: [
+            {
+              autogenerate: { directory: 'developer-guides', collapsed: true },
+            },
+          ],
         },
         {
           label: 'CookBooks',
           collapsed: true,
-          autogenerate: { directory: 'cookbooks' },
+          items: [
+            {
+              autogenerate: { directory: 'cookbooks' },
+            },
+          ],
         },
         {
           label: 'Resources',
           collapsed: true,
-          autogenerate: { directory: 'resources' },
+          items: [
+            {
+              autogenerate: { directory: 'resources' },
+            },
+          ],
         },
         {
           label: 'Changelogs',
@@ -169,7 +193,11 @@ export default defineConfig({
         {
           label: 'Reference',
           collapsed: true,
-          autogenerate: { directory: 'reference' },
+          items: [
+            {
+              autogenerate: { directory: 'reference', collapsed: true },
+            },
+          ],
         },
       ],
       expressiveCode: {

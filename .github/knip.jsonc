@@ -1,12 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
-  "ignore": [
-    "./apps/synapse-playground/src/components/kibo-ui/dropzone/**",
-    "./apps/synapse-playground/src/components/ui/**",
-    "utils/**"
-  ],
+  "ignore": ["./apps/synapse-playground/src/components/ui/**", "utils/**"],
   "exclude": ["namespaceMembers"],
   "ignoreWorkspaces": ["examples/script-tag"],
+  "ignoreBinaries": ["wrangler"],
   "ignoreDependencies": [
     "@types/*",
     "assert",
@@ -16,12 +13,7 @@
     "typedoc-plugin-mdn-links",
     "typedoc-plugin-missing-exports"
   ],
-  "mocha": {
-    "config": [".mocharc.{ts,js,cjs,json,jsonc,yml,yaml}", "package.json"],
-    "entry": ["**/test/*.{ts,js,cjs,mjs}"]
-  },
   "msw": {
-    "config": ["package.json"],
     "entry": ["test/mocks/mockServiceWorker.js"]
   },
   "workspaces": {
@@ -29,38 +21,8 @@
       "ignoreDependencies": ["@filoz/synapse-sdk", "@filoz/synapse-react", "@tanstack/react-query", "wagmi"],
       "ignoreFiles": ["src/custom.css"]
     },
-    "packages/synapse-sdk": {
-      "entry": ["src/index.ts", "src/{payments,session,storage,warm-storage,sp-registry,filbeam}/index.ts"]
-    },
-    "packages/synapse-react": {
-      "entry": ["src/index.ts", "src/filsnap.ts"]
-    },
     "packages/synapse-core": {
-      "entry": [
-        "src/index.ts",
-        "src/sp/index.ts",
-        "src/chains.ts",
-        "src/piece/index.ts",
-        "src/usdfc.ts",
-        "src/abis/index.ts",
-        "src/auction/index.ts",
-        "src/endorsements/index.ts",
-        "src/erc20/index.ts",
-        "src/errors/index.ts",
-        "src/mocks/index.ts",
-        "src/pay/index.ts",
-        "src/pdp-verifier/index.ts",
-        "src/session-key/index.ts",
-        "src/sp-registry/index.ts",
-        "src/typed-data/index.ts",
-        "src/utils/index.ts",
-        "src/warm-storage/index.ts",
-        "src/devnet/index.ts"
-      ],
       "ignoreFiles": ["wagmi.config.ts"]
-    },
-    "apps/synapse-playground": {
-      "ignoreDependencies": ["buffer", "globals"]
     }
   }
 }

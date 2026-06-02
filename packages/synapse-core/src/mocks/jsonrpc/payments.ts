@@ -5,25 +5,25 @@ import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
 import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type accounts = ExtractAbiFunction<typeof Abis.filecoinPay, 'accounts'>
-export type deposit = ExtractAbiFunction<typeof Abis.filecoinPay, 'deposit'>
-export type operatorApprovals = ExtractAbiFunction<typeof Abis.filecoinPay, 'operatorApprovals'>
-export type setOperatorApproval = ExtractAbiFunction<typeof Abis.filecoinPay, 'setOperatorApproval'>
-export type getRail = ExtractAbiFunction<typeof Abis.filecoinPay, 'getRail'>
-export type getRailsForPayerAndToken = ExtractAbiFunction<typeof Abis.filecoinPay, 'getRailsForPayerAndToken'>
-export type getRailsForPayeeAndToken = ExtractAbiFunction<typeof Abis.filecoinPay, 'getRailsForPayeeAndToken'>
-export type settleRail = ExtractAbiFunction<typeof Abis.filecoinPay, 'settleRail'>
-export type settleTerminatedRailWithoutValidation = ExtractAbiFunction<
+type accounts = ExtractAbiFunction<typeof Abis.filecoinPay, 'accounts'>
+type deposit = ExtractAbiFunction<typeof Abis.filecoinPay, 'deposit'>
+type operatorApprovals = ExtractAbiFunction<typeof Abis.filecoinPay, 'operatorApprovals'>
+type setOperatorApproval = ExtractAbiFunction<typeof Abis.filecoinPay, 'setOperatorApproval'>
+type getRail = ExtractAbiFunction<typeof Abis.filecoinPay, 'getRail'>
+type getRailsForPayerAndToken = ExtractAbiFunction<typeof Abis.filecoinPay, 'getRailsForPayerAndToken'>
+type getRailsForPayeeAndToken = ExtractAbiFunction<typeof Abis.filecoinPay, 'getRailsForPayeeAndToken'>
+type settleRail = ExtractAbiFunction<typeof Abis.filecoinPay, 'settleRail'>
+type settleTerminatedRailWithoutValidation = ExtractAbiFunction<
   typeof Abis.filecoinPay,
   'settleTerminatedRailWithoutValidation'
 >
-export type depositWithPermit = ExtractAbiFunction<typeof Abis.filecoinPay, 'depositWithPermit'>
-export type depositWithPermitAndApproveOperator = ExtractAbiFunction<
+type depositWithPermit = ExtractAbiFunction<typeof Abis.filecoinPay, 'depositWithPermit'>
+type depositWithPermitAndApproveOperator = ExtractAbiFunction<
   typeof Abis.filecoinPay,
   'depositWithPermitAndApproveOperator'
 >
-export type withdraw = ExtractAbiFunction<typeof Abis.filecoinPay, 'withdraw'>
-export type withdrawTo = ExtractAbiFunction<typeof Abis.filecoinPay, 'withdrawTo'>
+type withdraw = ExtractAbiFunction<typeof Abis.filecoinPay, 'withdraw'>
+type withdrawTo = ExtractAbiFunction<typeof Abis.filecoinPay, 'withdrawTo'>
 
 export interface PaymentsOptions {
   accounts?: (args: AbiToType<accounts['inputs']>) => AbiToType<accounts['outputs']>
