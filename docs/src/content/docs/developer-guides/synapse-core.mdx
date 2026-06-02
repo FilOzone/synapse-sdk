@@ -170,7 +170,7 @@ await sp.uploadPiece({
 await sp.findPiece({
   pieceCid,
   serviceURL: provider.pdp.serviceURL,
-  retry: true,
+  poll: true,
 })
 
 console.log(`Piece ${pieceCid.toString()} uploaded to provider ${provider.pdp.serviceURL}`)
