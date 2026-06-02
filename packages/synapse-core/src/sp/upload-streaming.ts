@@ -21,6 +21,10 @@ export namespace uploadPieceStreaming {
     pieceCid?: PieceCID
     /** The signal to abort the request. */
     signal?: AbortSignal
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    retryDelay?: number
   }
   export type OutputType = {
     pieceCid: PieceCID
@@ -47,7 +51,12 @@ export async function uploadPieceStreaming(
 ): Promise<uploadPieceStreaming.OutputType> {
   // Create upload session (POST /pdp/piece/uploads)
   const createResponse = await request.post(new URL('pdp/piece/uploads', options.serviceURL), {
-    timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
+    timeout: RETRY_CONSTANTS.TIMEOUT,
+    retry: {
+      methods: ['post'],
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
     signal: options.signal,
   })
 
@@ -169,7 +178,7 @@ export async function uploadPieceStreaming(
     timeout: false, // No timeout for streaming upload
     signal: options.signal,
     ...fetchOptions,
-  } as Parameters<typeof request.put>[1] & { duplex?: 'half' })
+  })
 
   if (uploadResponse.error) {
     if (HttpError.is(uploadResponse.error)) {
@@ -185,17 +194,17 @@ export async function uploadPieceStreaming(
   // Get PieceCID (either provided or calculated) and finalize.
   const pieceCid = await pieceCidPromise
 
-  const finalizeBody = JSON.stringify({
-    pieceCid: pieceCid.toString(),
-  })
-
   // POST /pdp/piece/uploads/{uuid} with PieceCID
   const finalizeResponse = await request.post(new URL(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL), {
-    body: finalizeBody,
-    headers: {
-      'Content-Type': 'application/json',
+    json: {
+      pieceCid: pieceCid.toString(),
     },
-    timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
+    timeout: RETRY_CONSTANTS.TIMEOUT,
+    retry: {
+      methods: ['post'],
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
     signal: options.signal,
   })
 

@@ -19,6 +19,10 @@ export namespace uploadPiece {
     data: Uint8Array
     /** The piece CID to upload. */
     pieceCid: PieceCID
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    retryDelay?: number
   }
   export type ErrorType = InvalidUploadSizeError | LocationHeaderError | TimeoutError | NetworkError | AbortError
 }
@@ -42,13 +46,15 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
     throw new Error(`Invalid PieceCID: ${String(options.pieceCid)}`)
   }
   const response = await request.post(new URL(`pdp/piece`, options.serviceURL), {
-    body: JSON.stringify({
+    json: {
       pieceCid: pieceCid.toString(),
-    }),
-    headers: {
-      'Content-Type': 'application/json',
     },
-    timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
+    retry: {
+      methods: ['post'],
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
+    timeout: RETRY_CONSTANTS.TIMEOUT,
   })
 
   if (response.error) {
@@ -57,6 +63,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
     }
     throw response.error
   }
+
   if (response.result.status === 200) {
     // Piece already exists on server
     return
@@ -76,6 +83,10 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
       'Content-Length': options.data.length.toString(),
     },
     timeout: false,
+    retry: {
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
   })
 
   if (uploadResponse.error) {
@@ -153,7 +164,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
       await findPiece({
         pieceCid,
         serviceURL,
-        retry: true,
+        poll: true,
       })
 
       options.onEvent?.('pieceParked', { pieceCid, url, dataSet })

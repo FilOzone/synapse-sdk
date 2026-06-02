@@ -109,9 +109,8 @@ describe('resolve-piece-url', () => {
       server.use(
         JSONRPC(presets.basic),
         http.head(filbeamUrl, () => HttpResponse.text('not found', { status: 404 })),
-        http.get('https://pdp.example.com/pdp/piece', ({ request }) => {
-          const url = new URL(request.url)
-          return HttpResponse.json({ pieceCid: url.searchParams.get('pieceCid') }, { status: 200 })
+        http.head(`https://pdp.example.com/piece/${pieceCidString}`, () => {
+          return new HttpResponse(null, { status: 200 })
         })
       )
 
@@ -191,26 +190,35 @@ describe('resolve-piece-url', () => {
       ]
 
       server.use(
-        http.get('https://missing.example.com/pdp/piece', () => HttpResponse.text('not found', { status: 404 })),
-        http.get('https://pdp.example.com/pdp/piece', ({ request }) => {
-          const url = new URL(request.url)
-          return HttpResponse.json({ pieceCid: url.searchParams.get('pieceCid') }, { status: 200 })
+        http.head(`https://missing.example.com/piece/${pieceCidString}`, () =>
+          HttpResponse.text('not found', { status: 404 })
+        ),
+        http.head(`https://pdp.example.com/piece/${pieceCidString}`, () => {
+          return new HttpResponse(null, { status: 200 })
         })
       )
 
-      const result = await findPieceOnProviders(providers, pieceCid)
+      const result = await findPieceOnProviders(
+        providers.map((p) => p.pdp.serviceURL),
+        pieceCid
+      )
       assert.ok(result)
-      assert.equal(result?.id, 2n)
+      assert.equal(result, providers[1].pdp.serviceURL)
     })
 
     it('returns undefined when no provider has the piece', async () => {
       const providers: PDPProvider[] = [createProvider('https://missing.example.com/')]
 
       server.use(
-        http.get('https://missing.example.com/pdp/piece', () => HttpResponse.text('not found', { status: 404 }))
+        http.head(`https://missing.example.com/piece/${pieceCidString}`, () =>
+          HttpResponse.text('not found', { status: 404 })
+        )
       )
 
-      const result = await findPieceOnProviders(providers, pieceCid)
+      const result = await findPieceOnProviders(
+        providers.map((p) => p.pdp.serviceURL),
+        pieceCid
+      )
       assert.equal(result, undefined)
     })
   })
@@ -219,9 +227,8 @@ describe('resolve-piece-url', () => {
     it('returns serviceURL when a provider contains the piece', async () => {
       const providers: PDPProvider[] = [createProvider('https://pdp.example.com/', 5n)]
       server.use(
-        http.get('https://pdp.example.com/pdp/piece', ({ request }) => {
-          const url = new URL(request.url)
-          return HttpResponse.json({ pieceCid: url.searchParams.get('pieceCid') }, { status: 200 })
+        http.head(`https://pdp.example.com/piece/${pieceCidString}`, () => {
+          return new HttpResponse(null, { status: 200 })
         })
       )
 
@@ -237,7 +244,9 @@ describe('resolve-piece-url', () => {
     it('throws when no provider has the piece', async () => {
       const providers: PDPProvider[] = [createProvider('https://missing.example.com/')]
       server.use(
-        http.get('https://missing.example.com/pdp/piece', () => HttpResponse.text('not found', { status: 404 }))
+        http.head(`https://missing.example.com/piece/${pieceCidString}`, () =>
+          HttpResponse.text('not found', { status: 404 })
+        )
       )
 
       const resolver = providersResolver(providers)
@@ -256,9 +265,8 @@ describe('resolve-piece-url', () => {
     it('resolves piece URL from on-chain provider list', async () => {
       server.use(
         JSONRPC(presets.basic),
-        http.get('https://pdp.example.com/pdp/piece', ({ request }) => {
-          const url = new URL(request.url)
-          return HttpResponse.json({ pieceCid: url.searchParams.get('pieceCid') }, { status: 200 })
+        http.head(`https://pdp.example.com/piece/${pieceCidString}`, () => {
+          return new HttpResponse(null, { status: 200 })
         })
       )
 

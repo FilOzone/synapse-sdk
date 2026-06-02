@@ -1,4 +1,4 @@
-import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
+import { HttpError, type Errors as HttpErrors, request } from 'iso-web/http'
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { PullError } from '../errors/pull.ts'
@@ -66,6 +66,10 @@ export namespace pullPiecesApiRequest {
     pieces: PullPieceInput[]
     /** Optional AbortSignal to cancel the request. */
     signal?: AbortSignal
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    retryDelay?: number
   }
 
   export type ReturnType = {
@@ -75,7 +79,7 @@ export namespace pullPiecesApiRequest {
     pieces: PullPieceStatus[]
   }
 
-  export type ErrorType = PullError | TimeoutError | NetworkError | AbortError
+  export type ErrorType = PullError | HttpErrors
 
   export type RequestBody = {
     extraData: Hex
@@ -88,7 +92,7 @@ export namespace pullPiecesApiRequest {
 /**
  * Build the JSON request body for a pull request.
  */
-function buildPullRequestBody(options: pullPiecesApiRequest.OptionsType): string {
+function buildPullRequestBody(options: pullPiecesApiRequest.OptionsType): pullPiecesApiRequest.RequestBody {
   const body: pullPiecesApiRequest.RequestBody = {
     extraData: options.extraData,
     recordKeeper: options.recordKeeper,
@@ -100,7 +104,7 @@ function buildPullRequestBody(options: pullPiecesApiRequest.OptionsType): string
     body.dataSetId = Number(options.dataSetId)
   }
 
-  return JSON.stringify(body)
+  return body
 }
 
 /**
@@ -120,11 +124,13 @@ export async function pullPiecesApiRequest(
   options: pullPiecesApiRequest.OptionsType
 ): Promise<pullPiecesApiRequest.ReturnType> {
   const response = await request.post(new URL('pdp/piece/pull', options.serviceURL), {
-    body: buildPullRequestBody(options),
-    headers: {
-      'Content-Type': 'application/json',
+    json: buildPullRequestBody(options),
+    timeout: RETRY_CONSTANTS.TIMEOUT,
+    retry: {
+      methods: ['post'],
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
     },
-    timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
     signal: options.signal,
   })
 
@@ -147,7 +153,13 @@ export namespace waitForPullPiecesApiRequest {
     onStatus?: (response: pullPiecesApiRequest.ReturnType) => void
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
-    /** The polling interval in milliseconds. Defaults to 4 seconds. */
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    retryDelay?: number
+    /** Whether to poll the request. Defaults to false. */
+    poll?: boolean
+    /** The poll interval in milliseconds. Defaults to 4 second. */
     pollInterval?: number
   }
 
@@ -170,35 +182,28 @@ export async function waitForPullPiecesApiRequest(
   options: waitForPullPiecesApiRequest.OptionsType
 ): Promise<waitForPullPiecesApiRequest.ReturnType> {
   const url = new URL('pdp/piece/pull', options.serviceURL)
-  const body = buildPullRequestBody(options)
-  const headers = { 'Content-Type': 'application/json' }
 
   const response = await request.post(url, {
-    body,
-    headers,
-    async onResponse(response) {
-      if (response.ok) {
-        const data = (await response.clone().json()) as pullPiecesApiRequest.ReturnType
-
+    json: buildPullRequestBody(options),
+    retry: {
+      methods: ['post'],
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
+    poll: {
+      limit: RETRY_CONSTANTS.POLL_LIMIT,
+      interval: options.pollInterval ?? RETRY_CONSTANTS.POLL_INTERVAL,
+      statusCodes: [202, 200], // 202 is processing, 200 is success
+      shouldPoll: async (ctx) => {
+        const data = (await ctx.response.clone().json()) as pullPiecesApiRequest.ReturnType
         // Invoke status callback if provided
         if (options.onStatus) {
           options.onStatus(data)
         }
-
-        // Stop polling when complete or failed
-        if (data.status === 'complete' || data.status === 'failed') {
-          return response
-        }
-        throw new Error('Pull not complete')
-      }
+        return data.status !== 'complete' && data.status !== 'failed'
+      },
     },
-    retry: {
-      shouldRetry: (ctx) => ctx.error.message === 'Pull not complete',
-      retries: RETRY_CONSTANTS.RETRIES,
-      factor: RETRY_CONSTANTS.FACTOR,
-      minTimeout: options.pollInterval ?? RETRY_CONSTANTS.DELAY_TIME,
-    },
-    timeout: options.timeout ?? RETRY_CONSTANTS.MAX_RETRY_TIME,
+    timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
     signal: options.signal,
   })
 
@@ -391,7 +396,13 @@ export namespace waitForPullPieces {
     onStatus?: (response: pullPieces.ReturnType) => void
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
-    /** The polling interval in milliseconds. Defaults to 4 seconds. */
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    retryDelay?: number
+    /** Whether to poll the request. Defaults to false. */
+    poll?: boolean
+    /** The poll interval in milliseconds. Defaults to 4 second. */
     pollInterval?: number
   }
 
@@ -421,5 +432,8 @@ export async function waitForPullPieces(
     onStatus: options.onStatus,
     timeout: options.timeout,
     pollInterval: options.pollInterval,
+    poll: options.poll,
+    retryCount: options.retryCount,
+    retryDelay: options.retryDelay,
   })
 }

@@ -1,4 +1,4 @@
-import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
+import { HttpError, type Errors as HttpErrors, request } from 'iso-web/http'
 import type { Account, Chain, Client, Hex, Transport } from 'viem'
 import { DeletePieceError } from '../errors/pdp.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
@@ -10,11 +10,15 @@ export namespace deletePiece {
     dataSetId: bigint
     pieceId: bigint
     extraData: Hex
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    retryDelay?: number
   }
   export type OutputType = {
     hash: Hex
   }
-  export type ErrorType = DeletePieceError | TimeoutError | NetworkError | AbortError
+  export type ErrorType = DeletePieceError | HttpErrors
 }
 
 /**
@@ -32,7 +36,11 @@ export async function deletePiece(options: deletePiece.OptionsType): Promise<del
     new URL(`pdp/data-sets/${dataSetId}/pieces/${pieceId}`, serviceURL),
     {
       body: { extraData },
-      timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
+      timeout: RETRY_CONSTANTS.TIMEOUT,
+      retry: {
+        retries: options.retryCount,
+        minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+      },
     }
   )
 
@@ -56,6 +64,10 @@ export namespace schedulePieceDeletion {
     clientDataSetId: bigint
     /** The service URL of the PDP API. */
     serviceURL: string
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    retryDelay?: number
   }
   export type OutputType = deletePiece.OutputType
   export type ErrorType = deletePiece.ErrorType
@@ -107,5 +119,7 @@ export async function schedulePieceDeletion(
       clientDataSetId: options.clientDataSetId,
       pieceIds: [options.pieceId],
     }),
+    retryCount: options.retryCount,
+    retryDelay: options.retryDelay,
   })
 }

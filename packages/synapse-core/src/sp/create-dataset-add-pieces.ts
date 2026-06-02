@@ -1,4 +1,4 @@
-import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
+import { HttpError, type Errors as HttpErrors, request } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Address, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import { asChain } from '../chains.ts'
@@ -26,6 +26,10 @@ export namespace createDataSetAndAddPiecesApiRequest {
     extraData: Hex
     /** The pieces to add. */
     pieces: PieceCID[]
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    retryDelay?: number
   }
   export type OutputType = {
     /** The transaction hash. */
@@ -33,7 +37,7 @@ export namespace createDataSetAndAddPiecesApiRequest {
     /** The status URL. */
     statusUrl: string
   }
-  export type ErrorType = CreateDataSetError | LocationHeaderError | TimeoutError | NetworkError | AbortError
+  export type ErrorType = CreateDataSetError | LocationHeaderError | HttpErrors
   export type RequestBody = {
     recordKeeper: Address
     extraData: Hex
@@ -58,18 +62,20 @@ export async function createDataSetAndAddPiecesApiRequest(
 ): Promise<createDataSetAndAddPiecesApiRequest.OutputType> {
   // Send the create data set message to the PDP
   const response = await request.post(new URL(`pdp/data-sets/create-and-add`, options.serviceURL), {
-    body: JSON.stringify({
+    json: {
       recordKeeper: options.recordKeeper,
       extraData: options.extraData,
       pieces: options.pieces.map((piece) => ({
         pieceCid: piece.toString(),
         subPieces: [{ subPieceCid: piece.toString() }],
       })),
-    }),
-    headers: {
-      'Content-Type': 'application/json',
     },
-    timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
+    timeout: RETRY_CONSTANTS.TIMEOUT,
+    retry: {
+      methods: ['post'],
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
   })
 
   if (response.error) {
@@ -114,6 +120,10 @@ export type CreateDataSetAndAddPiecesOptions = {
   cdn?: boolean
   /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
   recordKeeper?: Address
+  /** The number of retries. Defaults to 2. */
+  retryCount?: number
+  /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+  retryDelay?: number
 }
 
 export namespace createDataSetAndAddPieces {
@@ -156,6 +166,8 @@ export async function createDataSetAndAddPieces(
     recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
     extraData,
     pieces: options.pieces.map((piece) => piece.pieceCid),
+    retryCount: options.retryCount,
+    retryDelay: options.retryDelay,
   })
 }
 
@@ -165,7 +177,13 @@ export namespace waitForCreateDataSetAddPieces {
     statusUrl: string
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
-    /** The polling interval in milliseconds. Defaults to 4 seconds. */
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    retryDelay?: number
+    /** Whether to poll the request. Defaults to false. */
+    poll?: boolean
+    /** The poll interval in milliseconds. Defaults to 4 second. */
     pollInterval?: number
   }
   export type ReturnType = {
@@ -178,9 +196,7 @@ export namespace waitForCreateDataSetAddPieces {
     | WaitForCreateDataSetRejectedError
     | WaitForAddPiecesError
     | WaitForAddPiecesRejectedError
-    | TimeoutError
-    | NetworkError
-    | AbortError
+    | HttpErrors
 }
 
 /**
@@ -196,12 +212,22 @@ export async function waitForCreateDataSetAddPieces(
   options: waitForCreateDataSetAddPieces.OptionsType
 ): Promise<waitForCreateDataSetAddPieces.ReturnType> {
   const origin = new URL(options.statusUrl).origin
-  const createdDataset = await waitForCreateDataSet({ statusUrl: options.statusUrl })
+  const createdDataset = await waitForCreateDataSet({
+    statusUrl: options.statusUrl,
+    retryCount: options.retryCount,
+    retryDelay: options.retryDelay,
+    poll: options.poll,
+    pollInterval: options.pollInterval,
+  })
   const addedPieces = await waitForAddPieces({
     statusUrl: new URL(
       `/pdp/data-sets/${createdDataset.dataSetId}/pieces/added/${createdDataset.createMessageHash}`,
       origin
     ).toString(),
+    retryCount: options.retryCount,
+    retryDelay: options.retryDelay,
+    poll: options.poll,
+    pollInterval: options.pollInterval,
   })
   return {
     hash: createdDataset.createMessageHash,

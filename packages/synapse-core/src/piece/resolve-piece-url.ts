@@ -3,7 +3,6 @@ import pLocate from 'p-locate'
 import pSome from 'p-some'
 import type { Address, Chain, Client, Transport } from 'viem'
 import { asChain } from '../chains.ts'
-import { findPiece } from '../sp/find-piece.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
 import { createPieceUrlPDP } from '../utils/piece-url.ts'
 import { getPdpDataSets } from '../warm-storage/get-pdp-data-sets.ts'
@@ -132,13 +131,17 @@ export async function chainResolver(options: resolvePieceUrl.ResolverFnOptionsTy
   }, new Map<bigint, (typeof dataSets)[number]['provider']>())
   const providers = [...providersById.values()]
 
-  const result = await findPieceOnProviders(providers, pieceCid, signal)
+  const result = await findPieceOnProviders(
+    providers.map((p) => p.pdp.serviceURL),
+    pieceCid,
+    signal
+  )
   if (result == null) {
     throw new Error('No provider found')
   }
   return createPieceUrlPDP({
     cid: pieceCid.toString(),
-    serviceURL: result.pdp.serviceURL,
+    serviceURL: result,
   })
 }
 
@@ -160,14 +163,18 @@ export async function chainResolver(options: resolvePieceUrl.ResolverFnOptionsTy
 export function providersResolver(providers: PDPProvider[]): resolvePieceUrl.ResolverFnType {
   return async (options: resolvePieceUrl.ResolverFnOptionsType) => {
     const { pieceCid, signal } = options
-    const result = await findPieceOnProviders(providers, pieceCid, signal)
+    const result = await findPieceOnProviders(
+      providers.map((p) => p.pdp.serviceURL),
+      pieceCid,
+      signal
+    )
     if (result == null) {
       throw new Error('No provider found')
     }
 
     return createPieceUrlPDP({
       cid: pieceCid.toString(),
-      serviceURL: result.pdp.serviceURL,
+      serviceURL: result,
     })
   }
 }
@@ -175,28 +182,35 @@ export function providersResolver(providers: PDPProvider[]): resolvePieceUrl.Res
 /**
  * Find the piece on the providers
  *
- * @param providers - {@link PDPProvider[]}
+ * @param serviceURLs - {@link string[]}
  * @param pieceCid - {@link PieceCID}
  * @param signal - {@link AbortSignal}
  * @returns The piece URL
  */
-export async function findPieceOnProviders(providers: PDPProvider[], pieceCid: PieceCID, signal?: AbortSignal) {
+export async function findPieceOnProviders(serviceURLs: string[], pieceCid: PieceCID, signal?: AbortSignal) {
   const controller = new AbortController()
   const _signal = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal
 
+  async function headPiece(serviceURL: string) {
+    const result = await request.head(new URL(`piece/${pieceCid.toString()}`, serviceURL), {
+      signal: _signal,
+      retry: true,
+    })
+    if (result.error) {
+      throw result.error
+    }
+    return serviceURL
+  }
+
   const result = await pLocate(
-    providers.map((p) =>
-      findPiece({
-        serviceURL: p.pdp.serviceURL,
-        pieceCid,
-        signal: _signal,
-      }).then(
+    serviceURLs.map((p) =>
+      headPiece(p).then(
         () => p,
-        () => null
+        () => undefined
       )
     ),
     (p) => {
-      if (p !== null) {
+      if (p != null) {
         controller.abort()
         return true
       }

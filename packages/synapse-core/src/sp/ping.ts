@@ -10,7 +10,10 @@ import { request } from 'iso-web/http'
  * @throws Errors {@link Error}
  */
 export async function ping(serviceURL: string) {
-  const response = await request.get(new URL(`pdp/ping`, serviceURL))
+  const response = await request.get(new URL(`pdp/ping`, serviceURL), {
+    retry: true,
+    timeout: 1000,
+  })
   if (response.error) {
     throw new Error('Ping failed')
   }
