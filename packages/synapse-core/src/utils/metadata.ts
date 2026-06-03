@@ -35,7 +35,6 @@ export interface MetadataDataSetInternal {
 }
 
 export interface MetadataPieceInternal {
-  ipni?: boolean
   ipfsRootCID?: string
 }
 /**
@@ -89,7 +88,6 @@ export function pieceMetadataObjectToEntry(
 ): MetadataEntry[] {
   const obj = {
     ...(metadataObject ?? {}),
-    ...(metadataInternal?.ipni ? { withIPNI: '' } : {}),
     ...(metadataInternal?.ipfsRootCID ? { ipfsRootCID: metadataInternal.ipfsRootCID } : {}),
   }
   const entries = Object.entries(obj)
