@@ -215,8 +215,6 @@ export namespace waitForAddPieces {
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
     retryDelay?: number
-    /** Whether to poll the request. Defaults to false. */
-    poll?: boolean
     /** The poll interval in milliseconds. Defaults to 4 second. */
     pollInterval?: number
   }

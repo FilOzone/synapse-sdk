@@ -1,4 +1,4 @@
-import { HttpError, type Errors as HttpErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Address, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import { asChain } from '../chains.ts'
@@ -37,7 +37,7 @@ export namespace createDataSetAndAddPiecesApiRequest {
     /** The status URL. */
     statusUrl: string
   }
-  export type ErrorType = CreateDataSetError | LocationHeaderError | HttpErrors
+  export type ErrorType = CreateDataSetError | LocationHeaderError | RequestErrors
   export type RequestBody = {
     recordKeeper: Address
     extraData: Hex
@@ -181,8 +181,6 @@ export namespace waitForCreateDataSetAddPieces {
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
     retryDelay?: number
-    /** Whether to poll the request. Defaults to false. */
-    poll?: boolean
     /** The poll interval in milliseconds. Defaults to 4 second. */
     pollInterval?: number
   }
@@ -196,7 +194,7 @@ export namespace waitForCreateDataSetAddPieces {
     | WaitForCreateDataSetRejectedError
     | WaitForAddPiecesError
     | WaitForAddPiecesRejectedError
-    | HttpErrors
+    | RequestJsonErrors
 }
 
 /**
@@ -216,7 +214,6 @@ export async function waitForCreateDataSetAddPieces(
     statusUrl: options.statusUrl,
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
-    poll: options.poll,
     pollInterval: options.pollInterval,
   })
   const addedPieces = await waitForAddPieces({
@@ -226,7 +223,6 @@ export async function waitForCreateDataSetAddPieces(
     ).toString(),
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
-    poll: options.poll,
     pollInterval: options.pollInterval,
   })
   return {

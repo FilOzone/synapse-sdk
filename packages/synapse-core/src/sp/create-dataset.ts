@@ -1,4 +1,4 @@
-import { HttpError, type Errors as HttpErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import {
   type Account,
   type Address,
@@ -41,7 +41,7 @@ export namespace createDataSetApiRequest {
     statusUrl: string
   }
 
-  export type ErrorType = CreateDataSetError | LocationHeaderError | HttpErrors
+  export type ErrorType = CreateDataSetError | LocationHeaderError | RequestErrors
 
   export type RequestBody = {
     recordKeeper: Address
@@ -207,13 +207,11 @@ export namespace waitForCreateDataSet {
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
     retryDelay?: number
-    /** Whether to poll the request. Defaults to false. */
-    poll?: boolean
     /** The poll interval in milliseconds. Defaults to 4 second. */
     pollInterval?: number
   }
   export type ReturnType = CreateDataSetSuccess
-  export type ErrorType = WaitForCreateDataSetError | WaitForCreateDataSetRejectedError | HttpErrors
+  export type ErrorType = WaitForCreateDataSetError | WaitForCreateDataSetRejectedError | RequestJsonErrors
 }
 
 /**

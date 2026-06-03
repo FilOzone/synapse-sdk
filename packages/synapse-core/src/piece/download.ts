@@ -1,4 +1,4 @@
-import { HttpError, type Errors as HttpErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, request } from 'iso-web/http'
 import { DownloadPieceError } from '../errors/pdp.ts'
 import { InvalidPieceCIDError } from '../errors/piece.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
@@ -17,7 +17,7 @@ export namespace download {
     signal?: AbortSignal
   }
   export type ReturnType = Uint8Array
-  export type ErrorType = DownloadPieceError | HttpErrors
+  export type ErrorType = DownloadPieceError | RequestErrors
 }
 
 /**
@@ -57,7 +57,7 @@ export namespace downloadAndValidate {
     signal?: AbortSignal
   }
   export type ReturnType = Uint8Array
-  export type ErrorType = DownloadPieceError | HttpErrors | InvalidPieceCIDError
+  export type ErrorType = DownloadPieceError | RequestErrors | InvalidPieceCIDError
 }
 
 /**

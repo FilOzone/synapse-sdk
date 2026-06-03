@@ -1,4 +1,4 @@
-import { HttpError, type Errors as HttpErrors, request } from 'iso-web/http'
+import { HttpError, type RequestJsonErrors, request } from 'iso-web/http'
 import * as z from 'zod'
 import { GetDataSetError } from '../errors/pdp.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
@@ -34,7 +34,7 @@ export namespace getDataSet {
     retryDelay?: number
   }
   export type OutputType = DataSet
-  export type ErrorType = GetDataSetError | HttpErrors
+  export type ErrorType = GetDataSetError | RequestJsonErrors
 }
 
 /**

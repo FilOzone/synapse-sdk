@@ -1,4 +1,4 @@
-import { HttpError, type Errors as HttpErrors, request } from 'iso-web/http'
+import { HttpError, type RequestJsonErrors, request } from 'iso-web/http'
 import type { Account, Chain, Client, Hex, Transport } from 'viem'
 import { DeletePieceError } from '../errors/pdp.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
@@ -18,7 +18,7 @@ export namespace deletePiece {
   export type OutputType = {
     hash: Hex
   }
-  export type ErrorType = DeletePieceError | HttpErrors
+  export type ErrorType = DeletePieceError | RequestJsonErrors
 }
 
 /**

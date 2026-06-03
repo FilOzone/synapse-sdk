@@ -185,7 +185,7 @@ export function providersResolver(providers: PDPProvider[]): resolvePieceUrl.Res
  * @param serviceURLs - {@link string[]}
  * @param pieceCid - {@link PieceCID}
  * @param signal - {@link AbortSignal}
- * @returns The piece URL
+ * @returns The Service URL
  */
 export async function findPieceOnProviders(serviceURLs: string[], pieceCid: PieceCID, signal?: AbortSignal) {
   const controller = new AbortController()
@@ -203,12 +203,7 @@ export async function findPieceOnProviders(serviceURLs: string[], pieceCid: Piec
   }
 
   const result = await pLocate(
-    serviceURLs.map((p) =>
-      headPiece(p).then(
-        () => p,
-        () => undefined
-      )
-    ),
+    serviceURLs.map((p) => headPiece(p).catch(() => undefined)),
     (p) => {
       if (p != null) {
         controller.abort()

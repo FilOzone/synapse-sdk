@@ -141,10 +141,13 @@ export const CDN_FIXED_LOCKUP = {
 export const USDFC_SYBIL_FEE = 100_000_000_000_000_000n // 0.1 USDFC
 
 export const RETRY_CONSTANTS = {
-  POLL_INTERVAL: 4000, // 4 seconds in milliseconds between retries
+  /** The interval in milliseconds between polls. 4 seconds is the default interval between polls. */
+  POLL_INTERVAL: 4000,
+  /** The limit of polls. */
   POLL_LIMIT: Infinity,
-  RETRY_DELAY: 250, // 250ms in milliseconds between retries
-  /** The timeout in milliseconds. Defaults to 5 minutes. */
+  /** The delay in milliseconds between retries. 250ms is the default delay between retries. */
+  RETRY_DELAY: 250,
+  /** The timeout in milliseconds. 5 minutes is the default timeout. */
   TIMEOUT: 1000 * 60 * 5,
 } as const
 

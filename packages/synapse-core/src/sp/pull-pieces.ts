@@ -1,4 +1,4 @@
-import { HttpError, type Errors as HttpErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, request } from 'iso-web/http'
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { PullError } from '../errors/pull.ts'
@@ -79,7 +79,7 @@ export namespace pullPiecesApiRequest {
     pieces: PullPieceStatus[]
   }
 
-  export type ErrorType = PullError | HttpErrors
+  export type ErrorType = PullError | RequestErrors
 
   export type RequestBody = {
     extraData: Hex
@@ -157,8 +157,6 @@ export namespace waitForPullPiecesApiRequest {
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
     retryDelay?: number
-    /** Whether to poll the request. Defaults to false. */
-    poll?: boolean
     /** The poll interval in milliseconds. Defaults to 4 second. */
     pollInterval?: number
   }
@@ -400,8 +398,6 @@ export namespace waitForPullPieces {
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
     retryDelay?: number
-    /** Whether to poll the request. Defaults to false. */
-    poll?: boolean
     /** The poll interval in milliseconds. Defaults to 4 second. */
     pollInterval?: number
   }
@@ -432,7 +428,6 @@ export async function waitForPullPieces(
     onStatus: options.onStatus,
     timeout: options.timeout,
     pollInterval: options.pollInterval,
-    poll: options.poll,
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
   })
