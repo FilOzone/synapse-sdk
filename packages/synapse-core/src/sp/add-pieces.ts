@@ -66,6 +66,7 @@ export async function addPiecesApiRequest(
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
       methods: ['post'],
+      statusCodes: [429],
       retries: options.retryCount,
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
     },

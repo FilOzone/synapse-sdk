@@ -38,6 +38,8 @@ export async function deletePiece(options: deletePiece.OptionsType): Promise<del
       body: { extraData },
       timeout: RETRY_CONSTANTS.TIMEOUT,
       retry: {
+        methods: ['delete'],
+        statusCodes: [429],
         retries: options.retryCount,
         minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
       },
