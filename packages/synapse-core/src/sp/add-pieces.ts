@@ -112,11 +112,11 @@ export namespace addPieces {
  * failing early instead of reverting on-chain.
  *
  * @param pieceCount - Number of pieces in the batch
- * @throws AtLeastOnePieceRequiredError when empty
+ * @throws AtLeastOnePieceRequiredError when not a positive integer
  * @throws TooManyPiecesError when above {@link SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE}
  */
 export function validateAddPiecesBatch(pieceCount: number): void {
-  if (pieceCount === 0) {
+  if (!Number.isInteger(pieceCount) || pieceCount < 1) {
     throw new AtLeastOnePieceRequiredError()
   }
   if (pieceCount > SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE) {

@@ -10,6 +10,12 @@ describe('validateAddPiecesBatch', () => {
     assert.throws(() => validateAddPiecesBatch(0), AtLeastOnePieceRequiredError)
   })
 
+  it('should throw for non-positive or non-integer counts', () => {
+    for (const bad of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      assert.throws(() => validateAddPiecesBatch(bad), AtLeastOnePieceRequiredError)
+    }
+  })
+
   it('should accept a count at the maximum', () => {
     assert.doesNotThrow(() => validateAddPiecesBatch(max))
   })
