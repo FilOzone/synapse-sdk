@@ -590,7 +590,7 @@ InvalidSignature(address expected, address actual)
       }
     })
 
-    it.only('should retry on 429 errors', async () => {
+    it('should retry on 429 errors', async () => {
       const pieceCid = Piece.from(validPieceCid)
       let callCount = 0
       server.use(
