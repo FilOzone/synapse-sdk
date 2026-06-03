@@ -11,6 +11,7 @@ import type { SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-
 import type { pullPiecesApiRequest } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
+import type { getPriceList, getUploadCosts } from '@filoz/synapse-core/warm-storage'
 import type { Account, Address, Client, Hash, Hex, Transport } from 'viem'
 import type { Synapse } from './synapse.ts'
 import type { WarmStorageService } from './warm-storage/service.ts'
@@ -27,12 +28,12 @@ export type { RailInfo } from '@filoz/synapse-core/pay'
 export type { MetadataEntry, MetadataObject } from '@filoz/synapse-core/utils'
 
 // Re-export upload cost types from synapse-core
-export type { getUploadCosts } from '@filoz/synapse-core/warm-storage'
+export type { getPriceList, getUploadCosts }
 
 /** Alias for the upload costs return type */
-export type UploadCosts = import('@filoz/synapse-core/warm-storage').getUploadCosts.OutputType
+export type UploadCosts = getUploadCosts.OutputType
 /** Alias for the upload costs options type */
-export type GetUploadCostsOptions = import('@filoz/synapse-core/warm-storage').getUploadCosts.OptionsType
+export type GetUploadCostsOptions = getUploadCosts.OptionsType
 
 /**
  * Options for the fund() method on PaymentsService.
@@ -648,6 +649,8 @@ export interface StorageInfo {
     tokenAddress: Address
     /** Token symbol (always USDFC for now) */
     tokenSymbol: string
+    /** Canonical warm storage price list */
+    priceList: getPriceList.OutputType
   }
 
   /** List of approved service providers */
