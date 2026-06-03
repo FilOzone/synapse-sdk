@@ -17,6 +17,9 @@ export interface UseServicePriceProps {
 /**
  * Get the service price for the warm storage.
  *
+ * @deprecated Use {@link usePriceList} for the latest pricing. This returns only
+ * the legacy `minimumPricePerMonth` floor plus storage/egress rates and does not
+ * reflect the per-operation fee model.
  * @param props - The props to use.
  * @returns The service price.
  */
