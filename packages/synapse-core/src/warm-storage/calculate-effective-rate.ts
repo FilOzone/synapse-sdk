@@ -4,23 +4,23 @@ export namespace calculateEffectiveRate {
   export type ParamsType = {
     /** Total data size in the dataset (existing + new), in bytes. */
     sizeInBytes: bigint
-    /** Price per TiB per month from getServicePrice(). */
-    pricePerTiBPerMonth: bigint
-    /** Minimum monthly charge from getServicePrice(). */
-    minimumPricePerMonth: bigint
-    /** Epochs per month from getServicePrice() (always 86400). */
+    /** Storage price per TiB per month. */
+    storagePerTibPerMonth: bigint
+    /** Monthly proving service rate for non-empty datasets. */
+    provingServicePerMonth: bigint
+    /** Epochs per month. */
     epochsPerMonth: bigint
   }
 
   export type OutputType = {
     /**
-     * Rate per epoch — matches the on-chain PDP rail rate.
-     *
-     * The contract computes this as a single division:
-     *   `(totalBytes * pricePerTiBPerMonth) / (TiB * EPOCHS_PER_MONTH)`
+     * Rate per epoch — matches the contract's additive per-epoch rate
+     * (`calculateStorageSizeBasedRatePerEpoch`): the size-based storage rate plus
+     * the per-epoch dataset fee, each truncated independently then summed:
+     *   `(totalBytes * storagePerTibPerMonth) / (TiB * EPOCHS_PER_MONTH) + provingServicePerMonth / EPOCHS_PER_MONTH`
      *
      * Because truncation depends on totalBytes, this value is only valid for
-     * the exact size it was computed for — you cannot scale it linearly to
+     * the exact size it was computed for; you cannot scale it linearly to
      * estimate costs for different sizes.
      *
      * Use for: lockup calculations, on-chain comparisons.
@@ -29,7 +29,7 @@ export namespace calculateEffectiveRate {
     /**
      * Rate per month — preserves precision before epoch division.
      *
-     * Computed as `(totalBytes * pricePerTiBPerMonth) / TiB` (one fewer
+     * Computed as `(totalBytes * storagePerTibPerMonth) / TiB` (one fewer
      * division than ratePerEpoch), so it retains more precision and scales
      * linearly with size, making it suitable for display and cost estimation.
      *
@@ -44,40 +44,34 @@ export namespace calculateEffectiveRate {
 }
 
 /**
- * Mirror the contract's `_calculateStorageRate` with floor pricing.
+ * Calculate the expected FWSS recurring rate for a dataset size.
  *
  * Returns two rates for different use cases:
  * - `ratePerEpoch` — matches the on-chain rail rate (use for lockup math)
  * - `ratePerMonth` — higher precision, linearly scalable (use for display)
  *
- * The contract multiplies `totalBytes * pricePerTiBPerMonth` before dividing
- * by `TiB * EPOCHS_PER_MONTH` in a single step, so `ratePerEpoch` depends on
- * the total size and cannot be scaled to estimate other sizes. `ratePerMonth`
- * avoids the epoch division, preserving that scalability.
- *
- * On-chain reference:
- * - `_calculateStorageRate`: {@link https://github.com/FilOzone/filecoin-services/blob/053885eba807ed40a0e834c080606f4286ab4ef2/service_contracts/src/FilecoinWarmStorageService.sol#L1388-L1397}
- * - `calculateStorageSizeBasedRatePerEpoch`: {@link https://github.com/FilOzone/filecoin-services/blob/053885eba807ed40a0e834c080606f4286ab4ef2/service_contracts/src/FilecoinWarmStorageService.sol#L1349-L1370}
+ * Empty datasets have no recurring rate. Non-empty datasets pay the
+ * size-based storage rate plus the proving service rate.
  *
  * @param params - {@link calculateEffectiveRate.ParamsType}
  * @returns {@link calculateEffectiveRate.OutputType}
  */
 export function calculateEffectiveRate(params: calculateEffectiveRate.ParamsType): calculateEffectiveRate.OutputType {
-  const { sizeInBytes, pricePerTiBPerMonth, minimumPricePerMonth, epochsPerMonth } = params
+  const { sizeInBytes, storagePerTibPerMonth, provingServicePerMonth, epochsPerMonth } = params
+
+  if (sizeInBytes === 0n) {
+    return { ratePerEpoch: 0n, ratePerMonth: 0n }
+  }
 
   // One division (by TiB only) — preserves precision, linearly scalable with size
-  const naturalPerMonth = (pricePerTiBPerMonth * sizeInBytes) / SIZE_CONSTANTS.TiB
+  const storagePerMonth = (storagePerTibPerMonth * sizeInBytes) / SIZE_CONSTANTS.TiB
 
   // Two-factor division (by TiB * epochs) — matches contract's single-step division,
   // truncation is size-dependent so this value is only valid for this exact sizeInBytes
-  const naturalPerEpoch = (pricePerTiBPerMonth * sizeInBytes) / (SIZE_CONSTANTS.TiB * epochsPerMonth)
+  const storagePerEpoch = (storagePerTibPerMonth * sizeInBytes) / (SIZE_CONSTANTS.TiB * epochsPerMonth)
 
-  // Floor rate per epoch
-  const minimumPerEpoch = minimumPricePerMonth / epochsPerMonth
-
-  // Apply floor pricing
-  const ratePerMonth = naturalPerMonth > minimumPricePerMonth ? naturalPerMonth : minimumPricePerMonth
-  const ratePerEpoch = naturalPerEpoch > minimumPerEpoch ? naturalPerEpoch : minimumPerEpoch
+  const ratePerMonth = storagePerMonth + provingServicePerMonth
+  const ratePerEpoch = storagePerEpoch + provingServicePerMonth / epochsPerMonth
 
   return { ratePerEpoch, ratePerMonth }
 }
