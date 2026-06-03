@@ -64,3 +64,4 @@ trustPolicyExclude:
   # Last 4.x (Dec 2024) predates chokidar adopting trusted publishing at 5.0.0.
   # Permanent while anything depends on chokidar@^4.
   - chokidar@4.0.3
+  - tinyclip@0.1.13
