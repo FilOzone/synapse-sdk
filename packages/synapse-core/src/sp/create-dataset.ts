@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { HttpError, NetworkError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import {
   type Account,
   type Address,
@@ -73,6 +73,7 @@ export async function createDataSetApiRequest(
       statusCodes: [429],
       retries: options.retryCount,
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+      shouldRetry: (ctx) => !NetworkError.is(ctx.error),
     },
   })
 
