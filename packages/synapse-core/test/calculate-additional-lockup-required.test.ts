@@ -1,92 +1,147 @@
 /* globals describe it */
 
 import assert from 'assert'
-import { USDFC_SYBIL_FEE } from '../src/utils/constants.ts'
 import { calculateAdditionalLockupRequired } from '../src/warm-storage/calculate-additional-lockup-required.ts'
+import { calculateEffectiveRate } from '../src/warm-storage/calculate-effective-rate.ts'
+import type { getPriceList } from '../src/warm-storage/price-list.ts'
 
-const pricing = {
-  pricePerTiBPerMonth: 2_500_000_000_000_000_000n, // 2.5 USDFC
-  minimumPricePerMonth: 60_000_000_000_000_000n, // 0.06 USDFC
-  epochsPerMonth: 86400n,
-}
+const priceList = {
+  token: '0x0000000000000000000000000000000000000001',
+  rates: {
+    storagePerTibPerMonth: 2_500_000_000_000_000_000n,
+    datasetFeePerMonth: 24_000_000_000_000_000n,
+    cdnEgressPerTib: 0n,
+    cacheMissEgressPerTib: 0n,
+  },
+  fees: {
+    createDataSetFee: 25_000_000_000_000_000n,
+    addPiecesBaseFee: 500_000_000_000_000n,
+    addPiecesPerPieceFee: 300_000_000_000_000n,
+    schedulePieceRemovalsFee: 2_000_000_000_000_000n,
+    terminateFee: 1_120_000_000_000_000n,
+  },
+  lockups: {
+    lifecycleReserveTarget: 100_000_000_000_000_000n,
+    replenishThreshold: 5_000_000_000_000_000n,
+    defaultLockupPeriod: 86_400n,
+    cdnLockupAmount: 700_000_000_000_000_000n,
+    cacheMissLockupAmount: 300_000_000_000_000_000n,
+    cdnLockupPeriod: 14_400n,
+  },
+} satisfies getPriceList.OutputType
 
 const lockupEpochs = 86400n // 30 days
 
 describe('calculateAdditionalLockupRequired', () => {
-  it('new dataset without CDN: no CDN fixed lockup', () => {
+  it('new dataset without CDN: includes lifecycle lockup only', () => {
     const result = calculateAdditionalLockupRequired({
       dataSize: 1000n,
       currentDataSetSize: 0n,
-      ...pricing,
+      priceList,
       lockupEpochs,
       isNewDataSet: true,
       withCDN: false,
     })
 
-    assert.equal(result.cdnFixedLockup, 0n)
-    assert.equal(result.sybilFee, USDFC_SYBIL_FEE)
-    // For a small file, should use floor rate
-    const minimumPerEpoch = pricing.minimumPricePerMonth / pricing.epochsPerMonth
-    assert.equal(result.rateDeltaPerEpoch, minimumPerEpoch)
-    assert.equal(result.rateLockupDelta, minimumPerEpoch * lockupEpochs)
-    assert.equal(result.total, result.rateLockupDelta + result.sybilFee)
+    // Additive model: rate delta for a new dataset is the storage rate for the
+    // added bytes plus the proving service rate.
+    const expectedRatePerEpoch = calculateEffectiveRate({
+      sizeInBytes: 1000n,
+      storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
+      provingServicePerMonth: priceList.rates.datasetFeePerMonth,
+      epochsPerMonth: 86400n,
+    }).ratePerEpoch
+    assert.equal(result.lifecycleLockup, priceList.lockups.lifecycleReserveTarget)
+    assert.equal(result.cdnLockup, 0n)
+    assert.equal(result.cacheMissLockup, 0n)
+    assert.equal(result.rateDeltaPerEpoch, expectedRatePerEpoch)
+    assert.equal(result.streamingLockup, expectedRatePerEpoch * lockupEpochs)
+    assert.equal(result.total, result.streamingLockup + result.lifecycleLockup)
   })
 
-  it('new dataset with CDN: includes CDN fixed lockup of 1 USDFC', () => {
+  it('new dataset with CDN: includes CDN and cache-miss lockups', () => {
     const result = calculateAdditionalLockupRequired({
       dataSize: 1000n,
       currentDataSetSize: 0n,
-      ...pricing,
+      priceList,
       lockupEpochs,
       isNewDataSet: true,
       withCDN: true,
     })
 
-    const cdnFixedLockup = 1_000_000_000_000_000_000n // 1 USDFC
-    assert.equal(result.cdnFixedLockup, cdnFixedLockup)
-    assert.equal(result.sybilFee, USDFC_SYBIL_FEE)
-    assert.equal(result.total, result.rateLockupDelta + cdnFixedLockup + result.sybilFee)
+    assert.equal(result.lifecycleLockup, priceList.lockups.lifecycleReserveTarget)
+    assert.equal(result.cdnLockup, priceList.lockups.cdnLockupAmount)
+    assert.equal(result.cacheMissLockup, priceList.lockups.cacheMissLockupAmount)
+    assert.equal(
+      result.total,
+      result.streamingLockup + result.lifecycleLockup + result.cdnLockup + result.cacheMissLockup
+    )
   })
 
-  it('existing dataset floor-to-floor: rate delta = 0 when both sizes are below floor', () => {
-    // Both 100 bytes and 200 bytes are well below floor threshold
+  it('existing dataset keeps the proving rate and only locks up storage delta', () => {
     const result = calculateAdditionalLockupRequired({
       dataSize: 100n,
       currentDataSetSize: 100n,
-      ...pricing,
+      priceList,
       lockupEpochs,
       isNewDataSet: false,
       withCDN: false,
     })
 
-    // Both sizes produce floor rate, so delta = 0
-    assert.equal(result.rateDeltaPerEpoch, 0n)
-    assert.equal(result.rateLockupDelta, 0n)
-    assert.equal(result.cdnFixedLockup, 0n)
-    assert.equal(result.sybilFee, 0n)
-    assert.equal(result.total, 0n)
+    // Proving rate cancels between current and new size; only the storage rate
+    // delta for the added bytes is locked up.
+    const rateParams = {
+      storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
+      provingServicePerMonth: priceList.rates.datasetFeePerMonth,
+      epochsPerMonth: 86400n,
+    }
+    const expectedDelta =
+      calculateEffectiveRate({ ...rateParams, sizeInBytes: 200n }).ratePerEpoch -
+      calculateEffectiveRate({ ...rateParams, sizeInBytes: 100n }).ratePerEpoch
+    assert.ok(expectedDelta > 0n)
+    assert.equal(result.rateDeltaPerEpoch, expectedDelta)
+    assert.equal(result.streamingLockup, expectedDelta * lockupEpochs)
+    assert.equal(result.lifecycleLockup, 0n)
+    assert.equal(result.cdnLockup, 0n)
+    assert.equal(result.cacheMissLockup, 0n)
+    assert.equal(result.total, result.streamingLockup)
   })
 
-  it('existing dataset crossing floor threshold: rate delta > 0', () => {
+  it('existing dataset with added storage has a positive rate delta', () => {
     const TiB = 1n << 40n
-    // Start with 0 (treated as new since isNewDataSet=false but currentDataSetSize=0
-    // triggers the else branch... actually currentDataSetSize > 0n check fails so it
-    // goes to the else branch). Use a large currentDataSetSize instead.
+    // Non-zero existing dataset size so the existing-dataset delta path runs.
     const result = calculateAdditionalLockupRequired({
       dataSize: TiB,
-      currentDataSetSize: 1n, // tiny existing dataset at floor
-      ...pricing,
+      currentDataSetSize: 1n,
+      priceList,
       lockupEpochs,
       isNewDataSet: false,
       withCDN: false,
     })
 
-    // Adding 1 TiB to a 1-byte dataset: new rate will be well above floor
-    // while current rate is at the floor, so delta should be positive
     assert.ok(result.rateDeltaPerEpoch > 0n)
-    assert.equal(result.rateLockupDelta, result.rateDeltaPerEpoch * lockupEpochs)
-    assert.equal(result.cdnFixedLockup, 0n)
-    assert.equal(result.sybilFee, 0n)
-    assert.equal(result.total, result.rateLockupDelta)
+    assert.equal(result.streamingLockup, result.rateDeltaPerEpoch * lockupEpochs)
+    assert.equal(result.lifecycleLockup, 0n)
+    assert.equal(result.cdnLockup, 0n)
+    assert.equal(result.cacheMissLockup, 0n)
+    assert.equal(result.total, result.streamingLockup)
+  })
+
+  it('sources the lockup period from priceList.lockups.defaultLockupPeriod when lockupEpochs is omitted', () => {
+    const customPeriod = 1234n
+    const customPriceList = {
+      ...priceList,
+      lockups: { ...priceList.lockups, defaultLockupPeriod: customPeriod },
+    }
+
+    const result = calculateAdditionalLockupRequired({
+      dataSize: 1000n,
+      currentDataSetSize: 0n,
+      priceList: customPriceList,
+      isNewDataSet: true,
+      withCDN: false,
+    })
+
+    assert.equal(result.streamingLockup, result.rateDeltaPerEpoch * customPeriod)
   })
 })

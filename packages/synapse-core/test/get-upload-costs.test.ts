@@ -32,11 +32,14 @@ describe('getUploadCosts', () => {
 
     const result = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n, // tiny file → uses floor pricing
+      dataSize: 1n,
     })
 
     assert.equal(typeof result.rate.perEpoch, 'bigint')
     assert.equal(typeof result.rate.perMonth, 'bigint')
+    assert.equal(result.rate, result.rates)
+    assert.equal(typeof result.fees.total, 'bigint')
+    assert.equal(typeof result.lockups.total, 'bigint')
     assert.equal(typeof result.depositNeeded, 'bigint')
     assert.equal(typeof result.needsFwssMaxApproval, 'boolean')
     assert.equal(typeof result.ready, 'boolean')
@@ -115,7 +118,7 @@ describe('getUploadCosts', () => {
     assert.equal(result.ready, false)
   })
 
-  it('should apply floor pricing for tiny files', async () => {
+  it('should apply proving service rate for tiny files', async () => {
     server.use(
       JSONRPC({
         ...presets.basic,
@@ -136,13 +139,15 @@ describe('getUploadCosts', () => {
       dataSize: 1n,
     })
 
-    // Floor: minimumPricePerMonth = 0.06 USDFC
-    // perMonth should equal minimumPricePerMonth (floor)
-    const minimumPricePerMonth = parseUnits('6', 16) // 0.06 USDFC
-    assert.equal(result.rate.perMonth, minimumPricePerMonth)
+    // Additive: 1-byte dataset pays a tiny storage rate on top of proving.
+    const storagePerMonth1Byte = parseUnits('2.5', 18) / (1n << 40n)
+    assert.equal(result.rate.perMonth, parseUnits('0.024', 18) + storagePerMonth1Byte)
+    assert.equal(result.fees.createDataSetFee, parseUnits('0.025', 18))
+    assert.equal(result.fees.addPiecesFee, parseUnits('0.0008', 18))
+    assert.equal(result.lockups.lifecycleLockup, parseUnits('0.10', 18))
   })
 
-  it('should use natural rate for large files above floor', async () => {
+  it('should use storage plus proving rate for large files', async () => {
     server.use(
       JSONRPC({
         ...presets.basic,
@@ -158,16 +163,15 @@ describe('getUploadCosts', () => {
       transport: http(),
     })
 
-    // 1 TiB should be above floor pricing
     const onetiB = 1n << 40n
     const result = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
       dataSize: onetiB,
     })
 
-    // Natural rate for 1 TiB = pricePerTiBPerMonth = 2.5 USDFC
+    // 1 TiB storage plus proving service rate.
     const pricePerTiBPerMonth = parseUnits('2.5', 18)
-    assert.equal(result.rate.perMonth, pricePerTiBPerMonth)
+    assert.equal(result.rate.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
   })
 
   it('should include debt in deposit for account in debt', async () => {
@@ -247,10 +251,9 @@ describe('getUploadCosts', () => {
     )
 
     // runway = (currentLockupRate + rateDeltaPerEpoch) * extraRunwayEpochs
-    // currentLockupRate = 0, rateDeltaPerEpoch = floor rate = minimumPerEpoch
-    // minimumPerEpoch = 6e16 / 86400 = 694,444,444,444 (bigint truncation)
-    // runway = 694,444,444,444 * 10,000 = 6,944,444,444,440,000
-    const expectedRunway = 6_944_444_444_440_000n
+    // currentLockupRate = 0; rateDeltaPerEpoch = storage(1 byte) + proving, per epoch
+    const ratePerEpoch1Byte = parseUnits('2.5', 18) / ((1n << 40n) * 86400n) + parseUnits('0.024', 18) / 86400n
+    const expectedRunway = ratePerEpoch1Byte * 10_000n
     assert.equal(
       withRunway.depositNeeded - baseline.depositNeeded,
       expectedRunway,
@@ -300,9 +303,8 @@ describe('getUploadCosts', () => {
     )
 
     // Buffer delta = netRate * bufferEpochs = (currentLockupRate + rateDelta) * 100
-    // rateDelta = floor rate for 1-byte file = minimumPricePerMonth / epochsPerMonth
-    const floorRatePerEpoch = 60_000_000_000_000_000n / 86400n
-    const netRate = 100_000_000_000_000n + floorRatePerEpoch
+    const ratePerEpoch1Byte = parseUnits('2.5', 18) / ((1n << 40n) * 86400n) + parseUnits('0.024', 18) / 86400n
+    const netRate = 100_000_000_000_000n + ratePerEpoch1Byte
     const expectedBufferDelta = netRate * 100n
     assert.equal(
       largeBuffer.depositNeeded - smallBuffer.depositNeeded,
@@ -344,8 +346,8 @@ describe('getUploadCosts', () => {
       isNewDataSet: true,
     })
 
-    // 1 TiB rate = 2.5 USDFC/month, 0.5 TiB rate < 2.5 USDFC/month
-    assert.equal(existing.rate.perMonth, parseUnits('2.5', 18))
+    // Existing dataset pays storage for 1 TiB plus one proving service rate.
+    assert.equal(existing.rate.perMonth, parseUnits('2.524', 18))
     assert.ok(
       existing.rate.perMonth > newDs.rate.perMonth,
       `existing dataset rate (${existing.rate.perMonth}) should exceed new dataset rate (${newDs.rate.perMonth})`
@@ -382,12 +384,40 @@ describe('getUploadCosts', () => {
       withCDN: true,
     })
 
-    // CDN_FIXED_LOCKUP.total = 1 USDFC (cdn 0.7 + cacheMiss 0.3)
     const cdnFixedLockupTotal = 1_000_000_000_000_000_000n
     assert.equal(
       withCDN.depositNeeded - withoutCDN.depositNeeded,
       cdnFixedLockupTotal,
-      'CDN deposit should exceed non-CDN deposit by exactly CDN_FIXED_LOCKUP.total (1 USDFC)'
+      'CDN deposit should exceed non-CDN deposit by the CDN and cache-miss lockups'
     )
+  })
+
+  it('includes operation fees in the deposit for a new dataset', async () => {
+    // Fresh account (no funds, no existing rails) creating a new dataset: with
+    // default runway/buffer this isolates the deposit to lockups + fees, so it
+    // proves operation fees are actually counted in depositNeeded.
+    server.use(
+      JSONRPC({
+        ...presets.basic,
+        payments: {
+          ...presets.basic.payments,
+          accounts: () => [0n, 0n, 0n, 0n],
+          operatorApprovals: () => [true, maxUint256, maxUint256, 0n, 0n, maxUint256],
+        },
+      })
+    )
+
+    const client = createPublicClient({
+      chain: calibration,
+      transport: http(),
+    })
+
+    const result = await getUploadCosts(client, {
+      clientAddress: ADDRESSES.client1,
+      dataSize: 1n,
+    })
+
+    assert.ok(result.fees.total > 0n)
+    assert.equal(result.depositNeeded, result.lockups.total + result.fees.total)
   })
 })

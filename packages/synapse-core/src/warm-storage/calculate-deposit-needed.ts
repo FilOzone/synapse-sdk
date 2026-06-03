@@ -1,5 +1,7 @@
 import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS } from '../utils/constants.ts'
 import { calculateAdditionalLockupRequired } from './calculate-additional-lockup-required.ts'
+import { calculateOperationFees } from './calculate-operation-fees.ts'
+import type { getPriceList } from './price-list.ts'
 
 export namespace calculateRunwayAmount {
   export type ParamsType = {
@@ -73,14 +75,15 @@ export namespace calculateDepositNeeded {
     // Upload parameters (passed to calculateAdditionalLockupRequired)
     dataSize: bigint
     currentDataSetSize: bigint
-    pricePerTiBPerMonth: bigint
-    minimumPricePerMonth: bigint
+    priceList: getPriceList.OutputType
     /** Epochs per month. Defaults to EPOCHS_PER_MONTH (86400). */
     epochsPerMonth?: bigint
-    /** Lockup period in epochs. Defaults to LOCKUP_PERIOD (30 days). */
+    /** Lockup period in epochs. Defaults to priceList.lockups.defaultLockupPeriod. */
     lockupEpochs?: bigint
     isNewDataSet: boolean
     withCDN: boolean
+    pieceCount?: bigint
+    addPiecesOperationCount?: bigint
 
     // Runway parameters
     currentLockupRate: bigint
@@ -96,24 +99,41 @@ export namespace calculateDepositNeeded {
     /** Safety margin in epochs for tx execution delay. Defaults to DEFAULT_BUFFER_EPOCHS (5). */
     bufferEpochs?: bigint
   }
+
+  export type OutputType = {
+    /** Total deposit needed in token base units (0n if already sufficient). */
+    depositNeeded: bigint
+    /** Lockup breakdown the deposit was computed from. */
+    lockup: calculateAdditionalLockupRequired.OutputType
+    /** Operation fee breakdown the deposit was computed from. */
+    fees: calculateOperationFees.OutputType
+  }
 }
 
 /**
  * Orchestrate lockup + runway + debt + buffer to compute total deposit needed.
  *
+ * Returns the deposit together with the lockup and fee breakdowns it was
+ * computed from, so callers can reuse them without recomputing.
+ *
  * @param params - {@link calculateDepositNeeded.ParamsType}
- * @returns The total deposit needed in token base units (0n if already sufficient)
+ * @returns {@link calculateDepositNeeded.OutputType}
  */
-export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType): bigint {
+export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType): calculateDepositNeeded.OutputType {
   const lockup = calculateAdditionalLockupRequired({
     dataSize: params.dataSize,
     currentDataSetSize: params.currentDataSetSize,
-    pricePerTiBPerMonth: params.pricePerTiBPerMonth,
-    minimumPricePerMonth: params.minimumPricePerMonth,
+    priceList: params.priceList,
     epochsPerMonth: params.epochsPerMonth,
     lockupEpochs: params.lockupEpochs,
     isNewDataSet: params.isNewDataSet,
     withCDN: params.withCDN,
+  })
+  const fees = calculateOperationFees({
+    priceList: params.priceList,
+    isNewDataSet: params.isNewDataSet,
+    pieceCount: params.pieceCount,
+    addPiecesOperationCount: params.addPiecesOperationCount,
   })
 
   const netRateAfterUpload = params.currentLockupRate + lockup.rateDeltaPerEpoch
@@ -125,7 +145,7 @@ export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType
     extraRunwayEpochs,
   })
 
-  const rawDepositNeeded = lockup.total + runway + params.debt - params.availableFunds
+  const rawDepositNeeded = lockup.total + fees.total + runway + params.debt - params.availableFunds
 
   // Skip buffer when no existing rails are draining and this is a new dataset.
   // The deposit lands before any rail is created, so nothing consumes funds
@@ -143,5 +163,5 @@ export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType
       })
 
   const clamped = rawDepositNeeded > 0n ? rawDepositNeeded : 0n
-  return clamped + buffer
+  return { depositNeeded: clamped + buffer, lockup, fees }
 }
