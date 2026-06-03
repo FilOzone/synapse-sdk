@@ -32,6 +32,7 @@ import {
   getClientDataSets,
   getClientDataSetsLength,
   getDataSet,
+  getPriceList,
   getServicePrice,
   removeApprovedProvider,
   terminateService,
@@ -357,8 +358,20 @@ export class WarmStorageService {
   // ========== Storage Cost Operations ==========
 
   /**
-   * Get the current service price per TiB per month
-   * @returns Service price information for both CDN and non-CDN options
+   * Get the current warm storage price list.
+   * @returns Recurring rates, operation fees, and lockups.
+   */
+  async getPriceList(): Promise<getPriceList.OutputType> {
+    return getPriceList(this._client)
+  }
+
+  /**
+   * Get the current service price from the current FWSS ABI.
+   *
+   * @deprecated Use {@link WarmStorageService.getPriceList} for the latest
+   * pricing. This returns only the legacy `minimumPricePerMonth` floor plus
+   * storage/egress rates and does not reflect the per-operation fee model.
+   * @returns Service price information from the current FWSS ABI.
    */
   async getServicePrice(): Promise<getServicePrice.OutputType> {
     return getServicePrice(this._client)
