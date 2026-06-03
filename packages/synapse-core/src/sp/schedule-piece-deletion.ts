@@ -1,4 +1,4 @@
-import { HttpError, NetworkError, type RequestJsonErrors, request } from 'iso-web/http'
+import { HttpError, type RequestJsonErrors, request } from 'iso-web/http'
 import type { Account, Chain, Client, Hex, Transport } from 'viem'
 import { DeletePieceError } from '../errors/pdp.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
@@ -39,10 +39,9 @@ export async function deletePiece(options: deletePiece.OptionsType): Promise<del
       timeout: RETRY_CONSTANTS.TIMEOUT,
       retry: {
         methods: ['delete'],
-        statusCodes: [429],
         retries: options.retryCount,
         minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
-        shouldRetry: (ctx) => !NetworkError.is(ctx.error),
+        shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 429,
       },
     }
   )

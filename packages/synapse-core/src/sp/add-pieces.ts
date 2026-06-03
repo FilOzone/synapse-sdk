@@ -1,4 +1,4 @@
-import { type AbortError, HttpError, NetworkError, request, type TimeoutError } from 'iso-web/http'
+import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import * as z from 'zod'
@@ -66,10 +66,9 @@ export async function addPiecesApiRequest(
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
       methods: ['post'],
-      statusCodes: [429],
       retries: options.retryCount,
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
-      shouldRetry: (ctx) => !NetworkError.is(ctx.error),
+      shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 429,
     },
   })
 

@@ -1,4 +1,4 @@
-import { HttpError, NetworkError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Address, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import { asChain } from '../chains.ts'
@@ -73,10 +73,9 @@ export async function createDataSetAndAddPiecesApiRequest(
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
       methods: ['post'],
-      statusCodes: [429],
       retries: options.retryCount,
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
-      shouldRetry: (ctx) => !NetworkError.is(ctx.error),
+      shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 429,
     },
   })
 

@@ -35,6 +35,7 @@ import {
   deletePiece,
   findPiece,
   getDataSet,
+  NetworkError,
   TimeoutError,
   uploadPiece,
   waitForAddPieces,
@@ -555,6 +556,75 @@ InvalidSignature(address expected, address actual)
         assert.instanceOf(error, AddPiecesError)
         assert.equal(error.shortMessage, 'Failed to add pieces.')
         assert.include(error.message, 'Invalid piece CID')
+      }
+    })
+
+    it('should not retry on network errors', async () => {
+      const pieceCid = Piece.from(validPieceCid)
+      let callCount = 0
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', () => {
+          callCount++
+          return HttpResponse.error()
+        })
+      )
+
+      const extraData = await TypedData.signAddPieces(client, {
+        clientDataSetId: 0n,
+        pieces: [{ pieceCid }],
+      })
+
+      try {
+        await addPiecesApiRequest({
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          pieces: [pieceCid],
+          extraData,
+          retryDelay: 10,
+        })
+        assert.fail('Should have thrown error for network error')
+      } catch (error) {
+        assert.strictEqual(callCount, 1)
+        assert.instanceOf(error, NetworkError)
+        assert.include(error.message, 'Network request failed')
+      }
+    })
+
+    it.only('should retry on 429 errors', async () => {
+      const pieceCid = Piece.from(validPieceCid)
+      let callCount = 0
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', () => {
+          callCount++
+          return new HttpResponse(null, {
+            status: 429,
+            headers: {
+              'Retry-After': '0.01',
+            },
+            statusText: 'Too Many Requests',
+          })
+        })
+      )
+
+      const extraData = await TypedData.signAddPieces(client, {
+        clientDataSetId: 0n,
+        pieces: [{ pieceCid }],
+      })
+
+      try {
+        await addPiecesApiRequest({
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          pieces: [pieceCid],
+          extraData,
+          retryCount: 2,
+          retryDelay: 10,
+        })
+        assert.fail('Should have thrown error for 429 error')
+      } catch (error) {
+        assert.strictEqual(callCount, 3)
+        assert.instanceOf(error, AddPiecesError)
+        assert.include(error.message, 'Failed to add pieces.')
       }
     })
 
