@@ -13,7 +13,7 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
-import { waitForAddPieces } from './add-pieces.ts'
+import { validateAddPiecesBatch, waitForAddPieces } from './add-pieces.ts'
 import { waitForCreateDataSet } from './create-dataset.ts'
 
 export namespace createDataSetAndAddPiecesApiRequest {
@@ -134,6 +134,7 @@ export async function createDataSetAndAddPieces(
   client: Client<Transport, Chain, Account>,
   options: CreateDataSetAndAddPiecesOptions
 ): Promise<createDataSetAndAddPieces.ReturnType> {
+  validateAddPiecesBatch(options.pieces.length)
   const chain = asChain(client.chain)
   const extraData =
     options.extraData ??

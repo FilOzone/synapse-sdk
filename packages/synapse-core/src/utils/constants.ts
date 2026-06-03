@@ -92,6 +92,14 @@ export const SIZE_CONSTANTS = {
   DEFAULT_UPLOAD_BATCH_SIZE: 32,
 
   /**
+   * Maximum pieces per addPieces (or createDataSetAndAddPieces) call.
+   *
+   * On-chain limitations fail batch sizes above 41; we constrain to 40 here to
+   * catch those failures early and surface informative errors.
+   */
+  MAX_ADD_PIECES_BATCH_SIZE: 40,
+
+  /**
    * Bytes per leaf in the PDP merkle tree.
    * The FWSS contract converts leaf counts to bytes via `totalBytes = leafCount * BYTES_PER_LEAF`.
    */

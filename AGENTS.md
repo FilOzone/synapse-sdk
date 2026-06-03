@@ -172,7 +172,7 @@ Ref: FRC-0069
 
 **Internal**: `MetadataEntry[]` (alphabetically sorted for EIP-712)
 
-**Validation**: Data sets max 10 keys, pieces max 5 keys, keys max 32 chars, values max 128 chars. Validated early in PDPServer.
+**Validation**: Data sets max 10 keys, pieces max 3 keys, keys max 32 chars, values max 96 chars. Validated early in PDPServer.
 
 **Security**: Uses `Object.create(null)` for prototype-safe objects from contracts.
 
