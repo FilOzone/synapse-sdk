@@ -8,8 +8,8 @@ sidebar:
 :::tip[What You'll Learn]
 
 - The mental model: deposit USDFC, FWSS handles payments to storage providers
-- How much storage costs (pricing, floors, CDN)
-- What payment rails are and why each dataset has up to three
+- How much storage costs (pricing, fees, CDN)
+- What payment rails are and why each data set has up to three
 - What happens if your account runs low on funds
 
 :::
@@ -41,35 +41,51 @@ This cookbook explains the underlying payment model. For practical code:
 
 ## Pricing
 
+Two recurring rates apply per data set:
+
 | Component | Cost | Notes |
 | -------------- | -------------------- | ------------------------------------------------------- |
-| **Storage** | $2.50/TiB/month | Minimum $0.06/month per dataset (~24.567 GiB threshold) |
-| **Sybil fee** | 0.1 USDFC (one-time) | Per new dataset creation; prevents state-growth spam |
-| **CDN egress** | $14/TiB downloaded | 1 USDFC top-up ≈ 71.5 GiB of downloads |
-| **CDN setup** | 1 USDFC (one-time) | Per dataset; reusing existing datasets incurs no cost |
+| **Storage** | $2.50/TiB/month per copy | Charged only while pieces exist. Empty data sets are free |
+| **Proving Service** | $0.024/data set/month | Flat per-data-set fee, added on top of the storage rate |
+| **CDN egress** | up to $0.014/GiB downloaded | Optional, via Filecoin Beam. About half this when served from cache |
 
 :::note
 "Month" always means exactly **30 days = 86,400 epochs** throughout the system. Filecoin epochs are ~30 seconds each.
 :::
 
-### Floor Pricing
+Each on-chain operation also pays a small one-time fee to the storage provider, covering the gas it spends on your behalf:
 
-Every dataset has a minimum monthly charge of **$0.06/month**, regardless of size. This compensates storage providers for the overhead of maintaining a dataset. Files under ~24.567 GiB all pay this same floor rate. Above that threshold, the natural rate (`bytes/TiB × $2.50/month`) takes over.
+| Operation | Fee |
+| -------------- | -------------------- |
+| **Create data set** | $0.025 |
+| **Add pieces** | $0.0005 + $0.0003 per piece |
+| **Schedule piece removals** | $0.002 per call |
+| **Terminate service** | $0.00112 (user-initiated only) |
 
-### Dataset Creation Costs
+These are fractions of a cent. They are drawn from a ~$0.10 lockup reserve held while the data set is active, not billed separately on each call. See [Storage Costs: How the fees and lockup work](/developer-guides/storage/storage-costs/#how-the-fees-and-lockup-work) for the mechanics.
 
-Creating a new dataset requires minimum available funds to cover the initial lockup plus the sybil fee:
+:::caution[SDK pricing update in progress]
+The per-operation fees and the additive proving fee are live in the Warm Storage contract, but the SDK cost APIs (`getUploadCosts()`, `prepare()`) are still being updated to surface them, tracked in [synapse-sdk#763](https://github.com/FilOzone/synapse-sdk/issues/763). Until that lands, returned `rate` and `depositNeeded` values reflect the previous model.
+:::
+
+### Proving Fee
+
+The monthly cost of an active data set is `(bytes / TiB) × $2.50 + $0.024`. There is no minimum floor: a data set with no pieces costs nothing, and the rate activates when the first piece is added. Earlier pricing used a single $0.06/month minimum. The flat proving fee replaces it as an additive per-data-set charge.
+
+### Data Set Creation Costs
+
+Creating a data set locks a small lifecycle reserve. The storage rate starts at zero and is set automatically when you add data:
 
 | Scenario | Minimum Funds Required |
 | -------- | ---------------------- |
-| No CDN | 0.16 USDFC (0.06 floor lockup + 0.10 sybil fee) |
-| With CDN | 1.16 USDFC (0.06 floor + 0.10 sybil + 0.70 CDN + 0.30 cache miss) |
+| No CDN | ~0.10 USDFC (lifecycle reserve lockup) |
+| With CDN | ~1.10 USDFC (0.10 reserve + 0.70 CDN egress + 0.30 cache-miss) |
 
-The storage rate starts at zero when a dataset is created and is set automatically when you add data.
+One-time fees such as the $0.025 creation fee are drawn from the lifecycle reserve, not added on top of these amounts.
 
 ## Payment Rails
 
-For each dataset, FWSS creates payment channels called **rails** that stream funds from your account to the storage provider. A dataset can have up to three rails:
+For each data set, FWSS creates payment channels called **rails** that stream funds from your account to the storage provider. A data set can have up to three rails:
 
 | Rail | Type | Purpose |
 | -------------- | --------- | ---------------------------------------- |
@@ -77,11 +93,11 @@ For each dataset, FWSS creates payment channels called **rails** that stream fun
 | **CDN rail** | Fixed | 0.7 USDFC lockup for CDN egress credits |
 | **Cache miss** | Fixed | 0.3 USDFC lockup for cache miss credits |
 
-Every dataset gets a PDP rail. CDN and cache miss rails are added only when CDN is enabled.
+Every data set gets a PDP rail, which also holds the ~$0.10 lifecycle reserve that one-time fees draw from. CDN and cache miss rails are added only when CDN is enabled.
 
 FWSS enforces a **30-day lockup period**: your account must always have enough funds to cover at least 30 days of storage at the current rate. Think of it as a security deposit. The funds aren't spent upfront, but they're reserved so providers are guaranteed payment even if you stop topping up.
 
-When you add data to an existing dataset, FWSS automatically adjusts the rail's payment rate. The SDK calculates the correct deposit amount for you via `getUploadCosts()` and `prepare()`.
+When you add data to an existing data set, FWSS automatically adjusts the rail's payment rate. The SDK calculates the correct deposit amount for you via `getUploadCosts()` and `prepare()`.
 
 ## Operator Approval
 
