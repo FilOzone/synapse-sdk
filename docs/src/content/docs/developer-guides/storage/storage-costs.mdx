@@ -19,22 +19,38 @@ An **epoch** is Filecoin's block time, which is 30 seconds. Storage costs are ca
 
 ## Pricing Components
 
+Pricing has two recurring rates and a set of small one-time fees.
+
+### Recurring rates
+
 | Component | Cost | Notes |
 | -------------- | ------------------ | -------------------------------------------------------- |
-| **Storage** | $2.50/TiB/month | Minimum $0.06/month per data set (~24.567 GiB threshold) |
-| **Sybil Fee** | 0.1 USDFC (one-time) | Per new data set creation; prevents state-growth spam |
-| **CDN Egress** | $14/TiB downloaded | 1 USDFC top-up ≈ 71.5 GiB of downloads |
-| **CDN Setup** | 1 USDFC (one-time) | Per data set; reusing existing data sets incurs no cost |
+| **Storage** | $2.50/TiB/month per copy | Charged only while pieces exist. Empty data sets are free. |
+| **Proving Service** | $0.024/data set/month | Flat per-data-set fee, added on top of the storage rate. |
+| **CDN egress** | up to $0.014/GiB downloaded | Optional, via Filecoin Beam. About half this when served from cache. |
 
 :::note[Be aware]
-Per month means **per 30 days** here, not calendar month like a traditional storage service.
+"Month" means **30 days** here (86,400 epochs), not a calendar month.
 :::
-**Pricing Logic:**
 
-- Storage **< 24.567 GiB**: Minimum $0.06/month applies
-- Storage **≥ 24.567 GiB**: Actual cost `(bytes / TiB) × $2.50/month`
-- CDN data sets require 1 USDFC setup on first creation only
-- CDN egress credits can be topped up anytime
+The monthly rate for an active data set is `(bytes / TiB) × $2.50 + $0.024`. There is no minimum floor.
+
+### One-time fees
+
+Each on-chain operation pays a small fee to the storage provider, covering the gas that provider spends on your behalf:
+
+| Operation | Fee |
+| -------------- | ------------------ |
+| **Create data set** | $0.025 |
+| **Add pieces** | $0.0005 + $0.0003 per piece |
+| **Schedule piece removals** | $0.002 per call |
+| **Terminate service** | $0.00112 (user-initiated only) |
+
+These are fractions of a cent. Think of them like gas: negligible for normal use, only adding up at very high operation volumes. They are paid from a small lockup reserve (~$0.10) held while the data set is active, not billed separately on every call. See [How the fees and lockup work](#how-the-fees-and-lockup-work) below.
+
+:::note[CDN setup]
+Enabling CDN adds two refundable lockups on first use: ~0.7 USDFC for egress credits and ~0.3 USDFC for cache-miss credits. Reusing an existing CDN data set incurs no new setup. These are lockups, not fees, and are returned when the rail is finalized.
+:::
 
 ### Real-World Cost Examples
 
@@ -44,17 +60,25 @@ These examples use plain arithmetic for clarity. For programmatic cost calculati
 
 ```ts twoslash
 // @lib: esnext,dom
-// 48.82 MiB less than 24.567 GiB threshold
-// Price is $0.06/month
-const PRICE_PER_MONTH = 0.06;
-const months = 24;
-const PRICE_FOR_24_MONTHS = PRICE_PER_MONTH * 24; // 1.44 USDFC
+// 48.82 MiB is tiny, so the storage rate is negligible.
+// The recurring cost is dominated by the flat proving fee.
+const STORAGE_PRICE_PER_TIB_PER_MONTH = 2.5;
+const PROVING_FEE_PER_MONTH = 0.024;
+
+const storageTiB = 48.82 / 1024 / 1024; // ≈ 0.0000466 TiB
+const storageCostPerMonth = storageTiB * STORAGE_PRICE_PER_TIB_PER_MONTH; // ≈ $0.00012
+
+// Per copy, per month
+const costPerMonth = storageCostPerMonth + PROVING_FEE_PER_MONTH; // ≈ 0.0241 USDFC
+const costFor24Months = costPerMonth * 24; // ≈ 0.578 USDFC
 ```
 
-| Duration  | Total Cost |
+| Duration | Per copy |
 | --------- | ---------- |
-| 1 month   | 0.06 USDFC |
-| 24 months | 1.44 USDFC |
+| 1 month | ≈ 0.024 USDFC |
+| 24 months | ≈ 0.58 USDFC |
+
+The default 2-copy configuration roughly doubles the recurring cost. One-time fees apply once: $0.025 to create the data set plus the per-batch add-pieces fee.
 
 ---
 
@@ -66,7 +90,8 @@ const PRICE_FOR_24_MONTHS = PRICE_PER_MONTH * 24; // 1.44 USDFC
 ```ts twoslash
 // @lib: esnext,dom
 const STORAGE_PRICE_PER_TIB_PER_MONTH = 2.5; // $2.50/TiB/month
-const CDN_EGRESS_PRICE_PER_TIB = 14; // $14/TiB downloaded
+const PROVING_FEE_PER_MONTH = 0.024; // flat per-data-set
+const CDN_EGRESS_PRICE_PER_TIB = 14; // up to $14/TiB on a cache miss
 const storageMiB = 100_000;
 const egressMiB = 100_000;
 
@@ -79,27 +104,55 @@ const egressTiB = egressMiB / 1024 / 1024;
 // Storage cost per month: 0.0953 TiB × $2.50 ≈ $0.238/month
 const storageCostPerMonth = storageTiB * STORAGE_PRICE_PER_TIB_PER_MONTH;
 
-// Egress cost per month: 0.0953 TiB × $14 ≈ $1.334/month
+// Egress cost per month (worst case, all cache misses): 0.0953 TiB × $14 ≈ $1.334/month
 const egressCostPerMonth = egressTiB * CDN_EGRESS_PRICE_PER_TIB;
 
-// Total cost per month: $0.238/month + $1.334/month ≈ $1.572/month
-const totalCostPerMonth = storageCostPerMonth + egressCostPerMonth;
+// Total cost per month: $0.238 + $0.024 proving + $1.334 egress ≈ $1.596/month
+const totalCostPerMonth = storageCostPerMonth + PROVING_FEE_PER_MONTH + egressCostPerMonth;
 
-// Total cost for 24 months: $1.572/month × 24 ≈ $37.728
+// Total cost for 24 months: $1.596/month × 24 ≈ $38.30
 const totalCostFor24Months = totalCostPerMonth * 24;
 ```
 
 | Cost Component | Per Month | 24 Months |
 | -------------- | ---------------- | ----------------- |
 | Storage | ≈ 0.238 USDFC | ≈ 5.71 USDFC |
+| Proving Service | ≈ 0.024 USDFC | ≈ 0.576 USDFC |
 | CDN Egress | ≈ 1.334 USDFC | ≈ 32.016 USDFC |
-| **Total** | **≈ 1.572 USDFC** | **≈ 37.728 USDFC** |
+| **Total** | **≈ 1.596 USDFC** | **≈ 38.30 USDFC** |
+
+Egress here is the worst case where every byte is a cache miss. When content is served from the Filecoin Beam cache, egress is roughly half this.
+
+## How the fees and lockup work
+
+Most developers can stop at the tables above. This section explains the mechanics behind the per-operation fees and the lockup reserve for anyone who needs the detail.
+
+**The proving fee is additive, not a floor.** Earlier pricing used a single monthly minimum. The rate is now `(bytes / TiB) × $2.50 + $0.024`, so storage scales with size and the proving fee is a flat addition per data set. A data set with no pieces pays nothing until the first piece is added.
+
+**Add-pieces pricing scales with batch size.** Each `addPieces` call costs `$0.0005 + $0.0003 × N`, where `N` is the number of pieces in the batch. The base fee is shared across the batch, so adding many pieces in one call is cheaper per piece than adding them one at a time. When estimating the cost of a single piece, assume the single-piece price (`$0.0008`); batching only makes it cheaper.
+
+**Fees are paid from a small lockup reserve, not billed per call.** When a data set is created, ~$0.10 of USDFC is locked as a lifecycle reserve on the data set's payment rail. One-time fees are drawn from this reserve as operations happen, and the reserve is topped back up toward its target as it is drawn down. You see ~$0.10 of additional locked USDFC while the data set is active. It is refunded when the rail is finalized.
+
+<details>
+<summary>Why the reserve exists: wind-down after termination</summary>
+
+Filecoin Pay does not allow raising a rail's fixed lockup once the rail has been terminated. The lifecycle reserve gives you headroom to run wind-down operations (such as scheduling piece removals) after termination, when the reserve can no longer be refilled.
+
+If you expect to need more wind-down operations than the reserve covers, fund the reserve before terminating. User-initiated termination charges the $0.00112 termination fee and makes a best-effort top-up of the reserve. Provider-initiated termination charges no fee and does not top up, so those data sets are limited to whatever was in the reserve at termination.
+
+For the full lockup model (streaming versus fixed lockup, rail settlement, finalization), see the [Filecoin Pay spec](https://github.com/FilOzone/filecoin-pay/blob/main/SPEC.md). The [Payments & Storage cookbook](/cookbooks/payments-and-storage/) covers the same mechanics in SDK terms, though its pricing figures predate this update.
+
+</details>
 
 ## Querying Upload Costs
 
+:::caution[SDK pricing update in progress]
+The per-operation fees and the additive proving fee above are live in the Warm Storage contract. The SDK cost APIs (`getUploadCosts()`, `prepare()`) are still being updated to surface them, tracked in [synapse-sdk#763](https://github.com/FilOzone/synapse-sdk/issues/763). Until that lands, the returned `rate` and `depositNeeded` values reflect the previous model and may not include every new fee.
+:::
+
 Use `getUploadCosts()` to preview costs without executing any transaction. This is useful for displaying pricing in a UI or letting users confirm before proceeding.
 
-Getting the costs for uploading to an existing dataset:
+Getting the costs for uploading to an existing data set:
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -124,7 +177,7 @@ const costs2 = await synapse.storage.getUploadCosts({
 // Accurate for above-floor datasets, overestimates for floor-priced ones
 ```
 
-Getting the costs for uploading to a new dataset:
+Getting the costs for uploading to a new data set:
 
 ```ts twoslash
 // @lib: esnext,dom
