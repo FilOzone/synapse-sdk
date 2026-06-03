@@ -30,7 +30,7 @@ export namespace getDataSet {
     dataSetId: bigint
     /** The number of retries. Defaults to 2. */
     retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
     retryDelay?: number
   }
   export type OutputType = DataSet

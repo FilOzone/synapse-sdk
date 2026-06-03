@@ -11,7 +11,7 @@ export namespace download {
     url: string
     /** The number of retries. Defaults to 2. */
     retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
     retryDelay?: number
     /** The signal to abort the request. */
     signal?: AbortSignal
@@ -51,7 +51,7 @@ export namespace downloadAndValidate {
     expectedPieceCid: string | PieceCID
     /** The number of retries. Defaults to 2. */
     retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
     retryDelay?: number
     /** The signal to abort the request. */
     signal?: AbortSignal

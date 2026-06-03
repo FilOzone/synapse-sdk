@@ -32,7 +32,7 @@ export namespace createDataSetApiRequest {
     extraData: Hex
     /** The number of retries. Defaults to 2. */
     retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
     retryDelay?: number
   }
 
@@ -115,7 +115,7 @@ export namespace createDataSet {
     recordKeeper?: Address
     /** The number of retries. Defaults to 2. */
     retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
     retryDelay?: number
   }
   export type ReturnType = createDataSetApiRequest.OutputType
@@ -205,9 +205,9 @@ export namespace waitForCreateDataSet {
     timeout?: number
     /** The number of retries. Defaults to 2. */
     retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to 250ms. */
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
     retryDelay?: number
-    /** The poll interval in milliseconds. Defaults to 4 second. */
+    /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
     pollInterval?: number
   }
   export type ReturnType = CreateDataSetSuccess
