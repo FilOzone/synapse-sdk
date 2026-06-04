@@ -38,7 +38,6 @@ export async function deletePiece(options: deletePiece.OptionsType): Promise<del
       body: { extraData },
       timeout: RETRY_CONSTANTS.TIMEOUT,
       retry: {
-        methods: ['delete'],
         retries: options.retryCount,
         minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
         shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 429,

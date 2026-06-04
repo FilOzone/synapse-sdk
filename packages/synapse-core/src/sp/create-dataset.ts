@@ -69,7 +69,6 @@ export async function createDataSetApiRequest(
     },
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
-      methods: ['post'],
       retries: options.retryCount,
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
       shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 429,
