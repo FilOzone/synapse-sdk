@@ -401,16 +401,6 @@ export const presets = {
       viewContractAddress: () => [ADDRESSES.calibration.viewContract],
       serviceProviderRegistry: () => [ADDRESSES.calibration.spRegistry],
       sessionKeyRegistry: () => [ADDRESSES.calibration.sessionKeyRegistry],
-      getServicePrice: () => [
-        {
-          pricePerTiBPerMonthNoCDN: parseUnits('2.5', 18),
-          pricePerTiBCdnEgress: parseUnits('7', 18),
-          pricePerTiBCacheMissEgress: parseUnits('7', 18),
-          minimumPricePerMonth: parseUnits('6', 16),
-          tokenAddress: ADDRESSES.calibration.usdfcToken,
-          epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
-        },
-      ],
       owner: () => [ADDRESSES.client1],
       terminateService: () => [],
       topUpCDNPaymentRails: () => [],
