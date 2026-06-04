@@ -964,7 +964,7 @@ InvalidSignature(address expected, address actual)
           serviceURL: 'https://pdp.example.com',
           pieceCid,
           poll: true,
-          timeout: 100,
+          timeout: 10,
         })
         assert.fail('Should have thrown error for not found')
       } catch (error) {

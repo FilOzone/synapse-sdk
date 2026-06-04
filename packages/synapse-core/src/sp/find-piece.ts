@@ -44,12 +44,13 @@ export async function findPiece(options: findPiece.OptionsType): Promise<findPie
     retry: {
       retries: options.retryCount,
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+      shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 404,
     },
     poll: options.poll
       ? {
           limit: RETRY_CONSTANTS.POLL_LIMIT,
           interval: options.pollInterval ?? 1000,
-          statusCodes: [202, 404], // 202 is processing, 404 is not found
+          statusCodes: [202], // 202 is processing
         }
       : false,
   })
