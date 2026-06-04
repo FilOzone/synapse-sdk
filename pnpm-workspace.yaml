@@ -44,6 +44,7 @@ minimumReleaseAgeExclude:
   # Remove after 2026-06-08 when both age out.
   - viem@2.52.0
   - ox@0.14.27
+  - astro
 
 trustPolicy: no-downgrade
 
