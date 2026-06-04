@@ -89,8 +89,8 @@ export async function setOperatorApproval(
   client: Client<Transport, Chain, Account>,
   options: setOperatorApproval.OptionsType
 ): Promise<Hash> {
-  // maxLockupPeriod has no hardcoded default; resolve it from the chain price
-  // list when approving so the call builder (which is synchronous) gets a value.
+  // The synchronous call builder cannot read the chain, so resolve maxLockupPeriod
+  // from the price list here when approving and pass it down.
   const maxLockupPeriod =
     options.maxLockupPeriod ?? (options.approve ? (await getPriceList(client)).lockups.defaultLockupPeriod : 0n)
 
@@ -231,9 +231,9 @@ export function setOperatorApprovalCall(
     }
   }
 
-  // maxLockupPeriod has no hardcoded default. It must come from the chain price
-  // list (getPriceList().lockups.defaultLockupPeriod), which this synchronous
-  // builder cannot read, so approving callers must resolve and pass it.
+  // maxLockupPeriod comes from the chain price list
+  // (getPriceList().lockups.defaultLockupPeriod), which this synchronous builder
+  // cannot read, so approving callers must resolve and pass it.
   if (options.approve && options.maxLockupPeriod === undefined) {
     throw new ValidationError(
       'maxLockupPeriod is required when approving; resolve it from getPriceList().lockups.defaultLockupPeriod'

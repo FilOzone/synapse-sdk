@@ -56,11 +56,9 @@ export namespace getPriceList {
 }
 
 /**
- * Read the full warm storage price list from the chain.
+ * Read the warm storage price list.
  *
- * Calls `getPriceList()` on the `FilecoinWarmStorageServiceStateView` contract,
- * which requires a deployment that includes
- * [FilOzone/filecoin-services#501](https://github.com/FilOzone/filecoin-services/pull/501).
+ * Reads the `getPriceList()` view on `FilecoinWarmStorageServiceStateView`.
  *
  * @param client - The client to use to read the price list.
  * @param options - {@link getPriceList.OptionsType}
