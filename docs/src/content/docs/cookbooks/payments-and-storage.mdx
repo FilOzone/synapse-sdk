@@ -113,7 +113,7 @@ Most developers won't need this section. The SDK abstracts these mechanics: `pre
 
 ### Rate Precision
 
-Storage prices are stored per-month on-chain but rails operate per-epoch. Integer division during conversion means `perEpoch × EPOCHS_PER_MONTH` is slightly less than the true monthly rate due to truncation. The SDK returns both values: use `rate.perMonth` for display and `rate.perEpoch` for on-chain math.
+Storage prices are stored per-month on-chain but rails operate per-epoch. Integer division during conversion means `perEpoch × EPOCHS_PER_MONTH` is slightly less than the true monthly rate due to truncation. The SDK returns both values: use `rates.perMonth` for display and `rates.perEpoch` for on-chain math.
 
 ### Deposit Components
 
