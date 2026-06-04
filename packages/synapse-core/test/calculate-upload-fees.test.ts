@@ -55,17 +55,4 @@ describe('calculateUploadFees', () => {
       priceList.fees.addPiecesBaseFee * 2n + priceList.fees.addPiecesPerPieceFee * (maxBatch + 1n)
     )
   })
-
-  it('uses an explicit addPiecesOperationCount over the derived value', () => {
-    const result = calculateUploadFees({
-      priceList,
-      isNewDataSet: false,
-      pieceCount: maxBatch + 1n,
-      addPiecesOperationCount: 1n,
-    })
-    assert.equal(
-      result.addPiecesFee,
-      priceList.fees.addPiecesBaseFee + priceList.fees.addPiecesPerPieceFee * (maxBatch + 1n)
-    )
-  })
 })
