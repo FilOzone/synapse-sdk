@@ -35,6 +35,7 @@ import {
   deletePiece,
   findPiece,
   getDataSet,
+  NetworkError,
   TimeoutError,
   uploadPiece,
   waitForAddPieces,
@@ -214,6 +215,8 @@ describe('SP', () => {
             clientDataSetId: 0n,
             payee: ADDRESSES.client1,
           }),
+          retryCount: 1,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for CreateDataSetError error')
       } catch (e) {
@@ -255,6 +258,8 @@ invariant failure: insufficient funds to cover lockup after function execution`
             clientDataSetId: 0n,
             payee: ADDRESSES.client1,
           }),
+          retryCount: 1,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for CreateDataSetError error')
       } catch (error) {
@@ -296,6 +301,8 @@ InvalidSignature(address expected, address actual)
             clientDataSetId: 0n,
             payee: ADDRESSES.client1,
           }),
+          retryCount: 1,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for CreateDataSetError error')
       } catch (error) {
@@ -402,6 +409,7 @@ InvalidSignature(address expected, address actual)
       try {
         await waitForCreateDataSet({
           statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for server error')
       } catch (error) {
@@ -541,12 +549,82 @@ InvalidSignature(address expected, address actual)
           dataSetId: 1n,
           pieces: [pieceCid],
           extraData,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for server error')
       } catch (error) {
         assert.instanceOf(error, AddPiecesError)
         assert.equal(error.shortMessage, 'Failed to add pieces.')
         assert.include(error.message, 'Invalid piece CID')
+      }
+    })
+
+    it('should not retry on network errors', async () => {
+      const pieceCid = Piece.from(validPieceCid)
+      let callCount = 0
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', () => {
+          callCount++
+          return HttpResponse.error()
+        })
+      )
+
+      const extraData = await TypedData.signAddPieces(client, {
+        clientDataSetId: 0n,
+        pieces: [{ pieceCid }],
+      })
+
+      try {
+        await addPiecesApiRequest({
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          pieces: [pieceCid],
+          extraData,
+          retryDelay: 10,
+        })
+        assert.fail('Should have thrown error for network error')
+      } catch (error) {
+        assert.strictEqual(callCount, 1)
+        assert.instanceOf(error, NetworkError)
+        assert.include(error.message, 'Network request failed')
+      }
+    })
+
+    it('should retry on 429 errors', async () => {
+      const pieceCid = Piece.from(validPieceCid)
+      let callCount = 0
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', () => {
+          callCount++
+          return new HttpResponse(null, {
+            status: 429,
+            headers: {
+              'Retry-After': '0.01',
+            },
+            statusText: 'Too Many Requests',
+          })
+        })
+      )
+
+      const extraData = await TypedData.signAddPieces(client, {
+        clientDataSetId: 0n,
+        pieces: [{ pieceCid }],
+      })
+
+      try {
+        await addPiecesApiRequest({
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          pieces: [pieceCid],
+          extraData,
+          retryCount: 2,
+          retryDelay: 10,
+        })
+        assert.fail('Should have thrown error for 429 error')
+      } catch (error) {
+        assert.strictEqual(callCount, 3)
+        assert.instanceOf(error, AddPiecesError)
+        assert.include(error.message, 'Failed to add pieces.')
       }
     })
 
@@ -752,6 +830,7 @@ InvalidSignature(address expected, address actual)
       try {
         await waitForAddPieces({
           statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for server error')
       } catch (error) {
@@ -849,6 +928,7 @@ InvalidSignature(address expected, address actual)
           dataSetId: 1n,
           pieceId: 2n,
           extraData,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for server error')
       } catch (error) {
@@ -883,8 +963,8 @@ InvalidSignature(address expected, address actual)
         await findPiece({
           serviceURL: 'https://pdp.example.com',
           pieceCid,
-          retry: true,
-          timeout: 50,
+          poll: true,
+          timeout: 10,
         })
         assert.fail('Should have thrown error for not found')
       } catch (error) {
@@ -909,6 +989,7 @@ InvalidSignature(address expected, address actual)
         await findPiece({
           serviceURL: 'https://pdp.example.com',
           pieceCid,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for server error')
       } catch (error) {
@@ -936,7 +1017,7 @@ InvalidSignature(address expected, address actual)
       const result = await findPiece({
         serviceURL: 'http://pdp.local',
         pieceCid,
-        retry: true,
+        poll: true,
         pollInterval: 10,
       })
       assert.strictEqual(result.toString(), mockPieceCidStr)
@@ -1058,6 +1139,7 @@ InvalidSignature(address expected, address actual)
           serviceURL: 'http://pdp.local',
           data: testData,
           pieceCid,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for POST error')
       } catch (error) {
@@ -1082,6 +1164,7 @@ InvalidSignature(address expected, address actual)
           serviceURL: 'https://pdp.example.com',
           data: testData,
           pieceCid,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for PUT error')
       } catch (error) {
@@ -1187,6 +1270,7 @@ InvalidSignature(address expected, address actual)
           serviceURL: 'http://pdp.local',
           data: testData,
           pieceCid,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for session creation failure')
       } catch (error) {
@@ -1332,6 +1416,7 @@ InvalidSignature(address expected, address actual)
           serviceURL: 'https://pdp.example.com',
           data: testData,
           pieceCid,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for finalize failure')
       } catch (error) {
@@ -1441,6 +1526,7 @@ InvalidSignature(address expected, address actual)
         await getDataSet({
           serviceURL: 'http://pdp.local',
           dataSetId: 292n,
+          retryDelay: 10,
         })
         assert.fail('Should have thrown error for server error')
       } catch (error) {

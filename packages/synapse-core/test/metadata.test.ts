@@ -216,9 +216,9 @@ describe('Metadata Utils', () => {
   describe('METADATA_LIMITS', () => {
     it('should have expected limit values', () => {
       assert.equal(METADATA_LIMITS.MAX_KEY_LENGTH, 32)
-      assert.equal(METADATA_LIMITS.MAX_VALUE_LENGTH, 128)
+      assert.equal(METADATA_LIMITS.MAX_VALUE_LENGTH, 96)
       assert.equal(METADATA_LIMITS.MAX_KEYS_PER_DATASET, 10)
-      assert.equal(METADATA_LIMITS.MAX_KEYS_PER_PIECE, 5)
+      assert.equal(METADATA_LIMITS.MAX_KEYS_PER_PIECE, 3)
     })
   })
 })

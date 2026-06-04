@@ -16,9 +16,9 @@ export type MetadataObject = Record<string, string>
 // Metadata size and count limits from the contract
 export const METADATA_LIMITS = {
   MAX_KEY_LENGTH: 32,
-  MAX_VALUE_LENGTH: 128,
+  MAX_VALUE_LENGTH: 96,
   MAX_KEYS_PER_DATASET: 10,
-  MAX_KEYS_PER_PIECE: 5,
+  MAX_KEYS_PER_PIECE: 3,
 }
 
 export function metadataArrayToObject(metadataArray: MetadataArray): Record<string, string> {

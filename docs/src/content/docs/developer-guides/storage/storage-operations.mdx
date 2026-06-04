@@ -18,7 +18,7 @@ This page covers data set management, retrieval, and lifecycle operations. For u
 **Metadata**: Optional key-value pairs for organization:
 
 - **Data Set Metadata**: Max 10 keys (e.g., `project`, `environment`)
-- **Piece Metadata**: Max 5 keys per piece (e.g., `filename`, `contentType`)
+- **Piece Metadata**: Max 3 keys per piece (e.g., `filename`, `contentType`)
 
 **Copies and Durability**: By default, `upload()` stores your data with 2 independent providers. Each provider maintains its own data set with separate PDP proofs and payment rails. If one provider goes down, your data is still available from the other.
 

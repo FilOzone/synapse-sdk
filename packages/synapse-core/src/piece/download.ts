@@ -1,6 +1,7 @@
-import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
+import { HttpError, type RequestErrors, request } from 'iso-web/http'
 import { DownloadPieceError } from '../errors/pdp.ts'
 import { InvalidPieceCIDError } from '../errors/piece.ts'
+import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { transformStream } from './calculate.ts'
 import { tryFrom } from './parse.ts'
 import type { PieceCID } from './piece-cid.ts'
@@ -8,9 +9,15 @@ import type { PieceCID } from './piece-cid.ts'
 export namespace download {
   export type OptionsType = {
     url: string
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
+    /** The signal to abort the request. */
+    signal?: AbortSignal
   }
   export type ReturnType = Uint8Array
-  export type ErrorType = DownloadPieceError | TimeoutError | NetworkError | AbortError
+  export type ErrorType = DownloadPieceError | RequestErrors
 }
 
 /**
@@ -21,7 +28,14 @@ export namespace download {
  * @throws Errors {@link download.ErrorType}
  */
 export async function download(options: download.OptionsType): Promise<download.ReturnType> {
-  const response = await request.get(options.url)
+  const response = await request.get(options.url, {
+    timeout: false,
+    retry: {
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
+    signal: options.signal,
+  })
   if (response.error) {
     if (HttpError.is(response.error)) {
       throw new DownloadPieceError(await response.error.response.text())
@@ -35,9 +49,15 @@ export namespace downloadAndValidate {
   export type OptionsType = {
     url: string
     expectedPieceCid: string | PieceCID
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
+    /** The signal to abort the request. */
+    signal?: AbortSignal
   }
   export type ReturnType = Uint8Array
-  export type ErrorType = DownloadPieceError | TimeoutError | NetworkError | AbortError | InvalidPieceCIDError
+  export type ErrorType = DownloadPieceError | RequestErrors | InvalidPieceCIDError
 }
 
 /**
@@ -71,7 +91,15 @@ export async function downloadAndValidate(options: downloadAndValidate.OptionsTy
     throw new InvalidPieceCIDError(expectedPieceCid)
   }
 
-  const rsp = await request.get(url)
+  const rsp = await request.get(url, {
+    timeout: false,
+    retry: {
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
+    signal: options.signal,
+  })
+
   if (rsp.error) {
     if (HttpError.is(rsp.error)) {
       throw new DownloadPieceError(await rsp.error.response.text())
