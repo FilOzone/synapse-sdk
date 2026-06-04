@@ -5,7 +5,10 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { calibration } from '../src/chains.ts'
 import { JSONRPC, PRIVATE_KEYS, presets } from '../src/mocks/jsonrpc/index.ts'
 import { fund } from '../src/pay/fund.ts'
-import { LOCKUP_PERIOD } from '../src/utils/constants.ts'
+import { TIME_CONSTANTS } from '../src/utils/constants.ts'
+
+// Matches the lockup period returned by the basic preset's getPriceList mock.
+const CHAIN_LOCKUP_PERIOD = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
 
 describe('fund', () => {
   const server = setup()
@@ -107,7 +110,7 @@ describe('fund', () => {
         },
         payments: {
           ...presets.basic.payments,
-          operatorApprovals: () => [true, maxUint256, maxUint256, 0n, 0n, LOCKUP_PERIOD],
+          operatorApprovals: () => [true, maxUint256, maxUint256, 0n, 0n, CHAIN_LOCKUP_PERIOD],
           depositWithPermit: () => {
             depositWithPermitCalled = true
             return []
@@ -136,7 +139,7 @@ describe('fund', () => {
         ...presets.basic,
         payments: {
           ...presets.basic.payments,
-          operatorApprovals: () => [true, maxUint256, maxUint256, 0n, 0n, LOCKUP_PERIOD],
+          operatorApprovals: () => [true, maxUint256, maxUint256, 0n, 0n, CHAIN_LOCKUP_PERIOD],
         },
       })
     )
@@ -167,7 +170,7 @@ describe('fund', () => {
         payments: {
           ...presets.basic.payments,
           // Even though operatorApprovals says approved, the override forces approval flow
-          operatorApprovals: () => [true, maxUint256, maxUint256, 0n, 0n, LOCKUP_PERIOD],
+          operatorApprovals: () => [true, maxUint256, maxUint256, 0n, 0n, CHAIN_LOCKUP_PERIOD],
           depositWithPermitAndApproveOperator: () => {
             depositAndApproveCalled = true
             return []

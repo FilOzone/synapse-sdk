@@ -19,7 +19,8 @@ import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
 import { signErc20Permit } from '../typed-data/sign-erc20-permit.ts'
-import { LOCKUP_PERIOD, TIME_CONSTANTS } from '../utils/constants.ts'
+import { TIME_CONSTANTS } from '../utils/constants.ts'
+import { getPriceList } from '../warm-storage/price-list.ts'
 
 export type DepositAndApproveOptions = {
   /**
@@ -55,7 +56,8 @@ export type DepositAndApproveOptions = {
    */
   lockupAllowance?: bigint
   /**
-   * The max lockup period to approve. If not provided, the LOCKUP_PERIOD will be used.
+   * The max lockup period to approve. If not provided, the chain's
+   * `getPriceList().lockups.defaultLockupPeriod` will be used.
    */
   maxLockupPeriod?: bigint
 }
@@ -91,7 +93,7 @@ export async function depositAndApprove(client: Client<Transport, Chain, Account
   const spender = options.spender ?? chain.contracts.filecoinPay.address
   const rateAllowance = options.rateAllowance ?? maxUint256
   const lockupAllowance = options.lockupAllowance ?? maxUint256
-  const maxLockupPeriod = options.maxLockupPeriod ?? LOCKUP_PERIOD
+  const maxLockupPeriod = options.maxLockupPeriod ?? (await getPriceList(client)).lockups.defaultLockupPeriod
 
   if (rateAllowance < 0n || lockupAllowance < 0n || maxLockupPeriod < 0n) {
     throw new ValidationError('Allowance or lockup period values cannot be negative')

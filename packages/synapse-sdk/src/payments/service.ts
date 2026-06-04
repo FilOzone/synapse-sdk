@@ -254,7 +254,7 @@ export class PaymentsService {
    * @param options.service - The service contract address to approve (defaults to Warm Storage contract address)
    * @param options.rateAllowance - Maximum payment rate per epoch the operator can set (defaults to maxUint256)
    * @param options.lockupAllowance - Maximum lockup amount the operator can set (defaults to maxUint256)
-   * @param options.maxLockupPeriod - Maximum lockup period in epochs the operator can set (defaults to 30 days in epochs)
+   * @param options.maxLockupPeriod - Maximum lockup period in epochs the operator can set (defaults to the chain's getPriceList().lockups.defaultLockupPeriod)
    * @param options.token - The token to approve for (defaults to USDFC)
    * @returns Transaction hash {@link Hash}
    * @throws Errors {@link Pay.setOperatorApproval.ErrorType}
@@ -522,8 +522,8 @@ export class PaymentsService {
   /**
    * Smart deposit method that picks the right contract call based on FWSS approval state.
    *
-   * - If FWSS needs approval AND amount > 0: calls `depositWithPermitAndApproveOperator` with maxUint256 rate/lockup allowances and LOCKUP_PERIOD.
-   * - If FWSS needs approval AND amount === 0: calls `approveService` with maxUint256 rate/lockup allowances and LOCKUP_PERIOD.
+   * - If FWSS needs approval AND amount > 0: calls `depositWithPermitAndApproveOperator` with maxUint256 rate/lockup allowances and the chain's default lockup period.
+   * - If FWSS needs approval AND amount === 0: calls `approveService` with maxUint256 rate/lockup allowances and the chain's default lockup period.
    * - If FWSS is approved AND amount > 0: calls `depositWithPermit`.
    * - If FWSS is approved AND amount === 0: no-op, returns empty hash.
    *
