@@ -58,7 +58,7 @@ Direct retrieval has no egress charges. It is the right default for most workloa
 
 [**Filecoin Beam**](https://docs.filbeam.com/) is the retrieval and delivery layer of FOC. It is a content delivery network that caches pieces close to where they are requested, cutting retrieval latency from seconds to milliseconds.
 
-FilBeam serves each piece from a per-account subdomain keyed by PieceCID. On mainnet:
+FilBeam serves each piece from a per-account subdomain keyed by your wallet address, with the PieceCID in the path. On mainnet:
 
 ```text
 https://<your-address>.filbeam.io/<pieceCid>
