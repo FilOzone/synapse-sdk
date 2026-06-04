@@ -7,7 +7,7 @@ import { resolveAccountState } from '../pay/resolve-account-state.ts'
 import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { calculateDepositNeeded } from './calculate-deposit-needed.ts'
 import { calculateEffectiveRate } from './calculate-effective-rate.ts'
-import type { calculateOperationFees } from './calculate-operation-fees.ts'
+import type { calculateUploadFees } from './calculate-upload-fees.ts'
 import { getPriceList } from './price-list.ts'
 
 export namespace getUploadCosts {
@@ -43,14 +43,7 @@ export namespace getUploadCosts {
       /** Rate per month — full precision for display. */
       perMonth: bigint
     }
-    /** @deprecated Use rates. */
-    rate: {
-      /** Rate per epoch — matches on-chain PDP rail rate. */
-      perEpoch: bigint
-      /** Rate per month — full precision for display. */
-      perMonth: bigint
-    }
-    fees: calculateOperationFees.OutputType
+    fees: calculateUploadFees.OutputType
     lockups: {
       lifecycleLockup: bigint
       streamingLockup: bigint
@@ -102,7 +95,7 @@ export async function getUploadCosts(
   const rate = calculateEffectiveRate({
     sizeInBytes: totalSize,
     storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
-    provingServicePerMonth: priceList.rates.datasetFeePerMonth,
+    datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
     epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
   })
 
@@ -142,7 +135,6 @@ export async function getUploadCosts(
 
   return {
     rates,
-    rate: rates,
     fees,
     lockups: {
       lifecycleLockup: lockup.lifecycleLockup,

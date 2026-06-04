@@ -48,7 +48,7 @@ describe('calculateAdditionalLockupRequired', () => {
     const expectedRatePerEpoch = calculateEffectiveRate({
       sizeInBytes: 1000n,
       storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
-      provingServicePerMonth: priceList.rates.datasetFeePerMonth,
+      datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
       epochsPerMonth: 86400n,
     }).ratePerEpoch
     assert.equal(result.lifecycleLockup, priceList.lockups.lifecycleReserveTarget)
@@ -92,7 +92,7 @@ describe('calculateAdditionalLockupRequired', () => {
     // delta for the added bytes is locked up.
     const rateParams = {
       storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
-      provingServicePerMonth: priceList.rates.datasetFeePerMonth,
+      datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
       epochsPerMonth: 86400n,
     }
     const expectedDelta =

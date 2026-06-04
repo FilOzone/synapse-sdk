@@ -35,9 +35,8 @@ describe('getUploadCosts', () => {
       dataSize: 1n,
     })
 
-    assert.equal(typeof result.rate.perEpoch, 'bigint')
-    assert.equal(typeof result.rate.perMonth, 'bigint')
-    assert.equal(result.rate, result.rates)
+    assert.equal(typeof result.rates.perEpoch, 'bigint')
+    assert.equal(typeof result.rates.perMonth, 'bigint')
     assert.equal(typeof result.fees.total, 'bigint')
     assert.equal(typeof result.lockups.total, 'bigint')
     assert.equal(typeof result.depositNeeded, 'bigint')
@@ -141,7 +140,7 @@ describe('getUploadCosts', () => {
 
     // Additive: 1-byte dataset pays a tiny storage rate on top of proving.
     const storagePerMonth1Byte = parseUnits('2.5', 18) / (1n << 40n)
-    assert.equal(result.rate.perMonth, parseUnits('0.024', 18) + storagePerMonth1Byte)
+    assert.equal(result.rates.perMonth, parseUnits('0.024', 18) + storagePerMonth1Byte)
     assert.equal(result.fees.createDataSetFee, parseUnits('0.025', 18))
     assert.equal(result.fees.addPiecesFee, parseUnits('0.0008', 18))
     assert.equal(result.lockups.lifecycleLockup, parseUnits('0.10', 18))
@@ -171,7 +170,7 @@ describe('getUploadCosts', () => {
 
     // 1 TiB storage plus proving service rate.
     const pricePerTiBPerMonth = parseUnits('2.5', 18)
-    assert.equal(result.rate.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
+    assert.equal(result.rates.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
   })
 
   it('should include debt in deposit for account in debt', async () => {
@@ -347,10 +346,10 @@ describe('getUploadCosts', () => {
     })
 
     // Existing dataset pays storage for 1 TiB plus one proving service rate.
-    assert.equal(existing.rate.perMonth, parseUnits('2.524', 18))
+    assert.equal(existing.rates.perMonth, parseUnits('2.524', 18))
     assert.ok(
-      existing.rate.perMonth > newDs.rate.perMonth,
-      `existing dataset rate (${existing.rate.perMonth}) should exceed new dataset rate (${newDs.rate.perMonth})`
+      existing.rates.perMonth > newDs.rates.perMonth,
+      `existing dataset rate (${existing.rates.perMonth}) should exceed new dataset rate (${newDs.rates.perMonth})`
     )
   })
 

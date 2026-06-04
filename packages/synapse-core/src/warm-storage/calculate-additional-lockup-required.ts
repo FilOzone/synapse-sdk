@@ -63,7 +63,7 @@ export function calculateAdditionalLockupRequired(
 
   const rateParams = {
     storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
-    provingServicePerMonth: priceList.rates.datasetFeePerMonth,
+    datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
     epochsPerMonth,
   }
 

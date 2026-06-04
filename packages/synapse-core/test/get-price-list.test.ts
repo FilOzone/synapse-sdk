@@ -22,44 +22,51 @@ describe('getPriceList', () => {
 
   const makeClient = () => createPublicClient({ chain: calibration, transport: http() })
 
-  it('reads rates and token live from getServicePrice', async () => {
-    // Distinct values (not the defaults) prove these fields are plumbed from the
-    // contract read rather than hardcoded in the adapter.
-    const token = '0x00000000000000000000000000000000000000aa'
-    server.use(
-      JSONRPC({
-        ...presets.basic,
-        warmStorage: {
-          ...presets.basic.warmStorage,
-          getServicePrice: () => [
-            {
-              pricePerTiBPerMonthNoCDN: parseUnits('9.9', 18),
-              pricePerTiBCdnEgress: parseUnits('1.5', 18),
-              pricePerTiBCacheMissEgress: parseUnits('2.5', 18),
-              minimumPricePerMonth: parseUnits('6', 16),
-              tokenAddress: token,
-              epochsPerMonth: 86400n,
-            },
-          ],
-        },
-      })
-    )
+  // A full PriceList with distinct values per field so a misplumbed field is
+  // caught by an assertion rather than coinciding with another field's value.
+  const distinctPriceList = {
+    token: '0x00000000000000000000000000000000000000aa' as const,
+    rates: {
+      storagePerTibPerMonth: parseUnits('9.9', 18),
+      datasetFeePerMonth: parseUnits('0.123', 18),
+      cdnEgressPerTib: parseUnits('1.5', 18),
+      cacheMissEgressPerTib: parseUnits('2.5', 18),
+    },
+    fees: {
+      createDataSetFee: parseUnits('0.011', 18),
+      addPiecesBaseFee: parseUnits('0.012', 18),
+      addPiecesPerPieceFee: parseUnits('0.013', 18),
+      schedulePieceRemovalsFee: parseUnits('0.014', 18),
+      terminateFee: parseUnits('0.015', 18),
+    },
+    lockups: {
+      lifecycleReserveTarget: parseUnits('0.21', 18),
+      replenishThreshold: parseUnits('0.022', 18),
+      defaultLockupPeriod: 1234n,
+      cdnLockupAmount: parseUnits('0.23', 18),
+      cacheMissLockupAmount: parseUnits('0.24', 18),
+      cdnLockupPeriod: 5678n,
+    },
+  }
+
+  const withPriceList = (list: typeof distinctPriceList) =>
+    JSONRPC({
+      ...presets.basic,
+      warmStorageView: {
+        ...presets.basic.warmStorageView,
+        getPriceList: () => [list],
+      },
+    })
+
+  it('plumbs every field from the on-chain getPriceList', async () => {
+    server.use(withPriceList(distinctPriceList))
 
     const priceList = await getPriceList(makeClient())
 
-    assert.equal(priceList.token.toLowerCase(), token)
-    assert.equal(priceList.rates.storagePerTibPerMonth, parseUnits('9.9', 18))
-    assert.equal(priceList.rates.cdnEgressPerTib, parseUnits('1.5', 18))
-    assert.equal(priceList.rates.cacheMissEgressPerTib, parseUnits('2.5', 18))
-  })
-
-  it('supplies the dataset fee, which getServicePrice does not expose', async () => {
-    server.use(JSONRPC(presets.basic))
-
-    const priceList = await getPriceList(makeClient())
-
-    // The current ABI has no dataset fee field, so the adapter must inject it.
-    assert.equal(priceList.rates.datasetFeePerMonth, parseUnits('0.024', 18))
+    assert.equal(priceList.token.toLowerCase(), distinctPriceList.token)
+    assert.deepEqual(priceList.rates, distinctPriceList.rates)
+    assert.deepEqual(priceList.fees, distinctPriceList.fees)
+    assert.deepEqual(priceList.lockups, distinctPriceList.lockups)
   })
 
   it('returns the on-chain PriceList key shape', async () => {

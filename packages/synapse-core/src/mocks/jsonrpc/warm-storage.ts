@@ -21,6 +21,7 @@ type getPieceMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getPieceMetada
 type clientNonces = ExtractAbiFunction<typeof Abis.fwssView, 'clientNonces'>
 type getPDPConfig = ExtractAbiFunction<typeof Abis.fwssView, 'getPDPConfig'>
 type getClientDataSetsLength = ExtractAbiFunction<typeof Abis.fwssView, 'getClientDataSetsLength'>
+type getPriceList = ExtractAbiFunction<typeof Abis.fwssView, 'getPriceList'>
 
 export interface WarmStorageViewOptions {
   isProviderApproved?: (args: AbiToType<isProviderApproved['inputs']>) => AbiToType<isProviderApproved['outputs']>
@@ -40,6 +41,7 @@ export interface WarmStorageViewOptions {
   getClientDataSetsLength?: (
     args: AbiToType<getClientDataSetsLength['inputs']>
   ) => AbiToType<getClientDataSetsLength['outputs']>
+  getPriceList?: (args: AbiToType<getPriceList['inputs']>) => AbiToType<getPriceList['outputs']>
 }
 
 /**
@@ -357,6 +359,15 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
       return encodeAbiParameters(
         Abis.fwssView.find((abi) => abi.type === 'function' && abi.name === 'getClientDataSetsLength')!.outputs,
         options.warmStorageView.getClientDataSetsLength(args)
+      )
+    }
+    case 'getPriceList': {
+      if (!options.warmStorageView?.getPriceList) {
+        throw new Error('Warm Storage View: getPriceList is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.fwssView.find((abi) => abi.type === 'function' && abi.name === 'getPriceList')!.outputs,
+        options.warmStorageView.getPriceList(args)
       )
     }
 

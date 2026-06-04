@@ -1,13 +1,29 @@
-import type { Address, Chain, Client, Transport } from 'viem'
-import { getServicePrice } from './get-service-price.ts'
+import type { Simplify } from 'type-fest'
+import type {
+  Address,
+  Chain,
+  Client,
+  ContractFunctionParameters,
+  ContractFunctionReturnType,
+  ReadContractErrorType,
+  Transport,
+} from 'viem'
+import { readContract } from 'viem/actions'
+import type { fwssView as fwssViewAbi } from '../abis/index.ts'
+import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getPriceList {
-  export type OptionsType = getServicePrice.OptionsType
+  export type OptionsType = {
+    /** Warm storage view contract address. Defaults to the chain's view contract. */
+    contractAddress?: Address
+  }
+
+  export type ContractOutputType = ContractFunctionReturnType<typeof fwssViewAbi, 'pure' | 'view', 'getPriceList'>
 
   /**
    * The canonical warm storage price list. Matches the on-chain `PriceList`
-   * struct from `FilecoinWarmStorageServiceStateView.getPriceList()`
-   * ([filecoin-services#501](https://github.com/FilOzone/filecoin-services/issues/501)).
+   * struct from `FilecoinWarmStorageServiceStateView.getPriceList()`.
    * Amounts are in the token's smallest unit; rates are per-month (divide by
    * `EPOCHS_PER_MONTH` for per-epoch values).
    */
@@ -35,54 +51,120 @@ export namespace getPriceList {
       cdnLockupPeriod: bigint
     }
   }
+
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType
 }
 
 /**
- * FWSS operation fees and lockup defaults, sourced from `PriceListUSDFC.sol`.
- * Storage, egress, and token come from the contract via {@link getServicePrice}.
- */
-const expectedFees = {
-  createDataSetFee: 25_000_000_000_000_000n,
-  addPiecesBaseFee: 500_000_000_000_000n,
-  addPiecesPerPieceFee: 300_000_000_000_000n,
-  schedulePieceRemovalsFee: 2_000_000_000_000_000n,
-  terminateFee: 1_120_000_000_000_000n,
-} as const
-
-const expectedLockups = {
-  lifecycleReserveTarget: 100_000_000_000_000_000n,
-  replenishThreshold: 5_000_000_000_000_000n,
-  defaultLockupPeriod: 86_400n, // EPOCHS_PER_DAY * 30
-  cdnLockupAmount: 700_000_000_000_000_000n,
-  cacheMissLockupAmount: 300_000_000_000_000_000n,
-  cdnLockupPeriod: 14_400n, // EPOCHS_PER_DAY * 5
-} as const
-
-const DATASET_FEE_PER_MONTH = 24_000_000_000_000_000n // $0.024
-
-/**
- * Read pricing through the canonical SDK shape.
+ * Read the full warm storage price list from the chain.
  *
- * Storage and egress rates and the token come from the contract via
- * {@link getServicePrice}. The proving (dataset) rate, operation fees, and
- * lockup amounts come from {@link expectedFees} / {@link expectedLockups}.
+ * Calls `getPriceList()` on the `FilecoinWarmStorageServiceStateView` contract,
+ * which requires a deployment that includes
+ * [FilOzone/filecoin-services#501](https://github.com/FilOzone/filecoin-services/pull/501).
+ *
+ * @param client - The client to use to read the price list.
+ * @param options - {@link getPriceList.OptionsType}
+ * @returns The price list {@link getPriceList.OutputType}
+ * @throws Errors {@link getPriceList.ErrorType}
+ *
+ * @example
+ * ```ts
+ * import { getPriceList } from '@filoz/synapse-core/warm-storage'
+ * import { createPublicClient, http } from 'viem'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const priceList = await getPriceList(client)
+ *
+ * console.log(priceList.rates.storagePerTibPerMonth)
+ * ```
  */
 export async function getPriceList(
   client: Client<Transport, Chain>,
   options: getPriceList.OptionsType = {}
 ): Promise<getPriceList.OutputType> {
-  const servicePrice = await getServicePrice(client, options)
+  const list = await readContract(
+    client,
+    getPriceListCall({
+      chain: client.chain,
+      contractAddress: options.contractAddress,
+    })
+  )
 
+  // Map into a fresh object so callers can't corrupt later reads and the shape
+  // is pinned to OutputType independent of the generated ABI tuple type.
   return {
-    token: servicePrice.tokenAddress,
+    token: list.token,
     rates: {
-      storagePerTibPerMonth: servicePrice.pricePerTiBPerMonthNoCDN,
-      datasetFeePerMonth: DATASET_FEE_PER_MONTH,
-      cdnEgressPerTib: servicePrice.pricePerTiBCdnEgress,
-      cacheMissEgressPerTib: servicePrice.pricePerTiBCacheMissEgress,
+      storagePerTibPerMonth: list.rates.storagePerTibPerMonth,
+      datasetFeePerMonth: list.rates.datasetFeePerMonth,
+      cdnEgressPerTib: list.rates.cdnEgressPerTib,
+      cacheMissEgressPerTib: list.rates.cacheMissEgressPerTib,
     },
-    // Spread so callers can't mutate the shared module-level constants.
-    fees: { ...expectedFees },
-    lockups: { ...expectedLockups },
+    fees: {
+      createDataSetFee: list.fees.createDataSetFee,
+      addPiecesBaseFee: list.fees.addPiecesBaseFee,
+      addPiecesPerPieceFee: list.fees.addPiecesPerPieceFee,
+      schedulePieceRemovalsFee: list.fees.schedulePieceRemovalsFee,
+      terminateFee: list.fees.terminateFee,
+    },
+    lockups: {
+      lifecycleReserveTarget: list.lockups.lifecycleReserveTarget,
+      replenishThreshold: list.lockups.replenishThreshold,
+      defaultLockupPeriod: list.lockups.defaultLockupPeriod,
+      cdnLockupAmount: list.lockups.cdnLockupAmount,
+      cacheMissLockupAmount: list.lockups.cacheMissLockupAmount,
+      cdnLockupPeriod: list.lockups.cdnLockupPeriod,
+    },
   }
+}
+
+export namespace getPriceListCall {
+  export type OptionsType = Simplify<getPriceList.OptionsType & ActionCallChain>
+  export type ErrorType = asChain.ErrorType
+  export type OutputType = ContractFunctionParameters<typeof fwssViewAbi, 'pure' | 'view', 'getPriceList'>
+}
+
+/**
+ * Create a call to the getPriceList function
+ *
+ * This function is used to create a call to the getPriceList function for use with the multicall or readContract function.
+ *
+ * @param options - {@link getPriceListCall.OptionsType}
+ * @returns The call to the getPriceList function {@link getPriceListCall.OutputType}
+ * @throws Errors {@link getPriceListCall.ErrorType}
+ *
+ * @example
+ * ```ts
+ * import { getPriceListCall } from '@filoz/synapse-core/warm-storage'
+ * import { createPublicClient, http } from 'viem'
+ * import { multicall } from 'viem/actions'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const results = await multicall(client, {
+ *   contracts: [
+ *     getPriceListCall({ chain: calibration }),
+ *   ],
+ * })
+ *
+ * console.log(results[0])
+ * ```
+ */
+export function getPriceListCall(options: getPriceListCall.OptionsType) {
+  const chain = asChain(options.chain)
+  return {
+    abi: chain.contracts.fwssView.abi,
+    address: options.contractAddress ?? chain.contracts.fwssView.address,
+    functionName: 'getPriceList',
+    args: [],
+  } satisfies getPriceListCall.OutputType
 }

@@ -1,6 +1,6 @@
 import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS } from '../utils/constants.ts'
 import { calculateAdditionalLockupRequired } from './calculate-additional-lockup-required.ts'
-import { calculateOperationFees } from './calculate-operation-fees.ts'
+import { calculateUploadFees } from './calculate-upload-fees.ts'
 import type { getPriceList } from './price-list.ts'
 
 export namespace calculateRunwayAmount {
@@ -106,7 +106,7 @@ export namespace calculateDepositNeeded {
     /** Lockup breakdown the deposit was computed from. */
     lockup: calculateAdditionalLockupRequired.OutputType
     /** Operation fee breakdown the deposit was computed from. */
-    fees: calculateOperationFees.OutputType
+    fees: calculateUploadFees.OutputType
   }
 }
 
@@ -129,7 +129,7 @@ export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType
     isNewDataSet: params.isNewDataSet,
     withCDN: params.withCDN,
   })
-  const fees = calculateOperationFees({
+  const fees = calculateUploadFees({
     priceList: params.priceList,
     isNewDataSet: params.isNewDataSet,
     pieceCount: params.pieceCount,

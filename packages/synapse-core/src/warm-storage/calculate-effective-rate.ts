@@ -6,8 +6,11 @@ export namespace calculateEffectiveRate {
     sizeInBytes: bigint
     /** Storage price per TiB per month. */
     storagePerTibPerMonth: bigint
-    /** Monthly proving service rate for non-empty datasets. */
-    provingServicePerMonth: bigint
+    /**
+     * Per-dataset monthly fee (the contract's `datasetFeePerMonth`), charged as
+     * a flat additive proving service fee on non-empty datasets.
+     */
+    datasetFeePerMonth: bigint
     /** Epochs per month. */
     epochsPerMonth: bigint
   }
@@ -17,7 +20,7 @@ export namespace calculateEffectiveRate {
      * Rate per epoch — matches the contract's additive per-epoch rate
      * (`calculateStorageSizeBasedRatePerEpoch`): the size-based storage rate plus
      * the per-epoch dataset fee, each truncated independently then summed:
-     *   `(totalBytes * storagePerTibPerMonth) / (TiB * EPOCHS_PER_MONTH) + provingServicePerMonth / EPOCHS_PER_MONTH`
+     *   `(totalBytes * storagePerTibPerMonth) / (TiB * EPOCHS_PER_MONTH) + datasetFeePerMonth / EPOCHS_PER_MONTH`
      *
      * Because truncation depends on totalBytes, this value is only valid for
      * the exact size it was computed for; you cannot scale it linearly to
@@ -51,13 +54,13 @@ export namespace calculateEffectiveRate {
  * - `ratePerMonth` — higher precision, linearly scalable (use for display)
  *
  * Empty datasets have no recurring rate. Non-empty datasets pay the
- * size-based storage rate plus the proving service rate.
+ * size-based storage rate plus the per-dataset proving service fee.
  *
  * @param params - {@link calculateEffectiveRate.ParamsType}
  * @returns {@link calculateEffectiveRate.OutputType}
  */
 export function calculateEffectiveRate(params: calculateEffectiveRate.ParamsType): calculateEffectiveRate.OutputType {
-  const { sizeInBytes, storagePerTibPerMonth, provingServicePerMonth, epochsPerMonth } = params
+  const { sizeInBytes, storagePerTibPerMonth, datasetFeePerMonth, epochsPerMonth } = params
 
   if (sizeInBytes === 0n) {
     return { ratePerEpoch: 0n, ratePerMonth: 0n }
@@ -70,8 +73,8 @@ export function calculateEffectiveRate(params: calculateEffectiveRate.ParamsType
   // truncation is size-dependent so this value is only valid for this exact sizeInBytes
   const storagePerEpoch = (storagePerTibPerMonth * sizeInBytes) / (SIZE_CONSTANTS.TiB * epochsPerMonth)
 
-  const ratePerMonth = storagePerMonth + provingServicePerMonth
-  const ratePerEpoch = storagePerEpoch + provingServicePerMonth / epochsPerMonth
+  const ratePerMonth = storagePerMonth + datasetFeePerMonth
+  const ratePerEpoch = storagePerEpoch + datasetFeePerMonth / epochsPerMonth
 
   return { ratePerEpoch, ratePerMonth }
 }
