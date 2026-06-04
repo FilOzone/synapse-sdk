@@ -1,6 +1,7 @@
-import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
+import { HttpError, type RequestJsonErrors, request } from 'iso-web/http'
 import * as z from 'zod'
 import { GetDataSetError } from '../errors/pdp.ts'
+import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { zNumberToBigInt, zStringToCid } from '../utils/schemas.ts'
 
 const PieceSchema = z.object({
@@ -27,9 +28,13 @@ export namespace getDataSet {
     serviceURL: string
     /** The ID of the data set. */
     dataSetId: bigint
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
   }
   export type OutputType = DataSet
-  export type ErrorType = GetDataSetError | TimeoutError | NetworkError | AbortError
+  export type ErrorType = GetDataSetError | RequestJsonErrors
 }
 
 /**
@@ -43,9 +48,14 @@ export namespace getDataSet {
  * @throws Errors {@link getDataSet.ErrorType}
  */
 export async function getDataSet(options: getDataSet.OptionsType): Promise<getDataSet.OutputType> {
-  const response = await request.json.get<getDataSet.OutputType>(
-    new URL(`pdp/data-sets/${options.dataSetId}`, options.serviceURL)
-  )
+  const response = await request.json.get(new URL(`pdp/data-sets/${options.dataSetId}`, options.serviceURL), {
+    timeout: RETRY_CONSTANTS.TIMEOUT,
+    retry: {
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
+    schema: DataSetSchema,
+  })
   if (response.error) {
     if (HttpError.is(response.error)) {
       throw new GetDataSetError(await response.error.response.text())
@@ -53,5 +63,5 @@ export async function getDataSet(options: getDataSet.OptionsType): Promise<getDa
     throw response.error
   }
 
-  return DataSetSchema.parse(response.result)
+  return response.result
 }

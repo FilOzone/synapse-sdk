@@ -21,6 +21,10 @@ export namespace addPiecesApiRequest {
     pieces: PieceCID[]
     /** The extra data for the add pieces. {@link TypedData.signAddPieces} */
     extraData: Hex
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
   }
   export type OutputType = {
     /** The transaction hash. */
@@ -52,17 +56,19 @@ export async function addPiecesApiRequest(
 ): Promise<addPiecesApiRequest.OutputType> {
   const { serviceURL, dataSetId, pieces, extraData } = options
   const response = await request.post(new URL(`pdp/data-sets/${dataSetId}/pieces`, serviceURL), {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+    json: {
       pieces: pieces.map((piece) => ({
         pieceCid: piece.toString(),
         subPieces: [{ subPieceCid: piece.toString() }],
       })),
       extraData: extraData,
-    }),
-    timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
+    },
+    timeout: RETRY_CONSTANTS.TIMEOUT,
+    retry: {
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+      shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 429,
+    },
   })
 
   if (response.error) {
@@ -101,6 +107,10 @@ export namespace addPieces {
     nonce?: bigint
     /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
     extraData?: Hex
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
   }
 
   export type OutputType = addPiecesApiRequest.OutputType
@@ -154,6 +164,8 @@ export async function addPieces(
     dataSetId: options.dataSetId,
     pieces: options.pieces.map((piece) => piece.pieceCid),
     extraData,
+    retryCount: options.retryCount,
+    retryDelay: options.retryDelay,
   })
 }
 
@@ -199,7 +211,11 @@ export namespace waitForAddPieces {
     statusUrl: string
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
-    /** The polling interval in milliseconds. Defaults to 4 seconds. */
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
+    /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
     pollInterval?: number
   }
   export type OutputType = AddPiecesOutput
@@ -221,22 +237,22 @@ export namespace waitForAddPieces {
  * @throws Errors {@link waitForAddPieces.ErrorType}
  */
 export async function waitForAddPieces(options: waitForAddPieces.OptionsType): Promise<waitForAddPieces.OutputType> {
-  const response = await request.json.get<AddPiecesResponse>(options.statusUrl, {
-    async onResponse(response) {
-      if (response.ok) {
-        const data = (await response.clone().json()) as AddPiecesResponse
-        if (data.piecesAdded === false) {
-          throw new Error('Still pending')
-        }
-      }
-    },
+  const response = await request.json.get(options.statusUrl, {
     retry: {
-      shouldRetry: (ctx) => ctx.error.message === 'Still pending',
-      retries: RETRY_CONSTANTS.RETRIES,
-      factor: RETRY_CONSTANTS.FACTOR,
-      minTimeout: options.pollInterval ?? RETRY_CONSTANTS.DELAY_TIME,
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
     },
-    timeout: options.timeout ?? RETRY_CONSTANTS.MAX_RETRY_TIME,
+    poll: {
+      limit: RETRY_CONSTANTS.POLL_LIMIT,
+      interval: options.pollInterval ?? RETRY_CONSTANTS.POLL_INTERVAL,
+      statusCodes: [202, 200], // 202 is processing, 200 is success
+      shouldPoll: async (ctx) => {
+        const data = (await ctx.response.clone().json()) as AddPiecesResponse
+        return data.piecesAdded === false
+      },
+    },
+    timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
+    schema,
   })
   if (response.error) {
     if (HttpError.is(response.error)) {
@@ -244,9 +260,8 @@ export async function waitForAddPieces(options: waitForAddPieces.OptionsType): P
     }
     throw response.error
   }
-  const data = schema.parse(response.result)
-  if (data.txStatus === 'rejected') {
-    throw new WaitForAddPiecesRejectedError(data)
+  if (response.result.txStatus === 'rejected') {
+    throw new WaitForAddPiecesRejectedError(response.result)
   }
-  return data
+  return response.result
 }

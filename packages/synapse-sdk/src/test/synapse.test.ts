@@ -194,13 +194,8 @@ describe('Synapse', () => {
       const testData = new TextEncoder().encode('test data')
       server.use(
         Mocks.JSONRPC(Mocks.presets.basic),
-        http.get('https://pdp.example.com/pdp/piece', async ({ request }) => {
-          const url = new URL(request.url)
-          const pieceCid = url.searchParams.get('pieceCid')
-
-          return HttpResponse.json({
-            pieceCid,
-          })
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+          return new HttpResponse(null, { status: 200 })
         }),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
@@ -230,13 +225,8 @@ describe('Synapse', () => {
           deferred.resolve(params)
           return HttpResponse.arrayBuffer(testData.buffer)
         }),
-        http.get('https://pdp.example.com/pdp/piece', async ({ request }) => {
-          const url = new URL(request.url)
-          const pieceCid = url.searchParams.get('pieceCid')
-
-          return HttpResponse.json({
-            pieceCid,
-          })
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+          return new HttpResponse(null, { status: 200 })
         }),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
@@ -281,13 +271,8 @@ describe('Synapse', () => {
             },
           },
         }),
-        http.get('https://pdp.example.com/pdp/piece', async ({ request }) => {
-          const url = new URL(request.url)
-          const pieceCid = url.searchParams.get('pieceCid')
-
-          return HttpResponse.json({
-            pieceCid,
-          })
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+          return new HttpResponse(null, { status: 200 })
         }),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
@@ -308,7 +293,7 @@ describe('Synapse', () => {
     it('should handle download errors', async () => {
       server.use(
         Mocks.JSONRPC(Mocks.presets.basic),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.error()
         })
       )
