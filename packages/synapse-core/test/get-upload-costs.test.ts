@@ -419,4 +419,20 @@ describe('getUploadCosts', () => {
     assert.ok(result.fees.total > 0n)
     assert.equal(result.depositNeeded, result.lockups.total + result.fees.total)
   })
+
+  it('derives an extra addPieces operation fee when pieceCount exceeds the batch limit', async () => {
+    server.use(JSONRPC(presets.basic))
+
+    const client = createPublicClient({ chain: calibration, transport: http() })
+
+    const within = await getUploadCosts(client, { clientAddress: ADDRESSES.client1, dataSize: 1n, pieceCount: 40n })
+    const spill = await getUploadCosts(client, { clientAddress: ADDRESSES.client1, dataSize: 1n, pieceCount: 41n })
+
+    // 41 pieces span two addPieces ops (ceil(41/40) = 2), so the 41-piece cost
+    // adds exactly one extra base fee plus one extra per-piece fee over 40.
+    assert.equal(
+      spill.fees.addPiecesFee - within.fees.addPiecesFee,
+      parseUnits('0.0005', 18) + parseUnits('0.0003', 18)
+    )
+  })
 })
