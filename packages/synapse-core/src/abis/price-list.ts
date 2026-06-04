@@ -1,16 +1,11 @@
 /**
- * Standalone `getPriceList()` view fragment for
- * `FilecoinWarmStorageServiceStateView`.
- *
- * Mirrors the on-chain `PriceList` struct added in
+ * `getPriceList()` view fragment for `FilecoinWarmStorageServiceStateView`,
+ * mirroring the on-chain `PriceList` struct from
  * [FilOzone/filecoin-services#501](https://github.com/FilOzone/filecoin-services/pull/501).
- * Kept separate from the wagmi-generated ABI so the price list can be read from
- * the chain without bumping the generated ABI ref onto an unreleased commit.
  *
- * TODO: remove this file and the `fwssView` merge in `abis/index.ts` once the
- * generated ABI ref (`FILECOIN_SERVICES_GIT_REF` in `wagmi.config.ts`) is bumped
- * to a release that includes `getPriceList`; the generated view ABI will expose
- * it directly.
+ * TODO: remove this file and the `fwssView` merge in `abis/index.ts` once
+ * `FILECOIN_SERVICES_GIT_REF` (`wagmi.config.ts`) points at a release whose
+ * generated view ABI exposes `getPriceList`.
  */
 export const priceListAbi = [
   {

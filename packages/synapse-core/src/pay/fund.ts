@@ -70,8 +70,8 @@ export namespace fund {
  * ```
  */
 export async function fund(client: Client<Transport, Chain, Account>, options: fund.OptionsType): Promise<Hash> {
-  // Resolve the approval lockup period once from the chain and reuse it for both
-  // the readiness check and the approval call, so the path needs a single read.
+  // Resolve the approval lockup period from the chain once and reuse it for the
+  // readiness check and the approval call.
   const maxLockupPeriod = (await getPriceList(client)).lockups.defaultLockupPeriod
   const needsApproval =
     options.needsFwssMaxApproval ??
