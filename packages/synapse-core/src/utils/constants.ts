@@ -106,6 +106,14 @@ export const SIZE_CONSTANTS = {
   BYTES_PER_LEAF: 32n,
 } as const
 
+/**
+ * Operator-approval allowance ceiling, in epochs.
+ *
+ * This is the `maxLockupPeriod` granted to FWSS when approving it as an
+ * operator, not a pricing input. The pricing lockup period is read from the
+ * chain via `getPriceList().lockups.defaultLockupPeriod`; granting a fixed,
+ * larger approval window stays valid even if the chain lockup period shrinks.
+ */
 export const LOCKUP_PERIOD = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
 
 /**

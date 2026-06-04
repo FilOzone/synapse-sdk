@@ -517,6 +517,32 @@ export const presets = {
       getClientDataSetsLength: () => {
         return [1n]
       },
+      getPriceList: () => [
+        {
+          token: ADDRESSES.calibration.usdfcToken,
+          rates: {
+            storagePerTibPerMonth: parseUnits('2.5', 18),
+            datasetFeePerMonth: parseUnits('0.024', 18),
+            cdnEgressPerTib: parseUnits('7', 18),
+            cacheMissEgressPerTib: parseUnits('7', 18),
+          },
+          fees: {
+            createDataSetFee: parseUnits('0.025', 18),
+            addPiecesBaseFee: parseUnits('0.0005', 18),
+            addPiecesPerPieceFee: parseUnits('0.0003', 18),
+            schedulePieceRemovalsFee: parseUnits('0.002', 18),
+            terminateFee: parseUnits('0.00112', 18),
+          },
+          lockups: {
+            lifecycleReserveTarget: parseUnits('0.1', 18),
+            replenishThreshold: parseUnits('0.005', 18),
+            defaultLockupPeriod: TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY,
+            cdnLockupAmount: parseUnits('0.7', 18),
+            cacheMissLockupAmount: parseUnits('0.3', 18),
+            cdnLockupPeriod: 5n * TIME_CONSTANTS.EPOCHS_PER_DAY,
+          },
+        },
+      ],
     },
     pdpVerifier: {
       dataSetLive: () => [true],

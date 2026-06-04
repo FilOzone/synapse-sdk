@@ -5,7 +5,7 @@ import { calculateEffectiveRate } from '../src/warm-storage/calculate-effective-
 
 const TiB = 1n << 40n
 const storagePerTibPerMonth = 2_500_000_000_000_000_000n // 2.5 USDFC
-const provingServicePerMonth = 24_000_000_000_000_000n // 0.024 USDFC
+const datasetFeePerMonth = 24_000_000_000_000_000n // 0.024 USDFC
 const epochsPerMonth = 86400n
 
 describe('calculateEffectiveRate', () => {
@@ -13,7 +13,7 @@ describe('calculateEffectiveRate', () => {
     const result = calculateEffectiveRate({
       sizeInBytes: 0n,
       storagePerTibPerMonth,
-      provingServicePerMonth,
+      datasetFeePerMonth,
       epochsPerMonth,
     })
 
@@ -25,27 +25,27 @@ describe('calculateEffectiveRate', () => {
     const result = calculateEffectiveRate({
       sizeInBytes: 1n,
       storagePerTibPerMonth,
-      provingServicePerMonth,
+      datasetFeePerMonth,
       epochsPerMonth,
     })
 
     // Additive: even a 1-byte dataset pays a (tiny) storage rate on top of proving.
     const storagePerEpoch = (storagePerTibPerMonth * 1n) / (TiB * epochsPerMonth)
     const storagePerMonth = (storagePerTibPerMonth * 1n) / TiB
-    assert.equal(result.ratePerEpoch, storagePerEpoch + provingServicePerMonth / epochsPerMonth)
-    assert.equal(result.ratePerMonth, storagePerMonth + provingServicePerMonth)
+    assert.equal(result.ratePerEpoch, storagePerEpoch + datasetFeePerMonth / epochsPerMonth)
+    assert.equal(result.ratePerMonth, storagePerMonth + datasetFeePerMonth)
   })
 
   it('large dataset pays storage plus proving service rate', () => {
     const result = calculateEffectiveRate({
       sizeInBytes: TiB,
       storagePerTibPerMonth,
-      provingServicePerMonth,
+      datasetFeePerMonth,
       epochsPerMonth,
     })
 
-    const expectedPerMonth = storagePerTibPerMonth + provingServicePerMonth
-    const expectedPerEpoch = storagePerTibPerMonth / epochsPerMonth + provingServicePerMonth / epochsPerMonth
+    const expectedPerMonth = storagePerTibPerMonth + datasetFeePerMonth
+    const expectedPerEpoch = storagePerTibPerMonth / epochsPerMonth + datasetFeePerMonth / epochsPerMonth
 
     assert.equal(result.ratePerMonth, expectedPerMonth)
     assert.equal(result.ratePerEpoch, expectedPerEpoch)
@@ -58,7 +58,7 @@ describe('calculateEffectiveRate', () => {
     const result = calculateEffectiveRate({
       sizeInBytes,
       storagePerTibPerMonth,
-      provingServicePerMonth,
+      datasetFeePerMonth,
       epochsPerMonth,
     })
 
