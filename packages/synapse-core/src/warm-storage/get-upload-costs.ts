@@ -26,7 +26,7 @@ export namespace getUploadCosts {
     dataSize: bigint
     /** Number of pieces added by this operation. Default: 1 */
     pieceCount?: bigint
-    /** Number of addPieces operations. Default: 1 */
+    /** Number of addPieces operations. Defaults to `ceil(pieceCount / MAX_ADD_PIECES_BATCH_SIZE)`. */
     addPiecesOperationCount?: bigint
 
     /** Extra runway in epochs beyond the required lockup. */
@@ -78,7 +78,8 @@ export async function getUploadCosts(
   const withCDN = options.withCDN ?? false
   const currentDataSetSize = options.currentDataSetSize ?? 0n
   const pieceCount = options.pieceCount ?? 1n
-  const addPiecesOperationCount = options.addPiecesOperationCount ?? 1n
+  // Left undefined so calculateUploadFees derives it from pieceCount and the batch limit.
+  const addPiecesOperationCount = options.addPiecesOperationCount
   const extraRunwayEpochs = options.extraRunwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
   const bufferEpochs = options.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
 
