@@ -289,23 +289,54 @@ console.log("PDP URL:", providerInfo.pdp.serviceURL);
 
 ## Lifecycle Management
 
-### Terminating a Data Set
+### Terminating the Storage Service
 
 :::warning[Irreversible Operation]
-**Data set termination cannot be undone.** Once initiated:
+**Termination cannot be undone.** Once initiated:
 
 - The termination transaction is irreversible
-- After the termination period, the provider may delete all data
+- When the service ends, the provider may delete all data
 - Payment rails associated with the data set will be terminated
 - You cannot cancel the termination
 
-Only terminate data sets when you're certain you no longer need the data.
+Only terminate when you're certain you no longer need the data.
 :::
 
-To delete an entire data set and discontinue payments for the service, call `context.terminate()`.
-This method submits an on-chain transaction to initiate the termination process. Following a defined termination period, payments will cease, and the service provider will be able to delete the data set.
+To end the storage service for a data set and discontinue its payments, call
+`context.terminate()`, or `synapse.storage.terminateService({ dataSetId })`
+when the data set ID is known and a context is not necessary.
 
-You can also terminate a data set using `synapse.storage.terminateDataSet({ dataSetId })`, when the data set ID is known and creating a context is not necessary.
+There are two ways to terminate, chosen with the `onChain` option. The
+provider-mediated path is the recommended default: you sign an authorization,
+the provider relays it on chain, and if your account can settle in full the
+service can terminate immediately so provider cleanup can begin right away.
+
+The direct on-chain path is an independent fallback. It is useful if the
+provider-mediated request cannot be completed, for example because the provider
+endpoint is temporarily unavailable, relay support is not active yet, or you
+need to submit the transaction yourself. It does not require provider
+cooperation, but it uses the standard lockup wind-down: the service continues
+until `endEpoch`, typically about 30 days, while the provider settles and winds
+down the data set before cleanup.
+
+| | Recommended default (via provider) | Fallback (`onChain: true`) |
+|---|---|---|
+| Who submits the transaction | The provider relays your signed authorization | You |
+| Effect | Can terminate immediately and allow cleanup to begin | Service runs to the end of the lockup period, typically ~30 days |
+| Cost to you | Small termination fee (USDFC, drawn from your account) | Transaction gas (FIL) |
+| Requires | Provider online, your account able to settle in full | A funded wallet |
+| Use when | Preferred path for ordinary termination | Provider-mediated termination cannot be completed, or you need independent submission |
+
+Provider-relayed termination never silently degrades: it either takes effect
+immediately or fails. The most common failure is an account that cannot cover
+full settlement; deposit funds or use `onChain: true` in that case. The
+result's `endEpoch` reports the actual epoch at which the service stops; on
+the on-chain path this can be sooner than 30 days if your account stopped
+settling some time ago.
+
+In both cases termination ends the service and its payments. The data set's
+remaining on-chain state is cleaned up afterwards by the provider; that
+cleanup is not part of this call.
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -316,14 +347,20 @@ const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: 
 const ctx = await synapse.storage.createContext({
   metadata: { source: "my-app" },
 })
-// Via context
-const hash = await ctx.terminate()
-await synapse.client.waitForTransactionReceipt({ hash })
-console.log("Dataset terminated successfully")
+// Via context: relayed through this context's provider, immediate
+const result = await ctx.terminate()
+console.log("Service terminated, ends at epoch", result.endEpoch)
 
 // Or directly by data set ID
-const hash2 = await synapse.storage.terminateDataSet({ dataSetId: 42n })
-await synapse.client.waitForTransactionReceipt({ hash: hash2 })
+const result2 = await synapse.storage.terminateService({ dataSetId: 42n })
+
+// Or submit independently on chain (winds down over the lockup period)
+const result3 = await synapse.storage.terminateService({
+  dataSetId: 42n,
+  onChain: true,
+  onSubmitted: (txHash) => console.log("Submitted:", txHash),
+})
+console.log("Service ends at epoch", result3.endEpoch)
 ```
 
 ### Deleting a Piece

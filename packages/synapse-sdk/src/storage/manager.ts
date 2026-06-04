@@ -40,7 +40,7 @@ import {
   getServicePrice,
   metadataMatches,
 } from '@filoz/synapse-core/warm-storage'
-import { type Address, type Hash, type Hex, UserRejectedRequestError, zeroAddress } from 'viem'
+import { type Address, type Hex, UserRejectedRequestError, zeroAddress } from 'viem'
 import { getBlockNumber } from 'viem/actions'
 import { CommitError, StoreError } from '../errors/storage.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -60,6 +60,8 @@ import type {
   StorageContextCallbacks,
   StorageInfo,
   StorageServiceOptions,
+  TerminateServiceOptions,
+  TerminateServiceResult,
   UploadCallbacks,
   UploadCosts,
   UploadResult,
@@ -67,6 +69,7 @@ import type {
 import { combineMetadata, createError, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/index.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
+import { terminateServiceFlow } from './terminate.ts'
 
 // Multi-copy upload constants
 const MAX_SECONDARY_ATTEMPTS = 5
@@ -974,14 +977,44 @@ export class StorageManager {
   }
 
   /**
-   * Terminate a data set with given ID that belongs to the synapse signer.
-   * This will also result in the removal of all pieces in the data set.
-   * @param options - The options for the terminate data set
-   * @param options.dataSetId - The ID of the data set to terminate
-   * @returns Transaction hash
+   * Terminate the storage service for a data set belonging to the synapse signer.
+   *
+   * By default the request is relayed through the data set's service provider:
+   * the client signs an EIP-712 authorization and the provider submits the
+   * transaction (paying the gas), in exchange for a small fee drawn from the
+   * payer's account. Provider-relayed termination takes effect immediately;
+   * it requires the payer's account to cover settlement in full and fails
+   * otherwise, rather than falling back to a lockup wind-down.
+   *
+   * With `onChain: true` the transaction is submitted directly from the
+   * signer's wallet. No provider cooperation is needed, but the service and
+   * its payments run to the end of the lockup period (typically ~30 days;
+   * the actual end is `endEpoch` in the result).
+   *
+   * Either way, termination ends the service and its payments; the data set's
+   * remaining on-chain state is cleaned up later by the provider, not by this
+   * call.
+   *
+   * @param options - {@link TerminateServiceOptions}
+   * @returns The termination outcome {@link TerminateServiceResult}
    */
-  async terminateDataSet(options: { dataSetId: bigint }): Promise<Hash> {
-    return this._warmStorageService.terminateDataSet(options)
+  async terminateService(options: TerminateServiceOptions): Promise<TerminateServiceResult> {
+    return terminateServiceFlow(this._synapse, options, () => this._resolveServiceURL(options.dataSetId))
+  }
+
+  /**
+   * Resolve the PDP endpoint of the provider holding a data set.
+   * Validates existence, liveness and ownership along the way.
+   */
+  private async _resolveServiceURL(dataSetId: bigint): Promise<string> {
+    const spRegistry = new SPRegistryService({ client: this._synapse.client })
+    const { provider } = await StorageContext.resolveByDataSetId(
+      dataSetId,
+      this._warmStorageService,
+      spRegistry,
+      this._synapse.client.account.address
+    )
+    return provider.pdp.serviceURL
   }
 
   /**

@@ -11,6 +11,26 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ## 0.42.0
 
+### Action: Replace `terminateDataSet` with `terminateService`
+
+Data set termination is now service termination. `terminateDataSet` was removed.
+
+```ts
+// before
+const hash = await synapse.storage.terminateDataSet({ dataSetId })
+await synapse.client.waitForTransactionReceipt({ hash })
+
+// after: provider-relayed by default
+const result = await synapse.storage.terminateService({ dataSetId })
+console.log(result.endEpoch)
+
+// independent on-chain fallback
+const direct = await synapse.storage.terminateService({ dataSetId, onChain: true })
+console.log(direct.txHash, direct.endEpoch)
+```
+
+`context.terminate()` now uses the same provider-relayed default and returns `{ txHash?, dataSetId, endEpoch }`.
+
 ### Action: Re-mint session keys for service termination
 
 `DeleteDataSetPermission` has been replaced by `TerminateServicePermission`.
