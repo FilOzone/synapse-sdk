@@ -44,7 +44,9 @@ minimumReleaseAgeExclude:
   # Remove after 2026-06-08 when both age out.
   - viem@2.52.0
   - ox@0.14.27
-  - astro
+  # astro 6.4.2 fixes MDX/Starlight compatibility after 6.4.0.
+  # Remove after 2026-06-05 when it ages out.
+  - astro@6.4.2
 
 trustPolicy: no-downgrade
 
