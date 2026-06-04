@@ -4,10 +4,10 @@ import { type Account, type Chain, type Client, type Hex, isHex, type Transport 
 import * as z from 'zod'
 import { AddPiecesError, LocationHeaderError } from '../errors/index.ts'
 import { WaitForAddPiecesError, WaitForAddPiecesRejectedError } from '../errors/pdp.ts'
-import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
+import { AtLeastOnePieceRequiredError, TooManyPiecesError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
-import { RETRY_CONSTANTS } from '../utils/constants.ts'
+import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
 
@@ -108,6 +108,23 @@ export namespace addPieces {
 }
 
 /**
+ * Validate the piece count for an addPieces (or createDataSetAndAddPieces) batch,
+ * failing early instead of reverting on-chain.
+ *
+ * @param pieceCount - Number of pieces in the batch
+ * @throws AtLeastOnePieceRequiredError when not a positive integer
+ * @throws TooManyPiecesError when above {@link SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE}
+ */
+export function validateAddPiecesBatch(pieceCount: number): void {
+  if (!Number.isInteger(pieceCount) || pieceCount < 1) {
+    throw new AtLeastOnePieceRequiredError()
+  }
+  if (pieceCount > SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE) {
+    throw new TooManyPiecesError(pieceCount, SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE)
+  }
+}
+
+/**
  * Add pieces to a data set
  *
  * Call the Service Provider API to add pieces to a data set.
@@ -121,9 +138,7 @@ export async function addPieces(
   client: Client<Transport, Chain, Account>,
   options: addPieces.OptionsType
 ): Promise<addPieces.OutputType> {
-  if (options.pieces.length === 0) {
-    throw new AtLeastOnePieceRequiredError()
-  }
+  validateAddPiecesBatch(options.pieces.length)
   const extraData =
     options.extraData ??
     (await signAddPieces(client, {

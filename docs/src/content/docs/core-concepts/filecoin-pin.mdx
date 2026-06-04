@@ -1,0 +1,51 @@
+---
+title: Filecoin Pin
+description: Filecoin Pin bridges Filecoin and IPFS, providing guaranteed IPFS pinning powered by the Filecoin Onchain Cloud.
+sidebar:
+  order: 6
+---
+
+:::tip[Production-ready on Filecoin Mainnet]
+Filecoin Pin is live on Filecoin Mainnet and ready for use. Register for product updates and announcements at [filecoin.cloud](https://filecoin.cloud/).
+:::
+
+## What is Filecoin Pin?
+
+Filecoin Pin bridges Filecoin and IPFS. It provides the infrastructure for guaranteed IPFS pinning, where your content stays addressable with standard IPFS tooling and Filecoin storage providers back it with daily cryptographic proofs that they still hold it.
+
+When you pin content with Filecoin Pin, your IPFS data gains:
+
+- **Verifiable persistence**: storage providers must cryptographically prove daily that they continue to store and serve your data.
+- **Economic incentives**: you only pay when storage proofs are successfully delivered and verified on-chain.
+- **Decentralized infrastructure**: your data can be stored across a global network of independent storage providers.
+- **Sovereign data**: choose your providers, audit storage proofs and payments on-chain, with no dependency on a single company.
+- **Native IPFS integration**: continue using standard [IPFS Mainnet](https://docs.ipfs.tech/concepts/glossary/#mainnet) tooling like Kubo, Helia, and IPFS HTTP Gateways while gaining Filecoin's persistence guarantees.
+
+## How it works
+
+Filecoin Pin is built on the [Filecoin Onchain Cloud](/core-concepts/architecture/), the programmable storage stack that the Synapse SDK also exposes. Adding a file combines a familiar IPFS workflow with on-chain storage and payments:
+
+1. Filecoin Pin packs your file into an IPFS CAR and uploads it to a storage provider.
+2. The provider indexes the content and announces it to IPNI, so it resolves through standard IPFS gateways.
+3. The upload is recorded on-chain as a data set and piece through the [Filecoin Warm Storage Service](/core-concepts/fwss-overview/).
+4. The provider proves it still holds your data every day through [Proof of Data Possession](/core-concepts/pdp-overview/), and [Filecoin Pay](/core-concepts/filecoin-pay-overview/) releases payment as those proofs are verified.
+
+Everything you pin stays interoperable with the rest of the Filecoin Onchain Cloud. You can audit the same data sets, proofs, and payments on-chain, or manage them with the [Filecoin Pin CLI](https://github.com/filecoin-project/filecoin-pin) or the [Synapse SDK](/getting-started/).
+
+## Who is Filecoin Pin for?
+
+Filecoin Pin is for anyone who needs reliable, verifiable IPFS pinning:
+
+- **People moving from another pinning service**: if you are coming from Storacha, Pinata, or any other IPFS pinning service, Filecoin Pin gives you a place to keep your IPFS content pinned and accessible.
+- **Developers building on IPFS**: if you are building dApps, websites, AI agents, or other applications that rely on IPFS, Filecoin Pin provides the missing persistence layer with cryptographic guarantees.
+
+:::note[Migrating existing pins from Storacha?]
+This guide focuses on pinning new content. For migrating data already pinned on Storacha, see the dedicated migration guide (coming soon).
+:::
+
+## Next Steps
+
+- **[Quick Start with Filecoin Pin](/getting-started/filecoin-pin/)**: the fastest path to pinning your first file. Install the CLI, connect your wallet, deposit storage credit, and pin content end to end in around 10 minutes. Start here.
+- **[Behind the Scenes of Adding a File](https://github.com/filecoin-project/filecoin-pin/blob/master/documentation/behind-the-scenes-of-adding-a-file.md)**: a deep dive into how Filecoin Pin packs, stores, and proves your data on-chain.
+- **[Filecoin Pin repository](https://github.com/filecoin-project/filecoin-pin)**: source code and technical documentation.
+- **[Filecoin Slack #fil-foc](https://filecoinproject.slack.com/archives/C07CGTXHHT4)**: join for real-time developer support and updates, or [open an issue](https://github.com/filecoin-project/filecoin-pin/issues) on GitHub.

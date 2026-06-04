@@ -1,4 +1,5 @@
 import { type Chain, calibration } from '@filoz/synapse-core/chains'
+import { TooManyPiecesError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { calculate, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
@@ -889,6 +890,53 @@ describe('StorageService', () => {
 
       const downloaded2 = await service.download({ pieceCid: testPieceCID })
       assert.deepEqual(downloaded2, testData)
+    })
+  })
+
+  describe('addPieces batch limit', () => {
+    const tooMany = SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE + 1
+
+    async function makeContext() {
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }), Mocks.PING())
+      const synapse = new Synapse({ client, source: null })
+      const warmStorageService = new WarmStorageService({ client })
+      return StorageContext.create({ synapse, warmStorageService })
+    }
+
+    it('presignForCommit rejects batches above the limit', async () => {
+      const service = await makeContext()
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      const pieces = Array.from({ length: tooMany }, () => ({ pieceCid }))
+      try {
+        await service.presignForCommit(pieces)
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, TooManyPiecesError)
+      }
+    })
+
+    it('commit rejects batches above the limit', async () => {
+      const service = await makeContext()
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      const pieces = Array.from({ length: tooMany }, () => ({ pieceCid }))
+      try {
+        await service.commit({ pieces })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, TooManyPiecesError)
+      }
+    })
+
+    it('pull rejects batches above the limit', async () => {
+      const service = await makeContext()
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      const pieces = Array.from({ length: tooMany }, () => pieceCid)
+      try {
+        await service.pull({ pieces, from: 'https://pdp.example.com' })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, TooManyPiecesError)
+      }
     })
   })
 
