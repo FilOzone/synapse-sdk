@@ -205,3 +205,25 @@ export function extractTerminateServiceEvent(logs: Log[]) {
   if (!log) throw new Error('`ServiceTerminated` event not found.')
   return log
 }
+
+/**
+ * Extracts the PDPPaymentTerminated event from transaction logs
+ *
+ * Emitted in the same transaction as ServiceTerminated, via the FilecoinPay
+ * railTerminated callback. Carries the epoch at which the PDP payment rail
+ * ends and the service winds down.
+ *
+ * @param logs - The transaction logs
+ * @returns The PDPPaymentTerminated event
+ * @throws Error if the PDPPaymentTerminated event is not found in the logs
+ */
+export function extractPDPPaymentTerminatedEvent(logs: Log[]) {
+  const [log] = parseEventLogs({
+    abi: Abis.fwss,
+    logs,
+    eventName: 'PDPPaymentTerminated',
+    strict: true,
+  })
+  if (!log) throw new Error('`PDPPaymentTerminated` event not found.')
+  return log
+}

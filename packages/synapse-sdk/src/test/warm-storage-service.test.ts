@@ -818,7 +818,7 @@ describe('WarmStorageService', () => {
       server.use(Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }))
       const warmStorageService = await createWarmStorageService()
 
-      const tx = await warmStorageService.terminateDataSet({ dataSetId: 4n })
+      const tx = await warmStorageService.terminateService({ dataSetId: 4n })
       assert.equal(tx, '0xe1a356b6152a11ea58ac7bfb00498d1f9dbf47d6755207a5691a3a8f4a7f6d35')
     })
 

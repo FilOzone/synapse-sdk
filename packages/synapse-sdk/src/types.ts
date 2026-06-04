@@ -621,6 +621,38 @@ export interface CommitResult {
 }
 
 /**
+ * Options for terminating a data set service
+ */
+export interface TerminateServiceOptions {
+  /** The ID of the data set to terminate */
+  dataSetId: bigint
+  /**
+   * Submit the termination transaction directly from the signer's wallet
+   * instead of relaying through the service provider. Needs no provider
+   * cooperation, but the service runs to the end of the lockup period.
+   */
+  onChain?: boolean
+  /** Called when the termination transaction is submitted (before on-chain confirmation) */
+  onSubmitted?: (txHash: Hex) => void
+}
+
+/**
+ * Result of a data set service termination
+ */
+export interface TerminateServiceResult {
+  /** Transaction hash. Undefined when the service was already terminated without a provider transaction. */
+  txHash?: Hex
+  /** The data set ID */
+  dataSetId: bigint
+  /**
+   * Epoch at which the PDP payment rail ends and the service stops.
+   * Approximately the current epoch for provider-relayed termination,
+   * the end of the lockup period for on-chain termination.
+   */
+  endEpoch: bigint
+}
+
+/**
  * Comprehensive storage service information
  */
 export interface StorageInfo {

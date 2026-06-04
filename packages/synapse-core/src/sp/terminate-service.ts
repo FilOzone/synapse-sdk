@@ -1,0 +1,355 @@
+import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import type { Account, Chain, Client, EncodeAbiParametersErrorType, Hex, SignTypedDataErrorType, Transport } from 'viem'
+import * as z from 'zod'
+import type { asChain } from '../chains.ts'
+import {
+  DataSetAlreadyTerminatedError,
+  TerminateServiceError,
+  TerminateServiceNotSupportedError,
+  TerminateServicePendingError,
+  WaitForTerminateServiceError,
+  WaitForTerminateServiceNotFoundError,
+  WaitForTerminateServiceRejectedError,
+} from '../errors/pdp.ts'
+import { signTerminateService } from '../typed-data/sign-terminate-service.ts'
+import { RETRY_CONSTANTS } from '../utils/constants.ts'
+import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
+
+/*
+SP-side termination protocol, as observed through the HTTP API.
+
+POST /pdp/data-sets/{id}/terminate
+  Queues the signed request and returns 202 with no body; the SP relays
+  FWSS.terminateService(dataSetId, extraData) asynchronously. A valid client
+  signature submitted by the SP is FWSS's consent case: termination is
+  immediate (endEpoch ~ current) and a termination fee is drawn from the
+  payer; the tx reverts instead if the payer cannot settle in full.
+
+  409 JSON {error: "data_set_already_terminated"} -> DataSetAlreadyTerminatedError
+  409 text (a request is already queued, possibly SP-initiated) -> TerminateServicePendingError
+  503 (FWSS predates client termination) -> TerminateServiceNotSupportedError
+
+GET /pdp/data-sets/{id}/terminate (the status URL; valid immediately after the 202)
+  queued    {terminationTxHash: "", txStatus: "", txSuccess: null, fwssTerminated: false}
+  sent      {terminationTxHash, txStatus: "pending"}
+  done      {txStatus: "confirmed", txSuccess: true, fwssTerminated: true, serviceTerminationEpoch}
+  reverted  {txStatus: "confirmed", txSuccess: false, fwssTerminated: false}
+  404       failed relays are discarded so the client can re-POST; also the
+            response for SP-initiated terminations (only client-requested ones
+            are visible) and, eventually, for fully cleaned-up data sets.
+
+  Reverted and 404 are two observations of the same outcome (the SP discards a
+  failed relay shortly after it lands): retry, or terminate on-chain. Success
+  may carry an empty hash (the SP found the service already terminated and
+  sent no tx), and fwssTerminated: true wins over txSuccess: false (a
+  competing terminate landed first; the goal state holds). When no terminate
+  tx ever lands, ours or anyone's (e.g. the SP is unable to send), there is no
+  terminal signal: the status stays queued and the poller runs to its timeout.
+*/
+
+/**
+ * Conflict body returned when the data set is already terminated on chain.
+ * A 409 with a plain-text body means a termination request is already queued instead.
+ */
+const TerminateConflictSchema = z.object({
+  error: z.literal('data_set_already_terminated'),
+  serviceTerminationEpoch: z.number(),
+})
+
+function parseTerminatedConflict(text: string): z.infer<typeof TerminateConflictSchema> | undefined {
+  try {
+    const result = TerminateConflictSchema.safeParse(JSON.parse(text))
+    return result.success ? result.data : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Build the termination status URL for a data set, pollable with
+ * {@link waitForTerminateService}. Useful for resuming tracking of a
+ * previously requested termination.
+ */
+export function terminateServiceStatusUrl(options: { serviceURL: string; dataSetId: bigint }): string {
+  return new URL(`pdp/data-sets/${options.dataSetId}/terminate`, options.serviceURL).toString()
+}
+
+export namespace terminateServiceApiRequest {
+  export type OptionsType = {
+    /** The service URL of the PDP API. */
+    serviceURL: string
+    /** The ID of the data set to terminate. */
+    dataSetId: bigint
+    /** The extra data carrying the signed termination authorization. {@link TypedData.signTerminateService} */
+    extraData: Hex
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
+  }
+
+  export type OutputType = {
+    /** The status URL to poll with {@link waitForTerminateService}. */
+    statusUrl: string
+  }
+
+  export type ErrorType =
+    | TerminateServiceError
+    | DataSetAlreadyTerminatedError
+    | TerminateServicePendingError
+    | TerminateServiceNotSupportedError
+    | RequestErrors
+
+  export type RequestBody = {
+    extraData: Hex
+  }
+}
+
+/**
+ * Request data set termination on the PDP API.
+ *
+ * POST /pdp/data-sets/{dataSetId}/terminate
+ *
+ * The provider queues the request and relays it on chain asynchronously; a 202
+ * response carries no transaction hash. Poll {@link waitForTerminateService}
+ * for the hash and confirmation.
+ *
+ * @param options - {@link terminateServiceApiRequest.OptionsType}
+ * @returns Status URL {@link terminateServiceApiRequest.OutputType}
+ * @throws Errors {@link terminateServiceApiRequest.ErrorType}
+ */
+export async function terminateServiceApiRequest(
+  options: terminateServiceApiRequest.OptionsType
+): Promise<terminateServiceApiRequest.OutputType> {
+  const statusUrl = terminateServiceStatusUrl(options)
+  const response = await request.post(statusUrl, {
+    json: {
+      extraData: options.extraData,
+    },
+    timeout: RETRY_CONSTANTS.TIMEOUT,
+    retry: {
+      methods: ['post'],
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+      shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 429,
+    },
+  })
+
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      const text = await response.error.response.text()
+      switch (response.error.code) {
+        case 409: {
+          const conflict = parseTerminatedConflict(text)
+          if (conflict) {
+            throw new DataSetAlreadyTerminatedError(BigInt(conflict.serviceTerminationEpoch))
+          }
+          throw new TerminateServicePendingError()
+        }
+        case 503:
+          throw new TerminateServiceNotSupportedError(text)
+        default:
+          throw new TerminateServiceError(text)
+      }
+    }
+    throw response.error
+  }
+
+  return { statusUrl }
+}
+
+export namespace terminateService {
+  export type OptionsType = {
+    /** The service URL of the PDP API. */
+    serviceURL: string
+    /** The ID of the data set to terminate. */
+    dataSetId: bigint
+    /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
+    extraData?: Hex
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
+  }
+  export type OutputType = terminateServiceApiRequest.OutputType
+  export type ErrorType =
+    | terminateServiceApiRequest.ErrorType
+    | asChain.ErrorType
+    | SignTypedDataErrorType
+    | EncodeAbiParametersErrorType
+}
+
+/**
+ * Terminate a data set service via the service provider
+ *
+ * Signs a termination authorization and sends it to the provider, which relays
+ * it on chain. Provider-relayed termination takes effect immediately when the
+ * transaction lands (no lockup wind-down); it fails instead if the payer's
+ * account cannot settle in full. The direct on-chain alternative
+ * (`warm-storage/terminate-service`) needs no provider cooperation but the
+ * service runs to the end of the lockup period.
+ *
+ * @param client - The client to use to sign the termination authorization.
+ * @param options - {@link terminateService.OptionsType}
+ * @returns Status URL to poll with {@link waitForTerminateService}. {@link terminateService.OutputType}
+ * @throws Errors {@link terminateService.ErrorType}
+ *
+ * @example
+ * ```ts
+ * import { terminateService, waitForTerminateService } from '@filoz/synapse-core/sp'
+ * import { createWalletClient, http } from 'viem'
+ * import { privateKeyToAccount } from 'viem/accounts'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ *
+ * const account = privateKeyToAccount('0x...')
+ * const client = createWalletClient({
+ *   account,
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const { statusUrl } = await terminateService(client, {
+ *   dataSetId: 1n,
+ *   serviceURL: 'https://pdp.example.com',
+ * })
+ * const status = await waitForTerminateService({ statusUrl })
+ * console.log(status.serviceTerminationEpoch)
+ * ```
+ */
+export async function terminateService(
+  client: Client<Transport, Chain, Account>,
+  options: terminateService.OptionsType
+): Promise<terminateService.OutputType> {
+  const extraData = options.extraData ?? (await signTerminateService(client, { dataSetId: options.dataSetId }))
+  return terminateServiceApiRequest({
+    serviceURL: options.serviceURL,
+    dataSetId: options.dataSetId,
+    extraData,
+    retryCount: options.retryCount,
+    retryDelay: options.retryDelay,
+  })
+}
+
+/**
+ * Schema for the termination status while the provider's transaction is pending.
+ * The hash is empty until the provider's relay task sends the transaction.
+ */
+export const TerminateServiceStatusPendingSchema = z.object({
+  terminationTxHash: z.union([zHex, z.literal('')]),
+  txStatus: z.union([z.literal(''), z.literal('pending'), z.literal('confirmed')]),
+  txSuccess: z.boolean().nullable(),
+  fwssTerminated: z.literal(false),
+  serviceTerminationEpoch: z.null(),
+})
+
+/**
+ * Schema for the termination status when the provider's transaction landed but failed.
+ * The provider discards the request shortly after, after which the status URL returns 404.
+ */
+export const TerminateServiceStatusRejectedSchema = z.object({
+  terminationTxHash: zHex,
+  txStatus: z.union([z.literal('failed'), z.literal('confirmed')]),
+  txSuccess: z.union([z.literal(false), z.null()]),
+  fwssTerminated: z.literal(false),
+  serviceTerminationEpoch: z.null(),
+})
+
+/**
+ * Schema for the confirmed termination status. The hash may be empty when the
+ * service was already terminated on chain without a provider transaction.
+ */
+export const TerminateServiceStatusSuccessSchema = z.object({
+  terminationTxHash: z.union([zHex, z.literal('')]),
+  txStatus: z.union([z.literal(''), z.literal('pending'), z.literal('confirmed')]),
+  txSuccess: z.boolean().nullable(),
+  fwssTerminated: z.literal(true),
+  serviceTerminationEpoch: zNumberToBigInt,
+})
+
+export type TerminateServiceStatusPending = z.infer<typeof TerminateServiceStatusPendingSchema>
+export type TerminateServiceStatusRejected = z.infer<typeof TerminateServiceStatusRejectedSchema>
+export type TerminateServiceStatusSuccess = z.infer<typeof TerminateServiceStatusSuccessSchema>
+export type TerminateServiceStatusResponse =
+  | TerminateServiceStatusPending
+  | TerminateServiceStatusRejected
+  | TerminateServiceStatusSuccess
+
+const schema = z.union([TerminateServiceStatusRejectedSchema, TerminateServiceStatusSuccessSchema])
+
+export namespace waitForTerminateService {
+  export type OptionsType = {
+    /** The status URL to poll. */
+    statusUrl: string
+    /** Called once with the provider's transaction hash as soon as it is known. */
+    onTxHash?: (txHash: Hex) => void
+    /** The timeout in milliseconds. Defaults to 5 minutes. */
+    timeout?: number
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
+    /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
+    pollInterval?: number
+  }
+  export type OutputType = TerminateServiceStatusSuccess
+  export type ErrorType =
+    | WaitForTerminateServiceError
+    | WaitForTerminateServiceNotFoundError
+    | WaitForTerminateServiceRejectedError
+    | RequestJsonErrors
+}
+
+/**
+ * Wait for the data set termination status.
+ *
+ * GET /pdp/data-sets/{dataSetId}/terminate
+ *
+ * Polls until the provider's transaction confirms and the termination epoch is
+ * recorded. A 404 means no client-requested termination exists: either none
+ * was submitted, or the provider's transaction failed and the request was
+ * discarded ({@link WaitForTerminateServiceNotFoundError}).
+ *
+ * @param options - {@link waitForTerminateService.OptionsType}
+ * @returns Status {@link waitForTerminateService.OutputType}
+ * @throws Errors {@link waitForTerminateService.ErrorType}
+ */
+export async function waitForTerminateService(
+  options: waitForTerminateService.OptionsType
+): Promise<waitForTerminateService.OutputType> {
+  let txHashSeen = false
+  const response = await request.json.get(options.statusUrl, {
+    retry: {
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
+    poll: {
+      limit: RETRY_CONSTANTS.POLL_LIMIT,
+      interval: options.pollInterval ?? RETRY_CONSTANTS.POLL_INTERVAL,
+      statusCodes: [200],
+      shouldPoll: async (ctx) => {
+        const data = (await ctx.response.clone().json()) as TerminateServiceStatusResponse
+        if (!txHashSeen && data.terminationTxHash !== '') {
+          txHashSeen = true
+          options.onTxHash?.(data.terminationTxHash)
+        }
+        return data.fwssTerminated === false && data.txStatus !== 'failed' && data.txSuccess !== false
+      },
+    },
+    timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
+    schema,
+  })
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      if (response.error.code === 404) {
+        throw new WaitForTerminateServiceNotFoundError()
+      }
+      throw new WaitForTerminateServiceError(await response.error.response.text())
+    }
+    throw response.error
+  }
+
+  if (response.result.fwssTerminated === false) {
+    throw new WaitForTerminateServiceRejectedError(response.result)
+  }
+  return response.result
+}
