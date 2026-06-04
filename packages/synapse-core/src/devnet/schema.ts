@@ -83,7 +83,8 @@ const DevnetInfoV1 = z.object({
 })
 
 export const VersionedDevnetInfo = z.object({
-  version: z.literal(1),
+  // 1 = yugabyte-era exports, 2 = postgres+scylla-era (`database` block)
+  version: z.union([z.literal(1), z.literal(2)]),
   info: DevnetInfoV1,
 })
 
