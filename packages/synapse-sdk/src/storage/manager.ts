@@ -35,8 +35,8 @@ import {
   calculateAdditionalLockupRequired,
   calculateBufferAmount,
   calculateEffectiveRate,
-  calculateOperationFees,
   calculateRunwayAmount,
+  calculateUploadFees,
   getUploadCosts as coreGetUploadCosts,
   getPriceList,
   metadataMatches,
@@ -755,7 +755,7 @@ export class StorageManager {
       })
       // Multi-context preview assumes one piece / one addPieces op per context;
       // batched multi-piece uploads should price via getUploadCosts with explicit counts.
-      const fees = calculateOperationFees({
+      const fees = calculateUploadFees({
         priceList,
         isNewDataSet,
       })
@@ -774,7 +774,7 @@ export class StorageManager {
       const rate = calculateEffectiveRate({
         sizeInBytes: totalSize,
         storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
-        provingServicePerMonth: priceList.rates.datasetFeePerMonth,
+        datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
         epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
       })
       totalRatePerEpoch += rate.ratePerEpoch
@@ -829,7 +829,6 @@ export class StorageManager {
 
     return {
       rates,
-      rate: rates,
       fees: {
         createDataSetFee: totalCreateDataSetFee,
         addPiecesFee: totalAddPiecesFee,

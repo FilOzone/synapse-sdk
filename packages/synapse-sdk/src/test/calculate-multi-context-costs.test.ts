@@ -115,9 +115,8 @@ describe('calculateMultiContextCosts', () => {
     const ctx = makeContext(synapse, warmStorageService, {})
     const result = await manager.calculateMultiContextCosts([ctx], { dataSize: 1n })
 
-    assert.equal(typeof result.rate.perEpoch, 'bigint')
-    assert.equal(typeof result.rate.perMonth, 'bigint')
-    assert.equal(result.rate, result.rates)
+    assert.equal(typeof result.rates.perEpoch, 'bigint')
+    assert.equal(typeof result.rates.perMonth, 'bigint')
     assert.equal(typeof result.fees.total, 'bigint')
     assert.equal(typeof result.lockups.total, 'bigint')
     assert.equal(typeof result.depositNeeded, 'bigint')
@@ -145,7 +144,7 @@ describe('calculateMultiContextCosts', () => {
 
     // Additive: 1-byte dataset pays a tiny storage rate on top of proving.
     const storagePerMonth1Byte = parseUnits('2.5', 18) / (1n << 40n)
-    assert.equal(result.rate.perMonth, parseUnits('0.024', 18) + storagePerMonth1Byte)
+    assert.equal(result.rates.perMonth, parseUnits('0.024', 18) + storagePerMonth1Byte)
   })
 
   it('should aggregate rates across two new contexts', async () => {
@@ -169,8 +168,8 @@ describe('calculateMultiContextCosts', () => {
     const double = await manager.calculateMultiContextCosts([ctxA, ctxB], { dataSize: 1n })
 
     // Rates should be exactly 2x single context
-    assert.equal(double.rate.perEpoch, single.rate.perEpoch * 2n)
-    assert.equal(double.rate.perMonth, single.rate.perMonth * 2n)
+    assert.equal(double.rates.perEpoch, single.rates.perEpoch * 2n)
+    assert.equal(double.rates.perMonth, single.rates.perMonth * 2n)
   })
 
   it('should fetch dataset size for existing contexts', async () => {
@@ -204,8 +203,8 @@ describe('calculateMultiContextCosts', () => {
     // Existing 1 TiB + 1 TiB = 2 TiB rate, new 1 TiB = 1 TiB rate
     // pricePerTiBPerMonth = 2.5 USDFC
     const pricePerTiBPerMonth = parseUnits('2.5', 18)
-    assert.equal(resultNew.rate.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
-    assert.equal(resultExisting.rate.perMonth, pricePerTiBPerMonth * 2n + parseUnits('0.024', 18))
+    assert.equal(resultNew.rates.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
+    assert.equal(resultExisting.rates.perMonth, pricePerTiBPerMonth * 2n + parseUnits('0.024', 18))
   })
 
   it('should handle mixed new + existing contexts', async () => {
@@ -241,7 +240,7 @@ describe('calculateMultiContextCosts', () => {
 
     // Combined rate: storage rates plus one proving service rate per context.
     const pricePerTiBPerMonth = parseUnits('2.5', 18)
-    assert.equal(result.rate.perMonth, pricePerTiBPerMonth * 3n + parseUnits('0.024', 18) * 2n)
+    assert.equal(result.rates.perMonth, pricePerTiBPerMonth * 3n + parseUnits('0.024', 18) * 2n)
   })
 
   it('should include debt in deposit for account in debt', async () => {
@@ -492,6 +491,6 @@ describe('calculateMultiContextCosts', () => {
     const ctx = makeContext(synapse, warmStorageService, {})
     const result = await manager.calculateMultiContextCosts([ctx], { dataSize: oneTiB })
 
-    assert.equal(result.rate.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
+    assert.equal(result.rates.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
   })
 })

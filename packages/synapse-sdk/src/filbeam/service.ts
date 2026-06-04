@@ -99,7 +99,7 @@ export class FilBeamService {
    * - **Cache Miss Egress Quota**: Remaining bytes that can be retrieved from storage providers (triggers caching)
    *
    * Both types of egress are billed based on volume. Query current pricing via
-   * {@link WarmStorageService.getServicePrice} or see https://docs.filbeam.com for rates.
+   * {@link WarmStorageService.getPriceList} or see https://docs.filbeam.com for rates.
    *
    * @param dataSetId - The unique identifier of the data set to query
    * @returns A promise that resolves to the data set statistics with remaining quotas as BigInt values

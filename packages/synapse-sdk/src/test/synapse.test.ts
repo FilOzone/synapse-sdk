@@ -385,9 +385,9 @@ describe('Synapse', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
-          warmStorage: {
-            ...Mocks.presets.basic.warmStorage,
-            getServicePrice: () => {
+          warmStorageView: {
+            ...Mocks.presets.basic.warmStorageView,
+            getPriceList: () => {
               throw new Error('RPC error')
             },
           },

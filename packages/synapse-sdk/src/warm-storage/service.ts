@@ -33,7 +33,6 @@ import {
   getClientDataSetsLength,
   getDataSet,
   getPriceList,
-  getServicePrice,
   removeApprovedProvider,
   terminateService,
 } from '@filoz/synapse-core/warm-storage'
@@ -363,18 +362,6 @@ export class WarmStorageService {
    */
   async getPriceList(): Promise<getPriceList.OutputType> {
     return getPriceList(this._client)
-  }
-
-  /**
-   * Get the current service price from the current FWSS ABI.
-   *
-   * @deprecated Use {@link WarmStorageService.getPriceList} for the latest
-   * pricing. This returns only the legacy `minimumPricePerMonth` floor plus
-   * storage/egress rates and does not reflect the per-operation fee model.
-   * @returns Service price information from the current FWSS ABI.
-   */
-  async getServicePrice(): Promise<getServicePrice.OutputType> {
-    return getServicePrice(this._client)
   }
 
   // ========== Data Set Operations ==========
