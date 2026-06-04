@@ -827,7 +827,9 @@ describe('StorageService', () => {
             status: 404,
           })
         }),
-        Mocks.pdp.findPieceHandler(testPieceCID, true, pdpOptions),
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+          return new HttpResponse(null, { status: 200 })
+        }),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
@@ -849,7 +851,9 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
         }),
         Mocks.PING(),
-        Mocks.pdp.findPieceHandler(testPieceCID, true, pdpOptions),
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+          return new HttpResponse(null, { status: 200 })
+        }),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.error()
         })
@@ -875,7 +879,9 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
         }),
         Mocks.PING(),
-        Mocks.pdp.findPieceHandler(testPieceCID, true, pdpOptions),
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+          return new HttpResponse(null, { status: 200 })
+        }),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })

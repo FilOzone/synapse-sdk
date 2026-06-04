@@ -28,7 +28,7 @@ catalog:
   viem: ^2.52.0
   wagmi: ^3.0.2
   zod: ^4.3.5
-  iso-web: 2.2.1
+  iso-web: ^3.1.2
 
 minimumReleaseAge: 10080
 
@@ -44,6 +44,9 @@ minimumReleaseAgeExclude:
   # Remove after 2026-06-08 when both age out.
   - viem@2.52.0
   - ox@0.14.27
+  # astro 6.4.2 fixes MDX/Starlight compatibility after 6.4.0.
+  # Remove after 2026-06-05 when it ages out.
+  - astro@6.4.2
 
 trustPolicy: no-downgrade
 

@@ -1,4 +1,4 @@
-import { HttpError, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import {
   type Account,
   type Address,
@@ -18,7 +18,6 @@ import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject } from '../utils/metadata.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
-import type { AbortError, NetworkError, TimeoutError } from './index.ts'
 
 export namespace createDataSetApiRequest {
   /**
@@ -31,6 +30,10 @@ export namespace createDataSetApiRequest {
     recordKeeper: Address
     /** The extra data for the create data set. */
     extraData: Hex
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
   }
 
   export type OutputType = {
@@ -38,7 +41,7 @@ export namespace createDataSetApiRequest {
     statusUrl: string
   }
 
-  export type ErrorType = CreateDataSetError | LocationHeaderError | TimeoutError | NetworkError | AbortError
+  export type ErrorType = CreateDataSetError | LocationHeaderError | RequestErrors
 
   export type RequestBody = {
     recordKeeper: Address
@@ -60,14 +63,16 @@ export async function createDataSetApiRequest(
 ): Promise<createDataSetApiRequest.OutputType> {
   // Send the create data set message to the PDP
   const response = await request.post(new URL(`pdp/data-sets`, options.serviceURL), {
-    body: JSON.stringify({
+    json: {
       recordKeeper: options.recordKeeper,
       extraData: options.extraData,
-    }),
-    headers: {
-      'Content-Type': 'application/json',
     },
-    timeout: RETRY_CONSTANTS.MAX_RETRY_TIME,
+    timeout: RETRY_CONSTANTS.TIMEOUT,
+    retry: {
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+      shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 429,
+    },
   })
 
   if (response.error) {
@@ -108,6 +113,10 @@ export namespace createDataSet {
     clientDataSetId?: bigint
     /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
     recordKeeper?: Address
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
   }
   export type ReturnType = createDataSetApiRequest.OutputType
   export type ErrorType =
@@ -142,6 +151,8 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
     serviceURL: options.serviceURL,
     recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
     extraData,
+    retryCount: options.retryCount,
+    retryDelay: options.retryDelay,
   })
 }
 
@@ -192,16 +203,15 @@ export namespace waitForCreateDataSet {
     statusUrl: string
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
-    /** The polling interval in milliseconds. Defaults to 4 seconds. */
+    /** The number of retries. Defaults to 2. */
+    retryCount?: number
+    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    retryDelay?: number
+    /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
     pollInterval?: number
   }
   export type ReturnType = CreateDataSetSuccess
-  export type ErrorType =
-    | WaitForCreateDataSetError
-    | WaitForCreateDataSetRejectedError
-    | TimeoutError
-    | NetworkError
-    | AbortError
+  export type ErrorType = WaitForCreateDataSetError | WaitForCreateDataSetRejectedError | RequestJsonErrors
 }
 
 /**
@@ -216,23 +226,23 @@ export namespace waitForCreateDataSet {
 export async function waitForCreateDataSet(
   options: waitForCreateDataSet.OptionsType
 ): Promise<waitForCreateDataSet.ReturnType> {
-  const response = await request.json.get<CreateDataSetResponse>(options.statusUrl, {
-    async onResponse(response) {
-      if (response.ok) {
-        const data = (await response.clone().json()) as CreateDataSetResponse
-        if (data.dataSetCreated === false) {
-          throw new Error('Still pending')
-        }
-      }
-    },
+  const response = await request.json.get(options.statusUrl, {
     retry: {
-      shouldRetry: (ctx) => ctx.error.message === 'Still pending',
-      retries: RETRY_CONSTANTS.RETRIES,
-      factor: RETRY_CONSTANTS.FACTOR,
-      minTimeout: options.pollInterval ?? RETRY_CONSTANTS.DELAY_TIME,
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
+    poll: {
+      limit: RETRY_CONSTANTS.POLL_LIMIT,
+      interval: options.pollInterval ?? RETRY_CONSTANTS.POLL_INTERVAL,
+      statusCodes: [202, 200], // 202 is processing, 200 is success
+      shouldPoll: async (ctx) => {
+        const data = (await ctx.response.clone().json()) as CreateDataSetResponse
+        return data.dataSetCreated === false
+      },
     },
 
-    timeout: options.timeout ?? RETRY_CONSTANTS.MAX_RETRY_TIME,
+    timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
+    schema,
   })
   if (response.error) {
     if (HttpError.is(response.error)) {
@@ -241,9 +251,8 @@ export async function waitForCreateDataSet(
     throw response.error
   }
 
-  const data = schema.parse(response.result)
-  if (data.txStatus === 'rejected') {
-    throw new WaitForCreateDataSetRejectedError(data)
+  if (response.result.txStatus === 'rejected') {
+    throw new WaitForCreateDataSetRejectedError(response.result)
   }
-  return data
+  return response.result
 }
