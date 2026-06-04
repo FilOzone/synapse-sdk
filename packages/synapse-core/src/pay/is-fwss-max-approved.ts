@@ -1,21 +1,27 @@
 import type { Address, Chain, Client, ReadContractErrorType, Transport } from 'viem'
 import { maxUint256 } from 'viem'
 import type { asChain } from '../chains.ts'
-import { LOCKUP_PERIOD } from '../utils/constants.ts'
+import { getPriceList } from '../warm-storage/price-list.ts'
 import { operatorApprovals } from './operator-approvals.ts'
 
 export namespace isFwssMaxApproved {
   export type OptionsType = {
     /** The address of the client to check approval for. */
     clientAddress: Address
+    /**
+     * The lockup period the approval must cover. Defaults to the chain's
+     * `getPriceList().lockups.defaultLockupPeriod`. Callers that already hold
+     * the price list can pass it to skip the extra read.
+     */
+    requiredMaxLockupPeriod?: bigint
   }
 
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType | getPriceList.ErrorType
 }
 
 /**
- * Check whether FWSS is approved with sufficient rate/lockup allowances
- * and at least LOCKUP_PERIOD (30 days) for maxLockupPeriod.
+ * Check whether FWSS is approved with sufficient rate/lockup allowances and a
+ * `maxLockupPeriod` covering the chain's default lockup period.
  *
  * rateAllowance is checked for exact maxUint256 since the contract never
  * decrements it — it only tracks usage separately via rateUsage.
@@ -37,6 +43,9 @@ export async function isFwssMaxApproved(
   client: Client<Transport, Chain>,
   options: isFwssMaxApproved.OptionsType
 ): Promise<boolean> {
+  const requiredMaxLockupPeriod =
+    options.requiredMaxLockupPeriod ?? (await getPriceList(client)).lockups.defaultLockupPeriod
+
   const approval = await operatorApprovals(client, {
     address: options.clientAddress,
   })
@@ -45,6 +54,6 @@ export async function isFwssMaxApproved(
     approval.isApproved &&
     approval.rateAllowance === maxUint256 &&
     approval.lockupAllowance >= maxUint256 / 2n &&
-    approval.maxLockupPeriod >= LOCKUP_PERIOD
+    approval.maxLockupPeriod >= requiredMaxLockupPeriod
   )
 }
