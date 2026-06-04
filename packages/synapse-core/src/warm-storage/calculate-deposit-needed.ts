@@ -83,7 +83,6 @@ export namespace calculateDepositNeeded {
     isNewDataSet: boolean
     withCDN: boolean
     pieceCount?: bigint
-    addPiecesOperationCount?: bigint
 
     // Runway parameters
     currentLockupRate: bigint
@@ -133,7 +132,6 @@ export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType
     priceList: params.priceList,
     isNewDataSet: params.isNewDataSet,
     pieceCount: params.pieceCount,
-    addPiecesOperationCount: params.addPiecesOperationCount,
   })
 
   const netRateAfterUpload = params.currentLockupRate + lockup.rateDeltaPerEpoch
