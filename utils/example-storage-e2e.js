@@ -81,8 +81,8 @@ async function main() {
   const { costs, transaction } = await synapse.storage.prepare({ dataSize: BigInt(totalSize) })
 
   console.log('Estimated costs:')
-  console.log(`  Per epoch (30s): ${formatUSDFC(costs.rate.perEpoch)}`)
-  console.log(`  Per month: ${formatUSDFC(costs.rate.perMonth)}`)
+  console.log(`  Per epoch (30s): ${formatUSDFC(costs.rates.perEpoch)}`)
+  console.log(`  Per month: ${formatUSDFC(costs.rates.perMonth)}`)
   console.log(`  Deposit needed: ${formatUSDFC(costs.depositNeeded)}`)
   console.log(`  Ready: ${costs.ready}`)
 
