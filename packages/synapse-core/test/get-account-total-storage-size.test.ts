@@ -144,6 +144,8 @@ function makeDataSet(dataSetId: bigint) {
     clientDataSetId: 0n,
     pdpEndEpoch: 0n,
     providerId: 1n,
+    pendingOneTimePayments: 0n,
+    lifecycleReserveBalance: 0n,
     cdnEndEpoch: 0n,
     dataSetId,
   }

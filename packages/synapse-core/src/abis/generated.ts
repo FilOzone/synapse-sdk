@@ -18,7 +18,6 @@ export const errorsAbi = [
     ],
     name: 'AddressAlreadySet',
   },
-  { type: 'error', inputs: [], name: 'AtLeastOnePriceMustBeNonZero' },
   {
     type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
@@ -87,6 +86,15 @@ export const errorsAbi = [
   },
   {
     type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'requiredEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'DataSetNotAbandoned',
+  },
+  {
+    type: 'error',
     inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
     name: 'DataSetNotFoundForRail',
   },
@@ -109,7 +117,6 @@ export const errorsAbi = [
     ],
     name: 'DataSetPaymentBeyondEndEpoch',
   },
-  { type: 'error', inputs: [], name: 'DivisionByZero' },
   {
     type: 'error',
     inputs: [
@@ -150,11 +157,7 @@ export const errorsAbi = [
       { name: 'operator', internalType: 'address', type: 'address' },
       { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
       { name: 'lockupUsage', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'minimumLockupRequired',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
+      { name: 'lockupRequired', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'InsufficientLockupAllowance',
   },
@@ -162,7 +165,7 @@ export const errorsAbi = [
     type: 'error',
     inputs: [
       { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'minimumRequired', internalType: 'uint256', type: 'uint256' },
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
       { name: 'available', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'InsufficientLockupFunds',
@@ -188,7 +191,7 @@ export const errorsAbi = [
       { name: 'operator', internalType: 'address', type: 'address' },
       { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
       { name: 'rateUsage', internalType: 'uint256', type: 'uint256' },
-      { name: 'minimumRateRequired', internalType: 'uint256', type: 'uint256' },
+      { name: 'rateRequired', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'InsufficientRateAllowance',
   },
@@ -360,19 +363,6 @@ export const errorsAbi = [
       { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'PaymentRailsNotFinalized',
-  },
-  {
-    type: 'error',
-    inputs: [
-      {
-        name: 'priceType',
-        internalType: 'enum Errors.PriceType',
-        type: 'uint8',
-      },
-      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
-      { name: 'actual', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'PriceExceedsMaximum',
   },
   {
     type: 'error',
@@ -1807,15 +1797,6 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'totalBytes', internalType: 'uint256', type: 'uint256' }],
-    name: 'calculateRatePerEpoch',
-    outputs: [
-      { name: 'storageRate', internalType: 'uint256', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
     inputs: [
       { name: '_maxProvingPeriod', internalType: 'uint64', type: 'uint64' },
       {
@@ -1897,7 +1878,7 @@ export const filecoinWarmStorageServiceAbi = [
       { name: 'serviceFee', internalType: 'uint256', type: 'uint256' },
       { name: 'spPayment', internalType: 'uint256', type: 'uint256' },
     ],
-    stateMutability: 'view',
+    stateMutability: 'pure',
   },
   {
     type: 'function',
@@ -1941,7 +1922,7 @@ export const filecoinWarmStorageServiceAbi = [
           },
           { name: 'epochsPerMonth', internalType: 'uint256', type: 'uint256' },
           {
-            name: 'minimumPricePerMonth',
+            name: 'datasetFeePerMonth',
             internalType: 'uint256',
             type: 'uint256',
           },
@@ -2164,6 +2145,16 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'function',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'terminateService',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'cdnAmountToAdd', internalType: 'uint256', type: 'uint256' },
       {
         name: 'cacheMissAmountToAdd',
@@ -2172,6 +2163,16 @@ export const filecoinWarmStorageServiceAbi = [
       },
     ],
     name: 'topUpCDNPaymentRails',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'topUpLifecycleReserve',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -2188,25 +2189,6 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'function',
     inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
     name: 'transferOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'newStoragePrice', internalType: 'uint256', type: 'uint256' },
-      { name: 'newMinimumRate', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'updatePricing',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'newCommissionBps', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'updateServiceCommission',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -2271,43 +2253,6 @@ export const filecoinWarmStorageServiceAbi = [
         indexed: true,
       },
       {
-        name: 'cdnAmountAdded',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'totalCdnLockup',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'cacheMissAmountAdded',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'totalCacheMissLockup',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'CDNPaymentRailsToppedUp',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
         name: 'endEpoch',
         internalType: 'uint256',
         type: 'uint256',
@@ -2327,37 +2272,6 @@ export const filecoinWarmStorageServiceAbi = [
       },
     ],
     name: 'CDNPaymentTerminated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'caller',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'cacheMissRailId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'cdnRailId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'CDNServiceTerminated',
   },
   {
     type: 'event',
@@ -2629,25 +2543,6 @@ export const filecoinWarmStorageServiceAbi = [
     anonymous: false,
     inputs: [
       {
-        name: 'storagePrice',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'minimumRate',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'PricingUpdated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
         name: 'providerId',
         internalType: 'uint256',
         type: 'uint256',
@@ -2674,32 +2569,7 @@ export const filecoinWarmStorageServiceAbi = [
     anonymous: false,
     inputs: [
       {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'newRate',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'RailRateUpdated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'caller',
+        name: 'approver',
         internalType: 'address',
         type: 'address',
         indexed: true,
@@ -2783,17 +2653,6 @@ export const filecoinWarmStorageServiceAbi = [
     inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
     name: 'AddressEmptyCode',
   },
-  { type: 'error', inputs: [], name: 'AtLeastOnePriceMustBeNonZero' },
-  {
-    type: 'error',
-    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'CDNPaymentAlreadyTerminated',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'CacheMissPaymentAlreadyTerminated',
-  },
   {
     type: 'error',
     inputs: [
@@ -2840,15 +2699,11 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'error',
     inputs: [
-      {
-        name: 'commissionType',
-        internalType: 'enum Errors.CommissionType',
-        type: 'uint8',
-      },
-      { name: 'max', internalType: 'uint256', type: 'uint256' },
-      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'requiredEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentBlock', internalType: 'uint256', type: 'uint256' },
     ],
-    name: 'CommissionExceedsMaximum',
+    name: 'DataSetNotAbandoned',
   },
   {
     type: 'error',
@@ -2874,7 +2729,6 @@ export const filecoinWarmStorageServiceAbi = [
     ],
     name: 'DataSetPaymentBeyondEndEpoch',
   },
-  { type: 'error', inputs: [], name: 'DivisionByZero' },
   {
     type: 'error',
     inputs: [
@@ -2905,55 +2759,6 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
     name: 'FilBeamServiceNotConfigured',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupUsage', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'minimumLockupRequired',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-    ],
-    name: 'InsufficientLockupAllowance',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'minimumRequired', internalType: 'uint256', type: 'uint256' },
-      { name: 'available', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InsufficientLockupFunds',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'requiredLockupPeriod',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-    ],
-    name: 'InsufficientMaxLockupPeriod',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'rateUsage', internalType: 'uint256', type: 'uint256' },
-      { name: 'minimumRateRequired', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InsufficientRateAllowance',
   },
   {
     type: 'error',
@@ -3005,11 +2810,6 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
     name: 'InvalidServiceNameLength',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'InvalidTopUpAmount',
   },
   { type: 'error', inputs: [], name: 'MaxProvingPeriodZero' },
   {
@@ -3079,14 +2879,6 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
-    inputs: [
-      { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-    ],
-    name: 'OperatorNotApproved',
-  },
-  {
-    type: 'error',
     inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
     name: 'OwnableInvalidOwner',
   },
@@ -3102,19 +2894,6 @@ export const filecoinWarmStorageServiceAbi = [
       { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'PaymentRailsNotFinalized',
-  },
-  {
-    type: 'error',
-    inputs: [
-      {
-        name: 'priceType',
-        internalType: 'enum Errors.PriceType',
-        type: 'uint8',
-      },
-      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
-      { name: 'actual', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'PriceExceedsMaximum',
   },
   {
     type: 'error',
@@ -3344,6 +3123,16 @@ export const filecoinWarmStorageServiceStateViewAbi = [
           { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
           { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'pendingOneTimePayments',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          {
+            name: 'lifecycleReserveBalance',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
           { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
         ],
       },
@@ -3370,6 +3159,16 @@ export const filecoinWarmStorageServiceStateViewAbi = [
           { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
           { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'pendingOneTimePayments',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          {
+            name: 'lifecycleReserveBalance',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
           { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
         ],
       },
@@ -3389,7 +3188,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     name: 'getCurrentPricingRates',
     outputs: [
       { name: 'storagePrice', internalType: 'uint256', type: 'uint256' },
-      { name: 'minimumRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'datasetFee', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'view',
   },
@@ -3413,6 +3212,16 @@ export const filecoinWarmStorageServiceStateViewAbi = [
           { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
           { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'pendingOneTimePayments',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          {
+            name: 'lifecycleReserveBalance',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
           { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
         ],
       },
@@ -3479,6 +3288,118 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     outputs: [
       { name: 'exists', internalType: 'bool', type: 'bool' },
       { name: 'value', internalType: 'string', type: 'string' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getPriceList',
+    outputs: [
+      {
+        name: 'list',
+        internalType: 'struct PriceList',
+        type: 'tuple',
+        components: [
+          { name: 'token', internalType: 'contract IERC20', type: 'address' },
+          {
+            name: 'rates',
+            internalType: 'struct PriceListRates',
+            type: 'tuple',
+            components: [
+              {
+                name: 'storagePerTibPerMonth',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'datasetFeePerMonth',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'cdnEgressPerTib',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'cacheMissEgressPerTib',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+            ],
+          },
+          {
+            name: 'fees',
+            internalType: 'struct PriceListFees',
+            type: 'tuple',
+            components: [
+              {
+                name: 'createDataSetFee',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'addPiecesBaseFee',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'addPiecesPerPieceFee',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'schedulePieceRemovalsFee',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'terminateFee',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+            ],
+          },
+          {
+            name: 'lockups',
+            internalType: 'struct PriceListLockups',
+            type: 'tuple',
+            components: [
+              {
+                name: 'lifecycleReserveTarget',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'replenishThreshold',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'defaultLockupPeriod',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'cdnLockupAmount',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'cacheMissLockupAmount',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'cdnLockupPeriod',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+            ],
+          },
+        ],
+      },
     ],
     stateMutability: 'view',
   },
@@ -3602,22 +3523,30 @@ export const pdpVerifierAbi = [
     type: 'constructor',
     inputs: [
       { name: '_initializerVersion', internalType: 'uint64', type: 'uint64' },
-      { name: '_usdfcTokenAddress', internalType: 'address', type: 'address' },
-      { name: '_usdfcSybilFee', internalType: 'uint256', type: 'uint256' },
-      {
-        name: '_paymentsContractAddress',
-        internalType: 'address',
-        type: 'address',
-      },
+      { name: '_challengeFinality', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'nonpayable',
   },
   {
     type: 'function',
     inputs: [],
-    name: 'FIL_SYBIL_FEE',
+    name: 'FIL_CLEANUP_DEPOSIT',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'INACTIVITY_WINDOW',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'LEGACY_ACTIVITY_EPOCH',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -3636,43 +3565,8 @@ export const pdpVerifierAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'NO_CHALLENGE_SCHEDULED',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'NO_PROVEN_EPOCH',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'PAYMENTS_CONTRACT_ADDRESS',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
     name: 'UPGRADE_INTERFACE_VERSION',
     outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'USDFC_SYBIL_FEE',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'USDFC_TOKEN_ADDRESS',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
   },
   {
@@ -3742,6 +3636,16 @@ export const pdpVerifierAbi = [
     ],
     name: 'claimDataSetStorageProvider',
     outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxPieces', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'cleanupPieces',
+    outputs: [{ name: 'done', internalType: 'bool', type: 'bool' }],
     stateMutability: 'nonpayable',
   },
   {
@@ -3982,9 +3886,7 @@ export const pdpVerifierAbi = [
   },
   {
     type: 'function',
-    inputs: [
-      { name: '_challengeFinality', internalType: 'uint256', type: 'uint256' },
-    ],
+    inputs: [],
     name: 'initialize',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -4428,6 +4330,12 @@ export const pdpVerifierAbi = [
     inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
     name: 'AddressEmptyCode',
   },
+  { type: 'error', inputs: [], name: 'CleanupDepositRequired' },
+  { type: 'error', inputs: [], name: 'DataSetAlreadyInCleanup' },
+  { type: 'error', inputs: [], name: 'DataSetNotFound' },
+  { type: 'error', inputs: [], name: 'DataSetNotInCleanupMode' },
+  { type: 'error', inputs: [], name: 'DataSetNotLive' },
+  { type: 'error', inputs: [], name: 'DepositTransferFailed' },
   {
     type: 'error',
     inputs: [
@@ -4436,8 +4344,15 @@ export const pdpVerifierAbi = [
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'epochs', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxDelay', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ExcessiveChallengeDelay',
+  },
   { type: 'error', inputs: [], name: 'FailedCall' },
-  { type: 'error', inputs: [], name: 'FilRefundFailed' },
   {
     type: 'error',
     inputs: [
@@ -4446,8 +4361,19 @@ export const pdpVerifierAbi = [
     ],
     name: 'IndexedError',
   },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'epochs', internalType: 'uint256', type: 'uint256' },
+      { name: 'minDelay', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientChallengeDelay',
+  },
   { type: 'error', inputs: [], name: 'InvalidInitialization' },
+  { type: 'error', inputs: [], name: 'MaxPiecesMustBePositive' },
   { type: 'error', inputs: [], name: 'NotInitializing' },
+  { type: 'error', inputs: [], name: 'OnlyStorageProviderCanCleanupPieces' },
+  { type: 'error', inputs: [], name: 'OnlyStorageProviderCanDelete' },
   {
     type: 'error',
     inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
@@ -4458,13 +4384,13 @@ export const pdpVerifierAbi = [
     inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
     name: 'OwnableUnauthorizedAccount',
   },
+  { type: 'error', inputs: [], name: 'TransferFailed' },
   { type: 'error', inputs: [], name: 'UUPSUnauthorizedCallContext' },
   {
     type: 'error',
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-  { type: 'error', inputs: [], name: 'UsdfcSybilFeeNotMet' },
 ] as const
 
 /**

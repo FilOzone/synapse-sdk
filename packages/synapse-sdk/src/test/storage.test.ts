@@ -293,6 +293,8 @@ describe('StorageService', () => {
         pdpEndEpoch: 0n,
         pdpRailId: 1n,
         providerId: 1n,
+        pendingOneTimePayments: 0n,
+        lifecycleReserveBalance: 0n,
         serviceProvider: Mocks.ADDRESSES.serviceProvider1,
       }
       const expectedDataSets = [
@@ -408,6 +410,8 @@ describe('StorageService', () => {
                     pdpEndEpoch: 0n,
                     pdpRailId: 1n,
                     providerId: 1n,
+                    pendingOneTimePayments: 0n,
+                    lifecycleReserveBalance: 0n,
                     serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   },
                 ]
@@ -424,6 +428,8 @@ describe('StorageService', () => {
                     pdpEndEpoch: 0n,
                     pdpRailId: 2n,
                     providerId: 1n,
+                    pendingOneTimePayments: 0n,
+                    lifecycleReserveBalance: 0n,
                     serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   },
                 ]
@@ -567,6 +573,8 @@ describe('StorageService', () => {
                   pdpEndEpoch: 0n,
                   pdpRailId: 1n,
                   providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 },
                 {
@@ -580,6 +588,8 @@ describe('StorageService', () => {
                   pdpEndEpoch: 0n,
                   pdpRailId: 2n,
                   providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 },
               ],
@@ -649,6 +659,8 @@ describe('StorageService', () => {
                   pdpEndEpoch: 0n,
                   pdpRailId: 1n,
                   providerId: 3n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 },
               ]
@@ -694,6 +706,8 @@ describe('StorageService', () => {
                   pdpEndEpoch: 0n,
                   pdpRailId: 1n,
                   providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 },
               ]
@@ -733,6 +747,8 @@ describe('StorageService', () => {
                   pdpEndEpoch: 0n,
                   pdpRailId: 1n,
                   providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 },
               ]
@@ -793,6 +809,8 @@ describe('StorageService', () => {
                   pdpEndEpoch: 0n,
                   pdpRailId: 1n,
                   providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 },
               ]

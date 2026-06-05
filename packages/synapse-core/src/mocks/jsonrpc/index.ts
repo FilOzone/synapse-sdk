@@ -421,6 +421,8 @@ export const presets = {
             clientDataSetId: 0n,
             pdpEndEpoch: 0n,
             providerId: 1n,
+            pendingOneTimePayments: 0n,
+            lifecycleReserveBalance: 0n,
             cdnEndEpoch: 0n,
             dataSetId: 1n,
           },
@@ -443,6 +445,8 @@ export const presets = {
               pdpEndEpoch: 0n,
               pdpRailId: 1n,
               providerId: 1n,
+              pendingOneTimePayments: 0n,
+              lifecycleReserveBalance: 0n,
               serviceProvider: ADDRESSES.serviceProvider1,
             },
           ]
@@ -459,6 +463,8 @@ export const presets = {
               pdpEndEpoch: 0n,
               pdpRailId: 0n,
               providerId: 0n,
+              pendingOneTimePayments: 0n,
+              lifecycleReserveBalance: 0n,
               serviceProvider: ADDRESSES.zero,
             },
           ]
