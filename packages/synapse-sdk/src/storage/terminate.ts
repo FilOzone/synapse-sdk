@@ -26,7 +26,9 @@ import { createError } from '../utils/index.ts'
 export async function terminateServiceFlow(
   synapse: Synapse,
   options: TerminateServiceOptions,
-  getServiceURL: () => Promise<string>
+  getServiceURL: () => Promise<string>,
+  /** Caller name for error attribution, e.g. 'StorageManager' or 'StorageContext'. */
+  source: string
 ): Promise<TerminateServiceResult> {
   const { dataSetId, onSubmitted } = options
 
@@ -38,6 +40,10 @@ export async function terminateServiceFlow(
     const event = extractPDPPaymentTerminatedEvent(receipt.logs)
     return { txHash: receipt.transactionHash, dataSetId, endEpoch: event.args.endEpoch }
   }
+
+  // Resolve (and, on the manager path, validate) the target first so a bad
+  // data set ID surfaces as its own error rather than as funding advice
+  const serviceURL = await getServiceURL()
 
   // Immediate termination settles the payer's account in full. Best-effort
   // pre-check: catches a clear shortfall before signing, but lockup keeps
@@ -57,13 +63,12 @@ export async function terminateServiceFlow(
   })
   if (debt > 0n) {
     throw createError(
-      'StorageManager',
+      source,
       'terminateService',
       `Account cannot settle its lockup in full (shortfall: ${debt} of the payment token's base units); deposit funds, or terminate on-chain (onChain: true) to wind down over the lockup period instead`
     )
   }
 
-  const serviceURL = await getServiceURL()
   const client = synapse.sessionClient ?? synapse.client
 
   let statusUrl: string

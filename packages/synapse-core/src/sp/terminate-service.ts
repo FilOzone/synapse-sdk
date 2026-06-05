@@ -274,6 +274,8 @@ export type TerminateServiceStatusResponse =
   | TerminateServiceStatusRejected
   | TerminateServiceStatusSuccess
 
+// Validates only the FINAL response; intermediate pending bodies are inspected
+// (and polling continued) by shouldPoll below, without schema validation.
 const schema = z.union([TerminateServiceStatusRejectedSchema, TerminateServiceStatusSuccessSchema])
 
 export namespace waitForTerminateService {

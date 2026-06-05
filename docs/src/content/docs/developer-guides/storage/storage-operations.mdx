@@ -304,7 +304,7 @@ Only terminate when you're certain you no longer need the data.
 
 To end the storage service for a data set and discontinue its payments, call
 `context.terminate()`, or `synapse.storage.terminateService({ dataSetId })`
-when the data set ID is known and a context is not necessary.
+when the data set ID is known (a context is not necessary).
 
 There are two ways to terminate, chosen with the `onChain` option. The
 provider-mediated path is the recommended default: you sign an authorization,

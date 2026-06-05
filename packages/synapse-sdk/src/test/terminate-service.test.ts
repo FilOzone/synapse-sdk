@@ -112,6 +112,33 @@ describe('StorageManager.terminateService', () => {
     }
   })
 
+  it('should reject a data set that is not live before contacting the provider', async () => {
+    // A fully deleted (post-cleanup) data set fails liveness validation during
+    // provider resolution; this is distinct from terminated-but-live, which
+    // reaches the provider and maps the 409 conflict to a success result
+    server.use(
+      Mocks.JSONRPC({
+        ...Mocks.presets.basic,
+        pdpVerifier: {
+          ...Mocks.presets.basic.pdpVerifier,
+          dataSetLive: () => [false],
+        },
+      }),
+      http.post(terminateStatusPath, () => {
+        assert.fail('Should not have contacted the provider')
+        return new HttpResponse(null, { status: 202 })
+      })
+    )
+
+    const synapse = new Synapse({ client, source: null })
+    try {
+      await synapse.storage.terminateService({ dataSetId: 1n })
+      assert.fail('Should have thrown')
+    } catch (error) {
+      assert.include((error as Error).message, 'does not exist or is not live')
+    }
+  })
+
   it('should resume tracking a pending termination we cannot re-queue', async () => {
     server.use(
       Mocks.JSONRPC({ ...Mocks.presets.basic }),

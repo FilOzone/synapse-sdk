@@ -1228,6 +1228,11 @@ export class StorageContext {
       throw createError('StorageContext', 'terminate', 'Data set not found')
     }
     // The context already knows its provider's endpoint; no registry lookup
-    return terminateServiceFlow(this._synapse, { ...options, dataSetId }, async () => this._pdpEndpoint)
+    return terminateServiceFlow(
+      this._synapse,
+      { ...options, dataSetId },
+      async () => this._pdpEndpoint,
+      'StorageContext'
+    )
   }
 }
