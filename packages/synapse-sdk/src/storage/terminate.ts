@@ -50,10 +50,8 @@ export async function terminateServiceFlow(
   // accruing until the provider's tx lands, so a marginal account can still
   // revert SP-side (surfacing as the rejected/404 path).
   const payerAddress = synapse.client.account.address
-  const [accountInfo, currentEpoch] = await Promise.all([
-    payAccounts(synapse.client, { address: payerAddress }),
-    getBlockNumber(synapse.client, { cacheTime: 0 }),
-  ])
+  const currentEpoch = await getBlockNumber(synapse.client, { cacheTime: 0 })
+  const accountInfo = await payAccounts(synapse.client, { address: payerAddress, blockNumber: currentEpoch })
   const debt = calculateAccountDebt({
     funds: accountInfo.funds,
     lockupCurrent: accountInfo.lockupCurrent,
