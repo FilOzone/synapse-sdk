@@ -270,6 +270,20 @@ export class WaitForTerminateServiceNotFoundError extends SynapseError {
   }
 }
 
+export class WaitForTerminateServiceTimeoutError extends SynapseError {
+  override name: 'WaitForTerminateServiceTimeoutError' = 'WaitForTerminateServiceTimeoutError'
+
+  constructor(timeoutMs: number) {
+    super(`Timed out waiting for data set termination.`, {
+      details: `No confirmation after ${timeoutMs}ms. The request may still be queued with the service provider; retry to resume tracking, or terminate on-chain.`,
+    })
+  }
+
+  static override is(value: unknown): value is WaitForTerminateServiceTimeoutError {
+    return isSynapseError(value) && value.name === 'WaitForTerminateServiceTimeoutError'
+  }
+}
+
 export class WaitForTerminateServiceRejectedError extends SynapseError {
   override name: 'WaitForTerminateServiceRejectedError' = 'WaitForTerminateServiceRejectedError'
   response: TerminateServiceStatusRejected

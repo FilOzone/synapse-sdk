@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, type RequestJsonErrors, request, TimeoutError } from 'iso-web/http'
 import type { Account, Chain, Client, EncodeAbiParametersErrorType, Hex, SignTypedDataErrorType, Transport } from 'viem'
 import * as z from 'zod'
 import type { asChain } from '../chains.ts'
@@ -10,6 +10,7 @@ import {
   WaitForTerminateServiceError,
   WaitForTerminateServiceNotFoundError,
   WaitForTerminateServiceRejectedError,
+  WaitForTerminateServiceTimeoutError,
 } from '../errors/pdp.ts'
 import { signTerminateService } from '../typed-data/sign-terminate-service.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
@@ -298,6 +299,7 @@ export namespace waitForTerminateService {
     | WaitForTerminateServiceError
     | WaitForTerminateServiceNotFoundError
     | WaitForTerminateServiceRejectedError
+    | WaitForTerminateServiceTimeoutError
     | RequestJsonErrors
 }
 
@@ -346,6 +348,9 @@ export async function waitForTerminateService(
         throw new WaitForTerminateServiceNotFoundError()
       }
       throw new WaitForTerminateServiceError(await response.error.response.text())
+    }
+    if (TimeoutError.is(response.error)) {
+      throw new WaitForTerminateServiceTimeoutError(options.timeout ?? RETRY_CONSTANTS.TIMEOUT)
     }
     throw response.error
   }

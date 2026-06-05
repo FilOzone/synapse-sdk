@@ -12,6 +12,7 @@ import {
   WaitForTerminateServiceError,
   WaitForTerminateServiceNotFoundError,
   WaitForTerminateServiceRejectedError,
+  WaitForTerminateServiceTimeoutError,
 } from '../src/errors/pdp.ts'
 import { PRIVATE_KEYS } from '../src/mocks/index.ts'
 import {
@@ -368,7 +369,7 @@ describe('SP terminate service', () => {
       }
     })
 
-    it('should handle timeout', async () => {
+    it('should throw a typed timeout error when the provider never confirms', async () => {
       server.use(
         http.get('http://pdp.local/pdp/data-sets/1/terminate', async () => {
           await delay(150)
@@ -383,7 +384,9 @@ describe('SP terminate service', () => {
         })
         assert.fail('Should have thrown timeout error')
       } catch (error) {
-        assert.instanceOf(error, TimeoutError)
+        assert.isTrue(WaitForTerminateServiceTimeoutError.is(error))
+        assert.notInstanceOf(error, TimeoutError)
+        assert.match((error as WaitForTerminateServiceTimeoutError).details ?? '', /retry|on-chain/)
       }
     })
   })
