@@ -14,9 +14,9 @@ export namespace findPiece {
     signal?: AbortSignal
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
-    /** The number of retries. Defaults to 2. */
+    /** The number of retries. Defaults to polling until timeout when poll is true. */
     retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+    /** The delay between retries in milliseconds. Defaults to pollInterval when poll is true. */
     retryDelay?: number
     /** Whether to poll the request. Defaults to false. */
     poll?: boolean
@@ -38,12 +38,15 @@ export namespace findPiece {
 export async function findPiece(options: findPiece.OptionsType): Promise<findPiece.OutputType> {
   const { pieceCid, serviceURL } = options
   const params = new URLSearchParams({ pieceCid: pieceCid.toString() })
+  const retryCount = options.retryCount ?? (options.poll ? RETRY_CONSTANTS.POLL_LIMIT : undefined)
+  const retryDelay = options.retryDelay ?? (options.poll ? (options.pollInterval ?? 1000) : RETRY_CONSTANTS.RETRY_DELAY)
   const response = await request.json.get<{ pieceCid: string }>(new URL(`pdp/piece?${params.toString()}`, serviceURL), {
     signal: options.signal,
     timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
     retry: {
-      retries: options.retryCount,
-      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+      retries: retryCount,
+      factor: options.poll ? 1 : undefined,
+      minTimeout: retryDelay,
       shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 404,
     },
     poll: options.poll
