@@ -34,7 +34,6 @@ import {
   getDataSet,
   getServicePrice,
   removeApprovedProvider,
-  terminateService,
 } from '@filoz/synapse-core/warm-storage'
 import {
   type Account,
@@ -362,20 +361,6 @@ export class WarmStorageService {
    */
   async getServicePrice(): Promise<getServicePrice.OutputType> {
     return getServicePrice(this._client)
-  }
-
-  // ========== Data Set Operations ==========
-
-  /**
-   * Terminate the storage service by submitting the transaction on-chain directly.
-   * The service and its payments run to the end of the lockup period.
-   * For provider-relayed (immediate) termination use `StorageManager.terminateService`.
-   * @param options - Options for the service termination
-   * @param options.dataSetId - ID of the data set to terminate
-   * @returns Transaction hash
-   */
-  async terminateService(options: { dataSetId: bigint }): Promise<Hash> {
-    return terminateService(this._client, { dataSetId: options.dataSetId })
   }
 
   // ========== Service Provider Approval Operations ==========

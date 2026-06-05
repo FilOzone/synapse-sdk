@@ -31,6 +31,8 @@ console.log(direct.txHash, direct.endEpoch)
 
 `context.terminate()` now uses the same provider-relayed default and returns `{ txHash?, dataSetId, endEpoch }`.
 
+`WarmStorageService.terminateDataSet` was removed without a class-level replacement. Use `synapse.storage.terminateService({ dataSetId, onChain: true })`, or the `terminateService` function from `@filoz/synapse-core/warm-storage` for the bare contract call.
+
 ### Action: Re-mint session keys for service termination
 
 `DeleteDataSetPermission` has been replaced by `TerminateServicePermission`.

@@ -814,14 +814,6 @@ describe('WarmStorageService', () => {
       assert.equal(tx, '0x43471ce4a501b1701aab800e10ea29882944dc1b4bfb85aa3fab7a82c5dba343')
     })
 
-    it('should terminate dataset (mock tx)', async () => {
-      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }))
-      const warmStorageService = await createWarmStorageService()
-
-      const tx = await warmStorageService.terminateService({ dataSetId: 4n })
-      assert.equal(tx, '0xe1a356b6152a11ea58ac7bfb00498d1f9dbf47d6755207a5691a3a8f4a7f6d35')
-    })
-
     it('should remove approved provider with correct index', async () => {
       server.use(
         Mocks.JSONRPC({
