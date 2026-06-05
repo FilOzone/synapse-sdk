@@ -714,13 +714,19 @@ export class StorageManager {
     const existingDataSetIds = contexts.filter((ctx) => ctx.dataSetId != null).map((ctx) => ctx.dataSetId as bigint)
 
     // Fetch all needed data in parallel
-    const [accountInfo, priceList, approved, currentEpoch, sizes] = await Promise.all([
+    const [accountInfo, priceList, currentEpoch, sizes] = await Promise.all([
       payAccounts(client, { address: clientAddress }),
       getPriceList(client),
-      isFwssMaxApproved(client, { clientAddress }),
       getBlockNumber(client, { cacheTime: 0 }),
       existingDataSetIds.length > 0 ? getDataSetSizes(client, { dataSetIds: existingDataSetIds }) : [],
     ])
+
+    // Reuse the fetched price list's lockup period so the approval check
+    // doesn't read getPriceList again.
+    const approved = await isFwssMaxApproved(client, {
+      clientAddress,
+      requiredMaxLockupPeriod: priceList.lockups.defaultLockupPeriod,
+    })
 
     // Build dataset size map: dataSetId → size
     const dataSetSizes = new Map<bigint, bigint>()
