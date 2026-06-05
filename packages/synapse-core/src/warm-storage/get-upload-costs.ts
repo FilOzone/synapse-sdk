@@ -80,12 +80,18 @@ export async function getUploadCosts(
   const bufferEpochs = options.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
 
   // Fetch all needed data in parallel
-  const [accountInfo, priceList, approved, currentEpoch] = await Promise.all([
+  const [accountInfo, priceList, currentEpoch] = await Promise.all([
     accounts(client, { address: options.clientAddress }),
     getPriceList(client),
-    isFwssMaxApproved(client, { clientAddress: options.clientAddress }),
     getBlockNumber(client, { cacheTime: 0 }),
   ])
+
+  // Reuse the fetched price list's lockup period so the approval check
+  // doesn't read getPriceList again.
+  const approved = await isFwssMaxApproved(client, {
+    clientAddress: options.clientAddress,
+    requiredMaxLockupPeriod: priceList.lockups.defaultLockupPeriod,
+  })
 
   // Calculate effective rate for the new total dataset size
   const totalSize = currentDataSetSize + options.dataSize
