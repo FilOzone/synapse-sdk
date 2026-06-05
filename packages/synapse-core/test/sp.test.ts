@@ -1023,6 +1023,32 @@ InvalidSignature(address expected, address actual)
       assert.strictEqual(result.toString(), mockPieceCidStr)
       assert.isAtLeast(attemptCount, 3, 'Should have retried at least 3 times')
     })
+
+    it('should wait through 404 status until an uploaded piece becomes visible', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+      let attemptCount = 0
+
+      server.use(
+        http.get('http://pdp.local/pdp/piece', () => {
+          attemptCount++
+          if (attemptCount <= 12) {
+            return HttpResponse.text(null, { status: 404 })
+          }
+          return HttpResponse.json({ pieceCid: mockPieceCidStr }, { status: 200 })
+        })
+      )
+
+      const result = await findPiece({
+        serviceURL: 'http://pdp.local',
+        pieceCid,
+        poll: true,
+        pollInterval: 1,
+        timeout: 1000,
+      })
+
+      assert.strictEqual(result.toString(), mockPieceCidStr)
+      assert.strictEqual(attemptCount, 13)
+    })
   })
 
   describe('uploadPiece', () => {
