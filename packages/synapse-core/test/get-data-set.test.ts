@@ -81,6 +81,8 @@ describe('getDataSet', () => {
         pdpEndEpoch: 0n,
         pdpRailId: 1n,
         providerId: 1n,
+        pendingOneTimePayments: 0n,
+        lifecycleReserveBalance: 0n,
         serviceProvider: ADDRESSES.serviceProvider1,
       })
     })

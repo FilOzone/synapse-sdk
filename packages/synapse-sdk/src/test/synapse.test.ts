@@ -600,6 +600,8 @@ describe('Synapse', () => {
                   pdpEndEpoch: 0n,
                   pdpRailId: dataSetId,
                   providerId: 1n, // Same provider for both
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   cdnEndEpoch: 0n,
                 },
