@@ -94,18 +94,21 @@ export async function setOperatorApproval(
   const maxLockupPeriod =
     options.maxLockupPeriod ?? (options.approve ? (await getPriceList(client)).lockups.defaultLockupPeriod : 0n)
 
+  const callOptions = {
+    chain: client.chain,
+    token: options.token,
+    operator: options.operator,
+    rateAllowance: options.rateAllowance,
+    lockupAllowance: options.lockupAllowance,
+    contractAddress: options.contractAddress,
+  }
   const { request } = await simulateContract(
     client,
-    setOperatorApprovalCall({
-      chain: client.chain,
-      token: options.token,
-      operator: options.operator,
-      approve: options.approve,
-      rateAllowance: options.rateAllowance,
-      lockupAllowance: options.lockupAllowance,
-      maxLockupPeriod,
-      contractAddress: options.contractAddress,
-    })
+    setOperatorApprovalCall(
+      options.approve
+        ? { ...callOptions, approve: true, maxLockupPeriod }
+        : { ...callOptions, approve: false, maxLockupPeriod }
+    )
   )
 
   return writeContract(client, request)
@@ -173,7 +176,15 @@ export async function setOperatorApprovalSync(
 }
 
 export namespace setOperatorApprovalCall {
-  export type OptionsType = Simplify<setOperatorApproval.OptionsType & ActionCallChain>
+  /**
+   * Approving requires an explicit `maxLockupPeriod` because this synchronous
+   * builder cannot read it from the chain price list. Revoking does not.
+   */
+  export type OptionsType = Simplify<
+    Omit<setOperatorApproval.OptionsType, 'approve' | 'maxLockupPeriod'> &
+      ActionCallChain &
+      ({ approve: true; maxLockupPeriod: bigint } | { approve: false; maxLockupPeriod?: bigint })
+  >
   export type ErrorType = asChain.ErrorType | ValidationError
   export type OutputType = ContractFunctionParameters<typeof paymentsAbi, 'nonpayable', 'setOperatorApproval'>
 }

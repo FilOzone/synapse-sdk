@@ -88,6 +88,7 @@ describe('setOperatorApproval', () => {
       // The synchronous builder has no hardcoded default; approving callers must
       // resolve the period from the chain price list and pass it in.
       assert.throws(
+        // @ts-expect-error the type requires maxLockupPeriod when approving; this guards JS callers
         () => setOperatorApprovalCall({ chain: calibration, approve: true }),
         /maxLockupPeriod is required when approving/
       )
@@ -182,6 +183,7 @@ describe('setOperatorApproval', () => {
             chain: calibration,
             approve: true,
             operator: customOperator,
+            maxLockupPeriod: CHAIN_LOCKUP_PERIOD,
           }),
         /Custom operator requires explicit rateAllowance, lockupAllowance and maxLockupPeriod/
       )
@@ -191,6 +193,7 @@ describe('setOperatorApproval', () => {
       const customOperator = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address
       assert.throws(
         () =>
+          // @ts-expect-error the type requires maxLockupPeriod when approving; this guards JS callers
           setOperatorApprovalCall({
             chain: calibration,
             approve: true,
