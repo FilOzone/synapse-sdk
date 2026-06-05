@@ -367,7 +367,7 @@ export class WarmStorageService {
   // ========== Data Set Operations ==========
 
   /**
-   * Terminate a data set service by submitting the transaction on-chain directly.
+   * Terminate the storage service by submitting the transaction on-chain directly.
    * The service and its payments run to the end of the lockup period.
    * For provider-relayed (immediate) termination use `StorageManager.terminateService`.
    * @param options - Options for the service termination

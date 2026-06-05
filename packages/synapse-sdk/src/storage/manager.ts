@@ -999,7 +999,12 @@ export class StorageManager {
    * @returns The termination outcome {@link TerminateServiceResult}
    */
   async terminateService(options: TerminateServiceOptions): Promise<TerminateServiceResult> {
-    return terminateServiceFlow(this._synapse, options, () => this._resolveServiceURL(options.dataSetId))
+    return terminateServiceFlow(
+      this._synapse,
+      options,
+      () => this._resolveServiceURL(options.dataSetId),
+      'StorageManager'
+    )
   }
 
   /**
