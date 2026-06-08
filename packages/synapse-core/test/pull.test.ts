@@ -28,6 +28,7 @@ describe('Pull', () => {
     recordKeeper: TEST_RECORD_KEEPER,
     extraData: TEST_EXTRA_DATA,
     pieces: [{ pieceCid: TEST_PIECE_CID, sourceUrl: TEST_SOURCE_URL }],
+    retryDelay: 10,
   })
 
   before(async () => {

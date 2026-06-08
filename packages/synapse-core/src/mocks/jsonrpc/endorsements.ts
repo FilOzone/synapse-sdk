@@ -5,7 +5,7 @@ import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
 import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type getProviderIds = ExtractAbiFunction<typeof Abis.providerIdSet, 'getProviderIds'>
+type getProviderIds = ExtractAbiFunction<typeof Abis.providerIdSet, 'getProviderIds'>
 
 export interface EndorsementsOptions {
   getProviderIds?: (args: AbiToType<getProviderIds['inputs']>) => AbiToType<getProviderIds['outputs']>

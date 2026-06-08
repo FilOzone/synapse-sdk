@@ -5,16 +5,16 @@ import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
 import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type getNextPieceId = ExtractAbiFunction<typeof Abis.pdp, 'getNextPieceId'>
-export type getActivePieceCount = ExtractAbiFunction<typeof Abis.pdp, 'getActivePieceCount'>
-export type dataSetLive = ExtractAbiFunction<typeof Abis.pdp, 'dataSetLive'>
-export type getDataSetListener = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetListener'>
-export type getActivePieces = ExtractAbiFunction<typeof Abis.pdp, 'getActivePieces'>
-export type getDataSetStorageProvider = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetStorageProvider'>
-export type getDataSetLeafCount = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetLeafCount'>
-export type getScheduledRemovals = ExtractAbiFunction<typeof Abis.pdp, 'getScheduledRemovals'>
-export type getNextChallengeEpoch = ExtractAbiFunction<typeof Abis.pdp, 'getNextChallengeEpoch'>
-export type findPieceIdsByCid = ExtractAbiFunction<typeof Abis.pdp, 'findPieceIdsByCid'>
+type getNextPieceId = ExtractAbiFunction<typeof Abis.pdp, 'getNextPieceId'>
+type getActivePieceCount = ExtractAbiFunction<typeof Abis.pdp, 'getActivePieceCount'>
+type dataSetLive = ExtractAbiFunction<typeof Abis.pdp, 'dataSetLive'>
+type getDataSetListener = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetListener'>
+type getActivePieces = ExtractAbiFunction<typeof Abis.pdp, 'getActivePieces'>
+type getDataSetStorageProvider = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetStorageProvider'>
+type getDataSetLeafCount = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetLeafCount'>
+type getScheduledRemovals = ExtractAbiFunction<typeof Abis.pdp, 'getScheduledRemovals'>
+type getNextChallengeEpoch = ExtractAbiFunction<typeof Abis.pdp, 'getNextChallengeEpoch'>
+type findPieceIdsByCid = ExtractAbiFunction<typeof Abis.pdp, 'findPieceIdsByCid'>
 
 export interface PDPVerifierOptions {
   dataSetLive?: (args: AbiToType<dataSetLive['inputs']>) => AbiToType<dataSetLive['outputs']>

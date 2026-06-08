@@ -7,6 +7,7 @@ packages:
 
 allowBuilds:
   esbuild: true
+  keccak: false
   msw: true
   sharp: true
   workerd: true
@@ -14,35 +15,55 @@ allowBuilds:
 blockExoticSubdeps: true
 
 catalog:
-  '@biomejs/biome': 2.4.11
+  '@biomejs/biome': 2.4.15
   '@types/mocha': ^10.0.10
   '@types/node': ^25.6.0
   '@types/react': ^19.2.7
   '@types/react-dom': ^19.2.3
   abitype: ^1.2.0
   mocha: ^11.7.4
-  msw: 2.14.5
+  msw: 2.14.6
   ox: ^0.14.16
   typescript: 6.0.3
-  viem: ^2.47.17
+  viem: ^2.52.0
   wagmi: ^3.0.2
   zod: ^4.3.5
+  iso-web: ^3.1.2
 
 minimumReleaseAge: 10080
 
 minimumReleaseAgeExclude:
+  # first-party (hugomrdias): published and consumed by us immediately
   - iso-ledger
   - iso-web
+  - iso-kv
+  - iso-base
   - '@hugomrdias/docs'
+  - playwright-test
+  # viem 2.52.0 bump (#810) landed inside cooldown; viem pins ox exactly.
+  # Remove after 2026-06-08 when both age out.
+  - viem@2.52.0
+  - ox@0.14.27
+  # astro 6.4.2 fixes MDX/Starlight compatibility after 6.4.0.
+  # Remove after 2026-06-05 when it ages out.
+  - astro@6.4.2
 
 trustPolicy: no-downgrade
 
 trustPolicyExclude:
-  - vite@6.4.1
-  - chokidar@4.0.3
-  - semver@6.3.1
-  - undici-types@6.19.8
-  - langium@3.3.1
-  - reselect@5.1.1
-  - astro-mermaid@2.0.1
+  # 0.2.0 published manually without provenance (0.1.9 was trusted-published).
+  # Remove when republished via trusted CI.
   - '@hugomrdias/docs@0.2.0'
+  # 2.0.x published manually; 2.0.2 (2026-06-01) is trusted-published.
+  # Remove after 2026-06-08 when 2.0.2 ages past cooldown.
+  - 'astro-mermaid@2.0.1'
+  # tinylibs staged-publishing false positive (npm metadata omitted trusted-publisher
+  # signal, see tinylibs/tinyclip#37); 1.2.4 (2026-05-31) is trusted-published.
+  # Remove after 2026-06-07.
+  - 'tinyexec@1.2.2'
+  # Same staged-publishing false positive; tarball diffed clean vs 0.1.12.
+  # 0.1.14 (2026-06-03) is trusted-published. Remove after 2026-06-10.
+  - 'tinyclip@0.1.13'
+  # Last 4.x (Dec 2024) predates chokidar adopting trusted publishing at 5.0.0.
+  # Permanent while anything depends on chokidar@^4.
+  - chokidar@4.0.3

@@ -16,9 +16,9 @@ export type MetadataObject = Record<string, string>
 // Metadata size and count limits from the contract
 export const METADATA_LIMITS = {
   MAX_KEY_LENGTH: 32,
-  MAX_VALUE_LENGTH: 128,
+  MAX_VALUE_LENGTH: 96,
   MAX_KEYS_PER_DATASET: 10,
-  MAX_KEYS_PER_PIECE: 5,
+  MAX_KEYS_PER_PIECE: 3,
 }
 
 export function metadataArrayToObject(metadataArray: MetadataArray): Record<string, string> {
@@ -35,7 +35,6 @@ export interface MetadataDataSetInternal {
 }
 
 export interface MetadataPieceInternal {
-  ipni?: boolean
   ipfsRootCID?: string
 }
 /**
@@ -89,7 +88,6 @@ export function pieceMetadataObjectToEntry(
 ): MetadataEntry[] {
   const obj = {
     ...(metadataObject ?? {}),
-    ...(metadataInternal?.ipni ? { withIPNI: '' } : {}),
     ...(metadataInternal?.ipfsRootCID ? { ipfsRootCID: metadataInternal.ipfsRootCID } : {}),
   }
   const entries = Object.entries(obj)

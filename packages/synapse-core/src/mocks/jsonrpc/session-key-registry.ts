@@ -5,7 +5,7 @@ import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
 import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type authorizationExpiry = ExtractAbiFunction<typeof Abis.sessionKeyRegistry, 'authorizationExpiry'>
+type authorizationExpiry = ExtractAbiFunction<typeof Abis.sessionKeyRegistry, 'authorizationExpiry'>
 
 export interface SessionKeyRegistryOptions {
   authorizationExpiry?: (args: AbiToType<authorizationExpiry['inputs']>) => AbiToType<authorizationExpiry['outputs']>

@@ -680,7 +680,7 @@ export class StorageContext {
       await SP.findPiece({
         serviceURL: this._pdpEndpoint,
         pieceCid: uploadResult.pieceCid,
-        retry: true,
+        poll: true,
         signal: options?.signal,
       })
     } catch (error) {
@@ -703,6 +703,7 @@ export class StorageContext {
    * @returns Signed extraData hex to pass to pull() or commit()
    */
   async presignForCommit(pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>): Promise<Hex> {
+    SP.validateAddPiecesBatch(pieces.length)
     const signingPieces = pieces.map((p) => ({
       pieceCid: p.pieceCid,
       metadata: pieceMetadataObjectToEntry(p.pieceMetadata),
@@ -737,6 +738,10 @@ export class StorageContext {
    */
   async pull(options: PullOptions): Promise<PullResult> {
     const { pieces, from, signal, onProgress, extraData } = options
+
+    // The SP estimateGas-validates the eventual addPieces, so an oversized batch
+    // fails there too; reject early for a clear error on non-presigned paths.
+    SP.validateAddPiecesBatch(pieces.length)
 
     const getSourceUrl = (pieceCid: PieceCID): string => {
       if (typeof from === 'string') {
@@ -820,7 +825,8 @@ export class StorageContext {
   async commit(options: CommitOptions): Promise<CommitResult> {
     const { pieces, extraData } = options
 
-    // Validate metadata early
+    // Validate batch size and metadata early, before any chain reads or signing
+    SP.validateAddPiecesBatch(pieces.length)
     for (const piece of pieces) {
       if (piece.pieceMetadata) {
         pieceMetadataObjectToEntry(piece.pieceMetadata)

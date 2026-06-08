@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.6.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.5.2...synapse-core-v0.6.0) (2026-06-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **typehash:** DeleteDataSetPermission is replaced by TerminateServicePermission. Existing session keys must be re-minted; passing a stale session key to Synapse.create() fails because the default permission set no longer matches.
+* **piece:** vendor PieceCID, redesign API ([#795](https://github.com/FilOzone/synapse-sdk/issues/795))
+
+### Features
+
+* cap addPieces batches at 40, tighten piece metadata limits ([#814](https://github.com/FilOzone/synapse-sdk/issues/814)) ([06b4f65](https://github.com/FilOzone/synapse-sdk/commit/06b4f65a4c02e689e7755868e559200983985161))
+* **piece:** vendor PieceCID, redesign API ([#795](https://github.com/FilOzone/synapse-sdk/issues/795)) ([ec0c254](https://github.com/FilOzone/synapse-sdk/commit/ec0c2543834c2b833c91a33f5e5bdfaabbfb8b0e))
+
+
+### Bug Fixes
+
+* improve retry and poll logic ([#813](https://github.com/FilOzone/synapse-sdk/issues/813)) ([3eafe1f](https://github.com/FilOzone/synapse-sdk/commit/3eafe1f62e896bcdf288f007a74c24ac27b40200))
+* remove left-over withIPNI metadata ([#822](https://github.com/FilOzone/synapse-sdk/issues/822)) ([2e40f83](https://github.com/FilOzone/synapse-sdk/commit/2e40f8376b148c7008f607cd0b0a815bbe8fc3ac))
+* **session-key:** name missing permissions in Synapse.create error ([#805](https://github.com/FilOzone/synapse-sdk/issues/805)) ([000d276](https://github.com/FilOzone/synapse-sdk/commit/000d27622c36ab3989f4a6cf9bff98967ac522e7))
+* **typehash:** rename DeleteDataSet auth to TerminateService ([#796](https://github.com/FilOzone/synapse-sdk/issues/796)) ([3d1729d](https://github.com/FilOzone/synapse-sdk/commit/3d1729da142b14dbca2eb3bac4d76528186e0a33))
+
+
+### Chores
+
+* **deps:** bump multiformats from 13.4.2 to 14.0.0 ([#787](https://github.com/FilOzone/synapse-sdk/issues/787)) ([54f2c92](https://github.com/FilOzone/synapse-sdk/commit/54f2c92d0e341404ecb40588e33f0a0d888fe3df))
+* **devnet:** add new db shape to devnet schema check ([#821](https://github.com/FilOzone/synapse-sdk/issues/821)) ([d80aad3](https://github.com/FilOzone/synapse-sdk/commit/d80aad33aeaab51b177ec4fe514209a93f984355))
+* **synapse-core:** update filecoin-services ref to v1.2.1 ([#812](https://github.com/FilOzone/synapse-sdk/issues/812)) ([6e34ee9](https://github.com/FilOzone/synapse-sdk/commit/6e34ee996adcb499f0ee317c4eff6c205869e216))
+* updates deps and knip fixes ([#810](https://github.com/FilOzone/synapse-sdk/issues/810)) ([259cd5c](https://github.com/FilOzone/synapse-sdk/commit/259cd5cb323d6dae5c211707a83c6787500cb576))
+
 ## [Unreleased]
 
 

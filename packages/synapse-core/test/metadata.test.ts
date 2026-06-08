@@ -172,15 +172,6 @@ describe('Metadata Utils', () => {
       assert.deepEqual(result, [])
     })
 
-    it('should add withIPNI when ipni internal flag is true', () => {
-      const result = pieceMetadataObjectToEntry({ key: 'value' }, { ipni: true })
-
-      assert.deepEqual(result, [
-        { key: 'key', value: 'value' },
-        { key: 'withIPNI', value: '' },
-      ])
-    })
-
     it('should add ipfsRootCID when provided', () => {
       const cid = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
       const result = pieceMetadataObjectToEntry({ key: 'value' }, { ipfsRootCID: cid })
@@ -188,16 +179,6 @@ describe('Metadata Utils', () => {
       assert.deepEqual(result, [
         { key: 'ipfsRootCID', value: cid },
         { key: 'key', value: 'value' },
-      ])
-    })
-
-    it('should add both ipni and ipfsRootCID when both provided', () => {
-      const cid = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
-      const result = pieceMetadataObjectToEntry({}, { ipni: true, ipfsRootCID: cid })
-
-      assert.deepEqual(result, [
-        { key: 'ipfsRootCID', value: cid },
-        { key: 'withIPNI', value: '' },
       ])
     })
 
@@ -235,9 +216,9 @@ describe('Metadata Utils', () => {
   describe('METADATA_LIMITS', () => {
     it('should have expected limit values', () => {
       assert.equal(METADATA_LIMITS.MAX_KEY_LENGTH, 32)
-      assert.equal(METADATA_LIMITS.MAX_VALUE_LENGTH, 128)
+      assert.equal(METADATA_LIMITS.MAX_VALUE_LENGTH, 96)
       assert.equal(METADATA_LIMITS.MAX_KEYS_PER_DATASET, 10)
-      assert.equal(METADATA_LIMITS.MAX_KEYS_PER_PIECE, 5)
+      assert.equal(METADATA_LIMITS.MAX_KEYS_PER_PIECE, 3)
     })
   })
 })
