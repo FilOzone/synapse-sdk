@@ -680,7 +680,7 @@ export class StorageContext {
       await SP.findPiece({
         serviceURL: this._pdpEndpoint,
         pieceCid: uploadResult.pieceCid,
-        retry: true,
+        poll: true,
         signal: options?.signal,
       })
     } catch (error) {

@@ -12,10 +12,14 @@ export namespace findPiece {
     pieceCid: PieceCID
     /** The signal to abort the request. */
     signal?: AbortSignal
-    /** Whether to retry the request. Defaults to false. */
-    retry?: boolean
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
+    /** The number of retries. Defaults to polling until timeout when poll is true. */
+    retryCount?: number
+    /** The delay between retries in milliseconds. Defaults to pollInterval when poll is true. */
+    retryDelay?: number
+    /** Whether to poll the request. Defaults to false. */
+    poll?: boolean
     /** The poll interval in milliseconds. Defaults to 1 second. */
     pollInterval?: number
   }
@@ -34,18 +38,24 @@ export namespace findPiece {
 export async function findPiece(options: findPiece.OptionsType): Promise<findPiece.OutputType> {
   const { pieceCid, serviceURL } = options
   const params = new URLSearchParams({ pieceCid: pieceCid.toString() })
-  const retry = options.retry ?? false
+  const retryCount = options.retryCount ?? (options.poll ? RETRY_CONSTANTS.POLL_LIMIT : undefined)
+  const retryDelay = options.retryDelay ?? (options.poll ? (options.pollInterval ?? 1000) : RETRY_CONSTANTS.RETRY_DELAY)
   const response = await request.json.get<{ pieceCid: string }>(new URL(`pdp/piece?${params.toString()}`, serviceURL), {
     signal: options.signal,
-    retry: retry
+    timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
+    retry: {
+      retries: retryCount,
+      factor: options.poll ? 1 : undefined,
+      minTimeout: retryDelay,
+      shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 404,
+    },
+    poll: options.poll
       ? {
-          statusCodes: [202, 404],
-          retries: RETRY_CONSTANTS.RETRIES,
-          factor: RETRY_CONSTANTS.FACTOR,
-          minTimeout: options.pollInterval ?? 1000,
+          limit: RETRY_CONSTANTS.POLL_LIMIT,
+          interval: options.pollInterval ?? 1000,
+          statusCodes: [202], // 202 is processing
         }
-      : undefined,
-    timeout: options.timeout ?? RETRY_CONSTANTS.MAX_RETRY_TIME,
+      : false,
   })
 
   if (response.error) {
