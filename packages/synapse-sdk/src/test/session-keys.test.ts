@@ -208,17 +208,18 @@ describe('Synapse', () => {
     })
 
     describe('Synapse.create permission validation', () => {
+      const now = () => BigInt(Math.floor(Date.now() / 1000))
+
       it('should throw an informative error listing not-authorized and expired permissions', () => {
-        const now = BigInt(Math.floor(Date.now() / 1000))
         const sessionKey = SessionKey.fromSecp256k1({
           chain: calibration,
           privateKey: Mocks.PRIVATE_KEYS.key2,
           root: client.account,
           expirations: {
-            [SessionKey.CreateDataSetPermission]: now + 3600n,
+            [SessionKey.CreateDataSetPermission]: now() + 3600n,
             [SessionKey.AddPiecesPermission]: 0n,
-            [SessionKey.SchedulePieceRemovalsPermission]: now - 3600n,
-            [SessionKey.TerminateServicePermission]: now + 3600n,
+            [SessionKey.SchedulePieceRemovalsPermission]: now() - 3600n,
+            [SessionKey.TerminateServicePermission]: now() + 3600n,
           },
         })
 
@@ -239,21 +240,89 @@ describe('Synapse', () => {
 
       it('should not throw when all FWSS permissions are valid', () => {
         server.use(Mocks.JSONRPC(Mocks.presets.basic))
-        const now = BigInt(Math.floor(Date.now() / 1000))
         const sessionKey = SessionKey.fromSecp256k1({
           chain: calibration,
           privateKey: Mocks.PRIVATE_KEYS.key2,
           root: client.account,
           expirations: {
-            [SessionKey.CreateDataSetPermission]: now + 3600n,
-            [SessionKey.AddPiecesPermission]: now + 3600n,
-            [SessionKey.SchedulePieceRemovalsPermission]: now + 3600n,
-            [SessionKey.TerminateServicePermission]: now + 3600n,
+            [SessionKey.CreateDataSetPermission]: now() + 3600n,
+            [SessionKey.AddPiecesPermission]: now() + 3600n,
+            [SessionKey.SchedulePieceRemovalsPermission]: now() + 3600n,
+            [SessionKey.TerminateServicePermission]: now() + 3600n,
           },
         })
 
         const synapse = Synapse.create({ chain: calibration, account, source: null, sessionKey })
         assert.exists(synapse)
+      })
+
+      it('should succeed when only the narrower required scope is authorized', () => {
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
+        const sessionKey = SessionKey.fromSecp256k1({
+          chain: calibration,
+          privateKey: Mocks.PRIVATE_KEYS.key2,
+          root: client.account,
+          expirations: {
+            [SessionKey.CreateDataSetPermission]: now() + 3600n,
+            [SessionKey.AddPiecesPermission]: now() + 3600n,
+            [SessionKey.SchedulePieceRemovalsPermission]: 0n,
+            [SessionKey.TerminateServicePermission]: 0n,
+          },
+        })
+
+        const synapse = Synapse.create({
+          chain: calibration,
+          account,
+          source: null,
+          sessionKey,
+          requiredPermissions: [SessionKey.CreateDataSetPermission, SessionKey.AddPiecesPermission],
+        })
+        assert.exists(synapse)
+      })
+
+      it('should still throw when a required permission is missing from the narrower set', () => {
+        const sessionKey = SessionKey.fromSecp256k1({
+          chain: calibration,
+          privateKey: Mocks.PRIVATE_KEYS.key2,
+          root: client.account,
+          expirations: {
+            [SessionKey.CreateDataSetPermission]: now() + 3600n,
+            [SessionKey.AddPiecesPermission]: 0n,
+            [SessionKey.SchedulePieceRemovalsPermission]: now() + 3600n,
+            [SessionKey.TerminateServicePermission]: now() + 3600n,
+          },
+        })
+
+        assert.throws(
+          () =>
+            Synapse.create({
+              chain: calibration,
+              account,
+              source: null,
+              sessionKey,
+              requiredPermissions: [SessionKey.CreateDataSetPermission, SessionKey.AddPiecesPermission],
+            }),
+          /Session key is missing required FWSS permissions/
+        )
+      })
+
+      it('should default to DefaultFwssPermissions when requiredPermissions is omitted', () => {
+        const sessionKey = SessionKey.fromSecp256k1({
+          chain: calibration,
+          privateKey: Mocks.PRIVATE_KEYS.key2,
+          root: client.account,
+          expirations: {
+            [SessionKey.CreateDataSetPermission]: now() + 3600n,
+            [SessionKey.AddPiecesPermission]: now() + 3600n,
+            [SessionKey.SchedulePieceRemovalsPermission]: 0n,
+            [SessionKey.TerminateServicePermission]: 0n,
+          },
+        })
+
+        assert.throws(
+          () => Synapse.create({ chain: calibration, account, source: null, sessionKey }),
+          /Session key is missing required FWSS permissions/
+        )
       })
     })
   })

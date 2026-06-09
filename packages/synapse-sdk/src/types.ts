@@ -7,7 +7,7 @@
 
 import type { Chain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
-import type { SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
+import type { Permission, SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
 import type { pullPiecesApiRequest } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
@@ -111,6 +111,22 @@ export interface SynapseOptions {
   account: Account | Address
 
   sessionKey?: SessionKey<'Secp256k1'>
+
+  /**
+   * The set of session key permissions `Synapse.create` validates as authorized and unexpired.
+   *
+   * Defaults to `SessionKey.DefaultFwssPermissions` (all four FWSS permissions:
+   * `CreateDataSet`, `AddPieces`, `SchedulePieceRemovals`, `TerminateService`), which matches
+   * the operations exposed by the high-level Synapse class.
+   *
+   * Pass a narrower array (e.g. `[CreateDataSetPermission, AddPiecesPermission]`) to keep
+   * least-privilege session keys on the `Synapse.create` happy path when the app only exercises
+   * a subset of the SDK surface. Operations whose permissions are not listed here will revert
+   * on-chain if attempted; the SDK does not enforce per-operation checks.
+   *
+   * Only meaningful together with `sessionKey`.
+   */
+  requiredPermissions?: Permission[]
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean

@@ -60,21 +60,23 @@ export class Synapse {
 
     if (options.sessionKey != null) {
       const sessionKey = options.sessionKey
-      const missing = SessionKey.DefaultFwssPermissions.filter(
-        (permission) => !sessionKey.hasPermission(permission)
-      ).map((permission) => {
-        const name = SessionKey.PermissionNames[permission] ?? permission
-        const expiry = sessionKey.expirations[permission]
-        if (expiry == null || expiry === 0n) {
-          return `${name} (not authorized)`
-        }
-        return `${name} (expired at ${new Date(Number(expiry) * 1000).toISOString()})`
-      })
+      const requiredPermissions = options.requiredPermissions ?? SessionKey.DefaultFwssPermissions
+      const missing = requiredPermissions
+        .filter((permission) => !sessionKey.hasPermission(permission))
+        .map((permission) => {
+          const name = SessionKey.PermissionNames[permission] ?? permission
+          const expiry = sessionKey.expirations[permission]
+          if (expiry == null || expiry === 0n) {
+            return `${name} (not authorized)`
+          }
+          return `${name} (expired at ${new Date(Number(expiry) * 1000).toISOString()})`
+        })
       if (missing.length > 0) {
         throw new Error(
           `Session key is missing required FWSS permissions: ${missing.join(', ')}. ` +
-            'Synapse.create requires every permission in SessionKey.DefaultFwssPermissions to be authorized and unexpired. ' +
+            'Synapse.create requires every permission in requiredPermissions (defaults to SessionKey.DefaultFwssPermissions) to be authorized and unexpired. ' +
             'Authorize the session key for all of them (SessionKey.login) and refresh local state (sessionKey.syncExpirations), ' +
+            'pass a narrower requiredPermissions set, ' +
             'or drop down to @filoz/synapse-core to operate with a custom permission scope. ' +
             'See https://docs.filecoin.cloud/developer-guides/session-keys/ for details.'
         )
