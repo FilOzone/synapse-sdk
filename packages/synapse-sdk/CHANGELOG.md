@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.42.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.41.0...synapse-sdk-v0.42.0) (2026-06-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **piece:** vendor PieceCID, redesign API ([#795](https://github.com/FilOzone/synapse-sdk/issues/795))
+
+### Features
+
+* cap addPieces batches at 40, tighten piece metadata limits ([#814](https://github.com/FilOzone/synapse-sdk/issues/814)) ([06b4f65](https://github.com/FilOzone/synapse-sdk/commit/06b4f65a4c02e689e7755868e559200983985161))
+* **piece:** vendor PieceCID, redesign API ([#795](https://github.com/FilOzone/synapse-sdk/issues/795)) ([ec0c254](https://github.com/FilOzone/synapse-sdk/commit/ec0c2543834c2b833c91a33f5e5bdfaabbfb8b0e))
+* **synapse:** add requiredPermissions option to SynapseOptions ([#806](https://github.com/FilOzone/synapse-sdk/issues/806)) ([a52aaf6](https://github.com/FilOzone/synapse-sdk/commit/a52aaf6c2f1a0c6b66d532c22a9dc47c4565bc62))
+
+
+### Bug Fixes
+
+* improve retry and poll logic ([#813](https://github.com/FilOzone/synapse-sdk/issues/813)) ([3eafe1f](https://github.com/FilOzone/synapse-sdk/commit/3eafe1f62e896bcdf288f007a74c24ac27b40200))
+* **session-key:** name missing permissions in Synapse.create error ([#805](https://github.com/FilOzone/synapse-sdk/issues/805)) ([000d276](https://github.com/FilOzone/synapse-sdk/commit/000d27622c36ab3989f4a6cf9bff98967ac522e7))
+
+
+### Chores
+
+* **deps:** bump multiformats from 13.4.2 to 14.0.0 ([#787](https://github.com/FilOzone/synapse-sdk/issues/787)) ([54f2c92](https://github.com/FilOzone/synapse-sdk/commit/54f2c92d0e341404ecb40588e33f0a0d888fe3df))
+* updates deps and knip fixes ([#810](https://github.com/FilOzone/synapse-sdk/issues/810)) ([259cd5c](https://github.com/FilOzone/synapse-sdk/commit/259cd5cb323d6dae5c211707a83c6787500cb576))
+
+
+### Documentation
+
+* **filbeam:** add disclaimer about limited support ([#793](https://github.com/FilOzone/synapse-sdk/issues/793)) ([5ef945c](https://github.com/FilOzone/synapse-sdk/commit/5ef945cd43a2058a0d2dcb04e20f21a634382103))
+
 ## [0.41.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.40.4...synapse-sdk-v0.41.0) (2026-05-06)
 
 
