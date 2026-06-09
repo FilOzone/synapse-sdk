@@ -111,7 +111,7 @@ The Synapse SDK exposes direct SP and FilBeam retrieval through a single `downlo
 
 Setting `withCDN` races a FilBeam lookup alongside the provider probes, so whichever path responds first wins.
 
-IPFS retrieval (by root CID) is not covered by `download`. For that path, use [standard IPFS retrieval tooling](https://github.com/filecoin-project/filecoin-pin/blob/main/documentation/retrieval.md).
+IPFS retrieval is not covered by `download`. For that path, use [standard IPFS retrieval tooling](https://github.com/filecoin-project/filecoin-pin/blob/main/documentation/retrieval.md).
 
 For usage, code examples, CDN options, and provider-scoped reads, see [Retrieval in the Storage Operations guide](/developer-guides/storage/storage-operations/#retrieval).
 
