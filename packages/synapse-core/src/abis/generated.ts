@@ -59,6 +59,19 @@ export const errorsAbi = [
     type: 'error',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'expectedServiceProvider',
+        internalType: 'address',
+        type: 'address',
+      },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotServiceProvider',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'windowStart', internalType: 'uint256', type: 'uint256' },
       { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
     ],
@@ -2684,6 +2697,19 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'expectedServiceProvider',
+        internalType: 'address',
+        type: 'address',
+      },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotServiceProvider',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'windowStart', internalType: 'uint256', type: 'uint256' },
       { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
     ],
@@ -3004,7 +3030,7 @@ export const filecoinWarmStorageServiceConfig = {
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xB1B3A3d979c1f233c1021EF98dff9c0932FF1bb9)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x537320bd004a7FDd3c1932ca64BD88268301322A)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xF4B446171b3677fD2B9b183a9fB76d517365700a)
  */
 export const filecoinWarmStorageServiceStateViewAbi = [
   {
@@ -3494,16 +3520,16 @@ export const filecoinWarmStorageServiceStateViewAbi = [
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xB1B3A3d979c1f233c1021EF98dff9c0932FF1bb9)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x537320bd004a7FDd3c1932ca64BD88268301322A)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xF4B446171b3677fD2B9b183a9fB76d517365700a)
  */
 export const filecoinWarmStorageServiceStateViewAddress = {
   314: '0xB1B3A3d979c1f233c1021EF98dff9c0932FF1bb9',
-  314159: '0x537320bd004a7FDd3c1932ca64BD88268301322A',
+  314159: '0xF4B446171b3677fD2B9b183a9fB76d517365700a',
 } as const
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xB1B3A3d979c1f233c1021EF98dff9c0932FF1bb9)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x537320bd004a7FDd3c1932ca64BD88268301322A)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xF4B446171b3677fD2B9b183a9fB76d517365700a)
  */
 export const filecoinWarmStorageServiceStateViewConfig = {
   address: filecoinWarmStorageServiceStateViewAddress,
