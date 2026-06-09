@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.6.0...synapse-core-v0.6.1) (2026-06-09)
+
+
+### Bug Fixes
+
+* **synapse-core:** keep findPiece polling through transient 404s ([#828](https://github.com/FilOzone/synapse-sdk/issues/828)) ([fadc836](https://github.com/FilOzone/synapse-sdk/commit/fadc836e65804311aca3bd2276861acabe42313f))
+
 ## [0.6.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.5.2...synapse-core-v0.6.0) (2026-06-04)
 
 
