@@ -367,12 +367,14 @@ export class WarmStorageService {
   // ========== Data Set Operations ==========
 
   /**
-   * Terminate a data set with given ID
-   * @param options - Options for the data set termination
+   * Terminate the storage service by submitting the transaction on-chain directly.
+   * The service and its payments run to the end of the lockup period.
+   * For provider-relayed (immediate) termination use `StorageManager.terminateService`.
+   * @param options - Options for the service termination
    * @param options.dataSetId - ID of the data set to terminate
-   * @returns Transaction receipt
+   * @returns Transaction hash
    */
-  async terminateDataSet(options: { dataSetId: bigint }): Promise<Hash> {
+  async terminateService(options: { dataSetId: bigint }): Promise<Hash> {
     return terminateService(this._client, { dataSetId: options.dataSetId })
   }
 

@@ -1,5 +1,10 @@
 import * as p from '@clack/prompts'
-import { terminateServiceSync } from '@filoz/synapse-core/warm-storage'
+import * as SP from '@filoz/synapse-core/sp'
+import {
+  extractPDPPaymentTerminatedEvent,
+  getPdpDataSet,
+  terminateServiceSync,
+} from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
@@ -13,6 +18,11 @@ export const datasetsTerminate: Command = command(
     parameters: ['[dataSetId]'],
     flags: {
       ...globalFlags,
+      onChain: {
+        type: Boolean,
+        description: 'Terminate the data set on chain',
+        default: false,
+      },
     },
     help: {
       description: 'Terminate a data set',
@@ -27,14 +37,35 @@ export const datasetsTerminate: Command = command(
         : await selectDataSet(client, argv.flags)
       p.log.info(`Terminating data set ${dataSetId}...`)
 
-      const { event } = await terminateServiceSync(client, {
-        dataSetId,
-        onHash(hash) {
-          p.log.info(`Waiting for tx ${hashLink(hash, chain)} to be mined...`)
-        },
-      })
+      let endEpoch: bigint
 
-      p.log.info(`Data set #${event.args.dataSetId} terminated.`)
+      if (argv.flags.onChain) {
+        const { receipt } = await terminateServiceSync(client, {
+          dataSetId,
+          onHash(hash) {
+            p.log.info(`Waiting for tx ${hashLink(hash, chain)} to be mined...`)
+          },
+        })
+        endEpoch = extractPDPPaymentTerminatedEvent(receipt.logs).args.endEpoch
+      } else {
+        const dataset = await getPdpDataSet(client, { dataSetId })
+        if (!dataset) {
+          throw new Error('Data set not found')
+        }
+        const { statusUrl } = await SP.terminateService(client, {
+          dataSetId,
+          serviceURL: dataset.provider.pdp.serviceURL,
+        })
+        const status = await SP.waitForTerminateService({
+          statusUrl,
+          onHash(hash) {
+            p.log.info(`Waiting for tx ${hashLink(hash, chain)} to be mined...`)
+          },
+        })
+        endEpoch = status.serviceTerminationEpoch
+      }
+
+      p.log.info(`Data set #${dataSetId} terminated at epoch ${endEpoch}.`)
     } catch (error) {
       if (argv.flags.debug) {
         console.error(error)

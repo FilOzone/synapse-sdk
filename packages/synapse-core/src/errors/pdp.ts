@@ -1,5 +1,6 @@
 import type { AddPiecesRejected } from '../sp/add-pieces.ts'
 import type { CreateDataSetRejected } from '../sp/create-dataset.ts'
+import type { TerminateServiceStatusRejected } from '../sp/terminate-service.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { decodePDPError } from '../utils/decode-pdp-errors.ts'
 import { isSynapseError, SynapseError } from './base.ts'
@@ -175,6 +176,113 @@ export class DeletePieceError extends SynapseError {
 
   static override is(value: unknown): value is DeletePieceError {
     return isSynapseError(value) && value.name === 'DeletePieceError'
+  }
+}
+
+export class TerminateServiceError extends SynapseError {
+  override name: 'TerminateServiceError' = 'TerminateServiceError'
+
+  constructor(error: string) {
+    const decodedError = decodePDPError(error)
+    super(`Failed to request data set termination.`, {
+      details: decodedError,
+    })
+  }
+
+  static override is(value: unknown): value is TerminateServiceError {
+    return isSynapseError(value) && value.name === 'TerminateServiceError'
+  }
+}
+
+export class ServiceAlreadyTerminatedError extends SynapseError {
+  override name: 'ServiceAlreadyTerminatedError' = 'ServiceAlreadyTerminatedError'
+  /** The epoch at which the PDP payment rail ends. */
+  endEpoch: bigint
+
+  constructor(endEpoch: bigint) {
+    super(`Data set service is already terminated.`, {
+      details: `Service termination epoch: ${endEpoch}`,
+    })
+    this.endEpoch = endEpoch
+  }
+
+  static override is(value: unknown): value is ServiceAlreadyTerminatedError {
+    return isSynapseError(value) && value.name === 'ServiceAlreadyTerminatedError'
+  }
+}
+
+export class TerminateServicePendingError extends SynapseError {
+  override name: 'TerminateServicePendingError' = 'TerminateServicePendingError'
+
+  constructor() {
+    super(`Data set termination is already pending.`, {
+      details:
+        'A termination request is already queued with the service provider. If it was initiated by the provider it cannot be tracked via the termination status endpoint.',
+    })
+  }
+
+  static override is(value: unknown): value is TerminateServicePendingError {
+    return isSynapseError(value) && value.name === 'TerminateServicePendingError'
+  }
+}
+
+export class TerminateServiceNotSupportedError extends SynapseError {
+  override name: 'TerminateServiceNotSupportedError' = 'TerminateServiceNotSupportedError'
+
+  constructor(error: string) {
+    super(`Service provider does not support relayed termination.`, {
+      details: decodePDPError(error),
+    })
+  }
+
+  static override is(value: unknown): value is TerminateServiceNotSupportedError {
+    return isSynapseError(value) && value.name === 'TerminateServiceNotSupportedError'
+  }
+}
+
+export class WaitForTerminateServiceError extends SynapseError {
+  override name: 'WaitForTerminateServiceError' = 'WaitForTerminateServiceError'
+
+  constructor(error: string) {
+    const decodedError = decodePDPError(error)
+    super(`Failed to wait for data set termination.`, {
+      details: decodedError,
+    })
+  }
+
+  static override is(value: unknown): value is WaitForTerminateServiceError {
+    return isSynapseError(value) && value.name === 'WaitForTerminateServiceError'
+  }
+}
+
+export class WaitForTerminateServiceNotFoundError extends SynapseError {
+  override name: 'WaitForTerminateServiceNotFoundError' = 'WaitForTerminateServiceNotFoundError'
+
+  constructor() {
+    super(`No client-requested termination found for this data set service.`, {
+      details:
+        "The service provider's termination transaction may have failed, discarding the request. Retry, or terminate on-chain.",
+    })
+  }
+
+  static override is(value: unknown): value is WaitForTerminateServiceNotFoundError {
+    return isSynapseError(value) && value.name === 'WaitForTerminateServiceNotFoundError'
+  }
+}
+
+export class WaitForTerminateServiceRejectedError extends SynapseError {
+  override name: 'WaitForTerminateServiceRejectedError' = 'WaitForTerminateServiceRejectedError'
+  response: TerminateServiceStatusRejected
+
+  constructor(error: TerminateServiceStatusRejected) {
+    super(`Data set termination transaction failed.`, {
+      details: `Tx hash: ${error.terminationTxHash}`,
+    })
+    this.response = error
+  }
+
+  static override is(value: unknown): value is WaitForTerminateServiceRejectedError {
+    return isSynapseError(value) && value.name === 'WaitForTerminateServiceRejectedError'
   }
 }
 
