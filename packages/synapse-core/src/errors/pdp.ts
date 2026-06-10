@@ -194,8 +194,8 @@ export class TerminateServiceError extends SynapseError {
   }
 }
 
-export class DataSetAlreadyTerminatedError extends SynapseError {
-  override name: 'DataSetAlreadyTerminatedError' = 'DataSetAlreadyTerminatedError'
+export class ServiceAlreadyTerminatedError extends SynapseError {
+  override name: 'ServiceAlreadyTerminatedError' = 'ServiceAlreadyTerminatedError'
   /** The epoch at which the PDP payment rail ends. */
   endEpoch: bigint
 
@@ -206,8 +206,8 @@ export class DataSetAlreadyTerminatedError extends SynapseError {
     this.endEpoch = endEpoch
   }
 
-  static override is(value: unknown): value is DataSetAlreadyTerminatedError {
-    return isSynapseError(value) && value.name === 'DataSetAlreadyTerminatedError'
+  static override is(value: unknown): value is ServiceAlreadyTerminatedError {
+    return isSynapseError(value) && value.name === 'ServiceAlreadyTerminatedError'
   }
 }
 
@@ -259,7 +259,7 @@ export class WaitForTerminateServiceNotFoundError extends SynapseError {
   override name: 'WaitForTerminateServiceNotFoundError' = 'WaitForTerminateServiceNotFoundError'
 
   constructor() {
-    super(`No client-requested termination found for this data set.`, {
+    super(`No client-requested termination found for this data set service.`, {
       details:
         "The service provider's termination transaction may have failed, discarding the request. Retry, or terminate on-chain.",
     })

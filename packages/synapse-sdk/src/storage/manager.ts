@@ -986,7 +986,7 @@ export class StorageManager {
    * it requires the payer's account to cover settlement in full and fails
    * otherwise, rather than falling back to a lockup wind-down.
    *
-   * With `onChain: true` the transaction is submitted directly from the
+   * With `skipProvider: true` the transaction is submitted directly from the
    * signer's wallet. No provider cooperation is needed, but the service and
    * its payments run to the end of the lockup period (typically ~30 days;
    * the actual end is `endEpoch` in the result).

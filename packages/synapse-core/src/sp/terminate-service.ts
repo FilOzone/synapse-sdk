@@ -1,9 +1,18 @@
 import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
-import type { Account, Chain, Client, EncodeAbiParametersErrorType, Hex, SignTypedDataErrorType, Transport } from 'viem'
+import type {
+  Account,
+  Chain,
+  Client,
+  EncodeAbiParametersErrorType,
+  Hash,
+  Hex,
+  SignTypedDataErrorType,
+  Transport,
+} from 'viem'
 import * as z from 'zod'
 import type { asChain } from '../chains.ts'
 import {
-  DataSetAlreadyTerminatedError,
+  ServiceAlreadyTerminatedError,
   TerminateServiceError,
   TerminateServiceNotSupportedError,
   TerminateServicePendingError,
@@ -95,7 +104,7 @@ export namespace terminateServiceApiRequest {
 
   export type ErrorType =
     | TerminateServiceError
-    | DataSetAlreadyTerminatedError
+    | ServiceAlreadyTerminatedError
     | TerminateServicePendingError
     | TerminateServiceNotSupportedError
     | RequestErrors
@@ -142,7 +151,7 @@ export async function terminateServiceApiRequest(
         case 409: {
           const conflict = parseTerminatedConflict(text)
           if (conflict) {
-            throw new DataSetAlreadyTerminatedError(BigInt(conflict.serviceTerminationEpoch))
+            throw new ServiceAlreadyTerminatedError(BigInt(conflict.serviceTerminationEpoch))
           }
           throw new TerminateServicePendingError()
         }
@@ -283,7 +292,7 @@ export namespace waitForTerminateService {
     /** The status URL to poll. */
     statusUrl: string
     /** Called once with the provider's transaction hash as soon as it is known. */
-    onTxHash?: (txHash: Hex) => void
+    onHash?: (hash: Hash) => void
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
     /** The number of retries. Defaults to 2. */
@@ -332,7 +341,7 @@ export async function waitForTerminateService(
         const data = (await ctx.response.clone().json()) as TerminateServiceStatusResponse
         if (!txHashSeen && data.terminationTxHash !== '') {
           txHashSeen = true
-          options.onTxHash?.(data.terminationTxHash)
+          options.onHash?.(data.terminationTxHash)
         }
         return data.fwssTerminated === false && data.txStatus !== 'failed' && data.txSuccess !== false
       },

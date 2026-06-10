@@ -306,21 +306,20 @@ To end the storage service for a data set and discontinue its payments, call
 `context.terminate()`, or `synapse.storage.terminateService({ dataSetId })`
 when the data set ID is known (a context is not necessary).
 
-There are two ways to terminate, chosen with the `onChain` option. The
+There are two ways to terminate, chosen with the `skipProvider` option. The
 provider-mediated path is the recommended default: you sign an authorization,
 the provider relays it on chain, and if your account can settle in full the
-service can terminate immediately so provider cleanup can begin right away.
+service and payment terminate immediately.
 
 The direct on-chain path is an independent fallback. It is useful if the
-provider-mediated request cannot be completed, for example because the provider
-endpoint is temporarily unavailable, relay support is not active yet, or you
+provider-mediated request is unavailable, account doesn't have available funds to settle in full or you
 need to submit the transaction yourself. It does not require provider
-cooperation, but it uses the standard lockup wind-down: the service continues
+cooperation, but it uses the standard lockup wind-down: the service and payment continues
 until `endEpoch`, typically about 30 days, while the provider settles and winds
 down the data set before cleanup.
 
-| | Recommended default (via provider) | Fallback (`onChain: true`) |
-|---|---|---|
+| | Recommended default (via provider) | Fallback (`skipProvider: true`) |
+| --- | --- | --- |
 | Who submits the transaction | The provider relays your signed authorization | You |
 | Effect | Can terminate immediately and allow cleanup to begin | Service runs to the end of the lockup period, typically ~30 days |
 | Cost to you | Small termination fee (USDFC, drawn from your account) | Transaction gas (FIL) |
@@ -329,7 +328,7 @@ down the data set before cleanup.
 
 Provider-relayed termination never silently degrades: it either takes effect
 immediately or fails. The most common failure is an account that cannot cover
-full settlement; deposit funds or use `onChain: true` in that case. The
+full settlement; deposit funds or use `skipProvider: true` in that case. The
 result's `endEpoch` reports the actual epoch at which the service stops; on
 the on-chain path this can be sooner than 30 days if your account stopped
 settling some time ago.
@@ -357,7 +356,7 @@ const result2 = await synapse.storage.terminateService({ dataSetId: 42n })
 // Or submit independently on chain (winds down over the lockup period)
 const result3 = await synapse.storage.terminateService({
   dataSetId: 42n,
-  onChain: true,
+  skipProvider: true,
   onSubmitted: (txHash) => console.log("Submitted:", txHash),
 })
 console.log("Service ends at epoch", result3.endEpoch)

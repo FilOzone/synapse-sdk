@@ -647,7 +647,7 @@ export interface TerminateServiceOptions {
    * instead of relaying through the service provider. Needs no provider
    * cooperation, but the service runs to the end of the lockup period.
    */
-  onChain?: boolean
+  skipProvider?: boolean
   /** Called when the termination transaction is submitted (before on-chain confirmation) */
   onSubmitted?: (txHash: Hex) => void
 }

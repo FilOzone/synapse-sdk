@@ -7,7 +7,7 @@
  */
 
 import {
-  DataSetAlreadyTerminatedError,
+  ServiceAlreadyTerminatedError,
   TerminateServicePendingError,
   WaitForTerminateServiceNotFoundError,
 } from '@filoz/synapse-core/errors'
@@ -32,7 +32,7 @@ export async function terminateServiceFlow(
 ): Promise<TerminateServiceResult> {
   const { dataSetId, onSubmitted } = options
 
-  if (options.onChain === true) {
+  if (options.skipProvider === true) {
     const { receipt } = await terminateServiceSync(synapse.client, {
       dataSetId,
       onHash: onSubmitted,
@@ -50,10 +50,8 @@ export async function terminateServiceFlow(
   // accruing until the provider's tx lands, so a marginal account can still
   // revert SP-side (surfacing as the rejected/404 path).
   const payerAddress = synapse.client.account.address
-  const [accountInfo, currentEpoch] = await Promise.all([
-    payAccounts(synapse.client, { address: payerAddress }),
-    getBlockNumber(synapse.client, { cacheTime: 0 }),
-  ])
+  const currentEpoch = await getBlockNumber(synapse.client)
+  const accountInfo = await payAccounts(synapse.client, { address: payerAddress })
   const debt = calculateAccountDebt({
     funds: accountInfo.funds,
     lockupCurrent: accountInfo.lockupCurrent,
@@ -65,7 +63,7 @@ export async function terminateServiceFlow(
     throw createError(
       source,
       'terminateService',
-      `Account cannot settle its lockup in full (shortfall: ${debt} of the payment token's base units); deposit funds, or terminate on-chain (onChain: true) to wind down over the lockup period instead`
+      `Account cannot settle its lockup in full (shortfall: ${debt} of the payment token's base units); deposit funds, or terminate on-chain (skipProvider: true) to wind down over the lockup period instead`
     )
   }
 
@@ -75,7 +73,7 @@ export async function terminateServiceFlow(
   try {
     ;({ statusUrl } = await spTerminateService(client, { serviceURL, dataSetId }))
   } catch (err) {
-    if (DataSetAlreadyTerminatedError.is(err)) {
+    if (ServiceAlreadyTerminatedError.is(err)) {
       return { dataSetId, endEpoch: err.endEpoch }
     }
     if (TerminateServicePendingError.is(err)) {
@@ -84,7 +82,7 @@ export async function terminateServiceFlow(
       try {
         const status = await waitForTerminateService({
           statusUrl: terminateServiceStatusUrl({ serviceURL, dataSetId }),
-          onTxHash: onSubmitted,
+          onHash: onSubmitted,
         })
         return {
           txHash: status.terminationTxHash === '' ? undefined : status.terminationTxHash,
@@ -101,7 +99,7 @@ export async function terminateServiceFlow(
     throw err
   }
 
-  const status = await waitForTerminateService({ statusUrl, onTxHash: onSubmitted })
+  const status = await waitForTerminateService({ statusUrl, onHash: onSubmitted })
   return {
     txHash: status.terminationTxHash === '' ? undefined : status.terminationTxHash,
     dataSetId,

@@ -185,7 +185,7 @@ describe('StorageManager.terminateService', () => {
     }
   })
 
-  it('should terminate on-chain when onChain is true', async () => {
+  it('should terminate directly on-chain when skipProvider is true', async () => {
     const dataSetId = 1n
     const endEpoch = 1300000n
 
@@ -275,7 +275,7 @@ describe('StorageManager.terminateService', () => {
     const synapse = new Synapse({ client, source: null })
     const result = await synapse.storage.terminateService({
       dataSetId,
-      onChain: true,
+      skipProvider: true,
       onSubmitted: (hash) => seenHashes.push(hash),
     })
 

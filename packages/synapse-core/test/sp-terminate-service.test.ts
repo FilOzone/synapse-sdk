@@ -5,7 +5,7 @@ import { createWalletClient, decodeAbiParameters, type Hex, verifyTypedData, htt
 import { privateKeyToAccount } from 'viem/accounts'
 import * as Chains from '../src/chains.ts'
 import {
-  DataSetAlreadyTerminatedError,
+  ServiceAlreadyTerminatedError,
   TerminateServiceError,
   TerminateServiceNotSupportedError,
   TerminateServicePendingError,
@@ -118,7 +118,7 @@ describe('SP terminate service', () => {
         await terminateServiceApiRequestFn({ serviceURL, dataSetId: 1n, extraData: mockExtraData })
         assert.fail('Should have thrown')
       } catch (error) {
-        assert.instanceOf(error, DataSetAlreadyTerminatedError)
+        assert.instanceOf(error, ServiceAlreadyTerminatedError)
         assert.strictEqual(error.endEpoch, 12345n)
       }
     })
@@ -248,7 +248,7 @@ describe('SP terminate service', () => {
       const result = await waitForTerminateService({
         statusUrl: terminateServiceStatusUrl({ serviceURL, dataSetId: 1n }),
         pollInterval: 10,
-        onTxHash: (hash) => seenHashes.push(hash),
+        onHash: (hash) => seenHashes.push(hash),
       })
       assert.strictEqual(result.serviceTerminationEpoch, 4567n)
       assert.isTrue(callCount >= 3, 'Should have polled at least three times')
@@ -269,7 +269,7 @@ describe('SP terminate service', () => {
 
       const result = await waitForTerminateService({
         statusUrl: terminateServiceStatusUrl({ serviceURL, dataSetId: 1n }),
-        onTxHash: (hash) => seenHashes.push(hash),
+        onHash: (hash) => seenHashes.push(hash),
       })
       assert.strictEqual(result.terminationTxHash, '')
       assert.strictEqual(result.serviceTerminationEpoch, 4567n)
@@ -321,7 +321,7 @@ describe('SP terminate service', () => {
       try {
         await waitForTerminateService({
           statusUrl: terminateServiceStatusUrl({ serviceURL, dataSetId: 1n }),
-          onTxHash: (hash) => seenHashes.push(hash),
+          onHash: (hash) => seenHashes.push(hash),
         })
         assert.fail('Should have thrown')
       } catch (error) {

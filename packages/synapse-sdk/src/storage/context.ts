@@ -1215,14 +1215,16 @@ export class StorageContext {
   /**
    * Terminate the storage service for this context's data set.
    *
-   * Relays through this provider by default (immediate); pass `onChain: true`
+   * Relays through this provider by default (immediate); pass `skipProvider: true`
    * to submit the transaction directly and wind down over the lockup period.
    * See `StorageManager.terminateService` for full semantics.
    *
-   * @param options - Optional `onChain` and `onSubmitted` {@link TerminateServiceOptions}
+   * @param options - Optional `skipProvider` and `onSubmitted` {@link TerminateServiceOptions}
    * @returns The termination outcome {@link TerminateServiceResult}
    */
-  async terminate(options?: Pick<TerminateServiceOptions, 'onChain' | 'onSubmitted'>): Promise<TerminateServiceResult> {
+  async terminate(
+    options?: Pick<TerminateServiceOptions, 'skipProvider' | 'onSubmitted'>
+  ): Promise<TerminateServiceResult> {
     const dataSetId = this.dataSetId
     if (dataSetId == null) {
       throw createError('StorageContext', 'terminate', 'Data set not found')
