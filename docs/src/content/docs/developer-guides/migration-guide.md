@@ -9,7 +9,7 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ---
 
-## 0.42.0
+## Unreleased
 
 ### Action: Replace `terminateDataSet` with `terminateService`
 
@@ -30,6 +30,8 @@ console.log(direct.txHash, direct.endEpoch)
 ```
 
 `context.terminate()` now uses the same provider-relayed default and returns `{ txHash?, dataSetId, endEpoch }`.
+
+## 0.42.0
 
 ### Action: Re-mint session keys for service termination
 
