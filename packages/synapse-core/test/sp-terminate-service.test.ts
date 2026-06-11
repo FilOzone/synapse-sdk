@@ -53,7 +53,7 @@ const confirmedStatus = {
   serviceTerminationEpoch: 4567,
 }
 
-describe.only('SP terminate service', () => {
+describe('SP terminate service', () => {
   const server = setup()
 
   before(async () => {
