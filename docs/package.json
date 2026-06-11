@@ -13,7 +13,7 @@
     "@filoz/synapse-core": "workspace:*",
     "@filoz/synapse-react": "workspace:*",
     "@filoz/synapse-sdk": "workspace:*",
-    "@tanstack/react-query": "~5.100.14",
+    "@tanstack/react-query": "~5.101.0",
     "starlight-auto-sidebar": "^0.4.0",
     "starlight-changelogs": "^0.5.0",
     "starlight-links-validator": "^0.24.0",
@@ -21,12 +21,12 @@
     "wagmi": "catalog:"
   },
   "devDependencies": {
-    "@astrojs/starlight": "^0.39.2",
+    "@astrojs/starlight": "^0.39.3",
     "@hugomrdias/docs": "^0.2.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "astro": "^6.4.2",
-    "astro-mermaid": "^2.0.1",
+    "astro": "^6.4.4",
+    "astro-mermaid": "^2.0.2",
     "expressive-code-twoslash": "^0.6.1",
     "mermaid": "^11.12.2",
     "rehype-external-links": "^3.0.0",
@@ -34,6 +34,6 @@
     "typedoc": "^0.28.19",
     "typedoc-plugin-mdn-links": "^5.0.10",
     "typedoc-plugin-missing-exports": "^4.1.2",
-    "wrangler": "^4.82.2"
+    "wrangler": "^4.98.0"
   }
 }
