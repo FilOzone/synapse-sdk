@@ -1,6 +1,6 @@
+import type { Hash } from 'viem'
 import type { AddPiecesRejected } from '../sp/add-pieces.ts'
 import type { CreateDataSetRejected } from '../sp/create-dataset.ts'
-import type { TerminateServiceStatusRejected } from '../sp/terminate-service.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { decodePDPError } from '../utils/decode-pdp-errors.ts'
 import { isSynapseError, SynapseError } from './base.ts'
@@ -272,13 +272,13 @@ export class WaitForTerminateServiceNotFoundError extends SynapseError {
 
 export class WaitForTerminateServiceRejectedError extends SynapseError {
   override name: 'WaitForTerminateServiceRejectedError' = 'WaitForTerminateServiceRejectedError'
-  response: TerminateServiceStatusRejected
+  hash: Hash
 
-  constructor(error: TerminateServiceStatusRejected) {
+  constructor(hash: Hash) {
     super(`Data set termination transaction failed.`, {
-      details: `Tx hash: ${error.terminationTxHash}`,
+      details: `Tx hash: ${hash}`,
     })
-    this.response = error
+    this.hash = hash
   }
 
   static override is(value: unknown): value is WaitForTerminateServiceRejectedError {
