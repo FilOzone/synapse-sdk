@@ -1,5 +1,6 @@
-import { CDN_FIXED_LOCKUP, LOCKUP_PERIOD, TIME_CONSTANTS, USDFC_SYBIL_FEE } from '../utils/constants.ts'
+import { TIME_CONSTANTS } from '../utils/constants.ts'
 import { calculateEffectiveRate } from './calculate-effective-rate.ts'
+import type { getPriceList } from './price-list.ts'
 
 export namespace calculateAdditionalLockupRequired {
   export type ParamsType = {
@@ -7,13 +8,11 @@ export namespace calculateAdditionalLockupRequired {
     dataSize: bigint
     /** Current total data size in the existing dataset, in bytes. 0n for new datasets. */
     currentDataSetSize: bigint
-    /** Price per TiB per month from getServicePrice(). */
-    pricePerTiBPerMonth: bigint
-    /** Minimum monthly charge from getServicePrice(). */
-    minimumPricePerMonth: bigint
+    /** Canonical warm storage price list. */
+    priceList: getPriceList.OutputType
     /** Epochs per month. Defaults to EPOCHS_PER_MONTH (86400). */
     epochsPerMonth?: bigint
-    /** Lockup period in epochs. Defaults to LOCKUP_PERIOD (30 days). */
+    /** Lockup period in epochs. Defaults to priceList.lockups.defaultLockupPeriod. */
     lockupEpochs?: bigint
     /** Whether a new dataset is being created (vs adding to existing). */
     isNewDataSet: boolean
@@ -25,12 +24,14 @@ export namespace calculateAdditionalLockupRequired {
     /** Per-epoch rate increase from this upload. */
     rateDeltaPerEpoch: bigint
     /** Lockup increase from the rate change = rateDeltaPerEpoch * lockupEpochs. */
-    rateLockupDelta: bigint
-    /** Fixed CDN lockup (only for new CDN datasets), 0 otherwise. */
-    cdnFixedLockup: bigint
-    /** USDFC sybil fee (only for new datasets), 0 otherwise. */
-    sybilFee: bigint
-    /** rateLockupDelta + cdnFixedLockup + sybilFee */
+    streamingLockup: bigint
+    /** Lifecycle lockup target for new datasets. */
+    lifecycleLockup: bigint
+    /** CDN lockup for new CDN datasets. */
+    cdnLockup: bigint
+    /** Cache-miss lockup for new CDN datasets. */
+    cacheMissLockup: bigint
+    /** streamingLockup + lifecycleLockup + cdnLockup + cacheMissLockup */
     total: bigint
   }
 }
@@ -38,8 +39,8 @@ export namespace calculateAdditionalLockupRequired {
 /**
  * Compute how much additional lockup this upload requires.
  *
- * Handles floor-to-floor transitions correctly: when both the current dataset size
- * and the new total size are below the floor threshold, the rate delta is 0.
+ * Existing datasets pay only the incremental rate lockup. New datasets also
+ * include lifecycle and optional CDN/cache-miss lockups.
  *
  * @param params - {@link calculateAdditionalLockupRequired.ParamsType}
  * @returns {@link calculateAdditionalLockupRequired.OutputType}
@@ -50,15 +51,21 @@ export function calculateAdditionalLockupRequired(
   const {
     dataSize,
     currentDataSetSize,
-    pricePerTiBPerMonth,
-    minimumPricePerMonth,
+    priceList,
     epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH,
-    lockupEpochs = LOCKUP_PERIOD,
+    lockupEpochs,
     isNewDataSet,
     withCDN,
   } = params
 
-  const rateParams = { pricePerTiBPerMonth, minimumPricePerMonth, epochsPerMonth }
+  // The price list defines the default PDP rail lockup period.
+  const effectiveLockupEpochs = lockupEpochs ?? priceList.lockups.defaultLockupPeriod
+
+  const rateParams = {
+    storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
+    datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
+    epochsPerMonth,
+  }
 
   let rateDeltaPerEpoch: bigint
 
@@ -73,7 +80,8 @@ export function calculateAdditionalLockupRequired(
       sizeInBytes: currentDataSetSize,
     })
     rateDeltaPerEpoch = newRate.ratePerEpoch - currentRate.ratePerEpoch
-    // Floor-to-floor: if both sizes are below floor, delta is 0
+    // Defensive only: additive storage rate is monotonic in size, so a positive
+    // size delta never yields a negative rate delta in the current model.
     if (rateDeltaPerEpoch < 0n) rateDeltaPerEpoch = 0n
   } else {
     // New dataset or unknown current size: full rate for new data
@@ -84,19 +92,21 @@ export function calculateAdditionalLockupRequired(
     rateDeltaPerEpoch = newRate.ratePerEpoch
   }
 
-  const rateLockupDelta = rateDeltaPerEpoch * lockupEpochs
-
-  // CDN fixed lockup only applies to new CDN datasets
-  const cdnFixedLockup = isNewDataSet && withCDN ? CDN_FIXED_LOCKUP.total : 0n
-
-  // Sybil fee applies to all new dataset creations
-  const sybilFee = isNewDataSet ? USDFC_SYBIL_FEE : 0n
+  const streamingLockup = rateDeltaPerEpoch * effectiveLockupEpochs
+  // The lifecycle reserve is seeded once per new dataset (one PDP rail each), so
+  // it is added per new dataset and summed across contexts by callers. CDN and
+  // cache-miss lockups are flat fixed amounts on the CDN rail; the lockup periods
+  // in the price list are rail settle windows, not rate multipliers.
+  const lifecycleLockup = isNewDataSet ? priceList.lockups.lifecycleReserveTarget : 0n
+  const cdnLockup = isNewDataSet && withCDN ? priceList.lockups.cdnLockupAmount : 0n
+  const cacheMissLockup = isNewDataSet && withCDN ? priceList.lockups.cacheMissLockupAmount : 0n
 
   return {
     rateDeltaPerEpoch,
-    rateLockupDelta,
-    cdnFixedLockup,
-    sybilFee,
-    total: rateLockupDelta + cdnFixedLockup + sybilFee,
+    streamingLockup,
+    lifecycleLockup,
+    cdnLockup,
+    cacheMissLockup,
+    total: streamingLockup + lifecycleLockup + cdnLockup + cacheMissLockup,
   }
 }

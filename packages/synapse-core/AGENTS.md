@@ -159,24 +159,22 @@ export type OutputType = ContractFunctionReturnType<
 When the contract function return type is an array try to convert into an object using the contract source code to choose the best descritive property names. When the return type is already an object inline it with documentation for each property.
 
 ```ts
-  export type ContractOutputType = ContractFunctionReturnType<typeof storageAbi, 'pure' | 'view', 'getServicePrice'>
+  export type ContractOutputType = ContractFunctionReturnType<typeof fwssViewAbi, 'pure' | 'view', 'getPriceList'>
 
   /**
-   * The service price for the warm storage.
+   * The canonical warm storage price list.
    */
   export type OutputType = {
-    /** Price per TiB per month without CDN (in base units) */
-    pricePerTiBPerMonthNoCDN: bigint
-    /** CDN egress price per TiB (usage-based, in base units) */
-    pricePerTiBCdnEgress: bigint
-    /** Cache miss egress price per TiB (usage-based, in base units) */
-    pricePerTiBCacheMissEgress: bigint
     /** Token address for payments */
-    tokenAddress: string
-    /** Number of epochs per month */
-    epochsPerMonth: bigint
-    /** Minimum monthly charge for any dataset size (in base units) */
-    minimumPricePerMonth: bigint
+    token: Address
+    rates: {
+      /** Storage price per TiB per month (in base units) */
+      storagePerTibPerMonth: bigint
+      /** Per-dataset monthly proving service fee (in base units) */
+      datasetFeePerMonth: bigint
+      // ...remaining rate fields documented the same way
+    }
+    // ...fees and lockups objects follow the same inline-with-docs pattern
   }
 ```
 
@@ -201,15 +199,15 @@ All read and write action require a call function to enable composition with oth
 ```ts
 
 /**
- * Create a call to the {@link getServicePrice} function for use with the Viem multicall, readContract, or simulateContract functions.
+ * Create a call to the {@link getPriceList} function for use with the Viem multicall, readContract, or simulateContract functions.
  *
- * @param options - {@link getServicePriceCall.OptionsType}
- * @returns Call object {@link getServicePriceCall.OutputType}
- * @throws Errors {@link getServicePriceCall.ErrorType}
+ * @param options - {@link getPriceListCall.OptionsType}
+ * @returns Call object {@link getPriceListCall.OutputType}
+ * @throws Errors {@link getPriceListCall.ErrorType}
  *
  * @example
  * ```ts
- * import { getServicePriceCall } from '@filoz/synapse-core/warm-storage'
+ * import { getPriceListCall } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -221,21 +219,21 @@ All read and write action require a call function to enable composition with oth
  *
  * const results = await multicall(client, {
  *   contracts: [
- *     getServicePriceCall({ chain: calibration }),
+ *     getPriceListCall({ chain: calibration }),
  *   ],
  * })
  *
  * console.log(results[0])
  * ```
  */
-export function getServicePriceCall(options: getServicePriceCall.OptionsType) {
+export function getPriceListCall(options: getPriceListCall.OptionsType) {
   const chain = asChain(options.chain)
   return {
-    abi: chain.contracts.storage.abi,
-    address: options.address ?? chain.contracts.storage.address,
-    functionName: 'getServicePrice',
+    abi: chain.contracts.fwssView.abi,
+    address: options.contractAddress ?? chain.contracts.fwssView.address,
+    functionName: 'getPriceList',
     args: [],
-  } satisfies getServicePriceCall.OutputType
+  } satisfies getPriceListCall.OutputType
 }
 
 ```
@@ -243,10 +241,10 @@ export function getServicePriceCall(options: getServicePriceCall.OptionsType) {
 They should have their own namespaced types
 
 ```ts
-export namespace getServicePriceCall {
-  export type OptionsType = Simplify<getServicePrice.OptionsType & ActionCallChain>
+export namespace getPriceListCall {
+  export type OptionsType = Simplify<getPriceList.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
-  export type OutputType = ContractFunctionParameters<typeof storageAbi, 'pure' | 'view', 'getServicePrice'>
+  export type OutputType = ContractFunctionParameters<typeof fwssViewAbi, 'pure' | 'view', 'getPriceList'>
 }
 ```
 
@@ -314,7 +312,7 @@ export function extractSetOperatorApprovalEvent(logs: Log[]) {
 
 #### Parse function
 
-When the `ContractOutputType` is different from the `OutputType` we need a parse function to transform the contract output into the action output. It should called `parse<actionName>` .ie `parseGetServicePrice`.
+When the `ContractOutputType` is different from the `OutputType` we need a parse function to transform the contract output into the action output. It should called `parse<actionName>` .ie `parseGetPriceList`.
 
 ## Decision-Making
 
@@ -339,6 +337,6 @@ Reference contract source code for expected behavior and always create tests for
 
 Use mocks and constants inside `/mocks` to test the actions.
 
-See `test/get-service-price.test.ts` for a comprehensive example of test patterns and structure.
+See `test/get-price-list.test.ts` for a comprehensive example of test patterns and structure.
 
-Run the tests with `pnpm exec playwright-test "test/get-service-price.test.ts" --mode node`
+Run the tests with `pnpm exec playwright-test "test/get-price-list.test.ts" --mode node`

@@ -30,14 +30,15 @@ import { getDataSetSizes } from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
 import type { UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { getPDPProviderByAddress } from '@filoz/synapse-core/sp-registry'
-import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS, LOCKUP_PERIOD } from '@filoz/synapse-core/utils'
+import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS } from '@filoz/synapse-core/utils'
 import {
   calculateAdditionalLockupRequired,
   calculateBufferAmount,
   calculateEffectiveRate,
   calculateRunwayAmount,
+  calculateUploadFees,
   getUploadCosts as coreGetUploadCosts,
-  getServicePrice,
+  getPriceList,
   metadataMatches,
 } from '@filoz/synapse-core/warm-storage'
 import { type Address, type Hex, UserRejectedRequestError, zeroAddress } from 'viem'
@@ -697,7 +698,7 @@ export class StorageManager {
    * and buffer only once (they are shared across all contexts from the same payer).
    *
    * Dataset sizes are fetched from chain for existing datasets to get accurate
-   * floor-aware rate deltas.
+   * rate deltas.
    *
    * @param contexts - Storage contexts to aggregate costs for
    * @param options - Upload options (dataSize, extraRunwayEpochs, bufferEpochs)
@@ -716,13 +717,19 @@ export class StorageManager {
     const existingDataSetIds = contexts.filter((ctx) => ctx.dataSetId != null).map((ctx) => ctx.dataSetId as bigint)
 
     // Fetch all needed data in parallel
-    const [accountInfo, pricing, approved, currentEpoch, sizes] = await Promise.all([
+    const [accountInfo, priceList, currentEpoch, sizes] = await Promise.all([
       payAccounts(client, { address: clientAddress }),
-      getServicePrice(client),
-      isFwssMaxApproved(client, { clientAddress }),
+      getPriceList(client),
       getBlockNumber(client, { cacheTime: 0 }),
       existingDataSetIds.length > 0 ? getDataSetSizes(client, { dataSetIds: existingDataSetIds }) : [],
     ])
+
+    // Reuse the fetched price list's lockup period so the approval check
+    // doesn't read getPriceList again.
+    const approved = await isFwssMaxApproved(client, {
+      clientAddress,
+      requiredMaxLockupPeriod: priceList.lockups.defaultLockupPeriod,
+    })
 
     // Build dataset size map: dataSetId → size
     const dataSetSizes = new Map<bigint, bigint>()
@@ -733,8 +740,14 @@ export class StorageManager {
     // Per-context loop: calculate lockup for each context
     let totalRateDeltaPerEpoch = 0n
     let totalLockup = 0n
+    let totalLifecycleLockup = 0n
+    let totalStreamingLockup = 0n
+    let totalCdnLockup = 0n
+    let totalCacheMissLockup = 0n
     let totalRatePerEpoch = 0n
     let totalRatePerMonth = 0n
+    let totalCreateDataSetFee = 0n
+    let totalAddPiecesFee = 0n
 
     for (let i = 0; i < contexts.length; i++) {
       const ctx = contexts[i]
@@ -744,24 +757,34 @@ export class StorageManager {
       const lockup = calculateAdditionalLockupRequired({
         dataSize: options.dataSize,
         currentDataSetSize,
-        pricePerTiBPerMonth: pricing.pricePerTiBPerMonthNoCDN,
-        minimumPricePerMonth: pricing.minimumPricePerMonth,
-        epochsPerMonth: pricing.epochsPerMonth,
-        lockupEpochs: LOCKUP_PERIOD,
+        priceList,
+        epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
         isNewDataSet,
         withCDN: ctx.withCDN,
+      })
+      // Multi-context preview assumes one piece / one addPieces op per context;
+      // batched multi-piece uploads should price via getUploadCosts with explicit counts.
+      const fees = calculateUploadFees({
+        priceList,
+        isNewDataSet,
       })
 
       totalRateDeltaPerEpoch += lockup.rateDeltaPerEpoch
       totalLockup += lockup.total
+      totalLifecycleLockup += lockup.lifecycleLockup
+      totalStreamingLockup += lockup.streamingLockup
+      totalCdnLockup += lockup.cdnLockup
+      totalCacheMissLockup += lockup.cacheMissLockup
+      totalCreateDataSetFee += fees.createDataSetFee
+      totalAddPiecesFee += fees.addPiecesFee
 
       // Calculate per-context effective rate for the rate output
       const totalSize = currentDataSetSize + options.dataSize
       const rate = calculateEffectiveRate({
         sizeInBytes: totalSize,
-        pricePerTiBPerMonth: pricing.pricePerTiBPerMonthNoCDN,
-        minimumPricePerMonth: pricing.minimumPricePerMonth,
-        epochsPerMonth: pricing.epochsPerMonth,
+        storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
+        datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
+        epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
       })
       totalRatePerEpoch += rate.ratePerEpoch
       totalRatePerMonth += rate.ratePerMonth
@@ -785,13 +808,12 @@ export class StorageManager {
       extraRunwayEpochs,
     })
 
-    const rawDepositNeeded = totalLockup + runway + debt - availableFunds
+    const totalFees = totalCreateDataSetFee + totalAddPiecesFee
+    const rawDepositNeeded = totalLockup + totalFees + runway + debt - availableFunds
 
     // Skip buffer when no existing rails are draining and all contexts are new datasets.
     // The deposit lands before any rail is created, so nothing consumes funds
     // between balance check and tx execution.
-    // Minimum upload size is 1 GiB, well below the ~26 GiB floor threshold, so buffer is
-    // not needed for upto 26 contexts as of now which is reasonable.
     const allNewDatasets = contexts.every((ctx) => ctx.dataSetId == null)
     const skipBuffer = accountInfo.lockupRate === 0n && allNewDatasets
 
@@ -809,10 +831,24 @@ export class StorageManager {
     const depositNeeded = clamped + buffer
     const needsFwssMaxApproval = !approved
 
+    const rates = {
+      perEpoch: totalRatePerEpoch,
+      perMonth: totalRatePerMonth,
+    }
+
     return {
-      rate: {
-        perEpoch: totalRatePerEpoch,
-        perMonth: totalRatePerMonth,
+      rates,
+      fees: {
+        createDataSetFee: totalCreateDataSetFee,
+        addPiecesFee: totalAddPiecesFee,
+        total: totalFees,
+      },
+      lockups: {
+        lifecycleLockup: totalLifecycleLockup,
+        streamingLockup: totalStreamingLockup,
+        cdnLockup: totalCdnLockup,
+        cacheMissLockup: totalCacheMissLockup,
+        total: totalLockup,
       },
       depositNeeded,
       needsFwssMaxApproval,
@@ -1055,7 +1091,7 @@ export class StorageManager {
 
       // Fetch all data in parallel for performance
       const [pricingData, approvedIds, allowances] = await Promise.all([
-        this._warmStorageService.getServicePrice(),
+        this._warmStorageService.getPriceList(),
         this._warmStorageService.getApprovedProviderIds(),
         getOptionalAllowances(),
       ])
@@ -1064,19 +1100,19 @@ export class StorageManager {
       const providers = await spRegistry.getProviders({ providerIds: approvedIds })
 
       // Calculate pricing per different time units
-      const epochsPerMonth = BigInt(pricingData.epochsPerMonth)
+      const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
 
       // TODO: StorageInfo needs updating to reflect that CDN costs are usage-based
 
       // Calculate per-epoch pricing (base storage cost)
-      const noCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
+      const noCDNPerEpoch = pricingData.rates.storagePerTibPerMonth / epochsPerMonth
       // CDN costs are usage-based (egress charges), so base storage cost is the same
-      const withCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
+      const withCDNPerEpoch = pricingData.rates.storagePerTibPerMonth / epochsPerMonth
 
       // Calculate per-day pricing (base storage cost)
-      const noCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
+      const noCDNPerDay = pricingData.rates.storagePerTibPerMonth / TIME_CONSTANTS.DAYS_PER_MONTH
       // CDN costs are usage-based (egress charges), so base storage cost is the same
-      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
+      const withCDNPerDay = pricingData.rates.storagePerTibPerMonth / TIME_CONSTANTS.DAYS_PER_MONTH
 
       // Filter out providers with zero addresses
       const validProviders = providers.filter((p: PDPProvider) => p.serviceProvider !== zeroAddress)
@@ -1084,18 +1120,19 @@ export class StorageManager {
       return {
         pricing: {
           noCDN: {
-            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthNoCDN),
+            perTiBPerMonth: pricingData.rates.storagePerTibPerMonth,
             perTiBPerDay: noCDNPerDay,
             perTiBPerEpoch: noCDNPerEpoch,
           },
           // CDN costs are usage-based (egress charges), base storage cost is the same
           withCDN: {
-            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthNoCDN),
+            perTiBPerMonth: pricingData.rates.storagePerTibPerMonth,
             perTiBPerDay: withCDNPerDay,
             perTiBPerEpoch: withCDNPerEpoch,
           },
-          tokenAddress: pricingData.tokenAddress,
+          tokenAddress: pricingData.token,
           tokenSymbol: 'USDFC', // Hardcoded as we know it's always USDFC
+          priceList: pricingData,
         },
         providers: validProviders,
         serviceParameters: {

@@ -11,7 +11,7 @@ import type {
 import { maxUint256 } from 'viem'
 import { waitForTransactionReceipt } from 'viem/actions'
 import type { ActionSyncCallback } from '../types.ts'
-import { LOCKUP_PERIOD } from '../utils/constants.ts'
+import { getPriceList } from '../warm-storage/price-list.ts'
 import { depositWithPermit } from './deposit-with-permit.ts'
 import { isFwssMaxApproved } from './is-fwss-max-approved.ts'
 import { depositAndApprove } from './payments.ts'
@@ -70,8 +70,15 @@ export namespace fund {
  * ```
  */
 export async function fund(client: Client<Transport, Chain, Account>, options: fund.OptionsType): Promise<Hash> {
+  // Resolve the approval lockup period from the chain once and reuse it for the
+  // readiness check and the approval call.
+  const maxLockupPeriod = (await getPriceList(client)).lockups.defaultLockupPeriod
   const needsApproval =
-    options.needsFwssMaxApproval ?? !(await isFwssMaxApproved(client, { clientAddress: client.account.address }))
+    options.needsFwssMaxApproval ??
+    !(await isFwssMaxApproved(client, {
+      clientAddress: client.account.address,
+      requiredMaxLockupPeriod: maxLockupPeriod,
+    }))
 
   if (needsApproval) {
     if (options.amount > 0n) {
@@ -79,14 +86,14 @@ export async function fund(client: Client<Transport, Chain, Account>, options: f
         amount: options.amount,
         rateAllowance: maxUint256,
         lockupAllowance: maxUint256,
-        maxLockupPeriod: LOCKUP_PERIOD,
+        maxLockupPeriod,
       })
     } else {
       return setOperatorApproval(client, {
         approve: true,
         rateAllowance: maxUint256,
         lockupAllowance: maxUint256,
-        maxLockupPeriod: LOCKUP_PERIOD,
+        maxLockupPeriod,
       })
     }
   } else if (options.amount > 0n) {

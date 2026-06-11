@@ -120,7 +120,7 @@ describe('terminateService', () => {
         abi: Abis.fwss,
         eventName: 'ServiceTerminated',
         args: {
-          caller: ADDRESSES.client1,
+          approver: ADDRESSES.client1,
           dataSetId,
         },
       })
@@ -198,9 +198,9 @@ describe('terminateService', () => {
 
       assert.ok(event)
       assert.equal(event.eventName, 'ServiceTerminated')
-      assert.ok(event.args.caller)
+      assert.ok(event.args.approver)
       assert.equal(event.args.dataSetId, dataSetId)
-      assert.equal(event.args.caller.toLowerCase(), ADDRESSES.client1.toLowerCase())
+      assert.equal(event.args.approver.toLowerCase(), ADDRESSES.client1.toLowerCase())
       if (event.eventName === 'ServiceTerminated') {
         assert.equal(event.args.pdpRailId, pdpRailId)
       }
@@ -218,7 +218,7 @@ describe('terminateService', () => {
         abi: Abis.fwss,
         eventName: 'ServiceTerminated',
         args: {
-          caller: ADDRESSES.client1,
+          approver: ADDRESSES.client1,
           dataSetId,
         },
       })
@@ -305,7 +305,7 @@ describe('terminateService', () => {
         abi: Abis.fwss,
         eventName: 'ServiceTerminated',
         args: {
-          caller: ADDRESSES.client1,
+          approver: ADDRESSES.client1,
           dataSetId,
         },
       })

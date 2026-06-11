@@ -19,7 +19,7 @@ import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
-import { LOCKUP_PERIOD } from '../utils/constants.ts'
+import { getPriceList } from '../warm-storage/price-list.ts'
 
 export namespace setOperatorApproval {
   export type OptionsType = {
@@ -33,21 +33,25 @@ export namespace setOperatorApproval {
     rateAllowance?: bigint
     /** Maximum lockup amount the operator can use (in token base units). Defaults to maxUint256 when approving, 0n when revoking. */
     lockupAllowance?: bigint
-    /** Maximum lockup period in epochs the operator can set for payment rails. Defaults to 30 days in epochs when approving, 0n when revoking. */
+    /** Maximum lockup period in epochs the operator can set for payment rails. Defaults to the chain's `getPriceList().lockups.defaultLockupPeriod` when approving, 0n when revoking. */
     maxLockupPeriod?: bigint
     /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
     contractAddress?: Address
   }
 
-  export type ErrorType = setOperatorApprovalCall.ErrorType | SimulateContractErrorType | WriteContractErrorType
+  export type ErrorType =
+    | setOperatorApprovalCall.ErrorType
+    | getPriceList.ErrorType
+    | SimulateContractErrorType
+    | WriteContractErrorType
 }
 
 /**
  * Set operator approval on the Filecoin Pay contract
  *
  * Approves or revokes an operator to act on behalf of the caller's account.
- * When approving, defaults to maximum allowances (maxUint256) and 30-day lockup period.
- * When revoking, defaults to zero allowances.
+ * When approving, defaults to maximum allowances (maxUint256) and the chain's
+ * default lockup period. When revoking, defaults to zero allowances.
  *
  * @param client - The viem client with account to use for the transaction.
  * @param options - {@link setOperatorApproval.OptionsType}
@@ -85,18 +89,26 @@ export async function setOperatorApproval(
   client: Client<Transport, Chain, Account>,
   options: setOperatorApproval.OptionsType
 ): Promise<Hash> {
+  // The synchronous call builder cannot read the chain, so resolve maxLockupPeriod
+  // from the price list here when approving and pass it down.
+  const maxLockupPeriod =
+    options.maxLockupPeriod ?? (options.approve ? (await getPriceList(client)).lockups.defaultLockupPeriod : 0n)
+
+  const callOptions = {
+    chain: client.chain,
+    token: options.token,
+    operator: options.operator,
+    rateAllowance: options.rateAllowance,
+    lockupAllowance: options.lockupAllowance,
+    contractAddress: options.contractAddress,
+  }
   const { request } = await simulateContract(
     client,
-    setOperatorApprovalCall({
-      chain: client.chain,
-      token: options.token,
-      operator: options.operator,
-      approve: options.approve,
-      rateAllowance: options.rateAllowance,
-      lockupAllowance: options.lockupAllowance,
-      maxLockupPeriod: options.maxLockupPeriod,
-      contractAddress: options.contractAddress,
-    })
+    setOperatorApprovalCall(
+      options.approve
+        ? { ...callOptions, approve: true, maxLockupPeriod }
+        : { ...callOptions, approve: false, maxLockupPeriod }
+    )
   )
 
   return writeContract(client, request)
@@ -164,7 +176,15 @@ export async function setOperatorApprovalSync(
 }
 
 export namespace setOperatorApprovalCall {
-  export type OptionsType = Simplify<setOperatorApproval.OptionsType & ActionCallChain>
+  /**
+   * Approving requires an explicit `maxLockupPeriod` because this synchronous
+   * builder cannot read it from the chain price list. Revoking does not.
+   */
+  export type OptionsType = Simplify<
+    Omit<setOperatorApproval.OptionsType, 'approve' | 'maxLockupPeriod'> &
+      ActionCallChain &
+      ({ approve: true; maxLockupPeriod: bigint } | { approve: false; maxLockupPeriod?: bigint })
+  >
   export type ErrorType = asChain.ErrorType | ValidationError
   export type OutputType = ContractFunctionParameters<typeof paymentsAbi, 'nonpayable', 'setOperatorApproval'>
 }
@@ -222,10 +242,19 @@ export function setOperatorApprovalCall(
     }
   }
 
+  // maxLockupPeriod comes from the chain price list
+  // (getPriceList().lockups.defaultLockupPeriod), which this synchronous builder
+  // cannot read, so approving callers must resolve and pass it.
+  if (options.approve && options.maxLockupPeriod === undefined) {
+    throw new ValidationError(
+      'maxLockupPeriod is required when approving; resolve it from getPriceList().lockups.defaultLockupPeriod'
+    )
+  }
+
   // Defaults based on approve flag
   const rateAllowance = options.rateAllowance ?? (options.approve ? maxUint256 : 0n)
   const lockupAllowance = options.lockupAllowance ?? (options.approve ? maxUint256 : 0n)
-  const maxLockupPeriod = options.maxLockupPeriod ?? (options.approve ? LOCKUP_PERIOD : 0n)
+  const maxLockupPeriod = options.maxLockupPeriod ?? 0n
 
   if (rateAllowance < 0n || lockupAllowance < 0n || maxLockupPeriod < 0n) {
     throw new ValidationError('Allowance or lockup period values cannot be negative')

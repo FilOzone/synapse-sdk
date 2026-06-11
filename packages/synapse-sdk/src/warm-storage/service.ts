@@ -32,7 +32,7 @@ import {
   getClientDataSets,
   getClientDataSetsLength,
   getDataSet,
-  getServicePrice,
+  getPriceList,
   removeApprovedProvider,
   terminateService,
 } from '@filoz/synapse-core/warm-storage'
@@ -357,11 +357,11 @@ export class WarmStorageService {
   // ========== Storage Cost Operations ==========
 
   /**
-   * Get the current service price per TiB per month
-   * @returns Service price information for both CDN and non-CDN options
+   * Get the current warm storage price list.
+   * @returns Recurring rates, operation fees, and lockups.
    */
-  async getServicePrice(): Promise<getServicePrice.OutputType> {
-    return getServicePrice(this._client)
+  async getPriceList(): Promise<getPriceList.OutputType> {
+    return getPriceList(this._client)
   }
 
   // ========== Data Set Operations ==========

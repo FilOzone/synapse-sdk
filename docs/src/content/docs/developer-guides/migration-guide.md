@@ -49,6 +49,54 @@ SessionKey.TerminateServicePermission
 TypedData.signTerminateService(client, { dataSetId })
 ```
 
+### Action: Read pricing with `getPriceList()`
+
+`getServicePrice()` was removed from both `@filoz/synapse-core` and `WarmStorageService`. Use `getPriceList()`, which returns the full on-chain price catalogue (`token`, `rates`, `fees`, `lockups`).
+
+```ts
+// before
+const price = await warmStorage.getServicePrice()
+price.pricePerTiBPerMonthNoCDN
+price.pricePerTiBCdnEgress
+
+// after
+const priceList = await warmStorage.getPriceList()
+priceList.rates.storagePerTibPerMonth
+priceList.rates.cdnEgressPerTib
+```
+
+The React `useServicePrice()` hook was removed in favor of `usePriceList()`.
+
+```tsx
+// before
+import { useServicePrice } from '@filoz/synapse-react'
+const { data } = useServicePrice()
+data?.pricePerTiBPerMonthNoCDN
+
+// after
+import { usePriceList } from '@filoz/synapse-react'
+const { data } = usePriceList()
+data?.rates.storagePerTibPerMonth
+```
+
+### Action: Read upload rates from `costs.rates`
+
+The `rate` alias on upload-cost results was removed. Use `rates`.
+
+```ts
+// before
+const { costs } = await synapse.storage.prepare({ dataSize })
+costs.rate.perMonth
+
+// after
+const { costs } = await synapse.storage.prepare({ dataSize })
+costs.rates.perMonth
+```
+
+### Action: Replace the `LOCKUP_PERIOD` constant
+
+The `LOCKUP_PERIOD` export was removed from `@filoz/synapse-core`. The lockup period is now read from the chain; use `getPriceList().lockups.defaultLockupPeriod` if you need the value.
+
 ## 0.37.0
 
 `synapse-sdk` moved to a viem-first API, removed deprecated modules/methods, and standardized method signatures around options objects plus `bigint` identifiers.

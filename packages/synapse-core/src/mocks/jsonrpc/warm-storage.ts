@@ -21,6 +21,7 @@ type getPieceMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getPieceMetada
 type clientNonces = ExtractAbiFunction<typeof Abis.fwssView, 'clientNonces'>
 type getPDPConfig = ExtractAbiFunction<typeof Abis.fwssView, 'getPDPConfig'>
 type getClientDataSetsLength = ExtractAbiFunction<typeof Abis.fwssView, 'getClientDataSetsLength'>
+type getPriceList = ExtractAbiFunction<typeof Abis.fwssView, 'getPriceList'>
 
 export interface WarmStorageViewOptions {
   isProviderApproved?: (args: AbiToType<isProviderApproved['inputs']>) => AbiToType<isProviderApproved['outputs']>
@@ -40,6 +41,7 @@ export interface WarmStorageViewOptions {
   getClientDataSetsLength?: (
     args: AbiToType<getClientDataSetsLength['inputs']>
   ) => AbiToType<getClientDataSetsLength['outputs']>
+  getPriceList?: (args: AbiToType<getPriceList['inputs']>) => AbiToType<getPriceList['outputs']>
 }
 
 /**
@@ -55,7 +57,6 @@ type filBeamBeneficiaryAddress = ExtractAbiFunction<typeof Abis.fwss, 'filBeamBe
 type viewContractAddress = ExtractAbiFunction<typeof Abis.fwss, 'viewContractAddress'>
 type serviceProviderRegistry = ExtractAbiFunction<typeof Abis.fwss, 'serviceProviderRegistry'>
 type sessionKeyRegistry = ExtractAbiFunction<typeof Abis.fwss, 'sessionKeyRegistry'>
-type getServicePrice = ExtractAbiFunction<typeof Abis.fwss, 'getServicePrice'>
 type owner = ExtractAbiFunction<typeof Abis.fwss, 'owner'>
 type terminateService = ExtractAbiFunction<typeof Abis.fwss, 'terminateService'>
 type topUpCDNPaymentRails = ExtractAbiFunction<typeof Abis.fwss, 'topUpCDNPaymentRails'>
@@ -78,7 +79,6 @@ export interface WarmStorageOptions {
     args: AbiToType<serviceProviderRegistry['inputs']>
   ) => AbiToType<serviceProviderRegistry['outputs']>
   sessionKeyRegistry?: (args: AbiToType<sessionKeyRegistry['inputs']>) => AbiToType<sessionKeyRegistry['outputs']>
-  getServicePrice?: (args: AbiToType<getServicePrice['inputs']>) => AbiToType<getServicePrice['outputs']>
   owner?: (args: AbiToType<owner['inputs']>) => AbiToType<owner['outputs']>
   terminateService?: (args: AbiToType<terminateService['inputs']>) => AbiToType<terminateService['outputs']>
   topUpCDNPaymentRails?: (args: AbiToType<topUpCDNPaymentRails['inputs']>) => AbiToType<topUpCDNPaymentRails['outputs']>
@@ -178,16 +178,6 @@ export function warmStorageCallHandler(data: Hex, options: JSONRPCOptions): Hex 
       return encodeAbiParameters(
         [{ name: '', internalType: 'address', type: 'address' }],
         options.warmStorage.sessionKeyRegistry(args)
-      )
-    }
-
-    case 'getServicePrice': {
-      if (!options.warmStorage?.getServicePrice) {
-        throw new Error('Warm Storage: getServicePrice is not defined')
-      }
-      return encodeAbiParameters(
-        Abis.fwss.find((abi) => abi.type === 'function' && abi.name === 'getServicePrice')!.outputs,
-        options.warmStorage.getServicePrice(args)
       )
     }
 
@@ -357,6 +347,15 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
       return encodeAbiParameters(
         Abis.fwssView.find((abi) => abi.type === 'function' && abi.name === 'getClientDataSetsLength')!.outputs,
         options.warmStorageView.getClientDataSetsLength(args)
+      )
+    }
+    case 'getPriceList': {
+      if (!options.warmStorageView?.getPriceList) {
+        throw new Error('Warm Storage View: getPriceList is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.fwssView.find((abi) => abi.type === 'function' && abi.name === 'getPriceList')!.outputs,
+        options.warmStorageView.getPriceList(args)
       )
     }
 

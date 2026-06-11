@@ -4,10 +4,11 @@ import { calculateAccountDebt } from '../pay/account-debt.ts'
 import { accounts } from '../pay/accounts.ts'
 import { isFwssMaxApproved } from '../pay/is-fwss-max-approved.ts'
 import { resolveAccountState } from '../pay/resolve-account-state.ts'
-import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS, LOCKUP_PERIOD } from '../utils/constants.ts'
+import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { calculateDepositNeeded } from './calculate-deposit-needed.ts'
 import { calculateEffectiveRate } from './calculate-effective-rate.ts'
-import { getServicePrice } from './get-service-price.ts'
+import type { calculateUploadFees } from './calculate-upload-fees.ts'
+import { getPriceList } from './price-list.ts'
 
 export namespace getUploadCosts {
   export type OptionsType = {
@@ -23,6 +24,8 @@ export namespace getUploadCosts {
 
     /** Size of new data to upload, in bytes. */
     dataSize: bigint
+    /** Number of pieces added by this operation. Default: 1 */
+    pieceCount?: bigint
 
     /** Extra runway in epochs beyond the required lockup. */
     extraRunwayEpochs?: bigint
@@ -32,11 +35,19 @@ export namespace getUploadCosts {
 
   export type OutputType = {
     /** Effective rate for the dataset after adding dataSize bytes. */
-    rate: {
+    rates: {
       /** Rate per epoch — matches on-chain PDP rail rate. */
       perEpoch: bigint
       /** Rate per month — full precision for display. */
       perMonth: bigint
+    }
+    fees: calculateUploadFees.OutputType
+    lockups: {
+      lifecycleLockup: bigint
+      streamingLockup: bigint
+      cdnLockup: bigint
+      cacheMissLockup: bigint
+      total: bigint
     }
     /** Total USDFC to deposit. 0n if sufficient funds available. */
     depositNeeded: bigint
@@ -64,24 +75,31 @@ export async function getUploadCosts(
   const isNewDataSet = options.isNewDataSet ?? true
   const withCDN = options.withCDN ?? false
   const currentDataSetSize = options.currentDataSetSize ?? 0n
+  const pieceCount = options.pieceCount ?? 1n
   const extraRunwayEpochs = options.extraRunwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
   const bufferEpochs = options.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
 
   // Fetch all needed data in parallel
-  const [accountInfo, pricing, approved, currentEpoch] = await Promise.all([
+  const [accountInfo, priceList, currentEpoch] = await Promise.all([
     accounts(client, { address: options.clientAddress }),
-    getServicePrice(client),
-    isFwssMaxApproved(client, { clientAddress: options.clientAddress }),
+    getPriceList(client),
     getBlockNumber(client, { cacheTime: 0 }),
   ])
+
+  // Reuse the fetched price list's lockup period so the approval check
+  // doesn't read getPriceList again.
+  const approved = await isFwssMaxApproved(client, {
+    clientAddress: options.clientAddress,
+    requiredMaxLockupPeriod: priceList.lockups.defaultLockupPeriod,
+  })
 
   // Calculate effective rate for the new total dataset size
   const totalSize = currentDataSetSize + options.dataSize
   const rate = calculateEffectiveRate({
     sizeInBytes: totalSize,
-    pricePerTiBPerMonth: pricing.pricePerTiBPerMonthNoCDN,
-    minimumPricePerMonth: pricing.minimumPricePerMonth,
-    epochsPerMonth: pricing.epochsPerMonth,
+    storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
+    datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
+    epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
   })
 
   const accountParams = {
@@ -94,16 +112,15 @@ export async function getUploadCosts(
   const debt = calculateAccountDebt(accountParams)
   const { availableFunds, runwayInEpochs } = resolveAccountState(accountParams)
 
-  // Calculate deposit needed
-  const depositNeeded = calculateDepositNeeded({
+  // Deposit, plus the lockup and fee breakdowns it was computed from.
+  const { depositNeeded, lockup, fees } = calculateDepositNeeded({
     dataSize: options.dataSize,
     currentDataSetSize,
-    pricePerTiBPerMonth: pricing.pricePerTiBPerMonthNoCDN,
-    minimumPricePerMonth: pricing.minimumPricePerMonth,
-    epochsPerMonth: pricing.epochsPerMonth,
-    lockupEpochs: LOCKUP_PERIOD,
+    priceList,
+    epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
     isNewDataSet,
     withCDN,
+    pieceCount,
     currentLockupRate: accountInfo.lockupRate,
     extraRunwayEpochs,
     debt,
@@ -113,11 +130,20 @@ export async function getUploadCosts(
   })
 
   const needsFwssMaxApproval = !approved
+  const rates = {
+    perEpoch: rate.ratePerEpoch,
+    perMonth: rate.ratePerMonth,
+  }
 
   return {
-    rate: {
-      perEpoch: rate.ratePerEpoch,
-      perMonth: rate.ratePerMonth,
+    rates,
+    fees,
+    lockups: {
+      lifecycleLockup: lockup.lifecycleLockup,
+      streamingLockup: lockup.streamingLockup,
+      cdnLockup: lockup.cdnLockup,
+      cacheMissLockup: lockup.cacheMissLockup,
+      total: lockup.total,
     },
     depositNeeded,
     needsFwssMaxApproval,
