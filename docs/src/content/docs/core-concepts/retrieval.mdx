@@ -26,7 +26,7 @@ FOC offers three ways to retrieve a piece. They share the same PieceCID and can 
 | ----- | ------- | ------- | ----------- |
 | **Direct SP `/piece` retrieval** | Storage provider `/piece` HTTP API | Seconds | Default. No extra setup or egress charges. |
 | **FilBeam (CDN) `/piece` retrieval** | Filecoin Beam cache, backed by SPs | Milliseconds | Hot data, frequent reads, latency-sensitive apps. |
-| **IPFS retrieval** | Storage provider `/ipfs` HTTP API, with potential IPFS HTTP gateway as an intermediary  | Varies | IPFS-native applications and gateways. |
+| **IPFS retrieval** | Storage provider `/ipfs` HTTP API, with potential IPFS HTTP gateway as an intermediary | Varies | IPFS-native applications and gateways. |
 
 ```mermaid
 graph TD
@@ -94,6 +94,7 @@ Note: FilBeam currently only supports `/piece` retrieval. `/ipfs` retrieval is c
 Service providers also expose an `/ipfs` endpoint, which serves as an [IPFS trustless gateway](https://specs.ipfs.tech/http-gateways/trustless-gateway/), the same protocol that [public IPFS gateways](https://docs.ipfs.tech/concepts/public-utilities/#public-ipfs-gateways) use.
 
 Data Sets that include `withIPFSIndexing` metadata index and announce their content to [IPNI](https://github.com/filecoin-project/filecoin-pin/blob/master/documentation/glossary.md#ipni), so it resolves through standard IPFS gateways and tooling including:
+
 - `https://inbrowser.link/ipfs/<ipfsCid>`: a verifiable Service Worker Gateway that fetches blocks and verifies them against the CID inside your browser using Helia's [`verified-fetch`](https://www.npmjs.com/package/@helia/verified-fetch) before rendering.
 - `https://dweb.link/ipfs/<ipfsCid>`: public gateways, which are [rate-limited and best-effort](https://about.ipfs.io/#public-utility).
 - [Helia](https://helia.io/)
