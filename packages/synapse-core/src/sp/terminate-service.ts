@@ -41,8 +41,8 @@ POST /pdp/data-sets/{id}/terminate
 GET /pdp/data-sets/{id}/terminate (the status URL; valid immediately after the 202)
   queued    {terminationTxHash: "", fwssTerminated: null}
   sent      {terminationTxHash: "0x...", fwssTerminated: null}
-  done      {terminationTxHash: "0x..." or null, fwssTerminated: true, serviceTerminationEpoch: 4567n}
-  reverted  if we get an hash and after we get a 404 tx was rejected
+  done      {terminationTxHash: "0x..." or "", fwssTerminated: true, serviceTerminationEpoch: 4567}
+  reverted  if we get a hash and then get a 404, the tx was rejected
   404       failed relays are discarded so the client can re-POST; also the
             response for SP-initiated terminations (only client-requested ones
             are visible) and, eventually, for fully cleaned-up data sets.
