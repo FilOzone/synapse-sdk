@@ -143,7 +143,7 @@ describe('StorageManager.terminateService', () => {
     server.use(
       Mocks.JSONRPC({ ...Mocks.presets.basic }),
       http.post(terminateStatusPath, () =>
-        HttpResponse.text('Data set termination is already pending or complete', { status: 409 })
+        HttpResponse.json({ code: 1, message: 'termination queued', serviceTerminationEpoch: null }, { status: 409 })
       ),
       http.get(terminateStatusPath, () => HttpResponse.json(confirmedStatus, { status: 200 }))
     )
@@ -157,7 +157,7 @@ describe('StorageManager.terminateService', () => {
     server.use(
       Mocks.JSONRPC({ ...Mocks.presets.basic }),
       http.post(terminateStatusPath, () =>
-        HttpResponse.json({ error: 'data_set_already_terminated', serviceTerminationEpoch: 4567 }, { status: 409 })
+        HttpResponse.json({ code: 0, message: 'already terminated', serviceTerminationEpoch: 4567 }, { status: 409 })
       )
     )
 
@@ -170,7 +170,7 @@ describe('StorageManager.terminateService', () => {
     server.use(
       Mocks.JSONRPC({ ...Mocks.presets.basic }),
       http.post(terminateStatusPath, () =>
-        HttpResponse.text('Data set termination is already pending or complete', { status: 409 })
+        HttpResponse.json({ code: 1, message: 'termination queued', serviceTerminationEpoch: null }, { status: 409 })
       ),
       // Provider-initiated termination rows are not visible via the status endpoint
       http.get(terminateStatusPath, () => HttpResponse.text('Termination not found', { status: 404 }))

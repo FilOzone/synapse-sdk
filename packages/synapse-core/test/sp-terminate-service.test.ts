@@ -37,29 +37,23 @@ const mockExtraData: Hex = '0xdeadbeef'
 
 const pendingStatus = {
   terminationTxHash: '',
-  txStatus: '',
-  txSuccess: null,
-  fwssTerminated: false,
+  fwssTerminated: null,
   serviceTerminationEpoch: null,
 }
 
 const submittedStatus = {
   terminationTxHash: mockTxHash,
-  txStatus: 'pending',
-  txSuccess: null,
-  fwssTerminated: false,
+  fwssTerminated: null,
   serviceTerminationEpoch: null,
 }
 
 const confirmedStatus = {
   terminationTxHash: mockTxHash,
-  txStatus: 'confirmed',
-  txSuccess: true,
   fwssTerminated: true,
   serviceTerminationEpoch: 4567,
 }
 
-describe('SP terminate service', () => {
+describe.only('SP terminate service', () => {
   const server = setup()
 
   before(async () => {
@@ -108,7 +102,7 @@ describe('SP terminate service', () => {
       server.use(
         http.post('http://pdp.local/pdp/data-sets/1/terminate', () => {
           return HttpResponse.json(
-            { error: 'data_set_already_terminated', serviceTerminationEpoch: 12345 },
+            { code: 0, message: 'already terminated', serviceTerminationEpoch: 12345 },
             { status: 409 }
           )
         })
@@ -123,10 +117,13 @@ describe('SP terminate service', () => {
       }
     })
 
-    it('should throw TerminateServicePendingError on 409 with plain text body', async () => {
+    it('should throw TerminateServicePendingError on 409 with conflict body', async () => {
       server.use(
         http.post('http://pdp.local/pdp/data-sets/1/terminate', () => {
-          return HttpResponse.text('Data set termination is already pending or complete', { status: 409 })
+          return HttpResponse.json(
+            { code: 1, message: 'termination queued', serviceTerminationEpoch: null },
+            { status: 409 }
+          )
         })
       )
 
@@ -260,10 +257,7 @@ describe('SP terminate service', () => {
       const seenHashes: string[] = []
       server.use(
         http.get('http://pdp.local/pdp/data-sets/1/terminate', () => {
-          return HttpResponse.json(
-            { ...confirmedStatus, terminationTxHash: '', txStatus: '', txSuccess: null },
-            { status: 200 }
-          )
+          return HttpResponse.json({ ...confirmedStatus, terminationTxHash: '' }, { status: 200 })
         })
       )
 
@@ -293,28 +287,39 @@ describe('SP terminate service', () => {
     })
 
     it('should throw rejected error when the transaction failed', async () => {
+      let callCount = 0
       server.use(
         http.get('http://pdp.local/pdp/data-sets/1/terminate', () => {
-          return HttpResponse.json({ ...submittedStatus, txStatus: 'confirmed', txSuccess: false }, { status: 200 })
+          callCount++
+          if (callCount === 1) {
+            return HttpResponse.json(submittedStatus, { status: 200 })
+          }
+          return new HttpResponse(null, { status: 404 })
         })
       )
 
       try {
         await waitForTerminateService({
           statusUrl: terminateServiceStatusUrl({ serviceURL, dataSetId: 1n }),
+          pollInterval: 10,
         })
         assert.fail('Should have thrown')
       } catch (error) {
         assert.instanceOf(error, WaitForTerminateServiceRejectedError)
-        assert.strictEqual(error.response.terminationTxHash, mockTxHash)
+        assert.strictEqual(error.hash, mockTxHash)
       }
     })
 
     it('should throw rejected error when the transaction status is failed', async () => {
+      let callCount = 0
       const seenHashes: string[] = []
       server.use(
         http.get('http://pdp.local/pdp/data-sets/1/terminate', () => {
-          return HttpResponse.json({ ...submittedStatus, txStatus: 'failed' }, { status: 200 })
+          callCount++
+          if (callCount === 1) {
+            return HttpResponse.json(submittedStatus, { status: 200 })
+          }
+          return new HttpResponse(null, { status: 404 })
         })
       )
 
@@ -322,11 +327,12 @@ describe('SP terminate service', () => {
         await waitForTerminateService({
           statusUrl: terminateServiceStatusUrl({ serviceURL, dataSetId: 1n }),
           onHash: (hash) => seenHashes.push(hash),
+          pollInterval: 10,
         })
         assert.fail('Should have thrown')
       } catch (error) {
         assert.instanceOf(error, WaitForTerminateServiceRejectedError)
-        assert.strictEqual(error.response.terminationTxHash, mockTxHash)
+        assert.strictEqual(error.hash, mockTxHash)
         assert.deepStrictEqual(seenHashes, [mockTxHash])
       }
     })

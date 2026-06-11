@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, type RequestJsonErrors, request, SchemaError } from 'iso-web/http'
 import type {
   Account,
   Chain,
@@ -34,15 +34,15 @@ POST /pdp/data-sets/{id}/terminate
   immediate (endEpoch ~ current) and a termination fee is drawn from the
   payer; the tx reverts instead if the payer cannot settle in full.
 
-  409 JSON {error: "data_set_already_terminated"} -> DataSetAlreadyTerminatedError
-  409 text (a request is already queued, possibly SP-initiated) -> TerminateServicePendingError
+  409 JSON {code: 0} -> DataSetAlreadyTerminatedError
+  409 JSON {code: 1} -> TerminateServicePendingError
   503 (FWSS predates client termination) -> TerminateServiceNotSupportedError
 
 GET /pdp/data-sets/{id}/terminate (the status URL; valid immediately after the 202)
-  queued    {terminationTxHash: "", txStatus: "", txSuccess: null, fwssTerminated: false}
-  sent      {terminationTxHash, txStatus: "pending"}
-  done      {txStatus: "confirmed", txSuccess: true, fwssTerminated: true, serviceTerminationEpoch}
-  reverted  {txStatus: "confirmed", txSuccess: false, fwssTerminated: false}
+  queued    {terminationTxHash: "", fwssTerminated: null}
+  sent      {terminationTxHash: "0x...", fwssTerminated: null}
+  done      {terminationTxHash: "0x..." or null, fwssTerminated: true, serviceTerminationEpoch: 4567n}
+  reverted  if we get an hash and after we get a 404 tx was rejected
   404       failed relays are discarded so the client can re-POST; also the
             response for SP-initiated terminations (only client-requested ones
             are visible) and, eventually, for fully cleaned-up data sets.
@@ -57,22 +57,22 @@ GET /pdp/data-sets/{id}/terminate (the status URL; valid immediately after the 2
 */
 
 /**
- * Conflict body returned when the data set is already terminated on chain.
- * A 409 with a plain-text body means a termination request is already queued instead.
+ * Schema for the termination conflict response.
  */
-const TerminateConflictSchema = z.object({
-  error: z.literal('data_set_already_terminated'),
-  serviceTerminationEpoch: z.number(),
-})
-
-function parseTerminatedConflict(text: string): z.infer<typeof TerminateConflictSchema> | undefined {
-  try {
-    const result = TerminateConflictSchema.safeParse(JSON.parse(text))
-    return result.success ? result.data : undefined
-  } catch {
-    return undefined
-  }
-}
+const TerminateConflictSchema = z.discriminatedUnion('code', [
+  // The service was already terminated on chain.
+  z.object({
+    code: z.literal(0),
+    message: z.string(),
+    serviceTerminationEpoch: z.number(),
+  }),
+  // A termination request is already queued.
+  z.object({
+    code: z.literal(1),
+    message: z.string(),
+    serviceTerminationEpoch: z.null(),
+  }),
+])
 
 /**
  * Build the termination status URL for a data set, pollable with
@@ -131,7 +131,7 @@ export async function terminateServiceApiRequest(
   options: terminateServiceApiRequest.OptionsType
 ): Promise<terminateServiceApiRequest.OutputType> {
   const statusUrl = terminateServiceStatusUrl(options)
-  const response = await request.post(statusUrl, {
+  const result = await request.post(statusUrl, {
     json: {
       extraData: options.extraData,
     },
@@ -144,24 +144,27 @@ export async function terminateServiceApiRequest(
     },
   })
 
-  if (response.error) {
-    if (HttpError.is(response.error)) {
-      const text = await response.error.response.text()
-      switch (response.error.code) {
+  if (result.error) {
+    if (HttpError.is(result.error)) {
+      switch (result.error.code) {
         case 409: {
-          const conflict = parseTerminatedConflict(text)
-          if (conflict) {
-            throw new ServiceAlreadyTerminatedError(BigInt(conflict.serviceTerminationEpoch))
+          const error = TerminateConflictSchema.safeParse(await result.error.response.json())
+          if (!error.success) {
+            throw new SchemaError({ issues: error.error.issues, response: result.error.response })
           }
-          throw new TerminateServicePendingError()
+          if (error.data.code === 0) {
+            throw new ServiceAlreadyTerminatedError(BigInt(error.data.serviceTerminationEpoch))
+          } else {
+            throw new TerminateServicePendingError()
+          }
         }
         case 503:
-          throw new TerminateServiceNotSupportedError(text)
+          throw new TerminateServiceNotSupportedError(await result.error.response.text())
         default:
-          throw new TerminateServiceError(text)
+          throw new TerminateServiceError(await result.error.response.text())
       }
     }
-    throw response.error
+    throw result.error
   }
 
   return { statusUrl }
@@ -245,21 +248,7 @@ export async function terminateService(
  */
 export const TerminateServiceStatusPendingSchema = z.object({
   terminationTxHash: z.union([zHex, z.literal('')]),
-  txStatus: z.union([z.literal(''), z.literal('pending'), z.literal('confirmed')]),
-  txSuccess: z.boolean().nullable(),
-  fwssTerminated: z.literal(false),
-  serviceTerminationEpoch: z.null(),
-})
-
-/**
- * Schema for the termination status when the provider's transaction landed but failed.
- * The provider discards the request shortly after, after which the status URL returns 404.
- */
-export const TerminateServiceStatusRejectedSchema = z.object({
-  terminationTxHash: zHex,
-  txStatus: z.union([z.literal('failed'), z.literal('confirmed')]),
-  txSuccess: z.union([z.literal(false), z.null()]),
-  fwssTerminated: z.literal(false),
+  fwssTerminated: z.null(),
   serviceTerminationEpoch: z.null(),
 })
 
@@ -269,23 +258,17 @@ export const TerminateServiceStatusRejectedSchema = z.object({
  */
 export const TerminateServiceStatusSuccessSchema = z.object({
   terminationTxHash: z.union([zHex, z.literal('')]),
-  txStatus: z.union([z.literal(''), z.literal('pending'), z.literal('confirmed')]),
-  txSuccess: z.boolean().nullable(),
   fwssTerminated: z.literal(true),
   serviceTerminationEpoch: zNumberToBigInt,
 })
 
 export type TerminateServiceStatusPending = z.infer<typeof TerminateServiceStatusPendingSchema>
-export type TerminateServiceStatusRejected = z.infer<typeof TerminateServiceStatusRejectedSchema>
 export type TerminateServiceStatusSuccess = z.infer<typeof TerminateServiceStatusSuccessSchema>
-export type TerminateServiceStatusResponse =
-  | TerminateServiceStatusPending
-  | TerminateServiceStatusRejected
-  | TerminateServiceStatusSuccess
+export type TerminateServiceStatusResponse = TerminateServiceStatusPending | TerminateServiceStatusSuccess
 
 // Validates only the FINAL response; intermediate pending bodies are inspected
 // (and polling continued) by shouldPoll below, without schema validation.
-const schema = z.union([TerminateServiceStatusRejectedSchema, TerminateServiceStatusSuccessSchema])
+const schema = TerminateServiceStatusSuccessSchema
 
 export namespace waitForTerminateService {
   export type OptionsType = {
@@ -327,7 +310,7 @@ export namespace waitForTerminateService {
 export async function waitForTerminateService(
   options: waitForTerminateService.OptionsType
 ): Promise<waitForTerminateService.OutputType> {
-  let txHashSeen = false
+  let hash: Hash | undefined
   const response = await request.json.get(options.statusUrl, {
     retry: {
       retries: options.retryCount,
@@ -339,11 +322,11 @@ export async function waitForTerminateService(
       statusCodes: [200],
       shouldPoll: async (ctx) => {
         const data = (await ctx.response.clone().json()) as TerminateServiceStatusResponse
-        if (!txHashSeen && data.terminationTxHash !== '') {
-          txHashSeen = true
+        if (!hash && data.terminationTxHash !== '') {
+          hash = data.terminationTxHash
           options.onHash?.(data.terminationTxHash)
         }
-        return data.fwssTerminated === false && data.txStatus !== 'failed' && data.txSuccess !== false
+        return data.fwssTerminated === null
       },
     },
     timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
@@ -351,16 +334,16 @@ export async function waitForTerminateService(
   })
   if (response.error) {
     if (HttpError.is(response.error)) {
-      if (response.error.code === 404) {
+      if (response.error.code === 404 && hash === undefined) {
         throw new WaitForTerminateServiceNotFoundError()
+      }
+      if (response.error.code === 404 && hash !== undefined) {
+        throw new WaitForTerminateServiceRejectedError(hash)
       }
       throw new WaitForTerminateServiceError(await response.error.response.text())
     }
     throw response.error
   }
 
-  if (response.result.fwssTerminated === false) {
-    throw new WaitForTerminateServiceRejectedError(response.result)
-  }
   return response.result
 }
