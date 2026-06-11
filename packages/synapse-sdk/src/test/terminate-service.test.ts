@@ -194,7 +194,7 @@ describe('StorageManager.terminateService', () => {
     const serviceTerminatedTopics = encodeEventTopics({
       abi: fwss,
       eventName: 'ServiceTerminated',
-      args: { caller: Mocks.ADDRESSES.client1, dataSetId },
+      args: { approver: Mocks.ADDRESSES.client1, dataSetId },
     })
     const serviceTerminatedData = encodeAbiParameters(
       [
