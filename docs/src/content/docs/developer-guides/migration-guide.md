@@ -31,24 +31,6 @@ console.log(direct.txHash, direct.endEpoch)
 
 `context.terminate()` now uses the same provider-relayed default and returns `{ txHash?, dataSetId, endEpoch }`.
 
-## 0.42.0
-
-### Action: Re-mint session keys for service termination
-
-`DeleteDataSetPermission` has been replaced by `TerminateServicePermission`.
-
-Existing session keys granted with `DeleteDataSetPermission` will fail the `Synapse.create()` permission check. Re-authorize session keys so they include `TerminateServicePermission`.
-
-```ts
-// before
-SessionKey.DeleteDataSetPermission
-TypedData.signDeleteDataSet(client, { dataSetId })
-
-// after
-SessionKey.TerminateServicePermission
-TypedData.signTerminateService(client, { dataSetId })
-```
-
 ### Action: Read pricing with `getPriceList()`
 
 `getServicePrice()` was removed from both `@filoz/synapse-core` and `WarmStorageService`. Use `getPriceList()`, which returns the full on-chain price catalogue (`token`, `rates`, `fees`, `lockups`).
@@ -96,6 +78,24 @@ costs.rates.perMonth
 ### Action: Replace the `LOCKUP_PERIOD` constant
 
 The `LOCKUP_PERIOD` export was removed from `@filoz/synapse-core`. The lockup period is now read from the chain; use `getPriceList().lockups.defaultLockupPeriod` if you need the value.
+
+## 0.42.0
+
+### Action: Re-mint session keys for service termination
+
+`DeleteDataSetPermission` has been replaced by `TerminateServicePermission`.
+
+Existing session keys granted with `DeleteDataSetPermission` will fail the `Synapse.create()` permission check. Re-authorize session keys so they include `TerminateServicePermission`.
+
+```ts
+// before
+SessionKey.DeleteDataSetPermission
+TypedData.signDeleteDataSet(client, { dataSetId })
+
+// after
+SessionKey.TerminateServicePermission
+TypedData.signTerminateService(client, { dataSetId })
+```
 
 ## 0.37.0
 
