@@ -299,9 +299,7 @@ export namespace waitForTerminateService {
  * GET /pdp/data-sets/{dataSetId}/terminate
  *
  * Polls until the provider's transaction confirms and the termination epoch is
- * recorded. A 404 means no client-requested termination exists: either none
- * was submitted, or the provider's transaction failed and the request was
- * discarded ({@link WaitForTerminateServiceNotFoundError}).
+ * recorded.
  *
  * @param options - {@link waitForTerminateService.OptionsType}
  * @returns Status {@link waitForTerminateService.OutputType}
