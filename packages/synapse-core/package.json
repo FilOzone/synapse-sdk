@@ -253,7 +253,7 @@
     "mocha": "catalog:",
     "msw": "catalog:",
     "playwright-test": "^14.1.12",
-    "type-fest": "^5.4.3",
+    "type-fest": "^5.7.0",
     "typescript": "catalog:",
     "viem": "catalog:"
   },
