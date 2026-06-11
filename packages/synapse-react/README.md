@@ -6,15 +6,15 @@
 
 ## Overview
 
-TODO
+Synapse React provides React hooks for building Filecoin Onchain Cloud applications with wagmi, viem, and TanStack Query. It wraps common Synapse storage and payment flows so React apps can query contract state, manage payment balances and operator approvals, discover Warm Storage providers, create data sets, and upload or delete pieces.
+
+Use this package when you want wallet-connected React components to interact with Synapse without wiring contract reads, writes, transaction receipts, and query invalidation by hand. For lower-level control outside React, use `@filoz/synapse-sdk` directly.
 
 ## Installation
 
 ```bash
-pnpm install @filoz/synapse-core viem@2.x
+pnpm install @filoz/synapse-react wagmi@3.x @tanstack/react-query@5.x viem@2.x
 ```
-
-Note: `viem` is a peer dependency and must be installed separately.
 
 ## Docs
 

@@ -4,7 +4,8 @@
   "description": "JavaScript SDK for Filecoin Onchain Cloud",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/FilOzone/synapse-sdk.git"
+    "url": "git+https://github.com/FilOzone/synapse-sdk.git",
+    "directory": "packages/synapse-sdk"
   },
   "keywords": [
     "filecoin",
