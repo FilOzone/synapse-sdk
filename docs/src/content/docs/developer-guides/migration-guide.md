@@ -9,7 +9,7 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ---
 
-## Unreleased
+## 1.0.0
 
 ### Action: Replace `terminateDataSet` with `terminateService`
 
