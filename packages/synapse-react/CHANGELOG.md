@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.2.3...synapse-react-v0.3.0) (2026-06-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **costs:** per-operation pricing price list ([#823](https://github.com/FilOzone/synapse-sdk/issues/823))
+
+### Features
+
+* **costs:** per-operation pricing price list ([#823](https://github.com/FilOzone/synapse-sdk/issues/823)) ([66af832](https://github.com/FilOzone/synapse-sdk/commit/66af8327430737437e96294a76210033efba9a45))
+
+
+### Chores
+
+* update release configuration and improve synapse-react documentation ([#843](https://github.com/FilOzone/synapse-sdk/issues/843)) ([53acc47](https://github.com/FilOzone/synapse-sdk/commit/53acc47aad132b45709e98b1e163dc1f0c79e986))
+* update to pnpm 11 and dependencies across multiple packages ([95a620c](https://github.com/FilOzone/synapse-sdk/commit/95a620c619fcfcde3d575895b1c0ae99092a5e5a))
+
 ## [0.2.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.2.2...synapse-react-v0.2.3) (2026-03-30)
 
 
