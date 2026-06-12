@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.7.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.6.1...synapse-core-v0.7.0) (2026-06-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **costs:** per-operation pricing price list ([#823](https://github.com/FilOzone/synapse-sdk/issues/823))
+* provider-relayed service termination as the default path ([#827](https://github.com/FilOzone/synapse-sdk/issues/827))
+
+### Features
+
+* **costs:** per-operation pricing price list ([#823](https://github.com/FilOzone/synapse-sdk/issues/823)) ([66af832](https://github.com/FilOzone/synapse-sdk/commit/66af8327430737437e96294a76210033efba9a45))
+* provider-relayed service termination as the default path ([#827](https://github.com/FilOzone/synapse-sdk/issues/827)) ([06152d0](https://github.com/FilOzone/synapse-sdk/commit/06152d0124bbb829592f37d729e8fa34ffb2238a))
+
+
+### Bug Fixes
+
+* **synapse-core:** update filecoin-services ref to v1.3.0 ([#831](https://github.com/FilOzone/synapse-sdk/issues/831)) ([b500c44](https://github.com/FilOzone/synapse-sdk/commit/b500c4488f4b02900bd5abbdbf60eda50466676d))
+* update termination service error handling and response schemas ([#842](https://github.com/FilOzone/synapse-sdk/issues/842)) ([71b300f](https://github.com/FilOzone/synapse-sdk/commit/71b300f16a439f0378c04b72433e0b94bb31da44))
+
+
+### Chores
+
+* **synapse-core:** update filecoin-services ref to final v1.3.0 deployments ([#844](https://github.com/FilOzone/synapse-sdk/issues/844)) ([94e2a0d](https://github.com/FilOzone/synapse-sdk/commit/94e2a0d4ca2b746b9be082208a0a359ed97a003f))
+* update to pnpm 11 and dependencies across multiple packages ([95a620c](https://github.com/FilOzone/synapse-sdk/commit/95a620c619fcfcde3d575895b1c0ae99092a5e5a))
+
 ## [0.6.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.6.0...synapse-core-v0.6.1) (2026-06-09)
 
 
