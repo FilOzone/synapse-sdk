@@ -47,7 +47,7 @@ Two recurring rates apply per data set:
 | -------------- | -------------------- | ------------------------------------------------------- |
 | **Storage** | $2.50/TiB/month per copy | Charged only while pieces exist. Empty data sets are free |
 | **Proving Service** | $0.024/data set/month | Flat per-data-set fee, added on top of the storage rate |
-| **CDN egress** | up to $0.014/GiB downloaded | Optional, via Filecoin Beam. About half this when served from cache |
+| **CDN egress** | up to $14/TiB (≈ $0.014/GiB) downloaded | Optional, via Filecoin Beam. About half this when served from cache |
 
 :::note
 "Month" always means exactly **30 days = 86,400 epochs** throughout the system. Filecoin epochs are ~30 seconds each.
@@ -63,10 +63,6 @@ Each on-chain operation also pays a small one-time fee to the storage provider, 
 | **Terminate service** | $0.00112 (user-initiated only) |
 
 These are fractions of a cent. They are drawn from a ~$0.10 lockup reserve held while the data set is active, not billed separately on each call. See [Storage Costs: How the fees and lockup work](/developer-guides/storage/storage-costs/#how-the-fees-and-lockup-work) for the mechanics.
-
-:::caution[SDK pricing update in progress]
-The per-operation fees and the additive proving fee are live in the Warm Storage contract, but the SDK cost APIs (`getUploadCosts()`, `prepare()`) are still being updated to surface them, tracked in [synapse-sdk#763](https://github.com/FilOzone/synapse-sdk/issues/763). Until that lands, returned `rate` and `depositNeeded` values reflect the previous model.
-:::
 
 ### Proving Fee
 
