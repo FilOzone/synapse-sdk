@@ -1,5 +1,5 @@
-import { calibration, devnet, mainnet } from '@filoz/synapse-core/chains'
 import { assert } from 'chai'
+import { calibration, devnet, mainnet } from '../src/chains.ts'
 import { createPieceUrl, createPieceUrlPDP } from '../src/utils/piece-url.ts'
 
 describe('createPieceUrl', () => {

@@ -1,6 +1,6 @@
 {
   "name": "@filoz/synapse-react",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "React hooks for interacting with Filecoin Onchain Cloud smart contracts",
   "repository": {
     "type": "git",
@@ -89,7 +89,7 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/node": "catalog:",
-    "type-fest": "^5.4.3",
+    "type-fest": "^5.7.0",
     "typescript": "catalog:",
     "viem": "catalog:"
   },

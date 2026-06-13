@@ -7,6 +7,32 @@ import {
   calculateDepositNeeded,
   calculateRunwayAmount,
 } from '../src/warm-storage/calculate-deposit-needed.ts'
+import type { getPriceList } from '../src/warm-storage/price-list.ts'
+
+const priceList = {
+  token: '0x0000000000000000000000000000000000000001',
+  rates: {
+    storagePerTibPerMonth: 2_500_000_000_000_000_000n,
+    datasetFeePerMonth: 24_000_000_000_000_000n,
+    cdnEgressPerTib: 0n,
+    cacheMissEgressPerTib: 0n,
+  },
+  fees: {
+    createDataSetFee: 25_000_000_000_000_000n,
+    addPiecesBaseFee: 500_000_000_000_000n,
+    addPiecesPerPieceFee: 300_000_000_000_000n,
+    schedulePieceRemovalsFee: 2_000_000_000_000_000n,
+    terminateFee: 1_120_000_000_000_000n,
+  },
+  lockups: {
+    lifecycleReserveTarget: 100_000_000_000_000_000n,
+    replenishThreshold: 5_000_000_000_000_000n,
+    defaultLockupPeriod: 86_400n,
+    cdnLockupAmount: 700_000_000_000_000_000n,
+    cacheMissLockupAmount: 300_000_000_000_000_000n,
+    cdnLockupPeriod: 14_400n,
+  },
+} satisfies getPriceList.OutputType
 
 describe('calculateRunwayAmount', () => {
   it('computes netRateAfterUpload * extraRunwayEpochs', () => {
@@ -90,17 +116,11 @@ describe('calculateBufferAmount', () => {
 })
 
 describe('calculateDepositNeeded', () => {
-  const pricing = {
-    pricePerTiBPerMonth: 2_500_000_000_000_000_000n,
-    minimumPricePerMonth: 60_000_000_000_000_000n,
-    epochsPerMonth: 86400n,
-  }
-
   it('healthy account, no debt, sufficient funds: returns 0', () => {
     const result = calculateDepositNeeded({
       dataSize: 1000n,
       currentDataSetSize: 0n,
-      ...pricing,
+      priceList,
       lockupEpochs: 86400n,
       isNewDataSet: true,
       withCDN: false,
@@ -112,14 +132,14 @@ describe('calculateDepositNeeded', () => {
       bufferEpochs: 10n,
     })
 
-    assert.equal(result, 0n)
+    assert.equal(result.depositNeeded, 0n)
   })
 
   it('new dataset + no existing rails: buffer skipped', () => {
     const base = {
       dataSize: 1000n,
       currentDataSetSize: 0n,
-      ...pricing,
+      priceList,
       lockupEpochs: 86400n,
       isNewDataSet: true,
       withCDN: false,
@@ -134,15 +154,15 @@ describe('calculateDepositNeeded', () => {
     const withoutBuffer = calculateDepositNeeded({ ...base, bufferEpochs: 0n })
 
     // No existing rails (currentLockupRate=0) + new dataset, buffer skipped
-    assert.equal(withBuffer, withoutBuffer)
-    assert.ok(withBuffer > 0n) // still requires the lockup deposit
+    assert.equal(withBuffer.depositNeeded, withoutBuffer.depositNeeded)
+    assert.ok(withBuffer.depositNeeded > 0n) // still requires the lockup deposit
   })
 
   it('new dataset + existing rails: buffer still applies', () => {
     const base = {
       dataSize: 1000n,
       currentDataSetSize: 0n,
-      ...pricing,
+      priceList,
       lockupEpochs: 86400n,
       isNewDataSet: true,
       withCDN: false,
@@ -157,7 +177,7 @@ describe('calculateDepositNeeded', () => {
     const withoutBuffer = calculateDepositNeeded({ ...base, bufferEpochs: 0n })
 
     // Existing rails draining, buffer must apply even for new dataset
-    assert.ok(withBuffer > withoutBuffer)
+    assert.ok(withBuffer.depositNeeded > withoutBuffer.depositNeeded)
   })
 
   it('underfunded account with debt: includes debt in deposit', () => {
@@ -165,7 +185,7 @@ describe('calculateDepositNeeded', () => {
     const result = calculateDepositNeeded({
       dataSize: 1000n,
       currentDataSetSize: 0n,
-      ...pricing,
+      priceList,
       lockupEpochs: 86400n,
       isNewDataSet: true,
       withCDN: false,
@@ -177,7 +197,8 @@ describe('calculateDepositNeeded', () => {
       bufferEpochs: 10n,
     })
 
-    // Result should include the debt
-    assert.ok(result >= debt)
+    // Result should include the debt, and the deposit covers debt + fees + lockup.
+    assert.ok(result.fees.total > 0n)
+    assert.ok(result.depositNeeded >= debt + result.fees.total + result.lockup.total)
   })
 })

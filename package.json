@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "knip": "^6.4.1",
+    "knip": "^6.15.0",
     "markdownlint-cli2": "^0.22.0",
     "typescript": "catalog:",
     "wireit": "^0.14.12"
@@ -35,7 +35,7 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.5.3",
   "devEngines": {
     "runtime": {
       "name": "node",

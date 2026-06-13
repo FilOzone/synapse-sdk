@@ -17,6 +17,11 @@ const YugabyteInfo = z.object({
   ysql_port: z.number().int().positive(),
 })
 
+const DatabaseInfo = z.object({
+  postgres_port: z.number().int().positive(),
+  scylla_port: z.number().int().positive(),
+})
+
 const CurioInfo = z.object({
   provider_id: z.number().int().positive(),
   eth_addr: z.string().startsWith('0x'),
@@ -26,7 +31,10 @@ const CurioInfo = z.object({
   container_name: z.string().min(1),
   is_approved: z.boolean(),
   is_endorsed: z.boolean(),
-  yugabyte: YugabyteInfo,
+  // Transitional: older foc-devnet exports a `yugabyte` block, newer ones a
+  // `database` block (Postgres + Scylla). Accept either; the SDK reads neither.
+  yugabyte: YugabyteInfo.optional(),
+  database: DatabaseInfo.optional(),
 })
 
 const ContractsInfo = z.object({
@@ -75,7 +83,8 @@ const DevnetInfoV1 = z.object({
 })
 
 export const VersionedDevnetInfo = z.object({
-  version: z.literal(1),
+  // 1 = yugabyte-era exports, 2 = postgres+scylla-era (`database` block)
+  version: z.union([z.literal(1), z.literal(2)]),
   info: DevnetInfoV1,
 })
 

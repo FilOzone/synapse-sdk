@@ -20,7 +20,11 @@ import {
   setOperatorApprovalCall,
   setOperatorApprovalSync,
 } from '../src/pay/set-operator-approval.ts'
-import { LOCKUP_PERIOD } from '../src/utils/constants.ts'
+import { TIME_CONSTANTS } from '../src/utils/constants.ts'
+
+// Matches the lockup period returned by the basic preset's getPriceList mock,
+// which the async approval path resolves from the chain.
+const CHAIN_LOCKUP_PERIOD = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
 
 // Type for captured args from setOperatorApproval mock
 type SetOperatorApprovalArgs = readonly [Address, Address, boolean, bigint, bigint, bigint]
@@ -45,6 +49,7 @@ describe('setOperatorApproval', () => {
       const call = setOperatorApprovalCall({
         chain: calibration,
         approve: true,
+        maxLockupPeriod: CHAIN_LOCKUP_PERIOD,
       })
 
       assert.equal(call.functionName, 'setOperatorApproval')
@@ -57,13 +62,14 @@ describe('setOperatorApproval', () => {
       assert.equal(call.args[2], true) // approved
       assert.equal(call.args[3], maxUint256) // rateAllowance
       assert.equal(call.args[4], maxUint256) // lockupAllowance
-      assert.equal(call.args[5], LOCKUP_PERIOD) // maxLockupPeriod (30 days in epochs)
+      assert.equal(call.args[5], CHAIN_LOCKUP_PERIOD) // maxLockupPeriod
     })
 
     it('should create call with mainnet chain defaults when approving', () => {
       const call = setOperatorApprovalCall({
         chain: mainnet,
         approve: true,
+        maxLockupPeriod: CHAIN_LOCKUP_PERIOD,
       })
 
       assert.equal(call.functionName, 'setOperatorApproval')
@@ -75,7 +81,17 @@ describe('setOperatorApproval', () => {
       assert.equal(call.args[2], true)
       assert.equal(call.args[3], maxUint256)
       assert.equal(call.args[4], maxUint256)
-      assert.equal(call.args[5], LOCKUP_PERIOD)
+      assert.equal(call.args[5], CHAIN_LOCKUP_PERIOD)
+    })
+
+    it('should throw when approving without an explicit maxLockupPeriod', () => {
+      // The synchronous builder has no hardcoded default; approving callers must
+      // resolve the period from the chain price list and pass it in.
+      assert.throws(
+        // @ts-expect-error the type requires maxLockupPeriod when approving; this guards JS callers
+        () => setOperatorApprovalCall({ chain: calibration, approve: true }),
+        /maxLockupPeriod is required when approving/
+      )
     })
 
     it('should create call with zero defaults when revoking', () => {
@@ -96,6 +112,7 @@ describe('setOperatorApproval', () => {
       const call = setOperatorApprovalCall({
         chain: calibration,
         approve: true,
+        maxLockupPeriod: CHAIN_LOCKUP_PERIOD,
         contractAddress: customAddress,
       })
 
@@ -107,6 +124,7 @@ describe('setOperatorApproval', () => {
       const call = setOperatorApprovalCall({
         chain: calibration,
         approve: true,
+        maxLockupPeriod: CHAIN_LOCKUP_PERIOD,
         token: customToken,
       })
 
@@ -165,6 +183,7 @@ describe('setOperatorApproval', () => {
             chain: calibration,
             approve: true,
             operator: customOperator,
+            maxLockupPeriod: CHAIN_LOCKUP_PERIOD,
           }),
         /Custom operator requires explicit rateAllowance, lockupAllowance and maxLockupPeriod/
       )
@@ -174,6 +193,7 @@ describe('setOperatorApproval', () => {
       const customOperator = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address
       assert.throws(
         () =>
+          // @ts-expect-error the type requires maxLockupPeriod when approving; this guards JS callers
           setOperatorApprovalCall({
             chain: calibration,
             approve: true,
@@ -223,7 +243,7 @@ describe('setOperatorApproval', () => {
           { name: 'lockupAllowance', type: 'uint256' },
           { name: 'maxLockupPeriod', type: 'uint256' },
         ],
-        [true, maxUint256, maxUint256, LOCKUP_PERIOD]
+        [true, maxUint256, maxUint256, CHAIN_LOCKUP_PERIOD]
       )
 
       const logs: Log[] = [
@@ -246,7 +266,7 @@ describe('setOperatorApproval', () => {
       assert.equal(event.args.approved, true)
       assert.equal(event.args.rateAllowance, maxUint256)
       assert.equal(event.args.lockupAllowance, maxUint256)
-      assert.equal(event.args.maxLockupPeriod, LOCKUP_PERIOD)
+      assert.equal(event.args.maxLockupPeriod, CHAIN_LOCKUP_PERIOD)
     })
   })
 
@@ -289,7 +309,7 @@ describe('setOperatorApproval', () => {
       assert.equal(capturedArgs[2], true) // approved
       assert.equal(capturedArgs[3], maxUint256) // rateAllowance
       assert.equal(capturedArgs[4], maxUint256) // lockupAllowance
-      assert.equal(capturedArgs[5], LOCKUP_PERIOD) // maxLockupPeriod
+      assert.equal(capturedArgs[5], CHAIN_LOCKUP_PERIOD) // maxLockupPeriod
     })
 
     it('should send revoke transaction with zero defaults', async () => {
@@ -426,7 +446,7 @@ describe('setOperatorApproval', () => {
           { name: 'lockupAllowance', type: 'uint256' },
           { name: 'maxLockupPeriod', type: 'uint256' },
         ],
-        [true, maxUint256, maxUint256, LOCKUP_PERIOD]
+        [true, maxUint256, maxUint256, CHAIN_LOCKUP_PERIOD]
       )
 
       server.use(
@@ -496,7 +516,7 @@ describe('setOperatorApproval', () => {
       assert.equal(event.args.approved, true)
       assert.equal(event.args.rateAllowance, maxUint256)
       assert.equal(event.args.lockupAllowance, maxUint256)
-      assert.equal(event.args.maxLockupPeriod, LOCKUP_PERIOD)
+      assert.equal(event.args.maxLockupPeriod, CHAIN_LOCKUP_PERIOD)
     })
 
     it('should work without onHash callback', async () => {
@@ -581,15 +601,6 @@ describe('setOperatorApproval', () => {
       assert.equal(event.args.rateAllowance, 0n)
       assert.equal(event.args.lockupAllowance, 0n)
       assert.equal(event.args.maxLockupPeriod, 0n)
-    })
-  })
-
-  describe('LOCKUP_PERIOD constant', () => {
-    it('should be 30 days in epochs', () => {
-      // 30 days * 24 hours * 60 minutes * 2 epochs per minute = 86400 epochs
-      const expectedEpochs = 30n * 24n * 60n * 2n
-      assert.equal(LOCKUP_PERIOD, expectedEpochs)
-      assert.equal(LOCKUP_PERIOD, 86400n)
     })
   })
 })

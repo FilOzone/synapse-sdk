@@ -68,7 +68,7 @@ sequenceDiagram
 
     Note over Client,Payments: Step 2: Payment Setup
     Client->>SDK: Check allowances
-    SDK->>WarmStorage: getServicePrice()
+    SDK->>WarmStorage: getPriceList()
     SDK->>Payments: accountInfo(client)
     alt Needs setup
         Client->>Payments: depositWithPermitAndApproveOperator()

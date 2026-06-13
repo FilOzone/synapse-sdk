@@ -7,10 +7,11 @@
 
 import type { Chain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
-import type { SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
+import type { Permission, SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
 import type { pullPiecesApiRequest } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
+import type { getPriceList, getUploadCosts } from '@filoz/synapse-core/warm-storage'
 import type { Account, Address, Client, Hash, Hex, Transport } from 'viem'
 import type { Synapse } from './synapse.ts'
 import type { WarmStorageService } from './warm-storage/service.ts'
@@ -27,12 +28,12 @@ export type { RailInfo } from '@filoz/synapse-core/pay'
 export type { MetadataEntry, MetadataObject } from '@filoz/synapse-core/utils'
 
 // Re-export upload cost types from synapse-core
-export type { getUploadCosts } from '@filoz/synapse-core/warm-storage'
+export type { getPriceList, getUploadCosts }
 
 /** Alias for the upload costs return type */
-export type UploadCosts = import('@filoz/synapse-core/warm-storage').getUploadCosts.OutputType
+export type UploadCosts = getUploadCosts.OutputType
 /** Alias for the upload costs options type */
-export type GetUploadCostsOptions = import('@filoz/synapse-core/warm-storage').getUploadCosts.OptionsType
+export type GetUploadCostsOptions = getUploadCosts.OptionsType
 
 /**
  * Options for the fund() method on PaymentsService.
@@ -111,6 +112,22 @@ export interface SynapseOptions {
   account: Account | Address
 
   sessionKey?: SessionKey<'Secp256k1'>
+
+  /**
+   * The set of session key permissions `Synapse.create` validates as authorized and unexpired.
+   *
+   * Defaults to `SessionKey.DefaultFwssPermissions` (all four FWSS permissions:
+   * `CreateDataSet`, `AddPieces`, `SchedulePieceRemovals`, `TerminateService`), which matches
+   * the operations exposed by the high-level Synapse class.
+   *
+   * Pass a narrower array (e.g. `[CreateDataSetPermission, AddPiecesPermission]`) to keep
+   * least-privilege session keys on the `Synapse.create` happy path when the app only exercises
+   * a subset of the SDK surface. Operations whose permissions are not listed here will revert
+   * on-chain if attempted; the SDK does not enforce per-operation checks.
+   *
+   * Only meaningful together with `sessionKey`.
+   */
+  requiredPermissions?: Permission[]
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
@@ -621,6 +638,38 @@ export interface CommitResult {
 }
 
 /**
+ * Options for terminating a data set service
+ */
+export interface TerminateServiceOptions {
+  /** The ID of the data set to terminate */
+  dataSetId: bigint
+  /**
+   * Submit the termination transaction directly from the signer's wallet
+   * instead of relaying through the service provider. Needs no provider
+   * cooperation, but the service runs to the end of the lockup period.
+   */
+  skipProvider?: boolean
+  /** Called when the termination transaction is submitted (before on-chain confirmation) */
+  onSubmitted?: (txHash: Hex) => void
+}
+
+/**
+ * Result of a data set service termination
+ */
+export interface TerminateServiceResult {
+  /** Transaction hash. Undefined when the service was already terminated without a provider transaction. */
+  txHash?: Hex
+  /** The data set ID */
+  dataSetId: bigint
+  /**
+   * Epoch at which the PDP payment rail ends and the service stops.
+   * Approximately the current epoch for provider-relayed termination,
+   * the end of the lockup period for on-chain termination.
+   */
+  endEpoch: bigint
+}
+
+/**
  * Comprehensive storage service information
  */
 export interface StorageInfo {
@@ -648,6 +697,8 @@ export interface StorageInfo {
     tokenAddress: Address
     /** Token symbol (always USDFC for now) */
     tokenSymbol: string
+    /** Canonical warm storage price list */
+    priceList: getPriceList.OutputType
   }
 
   /** List of approved service providers */

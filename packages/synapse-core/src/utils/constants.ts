@@ -92,13 +92,19 @@ export const SIZE_CONSTANTS = {
   DEFAULT_UPLOAD_BATCH_SIZE: 32,
 
   /**
+   * Maximum pieces per addPieces (or createDataSetAndAddPieces) call.
+   *
+   * On-chain limitations fail batch sizes above 41; we constrain to 40 here to
+   * catch those failures early and surface informative errors.
+   */
+  MAX_ADD_PIECES_BATCH_SIZE: 40,
+
+  /**
    * Bytes per leaf in the PDP merkle tree.
    * The FWSS contract converts leaf counts to bytes via `totalBytes = leafCount * BYTES_PER_LEAF`.
    */
   BYTES_PER_LEAF: 32n,
 } as const
-
-export const LOCKUP_PERIOD = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
 
 /**
  * Default safety margin in epochs when calculating deposit amounts.
@@ -112,31 +118,15 @@ export const DEFAULT_BUFFER_EPOCHS = 5n
  */
 export const DEFAULT_RUNWAY_EPOCHS = 0n
 
-/**
- * CDN fixed lockup amounts charged at dataset creation time.
- * These are one-time lockups for CDN egress and cache miss egress rails.
- */
-export const CDN_FIXED_LOCKUP = {
-  /** CDN egress rail fixed lockup: 0.7 USDFC */
-  cdn: 700_000_000_000_000_000n,
-  /** Cache miss egress rail fixed lockup: 0.3 USDFC */
-  cacheMiss: 300_000_000_000_000_000n,
-  /** Total: 1.0 USDFC */
-  total: 1_000_000_000_000_000_000n,
-} as const
-
-/**
- * USDFC sybil fee charged on new dataset creation.
- * Extracted from client funds into the payments auction pool to prevent state-growth spam.
- * Matches PDPVerifier.USDFC_SYBIL_FEE (immutable, only changes with contract upgrade).
- */
-export const USDFC_SYBIL_FEE = 100_000_000_000_000_000n // 0.1 USDFC
-
 export const RETRY_CONSTANTS = {
-  RETRIES: Infinity,
-  FACTOR: 1,
-  DELAY_TIME: 4000, // 4 seconds in milliseconds between retries
-  MAX_RETRY_TIME: 1000 * 60 * 5, // 5 minutes in milliseconds
+  /** The interval in milliseconds between polls. 4 seconds is the default interval between polls. */
+  POLL_INTERVAL: 4000,
+  /** The limit of polls. */
+  POLL_LIMIT: Infinity,
+  /** The delay in milliseconds between retries. 250ms is the default delay between retries. */
+  RETRY_DELAY: 250,
+  /** The timeout in milliseconds. 5 minutes is the default timeout. */
+  TIMEOUT: 1000 * 60 * 5,
 } as const
 
 /**

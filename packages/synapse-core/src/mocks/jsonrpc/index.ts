@@ -401,16 +401,6 @@ export const presets = {
       viewContractAddress: () => [ADDRESSES.calibration.viewContract],
       serviceProviderRegistry: () => [ADDRESSES.calibration.spRegistry],
       sessionKeyRegistry: () => [ADDRESSES.calibration.sessionKeyRegistry],
-      getServicePrice: () => [
-        {
-          pricePerTiBPerMonthNoCDN: parseUnits('2.5', 18),
-          pricePerTiBCdnEgress: parseUnits('7', 18),
-          pricePerTiBCacheMissEgress: parseUnits('7', 18),
-          minimumPricePerMonth: parseUnits('6', 16),
-          tokenAddress: ADDRESSES.calibration.usdfcToken,
-          epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
-        },
-      ],
       owner: () => [ADDRESSES.client1],
       terminateService: () => [],
       topUpCDNPaymentRails: () => [],
@@ -431,6 +421,8 @@ export const presets = {
             clientDataSetId: 0n,
             pdpEndEpoch: 0n,
             providerId: 1n,
+            pendingOneTimePayments: 0n,
+            lifecycleReserveBalance: 0n,
             cdnEndEpoch: 0n,
             dataSetId: 1n,
           },
@@ -453,6 +445,8 @@ export const presets = {
               pdpEndEpoch: 0n,
               pdpRailId: 1n,
               providerId: 1n,
+              pendingOneTimePayments: 0n,
+              lifecycleReserveBalance: 0n,
               serviceProvider: ADDRESSES.serviceProvider1,
             },
           ]
@@ -469,6 +463,8 @@ export const presets = {
               pdpEndEpoch: 0n,
               pdpRailId: 0n,
               providerId: 0n,
+              pendingOneTimePayments: 0n,
+              lifecycleReserveBalance: 0n,
               serviceProvider: ADDRESSES.zero,
             },
           ]
@@ -517,6 +513,32 @@ export const presets = {
       getClientDataSetsLength: () => {
         return [1n]
       },
+      getPriceList: () => [
+        {
+          token: ADDRESSES.calibration.usdfcToken,
+          rates: {
+            storagePerTibPerMonth: parseUnits('2.5', 18),
+            datasetFeePerMonth: parseUnits('0.024', 18),
+            cdnEgressPerTib: parseUnits('7', 18),
+            cacheMissEgressPerTib: parseUnits('7', 18),
+          },
+          fees: {
+            createDataSetFee: parseUnits('0.025', 18),
+            addPiecesBaseFee: parseUnits('0.0005', 18),
+            addPiecesPerPieceFee: parseUnits('0.0003', 18),
+            schedulePieceRemovalsFee: parseUnits('0.002', 18),
+            terminateFee: parseUnits('0.00112', 18),
+          },
+          lockups: {
+            lifecycleReserveTarget: parseUnits('0.1', 18),
+            replenishThreshold: parseUnits('0.005', 18),
+            defaultLockupPeriod: TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY,
+            cdnLockupAmount: parseUnits('0.7', 18),
+            cacheMissLockupAmount: parseUnits('0.3', 18),
+            cdnLockupPeriod: 5n * TIME_CONSTANTS.EPOCHS_PER_DAY,
+          },
+        },
+      ],
     },
     pdpVerifier: {
       dataSetLive: () => [true],

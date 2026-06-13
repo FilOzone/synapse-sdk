@@ -1,0 +1,125 @@
+---
+title: Retrieval
+description: How the Filecoin Onchain Cloud serves stored data back to applications, from direct storage provider reads to CDN-accelerated delivery with Filecoin Beam.
+sidebar:
+  order: 5
+---
+
+Storing data is only half of a cloud platform. Applications also need to read it back quickly and reliably. **Filecoin Onchain Cloud (FOC)** is built for a "store and serve" model, where every piece you store stays retrievable over HTTP for the life of its data set.
+
+This page explains how retrieval works in FOC and the paths available to you.
+
+## Content Addressing
+
+Every piece in FOC is identified by a **PieceCID**, a content-addressed identifier derived from the data itself. A PieceCID does not point at a location. It uniquely identifies the content and can be used to find storage providers who have the content.
+
+This has two practical consequences for retrieval:
+
+- **Location independence.** The same PieceCID can be served by any provider that holds the piece, or by a CDN sitting in front of those providers. Retrieval can route around a slow or offline provider without changing the address.
+- **Verifiable downloads.** Because the identifier is derived from the bytes, a client can recompute the PieceCID of whatever it receives and confirm it matches what was requested. The Synapse SDK does this automatically on every download, so tampered or corrupted responses are rejected before they reach your application.
+
+## Retrieval Paths
+
+FOC offers three ways to retrieve a piece. They share the same PieceCID and can be mixed within a single application.
+
+| Path | Source | Latency | When to use |
+| ----- | ------- | ------- | ----------- |
+| **Direct SP `/piece` retrieval** | Storage provider `/piece` HTTP API | Seconds | Default. No extra setup or egress charges. |
+| **FilBeam (CDN) `/piece` retrieval** | Filecoin Beam cache, backed by SPs | Milliseconds | Hot data, frequent reads, latency-sensitive apps. |
+| **IPFS retrieval** | Storage provider `/ipfs` HTTP API, with potential IPFS HTTP gateway as an intermediary | Varies | IPFS-native applications and gateways. |
+
+```mermaid
+graph TD
+    App[Application / Synapse SDK]
+
+    App -->|direct| SP[Storage Provider<br/>Curio HTTP API]
+    App -->|"withCDN"| FB[Filecoin Beam<br/>CDN cache]
+    App -->|IPFS| IpfsMainnet[IPFS Mainnet<br/>IPFS content routing, IPFS gateway]
+
+    FB -->|cache miss| SP
+    IpfsMainnet -->|/ipfs| SP
+```
+
+## Direct SP Retrieval
+
+The default path serves data straight from the storage providers that hold it. Each provider runs a Curio node that exposes an HTTP API, and pieces are fetched directly from that endpoint.
+
+Because data is content-addressed, retrieval does not require you to know which provider holds a given piece. The SDK resolves a serving URL for you:
+
+1. It reads your data sets on chain to find which providers store the piece.
+2. It probes those providers in parallel and selects one that confirms it has the piece.
+3. It downloads from that provider and validates the bytes against the PieceCID.
+
+This makes downloads **SP-agnostic**. If a piece lives on more than one provider, retrieval succeeds as long as any one of them is reachable.
+
+Direct retrieval has no egress charges. It is the right default for most workloads, with latency in the range of seconds.
+
+## FilBeam (CDN) Retrieval
+
+[**Filecoin Beam**](https://docs.filbeam.com/) is the retrieval and delivery layer of FOC. It is a content delivery network that caches pieces close to where they are requested, cutting retrieval latency from seconds to milliseconds.
+
+FilBeam serves each piece from a per-account subdomain keyed by the wallet address that added the piece, with the PieceCID in the path.
+
+On mainnet the host is `https://<your-address>.filbeam.io/<pieceCid>`. On calibration the host is `<your-address>.calibration.filbeam.io`. The SDK builds this URL for you, so you rarely construct it by hand.
+
+Retrieval through FilBeam follows one of two paths:
+
+- **Cache hit.** The piece is already in the FilBeam cache and is served directly. This is the fast path.
+- **Cache miss.** The piece is not yet cached. FilBeam retrieves it from a storage provider, serves it to the client, and warms the cache so later reads are hits.
+
+Both paths are metered. FilBeam tracks egress per data set and bills it based on volume, separately from the base storage cost, with cache misses priced higher than cache hits. The data set's owning wallet pays for the FilBeam egress. See the [FilBeam pricing reference](https://docs.filbeam.com/how-it-works/pricing/) for current rates.
+
+You can inspect the remaining egress quotas for a data set through the SDK:
+
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = await Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
+// ---cut---
+const stats = await synapse.filbeam.getDataSetStats(12345)
+console.log("Remaining CDN egress (cache hits):", stats.cdnEgressQuota)
+console.log("Remaining cache-miss egress:", stats.cacheMissEgressQuota)
+```
+
+For dashboards and other ways to track consumption, see the FilBeam [monitor usage guide](https://docs.filbeam.com/how-to-guides/monitor-usage/).
+
+FilBeam delivery is opt-in per data set. Storing with the `withCDN` option marks a data set as CDN-enabled, which keeps CDN and non-CDN data sets separate and routes downloads through FilBeam when requested.
+
+Note: FilBeam currently only supports `/piece` retrieval. `/ipfs` retrieval is coming with [FilBeam#85](https://github.com/filbeam/roadmap/issues/85).
+
+## IPFS Retrieval
+
+Service providers also expose an `/ipfs` endpoint, which serves as an [IPFS trustless gateway](https://specs.ipfs.tech/http-gateways/trustless-gateway/), the same protocol that [public IPFS gateways](https://docs.ipfs.tech/concepts/public-utilities/#public-ipfs-gateways) use.
+
+Data Sets that include `withIPFSIndexing` metadata index and announce their content to [IPNI](https://github.com/filecoin-project/filecoin-pin/blob/master/documentation/glossary.md#ipni), so it resolves through standard IPFS gateways and tooling including:
+
+- `https://inbrowser.link/ipfs/<ipfsCid>`: a verifiable Service Worker Gateway that fetches blocks and verifies them against the CID inside your browser using Helia's [`verified-fetch`](https://www.npmjs.com/package/@helia/verified-fetch) before rendering.
+- `https://dweb.link/ipfs/<ipfsCid>`: public gateways, which are [rate-limited and best-effort](https://about.ipfs.io/#public-utility).
+- [Helia](https://helia.io/)
+- [Kubo](https://github.com/ipfs/kubo)
+
+This path lets IPFS-native apps treat FOC as a durable, verifiable backing store while keeping the addressing and access patterns their stack already uses. See the [Filecoin Pin quick start](/getting-started/filecoin-pin/) to pin and retrieve your first file, and the [Filecoin Pin retrieval documentation](https://github.com/filecoin-project/filecoin-pin/blob/main/documentation/retrieval.md) for the full reference.
+
+## Retrieving with the SDK
+
+The Synapse SDK exposes direct SP and FilBeam retrieval through a single `download` method. You pass a PieceCID and the SDK handles discovery and validation:
+
+1. It queries your on-chain data sets to find which providers store pieces for your account.
+2. It probes those providers in parallel with `HEAD /piece/{pieceCid}` and picks the first one that responds.
+3. It downloads from that provider and validates the bytes against the PieceCID.
+
+Setting `withCDN` races a FilBeam lookup alongside the provider probes, so whichever path responds first wins.
+
+IPFS retrieval is not covered by `download`. For that path, use [standard IPFS retrieval tooling](https://github.com/filecoin-project/filecoin-pin/blob/main/documentation/retrieval.md).
+
+For usage, code examples, CDN options, and provider-scoped reads, see [Retrieval in the Storage Operations guide](/developer-guides/storage/storage-operations/#retrieval).
+
+## Next Steps
+
+- [Storage Operations](/developer-guides/storage/storage-operations/) - Upload and download with the SDK
+- [Filecoin Warm Storage Service](/core-concepts/fwss-overview/) - The service layer behind storage and retrieval
+- [Filecoin Pin](/core-concepts/filecoin-pin/) - FOC-backed storage for IPFS tooling
+- [Filecoin Pin Retrieval Reference](https://github.com/filecoin-project/filecoin-pin/blob/main/documentation/retrieval.md) - Full retrieval guide for Filecoin Pin content
+- [FilBeam Documentation](https://docs.filbeam.com/) - CDN delivery and egress pricing

@@ -70,12 +70,15 @@ import type {
   StorageServiceOptions,
   StoreOptions,
   StoreResult,
+  TerminateServiceOptions,
+  TerminateServiceResult,
   UploadOptions,
   UploadResult,
 } from '../types.ts'
 import { createError, SIZE_CONSTANTS } from '../utils/index.ts'
 import { combineMetadata } from '../utils/metadata.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
+import { terminateServiceFlow } from './terminate.ts'
 
 const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
 
@@ -400,9 +403,10 @@ export class StorageContext {
   }
 
   /**
-   * Resolve using a specific data set ID
+   * Resolve using a specific data set ID.
+   * Also used by StorageManager.terminateService to locate the data set's provider.
    */
-  private static async resolveByDataSetId(
+  static async resolveByDataSetId(
     dataSetId: bigint,
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
@@ -680,7 +684,7 @@ export class StorageContext {
       await SP.findPiece({
         serviceURL: this._pdpEndpoint,
         pieceCid: uploadResult.pieceCid,
-        retry: true,
+        poll: true,
         signal: options?.signal,
       })
     } catch (error) {
@@ -703,6 +707,7 @@ export class StorageContext {
    * @returns Signed extraData hex to pass to pull() or commit()
    */
   async presignForCommit(pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>): Promise<Hex> {
+    SP.validateAddPiecesBatch(pieces.length)
     const signingPieces = pieces.map((p) => ({
       pieceCid: p.pieceCid,
       metadata: pieceMetadataObjectToEntry(p.pieceMetadata),
@@ -737,6 +742,10 @@ export class StorageContext {
    */
   async pull(options: PullOptions): Promise<PullResult> {
     const { pieces, from, signal, onProgress, extraData } = options
+
+    // The SP estimateGas-validates the eventual addPieces, so an oversized batch
+    // fails there too; reject early for a clear error on non-presigned paths.
+    SP.validateAddPiecesBatch(pieces.length)
 
     const getSourceUrl = (pieceCid: PieceCID): string => {
       if (typeof from === 'string') {
@@ -820,7 +829,8 @@ export class StorageContext {
   async commit(options: CommitOptions): Promise<CommitResult> {
     const { pieces, extraData } = options
 
-    // Validate metadata early
+    // Validate batch size and metadata early, before any chain reads or signing
+    SP.validateAddPiecesBatch(pieces.length)
     for (const piece of pieces) {
       if (piece.pieceMetadata) {
         pieceMetadataObjectToEntry(piece.pieceMetadata)
@@ -1203,14 +1213,28 @@ export class StorageContext {
   }
 
   /**
-   * Terminates the data set by sending on-chain message.
-   * This will also result in the removal of all pieces in the data set.
-   * @returns Transaction response
+   * Terminate the storage service for this context's data set.
+   *
+   * Relays through this provider by default (immediate); pass `skipProvider: true`
+   * to submit the transaction directly and wind down over the lockup period.
+   * See `StorageManager.terminateService` for full semantics.
+   *
+   * @param options - Optional `skipProvider` and `onSubmitted` {@link TerminateServiceOptions}
+   * @returns The termination outcome {@link TerminateServiceResult}
    */
-  async terminate(): Promise<Hash> {
-    if (this.dataSetId == null) {
+  async terminate(
+    options?: Pick<TerminateServiceOptions, 'skipProvider' | 'onSubmitted'>
+  ): Promise<TerminateServiceResult> {
+    const dataSetId = this.dataSetId
+    if (dataSetId == null) {
       throw createError('StorageContext', 'terminate', 'Data set not found')
     }
-    return this._synapse.storage.terminateDataSet({ dataSetId: this.dataSetId })
+    // The context already knows its provider's endpoint; no registry lookup
+    return terminateServiceFlow(
+      this._synapse,
+      { ...options, dataSetId },
+      async () => this._pdpEndpoint,
+      'StorageContext'
+    )
   }
 }

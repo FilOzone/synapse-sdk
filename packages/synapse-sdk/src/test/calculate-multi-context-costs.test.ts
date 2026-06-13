@@ -2,7 +2,7 @@
 
 import { type Chain, calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
-import { CDN_FIXED_LOCKUP, SIZE_CONSTANTS } from '@filoz/synapse-core/utils'
+import { SIZE_CONSTANTS } from '@filoz/synapse-core/utils'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import {
@@ -115,8 +115,10 @@ describe('calculateMultiContextCosts', () => {
     const ctx = makeContext(synapse, warmStorageService, {})
     const result = await manager.calculateMultiContextCosts([ctx], { dataSize: 1n })
 
-    assert.equal(typeof result.rate.perEpoch, 'bigint')
-    assert.equal(typeof result.rate.perMonth, 'bigint')
+    assert.equal(typeof result.rates.perEpoch, 'bigint')
+    assert.equal(typeof result.rates.perMonth, 'bigint')
+    assert.equal(typeof result.fees.total, 'bigint')
+    assert.equal(typeof result.lockups.total, 'bigint')
     assert.equal(typeof result.depositNeeded, 'bigint')
     assert.equal(typeof result.needsFwssMaxApproval, 'boolean')
     assert.equal(typeof result.ready, 'boolean')
@@ -140,9 +142,9 @@ describe('calculateMultiContextCosts', () => {
     assert.equal(result.needsFwssMaxApproval, false)
     assert.equal(result.ready, true)
 
-    // Floor pricing for tiny file
-    const minimumPricePerMonth = parseUnits('6', 16) // 0.06 USDFC
-    assert.equal(result.rate.perMonth, minimumPricePerMonth)
+    // Additive: 1-byte dataset pays a tiny storage rate on top of proving.
+    const storagePerMonth1Byte = parseUnits('2.5', 18) / (1n << 40n)
+    assert.equal(result.rates.perMonth, parseUnits('0.024', 18) + storagePerMonth1Byte)
   })
 
   it('should aggregate rates across two new contexts', async () => {
@@ -166,8 +168,8 @@ describe('calculateMultiContextCosts', () => {
     const double = await manager.calculateMultiContextCosts([ctxA, ctxB], { dataSize: 1n })
 
     // Rates should be exactly 2x single context
-    assert.equal(double.rate.perEpoch, single.rate.perEpoch * 2n)
-    assert.equal(double.rate.perMonth, single.rate.perMonth * 2n)
+    assert.equal(double.rates.perEpoch, single.rates.perEpoch * 2n)
+    assert.equal(double.rates.perMonth, single.rates.perMonth * 2n)
   })
 
   it('should fetch dataset size for existing contexts', async () => {
@@ -201,8 +203,8 @@ describe('calculateMultiContextCosts', () => {
     // Existing 1 TiB + 1 TiB = 2 TiB rate, new 1 TiB = 1 TiB rate
     // pricePerTiBPerMonth = 2.5 USDFC
     const pricePerTiBPerMonth = parseUnits('2.5', 18)
-    assert.equal(resultNew.rate.perMonth, pricePerTiBPerMonth) // 1 TiB = 2.5 USDFC/month
-    assert.equal(resultExisting.rate.perMonth, pricePerTiBPerMonth * 2n) // 2 TiB = 5 USDFC/month
+    assert.equal(resultNew.rates.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
+    assert.equal(resultExisting.rates.perMonth, pricePerTiBPerMonth * 2n + parseUnits('0.024', 18))
   })
 
   it('should handle mixed new + existing contexts', async () => {
@@ -236,9 +238,9 @@ describe('calculateMultiContextCosts', () => {
       dataSize: oneTiB,
     })
 
-    // Combined rate: 1 TiB (2.5 USDFC) + 2 TiB (5 USDFC) = 7.5 USDFC/month
+    // Combined rate: storage rates plus one proving service rate per context.
     const pricePerTiBPerMonth = parseUnits('2.5', 18)
-    assert.equal(result.rate.perMonth, pricePerTiBPerMonth * 3n)
+    assert.equal(result.rates.perMonth, pricePerTiBPerMonth * 3n + parseUnits('0.024', 18) * 2n)
   })
 
   it('should include debt in deposit for account in debt', async () => {
@@ -301,11 +303,8 @@ describe('calculateMultiContextCosts', () => {
       `deposit with runway (${withRunway.depositNeeded}) should exceed baseline (${baseline.depositNeeded})`
     )
 
-    // runway = (currentLockupRate + totalRateDelta) * extraRunwayEpochs
-    // currentLockupRate = 0, totalRateDelta = 2 * floor rate per epoch
-    // floor per epoch = 6e16 / 86400 = 694,444,444,444
-    // runway = 2 * 694,444,444,444 * 10,000 = 13,888,888,888,880,000
-    const expectedRunway = 13_888_888_888_880_000n
+    const ratePerEpoch1Byte = parseUnits('2.5', 18) / ((1n << 40n) * 86400n) + parseUnits('0.024', 18) / 86400n
+    const expectedRunway = 2n * ratePerEpoch1Byte * 10_000n
     assert.equal(
       withRunway.depositNeeded - baseline.depositNeeded,
       expectedRunway,
@@ -387,9 +386,8 @@ describe('calculateMultiContextCosts', () => {
     )
 
     // buffer delta = netRate * bufferEpochs = (currentLockupRate + rateDelta) * 100
-    // rateDelta = floor rate for 1-byte file = minimumPricePerMonth / epochsPerMonth
-    const floorRatePerEpoch = 60_000_000_000_000_000n / 86400n
-    const netRate = 100_000_000_000_000n + floorRatePerEpoch
+    const ratePerEpoch1Byte = parseUnits('2.5', 18) / ((1n << 40n) * 86400n) + parseUnits('0.024', 18) / 86400n
+    const netRate = 100_000_000_000_000n + ratePerEpoch1Byte
     const expectedDelta = netRate * 100n
     assert.equal(
       withBuffer.depositNeeded - noBuffer.depositNeeded,
@@ -424,11 +422,11 @@ describe('calculateMultiContextCosts', () => {
       dataSize: 1n,
     })
 
-    // Difference should be exactly CDN_FIXED_LOCKUP.total (1 USDFC)
+    const cdnLockupTotal = parseUnits('1', 18)
     assert.equal(
       mixedResult.depositNeeded - baselineResult.depositNeeded,
-      CDN_FIXED_LOCKUP.total,
-      `CDN context should add exactly ${CDN_FIXED_LOCKUP.total} to deposit`
+      cdnLockupTotal,
+      `CDN context should add exactly ${cdnLockupTotal} to deposit`
     )
   })
 
@@ -493,6 +491,6 @@ describe('calculateMultiContextCosts', () => {
     const ctx = makeContext(synapse, warmStorageService, {})
     const result = await manager.calculateMultiContextCosts([ctx], { dataSize: oneTiB })
 
-    assert.equal(result.rate.perMonth, pricePerTiBPerMonth)
+    assert.equal(result.rates.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
   })
 })

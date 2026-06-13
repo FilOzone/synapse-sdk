@@ -189,7 +189,7 @@ const { rates, fees, lockups, depositNeeded, needsFwssMaxApproval, ready } = awa
 })
 
 // Storage rate per epoch (30 seconds)
-console.log("Rate per epoch:", formatUnits(rate.perEpoch), "USDFC")
+console.log("Rate per epoch:", formatUnits(rates.perEpoch), "USDFC")
 // Storage rate per month
 console.log("Rate per month:", formatUnits(rates.perMonth), "USDFC")
 // One-time fees (create data set + add pieces)
@@ -225,8 +225,8 @@ const { costs, transaction } = await synapse.storage.prepare({
 })
 
 // Inspect costs
-const { rate, depositNeeded } = costs // Upload costs breakdown
-console.log("Rate per month:", formatUnits(rate.perMonth))
+const { rates, depositNeeded } = costs // Upload costs breakdown
+console.log("Rate per month:", formatUnits(rates.perMonth))
 console.log("Deposit needed:", formatUnits(depositNeeded))
 
 // Execute if the account isn't ready
@@ -262,8 +262,8 @@ const { costs, transaction } = await synapse.storage.prepare({
   extraRunwayEpochs: oneYear,
 })
 
-const { rate, depositNeeded, ready } = costs
-console.log("Monthly rate (per copy):", formatUnits(rate.perMonth), "USDFC")
+const { rates, depositNeeded, ready } = costs
+console.log("Monthly rate (per copy):", formatUnits(rates.perMonth), "USDFC")
 console.log("Total deposit needed:", formatUnits(depositNeeded), "USDFC")
 console.log("Account ready:", ready)
 
@@ -304,7 +304,7 @@ const { totalSizeBytes, datasetCount } = await getAccountTotalStorageSize(client
 })
 ```
 
-All rate values come in both per-epoch (contract-native) and per-month (`ratePerEpoch * EPOCHS_PER_MONTH`) units. Note that `ratePerMonth` from `totalAccountRate()` is computed as `ratePerEpoch * EPOCHS_PER_MONTH` — this is slightly less than the full-precision `rate.perMonth` returned by `getUploadCosts()` due to integer truncation. See [Rate Precision](/cookbooks/payments-and-storage/#rate-precision) for details.
+All rate values come in both per-epoch (contract-native) and per-month (`ratePerEpoch * EPOCHS_PER_MONTH`) units. Note that `ratePerMonth` from `totalAccountRate()` is computed as `ratePerEpoch * EPOCHS_PER_MONTH` — this is slightly less than the full-precision `rates.perMonth` returned by `getUploadCosts()` due to integer truncation. See [Rate Precision](/cookbooks/payments-and-storage/#rate-precision) for details.
 
 :::tip[API Reference]
 For the full API — including pure calculation functions and lower-level utilities — see the [synapse-core pay reference](/reference/filoz/synapse-core/pay/toc/) and [synapse-core warm-storage reference](/reference/filoz/synapse-core/warm-storage/toc/).

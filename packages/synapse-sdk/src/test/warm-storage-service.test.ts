@@ -135,6 +135,8 @@ describe('WarmStorageService', () => {
                   clientDataSetId: 0n,
                   pdpEndEpoch: 0n,
                   providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   cdnEndEpoch: 0n,
                   dataSetId: 1n,
                 },
@@ -149,6 +151,8 @@ describe('WarmStorageService', () => {
                   clientDataSetId: 1n,
                   pdpEndEpoch: 0n,
                   providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   cdnEndEpoch: 0n,
                   dataSetId: 2n,
                 },
@@ -204,6 +208,8 @@ describe('WarmStorageService', () => {
                       clientDataSetId: 0n,
                       pdpEndEpoch: 0n,
                       providerId: 1n,
+                      pendingOneTimePayments: 0n,
+                      lifecycleReserveBalance: 0n,
                       cdnEndEpoch: 0n,
                       dataSetId: 1n,
                     },
@@ -225,6 +231,8 @@ describe('WarmStorageService', () => {
                       clientDataSetId: 1n,
                       pdpEndEpoch: 0n,
                       providerId: 1n,
+                      pendingOneTimePayments: 0n,
+                      lifecycleReserveBalance: 0n,
                       cdnEndEpoch: 0n,
                       dataSetId: 2n,
                     },
@@ -424,6 +432,8 @@ describe('WarmStorageService', () => {
                   clientDataSetId: 0n,
                   pdpEndEpoch: 0n,
                   providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   dataSetId: 242n,
                 },
               ],
@@ -472,6 +482,8 @@ describe('WarmStorageService', () => {
                     clientDataSetId: 0n,
                     pdpEndEpoch: 0n,
                     providerId: 1n,
+                    pendingOneTimePayments: 0n,
+                    lifecycleReserveBalance: 0n,
                     dataSetId: 242n,
                   },
                   {
@@ -485,6 +497,8 @@ describe('WarmStorageService', () => {
                     clientDataSetId: 1n,
                     pdpEndEpoch: 0n,
                     providerId: 2n,
+                    pendingOneTimePayments: 0n,
+                    lifecycleReserveBalance: 0n,
                     dataSetId: 243n,
                   },
                 ],
@@ -545,6 +559,8 @@ describe('WarmStorageService', () => {
                   clientDataSetId: 0n,
                   pdpEndEpoch: 0n,
                   providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   dataSetId: 242n,
                 },
               ],
@@ -593,6 +609,8 @@ describe('WarmStorageService', () => {
                   clientDataSetId: 0n,
                   pdpEndEpoch: 0n,
                   providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
                   dataSetId: 242n,
                 },
               ],
@@ -818,7 +836,7 @@ describe('WarmStorageService', () => {
       server.use(Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }))
       const warmStorageService = await createWarmStorageService()
 
-      const tx = await warmStorageService.terminateDataSet({ dataSetId: 4n })
+      const tx = await warmStorageService.terminateService({ dataSetId: 4n })
       assert.equal(tx, '0xe1a356b6152a11ea58ac7bfb00498d1f9dbf47d6755207a5691a3a8f4a7f6d35')
     })
 

@@ -9,6 +9,76 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ---
 
+## 1.0.0
+
+### Action: Replace `terminateDataSet` with `terminateService`
+
+Data set termination is now service termination. `terminateDataSet` was removed.
+
+```ts
+// before
+const hash = await synapse.storage.terminateDataSet({ dataSetId })
+await synapse.client.waitForTransactionReceipt({ hash })
+
+// after: provider-relayed by default
+const result = await synapse.storage.terminateService({ dataSetId })
+console.log(result.endEpoch)
+
+// independent on-chain fallback
+const direct = await synapse.storage.terminateService({ dataSetId, onChain: true })
+console.log(direct.txHash, direct.endEpoch)
+```
+
+`context.terminate()` now uses the same provider-relayed default and returns `{ txHash?, dataSetId, endEpoch }`.
+
+### Action: Read pricing with `getPriceList()`
+
+`getServicePrice()` was removed from both `@filoz/synapse-core` and `WarmStorageService`. Use `getPriceList()`, which returns the full on-chain price catalogue (`token`, `rates`, `fees`, `lockups`).
+
+```ts
+// before
+const price = await warmStorage.getServicePrice()
+price.pricePerTiBPerMonthNoCDN
+price.pricePerTiBCdnEgress
+
+// after
+const priceList = await warmStorage.getPriceList()
+priceList.rates.storagePerTibPerMonth
+priceList.rates.cdnEgressPerTib
+```
+
+The React `useServicePrice()` hook was removed in favor of `usePriceList()`.
+
+```tsx
+// before
+import { useServicePrice } from '@filoz/synapse-react'
+const { data } = useServicePrice()
+data?.pricePerTiBPerMonthNoCDN
+
+// after
+import { usePriceList } from '@filoz/synapse-react'
+const { data } = usePriceList()
+data?.rates.storagePerTibPerMonth
+```
+
+### Action: Read upload rates from `costs.rates`
+
+The `rate` alias on upload-cost results was removed. Use `rates`.
+
+```ts
+// before
+const { costs } = await synapse.storage.prepare({ dataSize })
+costs.rate.perMonth
+
+// after
+const { costs } = await synapse.storage.prepare({ dataSize })
+costs.rates.perMonth
+```
+
+### Action: Replace the `LOCKUP_PERIOD` constant
+
+The `LOCKUP_PERIOD` export was removed from `@filoz/synapse-core`. The lockup period is now read from the chain; use `getPriceList().lockups.defaultLockupPeriod` if you need the value.
+
 ## 0.42.0
 
 ### Action: Re-mint session keys for service termination

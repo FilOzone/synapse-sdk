@@ -21,3 +21,14 @@ export class AtLeastOnePieceRequiredError extends SynapseError {
     return isSynapseError(value) && value.name === 'AtLeastOnePieceRequiredError'
   }
 }
+
+export class TooManyPiecesError extends SynapseError {
+  override name: 'TooManyPiecesError' = 'TooManyPiecesError'
+  constructor(count: number, max: number) {
+    super(`Too many pieces: ${count}, max ${max} per batch. Split into smaller batches.`)
+  }
+
+  static override is(value: unknown): value is TooManyPiecesError {
+    return isSynapseError(value) && value.name === 'TooManyPiecesError'
+  }
+}
