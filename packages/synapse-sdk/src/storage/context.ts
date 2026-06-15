@@ -356,13 +356,13 @@ export class StorageContext {
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
     const clientAddress = synapse.client.account.address
-    // Default the CDN group to the payer address so a payer's CDN data sets share one bandwidth
-    // rail (keyed by keccak256(payer, group) in FWSS) and exact-metadata reuse stays stable. When
-    // metadata was already combined upstream (StorageManager), the withCDN key is present and
-    // combineMetadata leaves its value untouched, so this is idempotent.
+    // CDN group is opt-in. Empty by default keeps the legacy one-rail-per-data-set behavior and
+    // exact-metadata reuse. When set (here or upstream in StorageManager), FWSS keys the shared
+    // bandwidth rail by keccak256(payer, group). When metadata was already combined upstream the
+    // withCDN key is present and combineMetadata leaves its value untouched, so this is idempotent.
     const requestedMetadata = combineMetadata(options.metadata, {
       withCDN: options.withCDN,
-      cdnGroup: options.cdnGroup ?? clientAddress,
+      cdnGroup: options.cdnGroup,
     })
 
     // Handle explicit data set ID selection (highest priority)

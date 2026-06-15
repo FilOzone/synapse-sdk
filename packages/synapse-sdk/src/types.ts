@@ -135,9 +135,9 @@ export interface SynapseOptions {
   /**
    * CDN group id used as the `withCDN` metadata value when CDN is enabled. FWSS keys the shared
    * CDN bandwidth rail by `keccak256(payer, cdnGroup)`, so all data sets sharing this value join
-   * one bandwidth subscription instead of buying CDN per data set. Defaults to the payer (client)
-   * address, which makes a payer's CDN data sets share one rail and keeps exact-metadata reuse
-   * stable. Provide a value to subdivide a payer into multiple independent CDN subscriptions.
+   * one bandwidth subscription instead of buying CDN per data set. Opt-in and empty by default,
+   * which keeps a dedicated bandwidth rail per data set and preserves exact-metadata reuse. Set the
+   * same value on every copy of a multi-copy upload so they share one rail.
    */
   cdnGroup?: string
 
@@ -166,9 +166,9 @@ export interface SynapseFromClientOptions {
   /**
    * CDN group id used as the `withCDN` metadata value when CDN is enabled. FWSS keys the shared
    * CDN bandwidth rail by `keccak256(payer, cdnGroup)`, so all data sets sharing this value join
-   * one bandwidth subscription instead of buying CDN per data set. Defaults to the payer (client)
-   * address, which makes a payer's CDN data sets share one rail and keeps exact-metadata reuse
-   * stable. Provide a value to subdivide a payer into multiple independent CDN subscriptions.
+   * one bandwidth subscription instead of buying CDN per data set. Opt-in and empty by default,
+   * which keeps a dedicated bandwidth rail per data set and preserves exact-metadata reuse. Set the
+   * same value on every copy of a multi-copy upload so they share one rail.
    */
   cdnGroup?: string
 
@@ -357,8 +357,8 @@ export interface BaseContextOptions {
    * CDN group id used as the `withCDN` metadata value when CDN is enabled. Every context (primary
    * and secondaries) that shares this value resolves to the same shared CDN bandwidth rail in FWSS
    * (keyed by `keccak256(payer, cdnGroup)`), so a multi-copy CDN upload buys bandwidth once instead
-   * of once per copy. Defaults to the payer (client) address, which keeps exact-metadata reuse
-   * stable across re-uploads.
+   * of once per copy. Opt-in and empty by default, which keeps a dedicated bandwidth rail per data
+   * set and preserves exact-metadata reuse.
    */
   cdnGroup?: string
 

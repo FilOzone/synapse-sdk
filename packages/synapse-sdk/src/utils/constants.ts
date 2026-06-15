@@ -28,10 +28,9 @@ export const METADATA_KEYS = {
    * The value for this key is an optional CDN group id. FWSS keys the shared CDN bandwidth rail by
    * `keccak256(payer, value)`, so every data set with the same value joins one bandwidth
    * subscription instead of buying CDN once per data set (the case that matters for multi-copy
-   * uploads, where the copies must share a single bandwidth rail). An empty string means today's
-   * behavior: a dedicated bandwidth rail for this data set. The SDK defaults the value to the payer
-   * address (see `cdnGroup` option) so a payer's CDN data sets share one rail and exact-metadata
-   * reuse stays stable.
+   * uploads, where the copies must share a single bandwidth rail). The value is opt-in via the
+   * `cdnGroup` option and empty by default, which keeps today's behavior of a dedicated bandwidth
+   * rail per data set and preserves exact-metadata data-set reuse.
    *
    * Only valid for *data set* metadata.
    */

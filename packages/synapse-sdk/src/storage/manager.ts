@@ -173,17 +173,16 @@ export class StorageManager {
    * set sharing this value joins one bandwidth subscription, which is what lets a multi-copy CDN
    * upload (copies > 1, on different providers) buy bandwidth once instead of once per copy.
    *
-   * The default is the payer (client) address. That makes all of a payer's CDN data sets share one
-   * rail, which is stable across re-uploads and preserves exact-metadata reuse (the SDK reuses
-   * existing data sets only on an EXACT `metadataMatches`, so a per-upload-random value would break
-   * reuse and churn data sets). FWSS already namespaces rails by payer, so defaulting to the payer
-   * address is consistent with that keying. The default is applied here (not per upload) so that
-   * both the primary context and the secondary contexts created during retry/expansion resolve to
-   * the same value. Single-copy CDN uploads also get a value, which simply means that data set is
-   * its own subscription keyed by (payer, group).
+   * Opt-in: the group is empty by default, which keeps the legacy behavior of one bandwidth rail
+   * per data set (FWSS treats an empty group as "no subscription") and preserves exact-metadata
+   * data-set reuse. A caller shares CDN across copies by passing `cdnGroup` (here or on
+   * `Synapse.create`). The value must be stable across re-uploads, so the SDK reuses existing data
+   * sets on an EXACT `metadataMatches` rather than churning new ones. Resolving here (not per
+   * upload) keeps the primary and the secondary contexts created during retry/expansion on the
+   * same value.
    */
   private _resolveCdnGroup(explicit?: string): string {
-    return explicit ?? this._cdnGroup ?? this._synapse.client.account.address
+    return explicit ?? this._cdnGroup ?? ''
   }
 
   /**
