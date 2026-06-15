@@ -94,9 +94,19 @@ describe('Metadata Support', () => {
     })
 
     describe('withCDN option', () => {
-      it('should add withCDN key when withCDN is true', () => {
+      it('should add withCDN key with empty value when withCDN is true and no cdnGroup', () => {
         const result = combineMetadata({}, { withCDN: true })
         assert.deepEqual(result, { [METADATA_KEYS.WITH_CDN]: '' })
+      })
+
+      it('should add withCDN key with cdnGroup as value when provided', () => {
+        const result = combineMetadata({}, { withCDN: true, cdnGroup: '0xpayer' })
+        assert.deepEqual(result, { [METADATA_KEYS.WITH_CDN]: '0xpayer' })
+      })
+
+      it('should not add cdnGroup value when withCDN is false', () => {
+        const result = combineMetadata({}, { withCDN: false, cdnGroup: '0xpayer' })
+        assert.deepEqual(result, {})
       })
 
       it('should not add withCDN key when withCDN is false', () => {
@@ -106,7 +116,7 @@ describe('Metadata Support', () => {
 
       it('should not override existing withCDN key in metadata', () => {
         const metadata = { [METADATA_KEYS.WITH_CDN]: '' }
-        const result = combineMetadata(metadata, { withCDN: true })
+        const result = combineMetadata(metadata, { withCDN: true, cdnGroup: '0xpayer' })
         assert.deepEqual(result, { [METADATA_KEYS.WITH_CDN]: '' })
       })
     })

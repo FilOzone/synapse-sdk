@@ -615,8 +615,10 @@ describe('StorageService', () => {
       const serviceNoCDN = await StorageContext.create({ synapse, warmStorageService, withCDN: false })
       assert.equal(serviceNoCDN.dataSetId, 1n, 'Should select non-CDN data set')
 
-      // Test with CDN = true
-      const serviceWithCDN = await StorageContext.create({ synapse, warmStorageService, withCDN: true })
+      // Test with CDN = true. The existing CDN data set has an empty withCDN value, so request an
+      // empty cdnGroup to match it (the default cdnGroup is the payer address, which would not
+      // match a legacy empty-value data set and would create a new one instead).
+      const serviceWithCDN = await StorageContext.create({ synapse, warmStorageService, withCDN: true, cdnGroup: '' })
       assert.equal(serviceWithCDN.dataSetId, 2n, 'Should select CDN data set')
     })
 

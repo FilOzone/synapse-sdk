@@ -25,7 +25,13 @@ export const METADATA_KEYS = {
    * key does not strictly guarantee that CDN services will be provided, but the Warm Storage
    * contract will attempt to enable payment for CDN services if this key is present.
    *
-   * The value for this key is always an empty string.
+   * The value for this key is an optional CDN group id. FWSS keys the shared CDN bandwidth rail by
+   * `keccak256(payer, value)`, so every data set with the same value joins one bandwidth
+   * subscription instead of buying CDN once per data set (the case that matters for multi-copy
+   * uploads, where the copies must share a single bandwidth rail). An empty string means today's
+   * behavior: a dedicated bandwidth rail for this data set. The SDK defaults the value to the payer
+   * address (see `cdnGroup` option) so a payer's CDN data sets share one rail and exact-metadata
+   * reuse stays stable.
    *
    * Only valid for *data set* metadata.
    */

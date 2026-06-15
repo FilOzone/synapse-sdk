@@ -356,7 +356,14 @@ export class StorageContext {
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
     const clientAddress = synapse.client.account.address
-    const requestedMetadata = combineMetadata(options.metadata, { withCDN: options.withCDN })
+    // Default the CDN group to the payer address so a payer's CDN data sets share one bandwidth
+    // rail (keyed by keccak256(payer, group) in FWSS) and exact-metadata reuse stays stable. When
+    // metadata was already combined upstream (StorageManager), the withCDN key is present and
+    // combineMetadata leaves its value untouched, so this is idempotent.
+    const requestedMetadata = combineMetadata(options.metadata, {
+      withCDN: options.withCDN,
+      cdnGroup: options.cdnGroup ?? clientAddress,
+    })
 
     // Handle explicit data set ID selection (highest priority)
     if (options.dataSetId != null) {

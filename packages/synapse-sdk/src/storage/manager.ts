@@ -140,6 +140,8 @@ export interface StorageManagerOptions {
   warmStorageService: WarmStorageService
   /** Whether to enable CDN services */
   withCDN: boolean
+  /** CDN group id used as the `withCDN` metadata value (defaults to the payer address) */
+  cdnGroup?: string
   /** Application identifier for namespace isolation */
   source: string | null
 }
@@ -148,6 +150,7 @@ export class StorageManager {
   private readonly _synapse: Synapse
   private readonly _warmStorageService: WarmStorageService
   private readonly _withCDN: boolean
+  private readonly _cdnGroup?: string
   private readonly _source: string | null
   private _defaultContexts?: StorageContext[]
 
@@ -159,7 +162,28 @@ export class StorageManager {
     this._synapse = options.synapse
     this._warmStorageService = options.warmStorageService
     this._withCDN = options.withCDN
+    this._cdnGroup = options.cdnGroup
     this._source = options.source
+  }
+
+  /**
+   * Resolve the CDN group id used as the `withCDN` metadata value.
+   *
+   * The value FWSS keys the shared bandwidth rail by is `keccak256(payer, cdnGroup)`. Every data
+   * set sharing this value joins one bandwidth subscription, which is what lets a multi-copy CDN
+   * upload (copies > 1, on different providers) buy bandwidth once instead of once per copy.
+   *
+   * The default is the payer (client) address. That makes all of a payer's CDN data sets share one
+   * rail, which is stable across re-uploads and preserves exact-metadata reuse (the SDK reuses
+   * existing data sets only on an EXACT `metadataMatches`, so a per-upload-random value would break
+   * reuse and churn data sets). FWSS already namespaces rails by payer, so defaulting to the payer
+   * address is consistent with that keying. The default is applied here (not per upload) so that
+   * both the primary context and the secondary contexts created during retry/expansion resolve to
+   * the same value. Single-copy CDN uploads also get a value, which simply means that data set is
+   * its own subscription keyed by (payer, group).
+   */
+  private _resolveCdnGroup(explicit?: string): string {
+    return explicit ?? this._cdnGroup ?? this._synapse.client.account.address
   }
 
   /**
@@ -239,6 +263,7 @@ export class StorageManager {
         explicitProviders,
         signal: options?.signal,
         withCDN: options?.withCDN,
+        cdnGroup: options?.cdnGroup,
         metadata: options?.metadata,
         pieceMetadata: options?.pieceMetadata,
         callbacks: options?.callbacks,
@@ -414,6 +439,7 @@ export class StorageManager {
       options?.contexts ??
       (await this.createContexts({
         withCDN: options?.withCDN,
+        cdnGroup: options?.cdnGroup,
         copies: hasExplicitIds ? options?.copies : (options?.copies ?? DEFAULT_COPY_COUNT),
         metadata: options?.metadata,
         excludeProviderIds: options?.excludeProviderIds,
@@ -439,6 +465,7 @@ export class StorageManager {
       explicitProviders: boolean
       signal?: AbortSignal
       withCDN?: boolean
+      cdnGroup?: string
       metadata?: Record<string, string>
       pieceMetadata?: Record<string, string>
       callbacks?: Partial<CombinedCallbacks>
@@ -532,6 +559,7 @@ export class StorageManager {
           try {
             const [newContext] = await this.createContexts({
               withCDN: options.withCDN,
+              cdnGroup: options.cdnGroup,
               copies: 1,
               metadata: options.metadata,
               callbacks: options.callbacks,
@@ -880,7 +908,11 @@ export class StorageManager {
    */
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
     const withCDN = options?.withCDN ?? this._withCDN
-    const combinedMetadata = combineMetadata(options?.metadata, { withCDN, source: this._source })
+    // Resolve the CDN group here (not deeper) so every context in this group — the primary plus any
+    // secondaries created via _pullToSecondariesWithRetry, which re-enter createContexts — shares
+    // the same withCDN value and thus the same shared bandwidth rail in FWSS.
+    const cdnGroup = this._resolveCdnGroup(options?.cdnGroup)
+    const combinedMetadata = combineMetadata(options?.metadata, { withCDN, cdnGroup, source: this._source })
     const canUseDefault = options == null || (options.providerIds == null && options.dataSetIds == null)
     if (this._defaultContexts != null) {
       const expectedSize = options?.copies ?? DEFAULT_COPY_COUNT
@@ -939,7 +971,12 @@ export class StorageManager {
   async createContext(options?: StorageServiceOptions): Promise<StorageContext> {
     // Determine the effective withCDN setting
     const effectiveWithCDN = options?.withCDN ?? this._withCDN
-    const combinedMetadata = combineMetadata(options?.metadata, { withCDN: effectiveWithCDN, source: this._source })
+    const cdnGroup = this._resolveCdnGroup(options?.cdnGroup)
+    const combinedMetadata = combineMetadata(options?.metadata, {
+      withCDN: effectiveWithCDN,
+      cdnGroup,
+      source: this._source,
+    })
 
     // Check if we can return the default context
     // We can use the default if:
