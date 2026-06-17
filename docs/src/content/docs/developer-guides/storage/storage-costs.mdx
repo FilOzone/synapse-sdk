@@ -49,7 +49,7 @@ Each on-chain operation pays a small fee to the storage provider, covering the g
 These are fractions of a cent. Think of them like gas: negligible for normal use, only adding up at very high operation volumes. They are paid from a small lockup reserve (~$0.10) held while the data set is active, not billed separately on every call. See [How the fees and lockup work](#how-the-fees-and-lockup-work) below.
 
 :::note[CDN setup]
-Enabling CDN adds two refundable lockups on first use: ~0.7 USDFC for egress credits and ~0.3 USDFC for cache-miss credits. Reusing an existing CDN data set incurs no new setup. These are lockups, not fees, and are returned when the rail is finalised if unused.
+Enabling CDN adds two refundable lockups on first use: ~0.7 USDFC for egress credits and ~0.3 USDFC for cache-miss credits. Reusing an existing CDN data set incurs no new setup. These are lockups, not fees, and are returned when the rail is finalized if unused.
 :::
 
 ### Real-World Cost Examples
@@ -131,7 +131,7 @@ Most developers can stop at the tables above. This section explains the mechanic
 
 **Add-pieces pricing scales with batch size.** Each `addPieces` call costs `$0.0005 + $0.0003 × N`, where `N` is the number of pieces in the batch. The base fee is shared across the batch, so adding many pieces in one call is cheaper per piece than adding them one at a time. When estimating the cost of a single piece, assume the single-piece price (`$0.0008`); batching only makes it cheaper.
 
-**Fees are paid from a small lockup reserve, not billed per call.** When a data set is created, ~$0.10 of USDFC is locked as a lifecycle reserve on the data set's payment rail. One-time fees are drawn from this reserve as operations happen, and the reserve is topped back up toward its target as it is drawn down. You see ~$0.10 of additional locked USDFC while the data set is active. It is refunded when the rail is finalised.
+**Fees are paid from a small lockup reserve, not billed per call.** When a data set is created, ~$0.10 of USDFC is locked as a lifecycle reserve on the data set's payment rail. One-time fees are drawn from this reserve as operations happen, and the reserve is topped back up toward its target as it is drawn down. You see ~$0.10 of additional locked USDFC while the data set is active. It is refunded when the rail is finalized.
 
 <details>
 <summary>Why the reserve exists: wind-down after termination</summary>
@@ -140,7 +140,7 @@ Filecoin Pay does not allow raising a rail's fixed lockup once the rail has been
 
 If you expect to need more wind-down operations than the reserve covers, fund the reserve before terminating. User-initiated termination charges the $0.00112 termination fee and makes a best-effort top-up of the reserve. Provider-initiated termination charges no fee and does not top up, so those data sets are limited to whatever was in the reserve at termination.
 
-For the full lockup model (streaming versus fixed lockup, rail settlement, finalisation), see the [Payments & Storage cookbook](/cookbooks/payments-and-storage/) and the [Filecoin Pay spec](https://github.com/FilOzone/filecoin-pay/blob/main/SPEC.md).
+For the full lockup model (streaming versus fixed lockup, rail settlement, finalization), see the [Payments & Storage cookbook](/cookbooks/payments-and-storage/) and the [Filecoin Pay spec](https://github.com/FilOzone/filecoin-pay/blob/main/SPEC.md).
 
 </details>
 
