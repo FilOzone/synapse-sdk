@@ -89,7 +89,7 @@ For each data set, FWSS creates payment channels called **rails** that stream fu
 | **CDN rail** | Fixed | 0.7 USDFC lockup for CDN egress credits |
 | **Cache miss** | Fixed | 0.3 USDFC lockup for cache miss credits |
 
-Every data set gets a PDP rail, which also holds the ~$0.10 lifecycle reserve that one-time fees draw from. CDN and cache miss rails are added only when CDN is enabled.
+Every data set gets a PDP rail, which also holds the ~$0.10 lifecycle reserve that one-time fees draw from. CDN and cache miss rails are added only when CDN is enabled, which must happen at data set creation. CDN cannot currently be added to an existing data set. Follow [FilOzone/filecoin-services#529](https://github.com/FilOzone/filecoin-services/issues/529) to share your use case or track changes.
 
 FWSS enforces a **30-day lockup period**: your account must always have enough funds to cover at least 30 days of storage at the current rate. Think of it as a security deposit. The funds aren't spent upfront, but they're reserved so providers are guaranteed payment even if you stop topping up.
 
