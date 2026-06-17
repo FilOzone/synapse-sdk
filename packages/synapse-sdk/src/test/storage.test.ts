@@ -346,6 +346,141 @@ describe('StorageService', () => {
       assert.equal(service.dataSetId, 2n)
     })
 
+    it('should bound RPC fan-out when a provider has many data sets (#631)', async () => {
+      // One provider with many active, metadata-matching data sets owned by the
+      // client, the oldest of which already has pieces. The fan-out must stay
+      // bounded by the resolve concurrency rather than the data-set count.
+      const DATA_SET_COUNT = 196
+      const expectedDataSetBase = {
+        cacheMissRailId: 0n,
+        cdnRailId: 0n,
+        clientDataSetId: 0n,
+        commissionBps: 100n,
+        payee: Mocks.ADDRESSES.serviceProvider1,
+        payer: Mocks.ADDRESSES.client1,
+        pdpEndEpoch: 0n,
+        providerId: 1n,
+        serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+      }
+      const expectedDataSets = Array.from({ length: DATA_SET_COUNT }, (_, i) => ({
+        ...expectedDataSetBase,
+        dataSetId: BigInt(i + 1),
+        pdpRailId: BigInt(i + 1),
+      }))
+
+      let getActivePieceCountCalls = 0
+      let getAllDataSetMetadataCalls = 0
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getActivePieceCount: (args) => {
+              getActivePieceCountCalls++
+              const [dataSetId] = args
+              return dataSetId === 1n ? [2n] : [0n]
+            },
+          },
+          warmStorageView: {
+            ...Mocks.presets.basic.warmStorageView,
+            // Paginate (contract page size is 100) to avoid an infinite loop.
+            getClientDataSets: (args) => {
+              const offset = Number(args[1])
+              const limit = Number(args[2])
+              return [expectedDataSets.slice(offset, offset + limit)]
+            },
+            getAllDataSetMetadata: () => {
+              getAllDataSetMetadataCalls++
+              return [[], []]
+            },
+            getDataSet: (args) => {
+              const [dataSetId] = args
+              return [expectedDataSets.find((ds) => ds.dataSetId === dataSetId) ?? ({} as (typeof expectedDataSets)[0])]
+            },
+          },
+        }),
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
+        })
+      )
+      const synapse = new Synapse({ client, source: null })
+      const warmStorageService = new WarmStorageService({ client })
+
+      const service = await StorageContext.create({ synapse, warmStorageService, providerId: 1n })
+
+      // Oldest non-empty match is selected, and the fan-out stays bounded.
+      assert.equal(service.dataSetId, 1n)
+      assert.ok(
+        getActivePieceCountCalls <= 20,
+        `expected <=20 getActivePieceCount calls, got ${getActivePieceCountCalls} (unbounded fan-out regression)`
+      )
+      assert.ok(
+        getAllDataSetMetadataCalls <= 20,
+        `expected <=20 getAllDataSetMetadata calls, got ${getAllDataSetMetadataCalls} (unbounded fan-out regression)`
+      )
+    })
+
+    it('should select the oldest non-empty match across the resolve window (#631)', async () => {
+      // The oldest metadata match is empty and the only non-empty match lives
+      // past the first window of in-flight reads. Reads complete out of order, so
+      // selection must still return the oldest non-empty match, not the first to
+      // resolve or the empty fallback.
+      const DATA_SET_COUNT = 30
+      const NON_EMPTY_ID = 25n
+      const expectedDataSetBase = {
+        cacheMissRailId: 0n,
+        cdnRailId: 0n,
+        clientDataSetId: 0n,
+        commissionBps: 100n,
+        payee: Mocks.ADDRESSES.serviceProvider1,
+        payer: Mocks.ADDRESSES.client1,
+        pdpEndEpoch: 0n,
+        providerId: 1n,
+        serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+      }
+      const expectedDataSets = Array.from({ length: DATA_SET_COUNT }, (_, i) => ({
+        ...expectedDataSetBase,
+        dataSetId: BigInt(i + 1),
+        pdpRailId: BigInt(i + 1),
+      }))
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getActivePieceCount: (args) => {
+              const [dataSetId] = args
+              return dataSetId === NON_EMPTY_ID ? [2n] : [0n]
+            },
+          },
+          warmStorageView: {
+            ...Mocks.presets.basic.warmStorageView,
+            getClientDataSets: (args) => {
+              const offset = Number(args[1])
+              const limit = Number(args[2])
+              return [expectedDataSets.slice(offset, offset + limit)]
+            },
+            getAllDataSetMetadata: () => [[], []],
+            getDataSet: (args) => {
+              const [dataSetId] = args
+              return [expectedDataSets.find((ds) => ds.dataSetId === dataSetId) ?? ({} as (typeof expectedDataSets)[0])]
+            },
+          },
+        }),
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
+        })
+      )
+      const synapse = new Synapse({ client, source: null })
+      const warmStorageService = new WarmStorageService({ client })
+
+      const service = await StorageContext.create({ synapse, warmStorageService, providerId: 1n })
+
+      // Oldest non-empty match wins over the oldest (empty) metadata match.
+      assert.equal(service.dataSetId, NON_EMPTY_ID)
+    })
+
     it('should handle provider selection callbacks', async () => {
       let providerCallbackFired = false
       let dataSetCallbackFired = false
