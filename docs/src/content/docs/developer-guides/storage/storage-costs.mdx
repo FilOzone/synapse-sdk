@@ -49,7 +49,7 @@ Each on-chain operation pays a small fee to the storage provider, covering the g
 These are fractions of a cent. Think of them like gas: negligible for normal use, only adding up at very high operation volumes. They are paid from a small lockup reserve (~$0.10) held while the data set is active, not billed separately on every call. See [How the fees and lockup work](#how-the-fees-and-lockup-work) below.
 
 :::note[CDN setup]
-Enabling CDN adds two refundable lockups on first use: ~0.7 USDFC for egress credits and ~0.3 USDFC for cache-miss credits. Reusing an existing CDN data set incurs no new setup. These are lockups, not fees, and are returned when the rail is finalised.
+Enabling CDN adds two refundable lockups on first use: ~0.7 USDFC for egress credits and ~0.3 USDFC for cache-miss credits. Reusing an existing CDN data set incurs no new setup. These are lockups, not fees, and are returned when the rail is finalised if unused.
 :::
 
 ### Real-World Cost Examples
