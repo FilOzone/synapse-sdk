@@ -25,7 +25,7 @@ Pricing has two recurring rates and a set of small one-time fees.
 
 | Component | Cost | Notes |
 | -------------- | ------------------ | -------------------------------------------------------- |
-| **Storage** | $2.50/TiB/month per copy | Charged only while pieces exist. Empty data sets are free. |
+| **Storage** | $2.50/TiB/month per copy | Charged only while pieces exist. Empty data sets have no recurring cost. |
 | **Proving Service** | $0.024/data set/month | Flat per-data-set fee, added on top of the storage rate. |
 | **CDN egress** | up to $14/TiB (≈ $0.014/GiB) downloaded | Optional, via Filecoin Beam. About half this when served from cache. |
 
@@ -33,7 +33,7 @@ Pricing has two recurring rates and a set of small one-time fees.
 "Month" means **30 days** here (86,400 epochs), not a calendar month.
 :::
 
-The monthly rate for an active data set is `(bytes / TiB) × $2.50 + $0.024`. There is no minimum floor: a data set with no pieces costs nothing, and the rate activates when the first piece is added.
+The monthly rate for an active data set is `(bytes / TiB) × $2.50 + $0.024`. There is no minimum floor: a data set with no pieces has no recurring cost, and the rate activates when the first piece is added.
 
 ### One-time fees
 
