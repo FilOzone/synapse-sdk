@@ -127,7 +127,7 @@ Egress here is the worst case where every byte is a cache miss. When content is 
 
 Most developers can stop at the tables above. This section explains the mechanics behind the per-operation fees and the lockup reserve for anyone who needs the detail.
 
-**The proving fee is additive, not a floor.** Earlier pricing used a single monthly minimum. The rate is now `(bytes / TiB) × $2.50 + $0.024`, so storage scales with size and the proving fee is a flat addition per data set. A data set with no pieces pays nothing until the first piece is added.
+**The proving fee is additive, not a floor.** The rate is `(bytes / TiB) × $2.50 + $0.024`, so storage scales with size and the proving fee is a flat addition per data set. A data set with no pieces has no recurring charge until the first piece is added.
 
 **Add-pieces pricing scales with batch size.** Each `addPieces` call costs `$0.0005 + $0.0003 × N`, where `N` is the number of pieces in the batch. The base fee is shared across the batch, so adding many pieces in one call is cheaper per piece than adding them one at a time. When estimating the cost of a single piece, assume the single-piece price (`$0.0008`); batching only makes it cheaper.
 
