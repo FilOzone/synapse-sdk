@@ -65,8 +65,11 @@ All payments are settled automatically through Filecoin Pay, ensuring on-chain a
 
 | **Service** | **Pricing** | **Description** |
 | ------- | --------- | -------------------- |
-| **Base Storage & Retrival** | **$2.5/TiB/month/copy** (minimum 2 copies) | Redundant storage ensures durability and continuous PDP verification.<br />Minimum monthly charge of **0.06 USDFC**, covering roughly **24 GiB** of total data (two copies). |
-| **Add-on Retrieval (Filecoin Beam)** | **Up to $0.014/GiB egress** | Charged for outbound data delivered via Filecoin Beam gateways or retrieval providers. |
+| **Storage** | **$2.50/TiB/month/copy** (minimum 2 copies) | Redundant storage with continuous PDP verification. Empty data sets have no recurring cost; charges begin when the first piece is added. |
+| **Proving Service** | **$0.024/data set/month** | Flat per-data-set fee for proof verification, added on top of the storage rate. Charged only while the data set holds pieces. |
+| **Add-on Retrieval (Filecoin Beam)** | **Up to $14/TiB (≈ $0.014/GiB) egress** | Outbound data delivered via Filecoin Beam. Roughly half this when served from cache, up to the full rate on a cache miss. |
+
+Beyond these recurring rates, each on-chain operation (creating a data set, adding or removing pieces, terminating service) carries a small one-time fee paid to the storage provider to cover its gas. These fees are fractions of a cent, drawn from a small refundable lockup reserve (~$0.10 USDFC) held while the data set is active, and only matter at very high operation volumes. See [Storage Costs](/developer-guides/storage/storage-costs/) for the full breakdown.
 
 :::note[Verifiable Payment]
 All storage and retrieval charges are denominated in **USDFC** (or supported ERC-20 tokens) and settled via **Filecoin Pay**. Every transaction is on-chain, auditable, and linked to verifiable service proofs.
