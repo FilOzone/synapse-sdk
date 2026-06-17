@@ -483,7 +483,7 @@ export class StorageContext {
     type EvaluatedDataSet = {
       dataSetId: bigint
       dataSetMetadata: Record<string, string>
-      activePieceCount: bigint
+      hasPieces: boolean
     }
 
     // Sort ascending by ID (oldest first) for deterministic selection
@@ -501,9 +501,9 @@ export class StorageContext {
       const batchResults: (EvaluatedDataSet | null)[] = await Promise.all(
         sortedDataSets.slice(i, i + BATCH_SIZE).map(async (dataSet) => {
           const { dataSetId } = dataSet
-          const [dataSetMetadata, activePieceCount] = await Promise.all([
+          const [dataSetMetadata, hasPieces] = await Promise.all([
             warmStorageService.getDataSetMetadata({ dataSetId }),
-            warmStorageService.getActivePieceCount({ dataSetId }),
+            warmStorageService.hasActivePieces({ dataSetId }),
           ])
 
           if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
@@ -513,7 +513,7 @@ export class StorageContext {
           return {
             dataSetId,
             dataSetMetadata,
-            activePieceCount,
+            hasPieces,
           }
         })
       )
@@ -521,7 +521,7 @@ export class StorageContext {
       for (const result of batchResults) {
         if (result == null) continue
 
-        if (result.activePieceCount > 0) {
+        if (result.hasPieces) {
           selectedDataSet = result
           break
         }
@@ -531,7 +531,7 @@ export class StorageContext {
         }
       }
 
-      if (selectedDataSet != null && selectedDataSet.activePieceCount > 0) {
+      if (selectedDataSet?.hasPieces) {
         break
       }
     }

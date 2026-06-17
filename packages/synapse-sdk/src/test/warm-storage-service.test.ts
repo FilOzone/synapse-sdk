@@ -8,7 +8,8 @@ import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import { type Address, createWalletClient, http as viemHttp } from 'viem'
+import { CID } from 'multiformats/cid'
+import { type Address, bytesToHex, createWalletClient, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 
@@ -44,6 +45,37 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
       assert.exists(warmStorageService)
       assert.isFunction(warmStorageService.getClientDataSets)
+    })
+  })
+
+  describe('hasActivePieces', () => {
+    it('should return true when the data set has at least one active piece', async () => {
+      const cid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getActivePieces: () => [[{ data: bytesToHex(cid.bytes) }], [101n], false],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      assert.isTrue(await warmStorageService.hasActivePieces({ dataSetId: 1n }))
+    })
+
+    it('should return false when the data set has no active pieces', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getActivePieces: () => [[], [], false],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      assert.isFalse(await warmStorageService.hasActivePieces({ dataSetId: 1n }))
     })
   })
 

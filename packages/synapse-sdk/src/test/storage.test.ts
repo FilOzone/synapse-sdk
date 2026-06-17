@@ -314,13 +314,13 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieceCount: (args) => {
+            getActivePieces: (args) => {
               const [dataSetId] = args
               if (dataSetId === 2n) {
-                return [2n]
-              } else {
-                return [0n]
+                const cid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+                return [[{ data: bytesToHex(cid.bytes) }], [101n], false]
               }
+              return [[], [], false]
             },
           },
           warmStorageView: {
