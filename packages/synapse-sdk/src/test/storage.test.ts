@@ -359,6 +359,8 @@ describe('StorageService', () => {
         payee: Mocks.ADDRESSES.serviceProvider1,
         payer: Mocks.ADDRESSES.client1,
         pdpEndEpoch: 0n,
+        pendingOneTimePayments: 0n,
+        lifecycleReserveBalance: 0n,
         providerId: 1n,
         serviceProvider: Mocks.ADDRESSES.serviceProvider1,
       }
@@ -435,6 +437,8 @@ describe('StorageService', () => {
         payee: Mocks.ADDRESSES.serviceProvider1,
         payer: Mocks.ADDRESSES.client1,
         pdpEndEpoch: 0n,
+        pendingOneTimePayments: 0n,
+        lifecycleReserveBalance: 0n,
         providerId: 1n,
         serviceProvider: Mocks.ADDRESSES.serviceProvider1,
       }
