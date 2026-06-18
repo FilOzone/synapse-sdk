@@ -494,7 +494,7 @@ export class StorageContext {
     type EvaluatedDataSet = {
       dataSetId: bigint
       dataSetMetadata: Record<string, string>
-      hasPieces: boolean
+      activePieceCount: bigint
     }
 
     // Sort ascending by ID (oldest first) for deterministic selection
@@ -517,35 +517,44 @@ export class StorageContext {
     let firstMatchIndex = Number.POSITIVE_INFINITY
     let bestNonEmptyIndex = Number.POSITIVE_INFINITY
 
-    await Promise.all(
-      sortedDataSets.map((dataSet, index) =>
-        queue.add(async () => {
-          if (index > bestNonEmptyIndex) {
-            return
-          }
+    try {
+      await Promise.all(
+        sortedDataSets.map((dataSet, index) =>
+          queue.add(async () => {
+            if (index > bestNonEmptyIndex) {
+              return
+            }
 
-          const { dataSetId } = dataSet
-          const dataSetMetadata = await warmStorageService.getDataSetMetadata({ dataSetId })
-          if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
-            return
-          }
+            const { dataSetId } = dataSet
+            const dataSetMetadata = await warmStorageService.getDataSetMetadata({ dataSetId })
+            if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
+              return
+            }
 
-          if (index < firstMatchIndex) {
-            firstMatchIndex = index
-          }
+            if (index < firstMatchIndex) {
+              firstMatchIndex = index
+            }
 
-          if (index > bestNonEmptyIndex) {
-            return
-          }
+            if (index > bestNonEmptyIndex) {
+              return
+            }
 
-          const hasPieces = await warmStorageService.hasActivePieces({ dataSetId })
-          evaluated[index] = { dataSetId, dataSetMetadata, hasPieces }
-          if (hasPieces && index < bestNonEmptyIndex) {
-            bestNonEmptyIndex = index
-          }
-        })
+            const activePieceCount = await warmStorageService.getActivePieceCount({ dataSetId })
+            evaluated[index] = { dataSetId, dataSetMetadata, activePieceCount }
+            if (activePieceCount > 0n && index < bestNonEmptyIndex) {
+              bestNonEmptyIndex = index
+            }
+          })
+        )
       )
-    )
+    } finally {
+      // A rejected read settles Promise.all immediately, but the queue keeps
+      // draining the tasks it has not started yet. Clear it so a failed resolve
+      // stops issuing reads instead of running the fan-out this is meant to
+      // bound. In-flight reads (at most RESOLVE_CONCURRENCY) cannot be cancelled
+      // and run to completion. On success the queue is already empty.
+      queue.clear()
+    }
 
     const selectedIndex = bestNonEmptyIndex === Number.POSITIVE_INFINITY ? firstMatchIndex : bestNonEmptyIndex
     const selectedDataSet = selectedIndex === Number.POSITIVE_INFINITY ? null : evaluated[selectedIndex]

@@ -424,9 +424,9 @@ describe('StorageService', () => {
 
     it('should select the oldest non-empty match across the resolve window (#631)', async () => {
       // The oldest metadata match is empty and the only non-empty match lives
-      // past the first window of in-flight reads. Reads complete out of order, so
-      // selection must still return the oldest non-empty match, not the first to
-      // resolve or the empty fallback.
+      // past the first window of in-flight reads, so selection must reach beyond
+      // the first window and return the non-empty match rather than the empty
+      // fallback.
       const DATA_SET_COUNT = 30
       const NON_EMPTY_ID = 25n
       const expectedDataSetBase = {
@@ -483,6 +483,78 @@ describe('StorageService', () => {
 
       // Oldest non-empty match wins over the oldest (empty) metadata match.
       assert.equal(service.dataSetId, NON_EMPTY_ID)
+    })
+
+    it('should prefer the oldest of several non-empty matches and skip newer ones (#631)', async () => {
+      // Two non-empty metadata matches: the oldest (id 1) and a newer one deep in
+      // the list (id 25). The oldest must win, and because it is found before the
+      // newer one's window starts, the newer one's getActivePieceCount is never
+      // read. This pins both the oldest-wins ordering and the early-exit guard,
+      // which a "newest non-empty wins" or "no early-exit" regression would break.
+      const DATA_SET_COUNT = 30
+      const OLDEST_NON_EMPTY_ID = 1n
+      const NEWER_NON_EMPTY_ID = 25n
+      const expectedDataSetBase = {
+        cacheMissRailId: 0n,
+        cdnRailId: 0n,
+        clientDataSetId: 0n,
+        commissionBps: 100n,
+        payee: Mocks.ADDRESSES.serviceProvider1,
+        payer: Mocks.ADDRESSES.client1,
+        pdpEndEpoch: 0n,
+        pendingOneTimePayments: 0n,
+        lifecycleReserveBalance: 0n,
+        providerId: 1n,
+        serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+      }
+      const expectedDataSets = Array.from({ length: DATA_SET_COUNT }, (_, i) => ({
+        ...expectedDataSetBase,
+        dataSetId: BigInt(i + 1),
+        pdpRailId: BigInt(i + 1),
+      }))
+
+      const pieceCountQueriedIds: bigint[] = []
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getActivePieceCount: (args) => {
+              const [dataSetId] = args
+              pieceCountQueriedIds.push(dataSetId)
+              return dataSetId === OLDEST_NON_EMPTY_ID || dataSetId === NEWER_NON_EMPTY_ID ? [2n] : [0n]
+            },
+          },
+          warmStorageView: {
+            ...Mocks.presets.basic.warmStorageView,
+            getClientDataSets: (args) => {
+              const offset = Number(args[1])
+              const limit = Number(args[2])
+              return [expectedDataSets.slice(offset, offset + limit)]
+            },
+            getAllDataSetMetadata: () => [[], []],
+            getDataSet: (args) => {
+              const [dataSetId] = args
+              return [expectedDataSets.find((ds) => ds.dataSetId === dataSetId) ?? ({} as (typeof expectedDataSets)[0])]
+            },
+          },
+        }),
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
+        })
+      )
+      const synapse = new Synapse({ client, source: null })
+      const warmStorageService = new WarmStorageService({ client })
+
+      const service = await StorageContext.create({ synapse, warmStorageService, providerId: 1n })
+
+      // Oldest non-empty match wins.
+      assert.equal(service.dataSetId, OLDEST_NON_EMPTY_ID)
+      // The newer non-empty match is never inspected once the oldest is known.
+      assert.ok(
+        !pieceCountQueriedIds.includes(NEWER_NON_EMPTY_ID),
+        `getActivePieceCount should not be read for the newer match ${NEWER_NON_EMPTY_ID}, queried: ${pieceCountQueriedIds.join(', ')}`
+      )
     })
 
     it('should handle provider selection callbacks', async () => {
