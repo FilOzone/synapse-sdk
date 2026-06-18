@@ -50,7 +50,6 @@ import {
   type ResolvedLocation,
   selectProviders,
 } from '@filoz/synapse-core/warm-storage'
-import PQueue from 'p-queue'
 import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
 import { getBlockNumber } from 'viem/actions'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -86,10 +85,12 @@ const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers avai
 /**
  * Maximum concurrent per-dataset reads while resolving a provider's matching
  * data set in {@link StorageContext.resolveByProviderId}. Datasets are evaluated
- * oldest-first by a pool of this many workers, capping RPC fan-out for clients
- * with many datasets per provider (FilOzone/synapse-sdk#631).
+ * oldest-first by a sliding pool of this many reads, capping RPC fan-out for
+ * clients with many datasets per provider (FilOzone/synapse-sdk#631).
+ *
+ * Exported so tests can derive expected call bounds from it instead of hard-coding.
  */
-const RESOLVE_CONCURRENCY = 10
+export const RESOLVE_CONCURRENCY = 10
 
 export interface StorageContextOptions {
   /** The Synapse instance */
@@ -461,14 +462,15 @@ export class StorageContext {
    * Selection logic:
    * 1. Filters for the provider's active datasets owned by the client
    * 2. Sorts by dataSetId ascending (oldest first)
-   * 3. Evaluates datasets oldest-first with bounded concurrency, reading metadata
-   *    before activePieceCount
+   * 3. Evaluates datasets oldest-first through a sliding pool of at most
+   *    RESOLVE_CONCURRENCY reads, reading metadata before activePieceCount
    * 4. Prefers the oldest metadata match with activePieceCount > 0, otherwise the
    *    oldest metadata match; returns null when nothing matches
-   * 5. Stops once the oldest non-empty metadata match is known
+   * 5. Stops starting datasets newer than the oldest non-empty match once it is
+   *    known, so the read fan-out shrinks to roughly the match position
    *
-   * Reads are bounded by RESOLVE_CONCURRENCY to cap RPC fan-out for clients with
-   * many datasets per provider (FilOzone/synapse-sdk#631).
+   * The pool caps RPC fan-out for clients with many datasets per provider
+   * (FilOzone/synapse-sdk#631).
    */
   private static async resolveByProviderId(
     clientAddress: Address,
@@ -502,58 +504,81 @@ export class StorageContext {
       return Number(a.dataSetId) - Number(b.dataSetId)
     })
 
-    // Evaluate datasets oldest-first with at most RESOLVE_CONCURRENCY reads in
-    // flight, bounded by a queue. Metadata is read first and getActivePieceCount
-    // only on a metadata match, so the piece-count read is skipped for
-    // non-matching datasets.
-    //
-    // Reads complete out of order, so the result is selected by index rather than
-    // completion order: `bestNonEmptyIndex` tracks the oldest non-empty match and
-    // `firstMatchIndex` the oldest metadata match (the fallback). A task whose
-    // index is newer than a known non-empty match skips its reads, so the reads
-    // stop once the oldest non-empty match is found.
-    const queue = new PQueue({ concurrency: RESOLVE_CONCURRENCY })
+    // Result is selected by index, not completion order, because reads finish out
+    // of order: `bestNonEmptyIndex` is the oldest non-empty metadata match and
+    // `firstMatchIndex` the oldest metadata match (the fallback). Metadata is read
+    // first and getActivePieceCount only on a metadata match, so non-matching
+    // datasets skip the piece-count read.
     const evaluated: (EvaluatedDataSet | null)[] = new Array(sortedDataSets.length).fill(null)
     let firstMatchIndex = Number.POSITIVE_INFINITY
     let bestNonEmptyIndex = Number.POSITIVE_INFINITY
 
-    try {
-      await Promise.all(
-        sortedDataSets.map((dataSet, index) =>
-          queue.add(async () => {
-            if (index > bestNonEmptyIndex) {
-              return
-            }
+    const evaluate = async (index: number, dataSetId: bigint): Promise<void> => {
+      // bestNonEmptyIndex can drop below this index after the task starts (an
+      // older read finished and found pieces), so re-check here and after the
+      // metadata read to drop work that can no longer win.
+      if (index > bestNonEmptyIndex) {
+        return
+      }
 
-            const { dataSetId } = dataSet
-            const dataSetMetadata = await warmStorageService.getDataSetMetadata({ dataSetId })
-            if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
-              return
-            }
+      const dataSetMetadata = await warmStorageService.getDataSetMetadata({ dataSetId })
+      if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
+        return
+      }
 
-            if (index < firstMatchIndex) {
-              firstMatchIndex = index
-            }
+      if (index < firstMatchIndex) {
+        firstMatchIndex = index
+      }
 
-            if (index > bestNonEmptyIndex) {
-              return
-            }
+      if (index > bestNonEmptyIndex) {
+        return
+      }
 
-            const activePieceCount = await warmStorageService.getActivePieceCount({ dataSetId })
-            evaluated[index] = { dataSetId, dataSetMetadata, activePieceCount }
-            if (activePieceCount > 0n && index < bestNonEmptyIndex) {
-              bestNonEmptyIndex = index
-            }
+      const activePieceCount = await warmStorageService.getActivePieceCount({ dataSetId })
+      evaluated[index] = { dataSetId, dataSetMetadata, activePieceCount }
+      if (activePieceCount > 0n && index < bestNonEmptyIndex) {
+        bestNonEmptyIndex = index
+      }
+    }
+
+    // Sliding pool: keep at most RESOLVE_CONCURRENCY reads in flight, topping up
+    // the instant one finishes so the window slides forward instead of stalling
+    // at a batch boundary. Datasets newer than the oldest non-empty match are
+    // never started, so the fan-out shrinks to roughly the match position.
+    const inFlight = new Set<Promise<void>>()
+    let nextIndex = 0
+    let failure: unknown
+    while (nextIndex < sortedDataSets.length || inFlight.size > 0) {
+      while (
+        failure == null &&
+        inFlight.size < RESOLVE_CONCURRENCY &&
+        nextIndex < sortedDataSets.length &&
+        nextIndex <= bestNonEmptyIndex
+      ) {
+        const index = nextIndex++
+        const task = evaluate(index, sortedDataSets[index].dataSetId)
+          .catch((error) => {
+            failure ??= error
           })
-        )
-      )
-    } finally {
-      // A rejected read settles Promise.all immediately, but the queue keeps
-      // draining the tasks it has not started yet. Clear it so a failed resolve
-      // stops issuing reads instead of running the fan-out this is meant to
-      // bound. In-flight reads (at most RESOLVE_CONCURRENCY) cannot be cancelled
-      // and run to completion. On success the queue is already empty.
-      queue.clear()
+          .finally(() => {
+            inFlight.delete(task)
+          })
+        inFlight.add(task)
+      }
+
+      // Nothing left to start (failure, or every remaining dataset is newer than
+      // the oldest non-empty match) and nothing in flight: done.
+      if (inFlight.size === 0) {
+        break
+      }
+      await Promise.race(inFlight)
+      if (failure != null) {
+        break
+      }
+    }
+
+    if (failure != null) {
+      throw failure
     }
 
     const selectedIndex = bestNonEmptyIndex === Number.POSITIVE_INFINITY ? firstMatchIndex : bestNonEmptyIndex

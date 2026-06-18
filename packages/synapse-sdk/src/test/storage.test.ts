@@ -18,7 +18,7 @@ import {
   http as viemHttp,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { StorageContext } from '../storage/context.ts'
+import { RESOLVE_CONCURRENCY, StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
@@ -412,13 +412,20 @@ describe('StorageService', () => {
 
       // Oldest non-empty match is selected, and the fan-out stays bounded.
       assert.equal(service.dataSetId, 1n)
+      // Worst case before the oldest non-empty match is known is one sliding
+      // window of metadata reads plus one of piece-count reads, so derive the
+      // bound from RESOLVE_CONCURRENCY rather than hard-coding it. This is a
+      // practical fan-out ceiling for this fixture (fast, regular mock
+      // responses), not a hard total-call guarantee; the hard guarantee is
+      // bounded concurrency.
+      const maxExpectedCalls = RESOLVE_CONCURRENCY * 2
       assert.ok(
-        getActivePieceCountCalls <= 20,
-        `expected <=20 getActivePieceCount calls, got ${getActivePieceCountCalls} (unbounded fan-out regression)`
+        getActivePieceCountCalls <= maxExpectedCalls,
+        `expected <=${maxExpectedCalls} getActivePieceCount calls, got ${getActivePieceCountCalls} (unbounded fan-out regression)`
       )
       assert.ok(
-        getAllDataSetMetadataCalls <= 20,
-        `expected <=20 getAllDataSetMetadata calls, got ${getAllDataSetMetadataCalls} (unbounded fan-out regression)`
+        getAllDataSetMetadataCalls <= maxExpectedCalls,
+        `expected <=${maxExpectedCalls} getAllDataSetMetadata calls, got ${getAllDataSetMetadataCalls} (unbounded fan-out regression)`
       )
     })
 
