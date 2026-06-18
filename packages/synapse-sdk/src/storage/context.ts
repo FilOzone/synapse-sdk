@@ -50,6 +50,7 @@ import {
   type ResolvedLocation,
   selectProviders,
 } from '@filoz/synapse-core/warm-storage'
+import PQueue from 'p-queue'
 import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
 import { getBlockNumber } from 'viem/actions'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -502,48 +503,49 @@ export class StorageContext {
     })
 
     // Evaluate datasets oldest-first with at most RESOLVE_CONCURRENCY reads in
-    // flight. A pool of workers pulls datasets in ascending-id order; each reads
-    // metadata first and only reads activePieceCount on a metadata match, so the
-    // expensive piece-count read is skipped for non-matching datasets.
+    // flight, bounded by a queue. Metadata is read first and getActivePieceCount
+    // only on a metadata match, so the piece-count read is skipped for
+    // non-matching datasets.
     //
     // Reads complete out of order, so the result is selected by index rather than
     // completion order: `bestNonEmptyIndex` tracks the oldest non-empty match and
-    // `firstMatchIndex` the oldest metadata match (the fallback). A worker stops
-    // pulling datasets newer than a known non-empty match, since none of those can
-    // be older than it; datasets older than it are always pulled, so the oldest
-    // non-empty match is found.
+    // `firstMatchIndex` the oldest metadata match (the fallback). A task whose
+    // index is newer than a known non-empty match skips its reads, so the reads
+    // stop once the oldest non-empty match is found.
+    const queue = new PQueue({ concurrency: RESOLVE_CONCURRENCY })
     const evaluated: (EvaluatedDataSet | null)[] = new Array(sortedDataSets.length).fill(null)
     let firstMatchIndex = Number.POSITIVE_INFINITY
     let bestNonEmptyIndex = Number.POSITIVE_INFINITY
-    let nextIndex = 0
 
-    const worker = async (): Promise<void> => {
-      while (true) {
-        const index = nextIndex++
-        if (index >= sortedDataSets.length || index > bestNonEmptyIndex) {
-          return
-        }
+    await Promise.all(
+      sortedDataSets.map((dataSet, index) =>
+        queue.add(async () => {
+          if (index > bestNonEmptyIndex) {
+            return
+          }
 
-        const { dataSetId } = sortedDataSets[index]
-        const dataSetMetadata = await warmStorageService.getDataSetMetadata({ dataSetId })
-        if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
-          continue
-        }
+          const { dataSetId } = dataSet
+          const dataSetMetadata = await warmStorageService.getDataSetMetadata({ dataSetId })
+          if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
+            return
+          }
 
-        if (index < firstMatchIndex) {
-          firstMatchIndex = index
-        }
+          if (index < firstMatchIndex) {
+            firstMatchIndex = index
+          }
 
-        const hasPieces = await warmStorageService.hasActivePieces({ dataSetId })
-        evaluated[index] = { dataSetId, dataSetMetadata, hasPieces }
-        if (hasPieces && index < bestNonEmptyIndex) {
-          bestNonEmptyIndex = index
-        }
-      }
-    }
+          if (index > bestNonEmptyIndex) {
+            return
+          }
 
-    const workerCount = Math.min(RESOLVE_CONCURRENCY, sortedDataSets.length)
-    await Promise.all(Array.from({ length: workerCount }, () => worker()))
+          const hasPieces = await warmStorageService.hasActivePieces({ dataSetId })
+          evaluated[index] = { dataSetId, dataSetMetadata, hasPieces }
+          if (hasPieces && index < bestNonEmptyIndex) {
+            bestNonEmptyIndex = index
+          }
+        })
+      )
+    )
 
     const selectedIndex = bestNonEmptyIndex === Number.POSITIVE_INFINITY ? firstMatchIndex : bestNonEmptyIndex
     const selectedDataSet = selectedIndex === Number.POSITIVE_INFINITY ? null : evaluated[selectedIndex]
