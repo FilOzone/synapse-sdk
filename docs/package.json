@@ -21,7 +21,7 @@
     "wagmi": "catalog:"
   },
   "devDependencies": {
-    "@astrojs/starlight": "^0.39.3",
+    "@astrojs/starlight": "^0.40.0",
     "@hugomrdias/docs": "^0.2.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
