@@ -21,11 +21,11 @@
     "wagmi": "catalog:"
   },
   "devDependencies": {
-    "@astrojs/starlight": "^0.39.3",
+    "@astrojs/starlight": "^0.40.0",
     "@hugomrdias/docs": "^0.2.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "astro": "^6.4.4",
+    "astro": "^6.4.5",
     "astro-mermaid": "^2.0.2",
     "expressive-code-twoslash": "^0.6.1",
     "mermaid": "^11.12.2",
