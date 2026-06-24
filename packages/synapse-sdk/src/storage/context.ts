@@ -463,8 +463,8 @@ export class StorageContext {
    * 1. Filters for the provider's active datasets owned by the client
    * 2. Sorts by dataSetId ascending (oldest first)
    * 3. Evaluates datasets oldest-first through a sliding pool of at most
-   *    RESOLVE_CONCURRENCY reads, reading metadata before activePieceCount
-   * 4. Prefers the oldest metadata match with activePieceCount > 0, otherwise the
+   *    RESOLVE_CONCURRENCY reads, reading metadata before checking for pieces
+   * 4. Prefers the oldest metadata match that has active pieces, otherwise the
    *    oldest metadata match; returns null when nothing matches
    * 5. Stops starting datasets newer than the oldest non-empty match once it is
    *    known, so the read fan-out shrinks to roughly the match position
@@ -496,18 +496,21 @@ export class StorageContext {
     type EvaluatedDataSet = {
       dataSetId: bigint
       dataSetMetadata: Record<string, string>
-      activePieceCount: bigint
+      hasPieces: boolean
     }
 
-    // Sort ascending by ID (oldest first) for deterministic selection
+    // Sort ascending by ID (oldest first) for deterministic selection. Compare
+    // as bigint so ordering stays correct for IDs beyond Number.MAX_SAFE_INTEGER.
     const sortedDataSets = providerDataSets.sort((a, b) => {
-      return Number(a.dataSetId) - Number(b.dataSetId)
+      if (a.dataSetId < b.dataSetId) return -1
+      if (a.dataSetId > b.dataSetId) return 1
+      return 0
     })
 
     // Result is selected by index, not completion order, because reads finish out
     // of order: `bestNonEmptyIndex` is the oldest non-empty metadata match and
     // `firstMatchIndex` the oldest metadata match (the fallback). Metadata is read
-    // first and getActivePieceCount only on a metadata match, so non-matching
+    // first and hasActivePieces only on a metadata match, so non-matching
     // datasets skip the piece-count read.
     const evaluated: (EvaluatedDataSet | null)[] = new Array(sortedDataSets.length).fill(null)
     let firstMatchIndex = Number.POSITIVE_INFINITY
@@ -534,9 +537,9 @@ export class StorageContext {
         return
       }
 
-      const activePieceCount = await warmStorageService.getActivePieceCount({ dataSetId })
-      evaluated[index] = { dataSetId, dataSetMetadata, activePieceCount }
-      if (activePieceCount > 0n && index < bestNonEmptyIndex) {
+      const hasPieces = await warmStorageService.hasActivePieces({ dataSetId })
+      evaluated[index] = { dataSetId, dataSetMetadata, hasPieces }
+      if (hasPieces && index < bestNonEmptyIndex) {
         bestNonEmptyIndex = index
       }
     }
