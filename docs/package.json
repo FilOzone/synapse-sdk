@@ -30,7 +30,7 @@
     "expressive-code-twoslash": "^0.6.1",
     "mermaid": "^11.12.2",
     "rehype-external-links": "^3.0.0",
-    "sharp": "^0.34.4",
+    "sharp": "^0.35.2",
     "typedoc": "^0.28.19",
     "typedoc-plugin-mdn-links": "^5.0.10",
     "typedoc-plugin-missing-exports": "^4.1.2",
