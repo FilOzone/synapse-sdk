@@ -151,6 +151,15 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Storage Provider Guides',
+          collapsed: true,
+          items: [
+            {
+              autogenerate: { directory: 'storage-provider-guides', collapsed: true },
+            },
+          ],
+        },
+        {
           label: 'CookBooks',
           collapsed: true,
           items: [
