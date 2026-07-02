@@ -7,6 +7,10 @@ sidebar:
 
 This section contains additional resources for Filecoin Onchain Cloud.
 
+## Service Status
+
+Subscribe to the [Filecoin Onchain Cloud status page](https://status.filecoin.cloud) for planned maintenance, downtime, and contract upgrade notices.
+
 ## Getting FIL Tokens
 
 FIL is needed for gas fees on the Filecoin network.
