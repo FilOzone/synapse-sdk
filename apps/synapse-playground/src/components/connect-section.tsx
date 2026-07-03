@@ -20,7 +20,7 @@ export function ConnectSection() {
         </EmptyContent>
         <Button asChild className="text-muted-foreground" size="sm" variant="link">
           <a href="https://synapse.filecoin.services" rel="noopener" target="_blank">
-            Learn More <ArrowUpRightIcon />
+            Learn more about Synapse <ArrowUpRightIcon />
           </a>
         </Button>
       </Empty>
