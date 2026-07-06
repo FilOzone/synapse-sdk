@@ -77,9 +77,23 @@ function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse
 }
 
 /**
+ * Hooks for the mock JSONRPC server.
+ */
+export interface JSONRPCHooks {
+  /**
+   * Awaited before each request is answered. Return a promise to inject
+   * deterministic latency per request (e.g. to pin completion order in tests
+   * that exercise concurrent reads). Resolves immediately when omitted. Sees the
+   * top-level request only; calls nested inside a Multicall3 batch are not
+   * surfaced individually.
+   */
+  delay?: (request: RpcRequest) => Promise<void> | void
+}
+
+/**
  * Mock JSONRPC server for testing
  */
-export function JSONRPC(options?: JSONRPCOptions) {
+export function JSONRPC(options?: JSONRPCOptions, hooks?: JSONRPCHooks) {
   return http.post<Record<string, any>, RpcRequest | RpcRequest[], RpcResponse | RpcResponse[]>(
     'https://api.calibration.node.glif.io/rpc/v1',
     async ({ request }) => {
@@ -87,10 +101,12 @@ export function JSONRPC(options?: JSONRPCOptions) {
       if (Array.isArray(body)) {
         const results: RpcResponse[] = []
         for (const item of body) {
+          await hooks?.delay?.(item)
           results.push(jsonrpcHandler(item, options))
         }
         return HttpResponse.json(results)
       } else {
+        await hooks?.delay?.(body)
         return HttpResponse.json(jsonrpcHandler(body, options))
       }
     }

@@ -82,6 +82,16 @@ import { terminateServiceFlow } from './terminate.ts'
 
 const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
 
+/**
+ * Maximum concurrent per-dataset reads while resolving a provider's matching
+ * data set in {@link StorageContext.resolveByProviderId}. Datasets are evaluated
+ * oldest-first by a sliding pool of this many reads, capping RPC fan-out for
+ * clients with many datasets per provider (FilOzone/synapse-sdk#631).
+ *
+ * Exported so tests can derive expected call bounds from it instead of hard-coding.
+ */
+export const RESOLVE_CONCURRENCY = 10
+
 export interface StorageContextOptions {
   /** The Synapse instance */
   synapse: Synapse
@@ -450,14 +460,17 @@ export class StorageContext {
    * Resolve the best matching DataSet for a Provider using a specific provider ID.
    *
    * Selection logic:
-   * 1. Filters for datasets belonging to this provider
+   * 1. Filters for the provider's active datasets owned by the client
    * 2. Sorts by dataSetId ascending (oldest first)
-   * 3. Searches in batches for metadata match
-   * 4. Prioritizes datasets with pieces > 0, then falls back to the oldest valid dataset
-   * 5. Exits early as soon as a non-empty matching dataset is found
+   * 3. Evaluates datasets oldest-first through a sliding pool of at most
+   *    RESOLVE_CONCURRENCY reads, reading metadata before checking for pieces
+   * 4. Prefers the oldest metadata match that has active pieces, otherwise the
+   *    oldest metadata match; returns null when nothing matches
+   * 5. Stops starting datasets newer than the oldest non-empty match once it is
+   *    known, so the read fan-out shrinks to roughly the match position
    *
-   * The batched enrichment exists to bound RPC calls for accounts with many
-   * datasets. Before simplifying, see https://github.com/FilOzone/synapse-sdk/issues/631
+   * The pool caps RPC fan-out for clients with many datasets per provider
+   * (FilOzone/synapse-sdk#631).
    */
   private static async resolveByProviderId(
     clientAddress: Address,
@@ -486,55 +499,93 @@ export class StorageContext {
       hasPieces: boolean
     }
 
-    // Sort ascending by ID (oldest first) for deterministic selection
+    // Sort ascending by ID (oldest first) for deterministic selection. Compare
+    // as bigint so ordering stays correct for IDs beyond Number.MAX_SAFE_INTEGER.
     const sortedDataSets = providerDataSets.sort((a, b) => {
-      return Number(a.dataSetId) - Number(b.dataSetId)
+      if (a.dataSetId < b.dataSetId) return -1
+      if (a.dataSetId > b.dataSetId) return 1
+      return 0
     })
 
-    // Batch enrichment to bound concurrent RPC calls (PR #487)
-    const MIN_BATCH_SIZE = 50
-    const MAX_BATCH_SIZE = 200
-    const BATCH_SIZE = Math.min(MAX_BATCH_SIZE, Math.max(MIN_BATCH_SIZE, Math.ceil(sortedDataSets.length / 3), 1))
-    let selectedDataSet: EvaluatedDataSet | null = null
+    // Result is selected by index, not completion order, because reads finish out
+    // of order: `bestNonEmptyIndex` is the oldest non-empty metadata match and
+    // `firstMatchIndex` the oldest metadata match (the fallback). Metadata is read
+    // first and hasActivePieces only on a metadata match, so non-matching
+    // datasets skip the piece-count read.
+    const evaluated: (EvaluatedDataSet | null)[] = new Array(sortedDataSets.length).fill(null)
+    let firstMatchIndex = Number.POSITIVE_INFINITY
+    let bestNonEmptyIndex = Number.POSITIVE_INFINITY
 
-    for (let i = 0; i < sortedDataSets.length; i += BATCH_SIZE) {
-      const batchResults: (EvaluatedDataSet | null)[] = await Promise.all(
-        sortedDataSets.slice(i, i + BATCH_SIZE).map(async (dataSet) => {
-          const { dataSetId } = dataSet
-          const [dataSetMetadata, hasPieces] = await Promise.all([
-            warmStorageService.getDataSetMetadata({ dataSetId }),
-            warmStorageService.hasActivePieces({ dataSetId }),
-          ])
-
-          if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
-            return null
-          }
-
-          return {
-            dataSetId,
-            dataSetMetadata,
-            hasPieces,
-          }
-        })
-      )
-
-      for (const result of batchResults) {
-        if (result == null) continue
-
-        if (result.hasPieces) {
-          selectedDataSet = result
-          break
-        }
-
-        if (selectedDataSet == null) {
-          selectedDataSet = result
-        }
+    const evaluate = async (index: number, dataSetId: bigint): Promise<void> => {
+      // bestNonEmptyIndex can drop below this index after the task starts (an
+      // older read finished and found pieces), so re-check here and after the
+      // metadata read to drop work that can no longer win.
+      if (index > bestNonEmptyIndex) {
+        return
       }
 
-      if (selectedDataSet?.hasPieces) {
+      const dataSetMetadata = await warmStorageService.getDataSetMetadata({ dataSetId })
+      if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
+        return
+      }
+
+      if (index < firstMatchIndex) {
+        firstMatchIndex = index
+      }
+
+      if (index > bestNonEmptyIndex) {
+        return
+      }
+
+      const hasPieces = await warmStorageService.hasActivePieces({ dataSetId })
+      evaluated[index] = { dataSetId, dataSetMetadata, hasPieces }
+      if (hasPieces && index < bestNonEmptyIndex) {
+        bestNonEmptyIndex = index
+      }
+    }
+
+    // Sliding pool: keep at most RESOLVE_CONCURRENCY reads in flight, topping up
+    // the instant one finishes so the window slides forward instead of stalling
+    // at a batch boundary. Datasets newer than the oldest non-empty match are
+    // never started, so the fan-out shrinks to roughly the match position.
+    const inFlight = new Set<Promise<void>>()
+    let nextIndex = 0
+    let failure: unknown
+    while (nextIndex < sortedDataSets.length || inFlight.size > 0) {
+      while (
+        failure == null &&
+        inFlight.size < RESOLVE_CONCURRENCY &&
+        nextIndex < sortedDataSets.length &&
+        nextIndex <= bestNonEmptyIndex
+      ) {
+        const index = nextIndex++
+        const task = evaluate(index, sortedDataSets[index].dataSetId)
+          .catch((error) => {
+            failure ??= error
+          })
+          .finally(() => {
+            inFlight.delete(task)
+          })
+        inFlight.add(task)
+      }
+
+      // Nothing left to start (failure, or every remaining dataset is newer than
+      // the oldest non-empty match) and nothing in flight: done.
+      if (inFlight.size === 0) {
+        break
+      }
+      await Promise.race(inFlight)
+      if (failure != null) {
         break
       }
     }
+
+    if (failure != null) {
+      throw failure
+    }
+
+    const selectedIndex = bestNonEmptyIndex === Number.POSITIVE_INFINITY ? firstMatchIndex : bestNonEmptyIndex
+    const selectedDataSet = selectedIndex === Number.POSITIVE_INFINITY ? null : evaluated[selectedIndex]
 
     if (selectedDataSet != null) {
       return {
