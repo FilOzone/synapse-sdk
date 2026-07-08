@@ -14,8 +14,8 @@ This page explains what each tier means, how a provider moves between tiers, and
 | Tier | Qualification | Selected by the SDK? |
 | ---- | ------------- | -------------------- |
 | [Non-approved](#non-approved-providers) | Registered in the SP Registry but not in the FWSS approved set | No |
-| [Approved](#approved-providers) | Meets published quality criteria; added to the on-chain approved set | Yes, for any copy |
-| [Endorsed](#endorsed-providers) | Approved, plus additional operational commitments | Yes, and preferred for the primary copy |
+| [Approved](#approved-providers) | Meets published quality criteria; added to the on-chain approved set | Yes, for secondary copies |
+| [Endorsed](#endorsed-providers) | Approved, plus additional operational commitments | Yes, and always used for the primary copy |
 
 ## Non-Approved Providers
 
@@ -31,7 +31,7 @@ An approved provider is a member of the **on-chain FWSS approved-provider set**.
 
 Approved providers:
 
-- Are eligible for selection by the Synapse SDK for any copy of your data.
+- Are eligible for selection by the Synapse SDK. In the default flow, approved-only providers receive secondary copies, while the primary copy goes to an [endorsed provider](#endorsed-providers).
 - Are continuously monitored by Dealbot. A provider that stops meeting the criteria can be removed from the approved set.
 
 ### How Providers Become Approved
