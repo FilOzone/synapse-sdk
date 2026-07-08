@@ -12,6 +12,7 @@ This page describes the available Synapse packages and how to choose the one tha
 | Package | Best for | Builds on |
 | --------- | ---------- | ----------- |
 | **[Synapse SDK](/developer-guides/synapse/)** | Most applications | Core |
+| **[RPC Endpoints](/developer-guides/rpc-endpoints/)** | Production apps, bulk uploads, dashboards | Viem |
 | **[Synapse React](/developer-guides/synapse-react/)** | React applications | Core + Wagmi |
 | **[Synapse Core](/developer-guides/synapse-core/)** | Fine-grained control, custom integrations | Viem |
 
@@ -27,6 +28,12 @@ This page describes the available Synapse packages and how to choose the one tha
 [**Synapse SDK Guide →**](/developer-guides/synapse/)
 
 [**Synapse SDK API Reference →**](/reference/filoz/synapse-sdk/toc/)
+
+## RPC Endpoints
+
+Use authenticated RPC endpoints and viem batching for production apps, bulk uploads, migrations, and dashboards that inspect many data sets or pieces.
+
+[**RPC Endpoints Guide →**](/developer-guides/rpc-endpoints/)
 
 ## Synapse Core
 
