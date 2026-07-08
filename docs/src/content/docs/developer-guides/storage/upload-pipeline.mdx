@@ -125,7 +125,7 @@ const result1 = await synapse.storage.upload(data, { copies: 1 })
 console.log("1 copy:", result1.copies.length)
 ```
 
-The default is 2 copies. The first copy is stored on an **endorsed** provider (high trust, curated), and secondary copies are pulled via SP-to-SP transfer from approved providers.
+The default is 2 copies. The first copy is stored on an [**endorsed** provider](/core-concepts/storage-providers#endorsed-providers) (high trust, curated), and secondary copies are pulled via SP-to-SP transfer from [approved providers](/core-concepts/storage-providers#approved-providers).
 
 ## Upload with Callbacks
 
