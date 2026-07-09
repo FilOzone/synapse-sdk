@@ -1,0 +1,111 @@
+---
+title: Storage Provider Tiers
+description: How storage providers qualify for the Filecoin Onchain Cloud; the difference between non-approved, approved, and endorsed providers, how each tier is granted, and how tiers affect provider selection in the Synapse SDK.
+sidebar:
+  order: 7
+---
+
+Not every storage provider (SP) on the Filecoin network participates in the Filecoin Onchain Cloud (FOC) on equal footing. To deliver a production-grade quality of service, the [Filecoin Warm Storage Service (FWSS)](/core-concepts/fwss-overview) maintains an on-chain set of **approved** providers, and a subset of those are additionally **endorsed** for a higher service tier.
+
+This page explains what each tier means, how a provider moves between tiers, and how the tiers affect provider selection and replica placement in the Synapse SDK.
+
+## Provider Tiers at a Glance
+
+| Tier | Qualification | Selected by the SDK? |
+| ---- | ------------- | -------------------- |
+| [Non-approved](#non-approved-providers) | Registered in the SP Registry but not in the FWSS approved set | No |
+| [Approved](#approved-providers) | Meets published quality criteria; added to the on-chain approved set | Yes, for secondary copies |
+| [Endorsed](#endorsed-providers) | Approved, plus additional operational commitments | Yes, and always used for the primary copy |
+
+## Non-Approved Providers
+
+A non-approved provider is registered in the [ServiceProviderRegistry](/core-concepts/architecture) but is not in the FWSS approved-provider set. Non-approved providers:
+
+- Are **not selected** by the Synapse SDK for normal storage routing. Uploads through `synapse.storage` will never place data with them automatically.
+- May still be actively tested by [Dealbot](https://github.com/FilOzone/dealbot), the FOC quality-monitoring bot, in order to qualify for approval.
+- Can still be used explicitly if you pass their `providerId` to lower-level APIs, though this bypasses the quality vetting that approval represents.
+
+It is possible for a provider to be removed from the approved list. Removal does not deactivate existing storage deals and does not prevent further interaction with that provider via the SDK but removal may be an indication of a lowering of service quality.
+## Approved Providers
+
+An approved provider is a member of the **on-chain FWSS approved-provider set**. Approval means the provider has demonstrated, through continuous automated testing, that it meets the published acceptance criteria for storage success, data retention, and retrieval success.
+
+Approved providers:
+
+- Are eligible for selection by the Synapse SDK. In the default flow, approved-only providers receive secondary copies, while the primary copy goes to an [endorsed provider](#endorsed-providers).
+- Are continuously monitored by Dealbot. A provider that stops meeting the criteria can be removed from the approved set.
+
+### How Providers Become Approved
+
+Qualification is measured automatically, but the on-chain change is applied manually:
+
+1. **Automated qualification**: Dealbot continuously runs storage, retention, and retrieval checks against providers (including non-approved ones seeking approval). The full acceptance criteria and measurement methodology are published in the [Dealbot production configuration and approval methodology](https://github.com/FilOzone/dealbot/blob/main/docs/checks/production-configuration-and-approval-methodology.md).
+2. **Manual review and on-chain change**: Satisfying the Dealbot criteria makes a provider *eligible*, but approval is not automatic. When Dealbot signals that a provider should be added or removed, a review is opened and the change is proposed for signing and execution by the SAFE multisig that controls the approved set.
+
+Approval and removal reviews are currently tracked publicly as GitHub issues: see the [open and past SP approval reviews](https://github.com/FilOzone/tpm-utils/issues?q=label%3Asp-approval-review) and the [review template](https://github.com/FilOzone/tpm-utils/blob/master/.github/ISSUE_TEMPLATE/sp-approval-review.md) that documents what each review covers.
+
+## Endorsed Providers
+
+Endorsement is a higher service tier layered on top of approval. An endorsed provider is an approved provider that has additionally made operational commitments beyond the automated quality checks, such as service continuity, response times for support and incident handling, and related operational expectations.
+
+Key properties:
+
+- Endorsement is granted and removed **manually**; there is no automated path to endorsement.
+- The endorsed set is recorded on-chain, separately from the approved set.
+- The Synapse SDK places **at least one replica** of your data with an endorsed provider by default (the primary copy), so every upload benefits from the higher tier.
+
+## Possible Tier Combinations
+
+Approval and endorsement are independent on-chain sets, so these combinations are possible:
+
+| State | Meaning |
+| ----- | ------- |
+| Approved + endorsed | The highest tier. Eligible for all copies and preferred for the primary copy. |
+| Approved only | Eligible for selection as a secondary copy. |
+| Neither | Not selected by the SDK. May be under Dealbot evaluation to qualify. |
+| Endorsed only | Technically possible, but in practice never used as all endorsed SPs are expected to also be approved. |
+
+## On-Chain Source of Truth
+
+Both lists are recorded on-chain in the [FilOzone/filecoin-services](https://github.com/FilOzone/filecoin-services) contracts. GitHub issues, Dealbot dashboards, and this documentation are all commentary; the contracts are authoritative.
+
+**The approved set** lives in the [FilecoinWarmStorageService contract](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/FilecoinWarmStorageService.sol), which maintains the list of approved provider IDs and exposes owner-only `addApprovedProvider` and `removeApprovedProvider` functions (this owner is the SAFE multisig mentioned above). To read the list, query `getApprovedProviders` on the companion [FilecoinWarmStorageServiceStateView contract](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/FilecoinWarmStorageServiceStateView.sol), which serves all FWSS read operations.
+
+**The endorsed set** is a standalone [ProviderIdSet contract](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/ProviderIdSet.sol) (listed as "Endorsements" in the address tables), also owner-controlled. Query `getProviderIds` to read the full list or `containsProviderId` to check a single provider.
+
+Deployed addresses for both contracts on mainnet and calibration, with block explorer links, are on the [Contract Addresses](/resources/contracts) page.
+
+You can also query both sets with [`@filoz/synapse-core`](/developer-guides/synapse-core), which wraps these contract reads:
+
+```ts twoslash
+// @lib: esnext,dom
+import { createPublicClient, http } from "viem"
+import { calibration } from "@filoz/synapse-core/chains"
+const publicClient = createPublicClient({ chain: calibration, transport: http() })
+// ---cut---
+import { getApprovedProviderIds } from "@filoz/synapse-core/warm-storage"
+import { getEndorsedProviderIds } from "@filoz/synapse-core/endorsements"
+
+const approved = await getApprovedProviderIds(publicClient)
+const endorsed = await getEndorsedProviderIds(publicClient)
+
+console.log("Approved provider IDs:", approved)
+console.log("Endorsed provider IDs:", endorsed)
+```
+
+## How Tiers Affect Synapse SDK Provider Selection
+
+When you upload through the SDK without specifying providers, the [upload pipeline](/developer-guides/storage/upload-pipeline) selects providers by tier:
+
+- The **primary copy** (the one you upload directly) goes to an **endorsed** provider.
+- **Secondary copies** are pulled from the primary via SP-to-SP transfer and can go to **any approved** provider.
+- **Non-approved** providers are never selected automatically.
+
+Before finalizing a selection, the SDK also verifies the candidate provider is reachable via a ping test and falls back to the next candidate if it is not. See [Storage Operations](/developer-guides/storage/storage-operations) for the full selection rules, including data set reuse.
+
+## Further Reading
+
+- [Dealbot approval methodology and acceptance criteria](https://github.com/FilOzone/dealbot/blob/main/docs/checks/production-configuration-and-approval-methodology.md)
+- [SP approval reviews on GitHub](https://github.com/FilOzone/tpm-utils/issues?q=label%3Asp-approval-review)
+- [Upload Pipeline](/developer-guides/storage/upload-pipeline) for how copies are placed
+- [Storage Operations](/developer-guides/storage/storage-operations) for data set and provider selection details

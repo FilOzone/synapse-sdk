@@ -100,7 +100,7 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 **Provider Selection** (when no matching data sets exist):
 
 - If you specify a provider (via `providerId`), that provider is used
-- Otherwise, the SDK selects from endorsed providers for the primary copy and any approved provider for secondaries
+- Otherwise, the SDK selects from [endorsed providers](/core-concepts/storage-providers#endorsed-providers) for the primary copy and any [approved provider](/core-concepts/storage-providers#approved-providers) for secondaries
 - Before finalizing selection, the SDK verifies the provider is reachable via a ping test
 - If a provider fails the ping test, the SDK tries the next candidate
 - A new data set will be created automatically during the first commit
