@@ -63,16 +63,20 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
         run: |
           set -o pipefail
-          pnpm --dir docs exec wrangler versions upload --preview-alias "pr-${PR_NUMBER}" --tag "pr-${PR_NUMBER}" --message "Trusted preview for PR #${PR_NUMBER}" | tee wrangler-output.txt
+          deploy_status=0
+          pnpm --dir docs exec wrangler versions upload --preview-alias "pr-${PR_NUMBER}" --tag "pr-${PR_NUMBER}" --message "Trusted preview for PR #${PR_NUMBER}" | tee wrangler-output.txt || deploy_status=$?
           {
             echo "### Docs preview"
             echo
             echo "Trusted PR: #${PR_NUMBER}"
             echo
+            echo "Wrangler exit status: ${deploy_status}"
+            echo
             echo '```'
             cat wrangler-output.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          exit "$deploy_status"
       - name: Upload Wrangler logs
         if: failure()
         uses: actions/upload-artifact@v7
