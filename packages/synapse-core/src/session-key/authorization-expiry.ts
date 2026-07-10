@@ -6,8 +6,6 @@ import {
   ContractFunctionExecutionError,
   type ContractFunctionParameters,
   type ContractFunctionReturnType,
-  createClient,
-  custom,
   type MulticallErrorType,
   type ReadContractErrorType,
   type Transport,
@@ -16,6 +14,7 @@ import { multicall, readContract } from 'viem/actions'
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { toReadClient } from '../utils/read-client.ts'
 import { DefaultFwssPermissions, type Expirations, type Permission } from './permissions.ts'
 
 export namespace authorizationExpiry {
@@ -78,7 +77,7 @@ export async function authorizationExpiry(
   options: authorizationExpiry.OptionsType
 ): Promise<authorizationExpiry.OutputType> {
   const data = await readContract(
-    client,
+    toReadClient(client),
     authorizationExpiryCall({
       chain: client.chain,
       address: options.address,
@@ -206,14 +205,7 @@ export async function getExpirations(client: Client<Transport, Chain>, options: 
   const permissions = options.permissions ?? DefaultFwssPermissions
   const expirations: Expirations = Object.fromEntries(permissions.map((permission) => [permission, 0n]))
 
-  // Use a plain client without an account for read-only calls. When a client
-  // has an account, viem includes it as `from` in eth_call. On Filecoin, if
-  // that address is not a deployed actor (common for session keys that have
-  // never held FIL), Lotus rejects the call with "actor not found".
-  const readClient = createClient({
-    chain: client.chain,
-    transport: custom({ request: client.transport.request }),
-  })
+  const readClient = toReadClient(client)
 
   try {
     const result = await multicall(readClient, {

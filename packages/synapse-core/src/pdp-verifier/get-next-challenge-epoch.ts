@@ -13,6 +13,7 @@ import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
+import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getNextChallengeEpoch {
   export type OptionsType = {
@@ -65,7 +66,7 @@ export async function getNextChallengeEpoch(
 ): Promise<getNextChallengeEpoch.OutputType> {
   try {
     const data = await readContract(
-      client,
+      toReadClient(client),
       getNextChallengeEpochCall({
         chain: client.chain,
         dataSetId: options.dataSetId,

@@ -12,6 +12,7 @@ import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getRail {
   export type OptionsType = {
@@ -93,7 +94,7 @@ export async function getRail(
   options: getRail.OptionsType
 ): Promise<getRail.OutputType> {
   return readContract(
-    client,
+    toReadClient(client),
     getRailCall({
       chain: client.chain,
       railId: options.railId,

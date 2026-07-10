@@ -13,6 +13,7 @@ import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
 import { type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
+import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getAllDataSetMetadata {
   export type OptionsType = {
@@ -63,7 +64,7 @@ export async function getAllDataSetMetadata(
   options: getAllDataSetMetadata.OptionsType
 ): Promise<getAllDataSetMetadata.OutputType> {
   const data = await readContract(
-    client,
+    toReadClient(client),
     getAllDataSetMetadataCall({
       chain: client.chain,
       dataSetId: options.dataSetId,

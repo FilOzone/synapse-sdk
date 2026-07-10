@@ -159,6 +159,10 @@ describe('registerProvider', () => {
 
   describe('registerProvider (with mocked RPC)', () => {
     it('should register provider and return transaction hash', async () => {
+      const requestBodies: Array<{
+        method: string
+        params: [{ from?: string }]
+      }> = []
       const pdpOffering = {
         serviceURL: 'https://provider.example.com',
         minPieceSizeInBytes: 1024n,
@@ -197,7 +201,13 @@ describe('registerProvider', () => {
       const client = createWalletClient({
         account,
         chain: calibration,
-        transport: http(),
+        transport: http(undefined, {
+          onFetchRequest(_request, init) {
+            if (typeof init.body === 'string') {
+              requestBodies.push(JSON.parse(init.body) as (typeof requestBodies)[number])
+            }
+          },
+        }),
       })
 
       const hash = await registerProvider(client, {
@@ -209,6 +219,11 @@ describe('registerProvider', () => {
 
       assert.ok(hash.startsWith('0x'))
       assert.equal(hash.length, 66) // 0x + 64 hex chars
+
+      const calls = requestBodies.filter(({ method }) => method === 'eth_call')
+      assert.equal(calls.length, 2)
+      assert.equal(calls[0].params[0].from, undefined)
+      assert.equal(calls[1].params[0].from?.toLowerCase(), account.address.toLowerCase())
     })
 
     it('should use provided registration fee value', async () => {

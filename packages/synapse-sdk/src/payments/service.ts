@@ -1,6 +1,7 @@
 import { asChain } from '@filoz/synapse-core/chains'
 import * as ERC20 from '@filoz/synapse-core/erc20'
 import * as Pay from '@filoz/synapse-core/pay'
+import { toReadClient } from '@filoz/synapse-core/utils'
 import {
   type Account,
   type Address,
@@ -41,6 +42,7 @@ export interface DepositOptions {
  */
 export class PaymentsService {
   private readonly _client: Client<Transport, Chain, Account>
+  private readonly _readClient: Client<Transport, Chain, undefined>
 
   /**
    * Create a new PaymentsService instance
@@ -51,6 +53,7 @@ export class PaymentsService {
    */
   constructor(options: { client: Client<Transport, Chain, Account> }) {
     this._client = options.client
+    this._readClient = toReadClient(options.client)
   }
 
   /**
@@ -609,7 +612,7 @@ export class PaymentsService {
     try {
       // Use staticCall to simulate the transaction and get the return values
       const { result } = await simulateContract(
-        this._client,
+        this._readClient,
         Pay.settleRailCall({
           railId,
           untilEpoch: _untilEpoch,

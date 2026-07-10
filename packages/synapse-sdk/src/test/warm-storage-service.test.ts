@@ -781,9 +781,29 @@ describe('WarmStorageService', () => {
           },
         })
       )
-      const warmStorageService = await createWarmStorageService()
+      const requestBodies: Array<{
+        method: string
+        params: [{ from?: string }]
+      }> = []
+      const account = privateKeyToAccount(Mocks.PRIVATE_KEYS.key1)
+      const recordingClient = createWalletClient({
+        account,
+        chain: calibration,
+        transport: viemHttp(undefined, {
+          onFetchRequest(_request, init) {
+            if (typeof init.body === 'string') {
+              requestBodies.push(JSON.parse(init.body) as (typeof requestBodies)[number])
+            }
+          },
+        }),
+      })
+      const warmStorageService = new WarmStorageService({ client: recordingClient })
       const isApproved = await warmStorageService.isProviderIdApproved({ providerId: 4n })
       assert.isTrue(isApproved)
+
+      const call = requestBodies.find(({ method }) => method === 'eth_call')
+      assert.exists(call)
+      assert.isUndefined(call?.params[0].from)
     })
 
     it('should check if a provider ID is not approved', async () => {
@@ -972,8 +992,24 @@ describe('WarmStorageService', () => {
           debug: true,
         })
       )
+      const requestBodies: Array<{
+        method: string
+        params: [{ from?: string }]
+      }> = []
+      const account = privateKeyToAccount(Mocks.PRIVATE_KEYS.key1)
+      const recordingClient = createWalletClient({
+        account,
+        chain: calibration,
+        transport: viemHttp(undefined, {
+          onFetchRequest(_request, init) {
+            if (typeof init.body === 'string') {
+              requestBodies.push(JSON.parse(init.body) as (typeof requestBodies)[number])
+            }
+          },
+        }),
+      })
       const dataSetId = 49n
-      const warmStorageService = await createWarmStorageService()
+      const warmStorageService = new WarmStorageService({ client: recordingClient })
 
       const tx = await warmStorageService.topUpCDNPaymentRails({
         dataSetId,
@@ -981,6 +1017,10 @@ describe('WarmStorageService', () => {
         cacheMissAmountToAdd: 1n,
       })
       assert.equal(tx, '0x8a743df561386558f7e9468beb4538cd0afc41297e54959359cb96e3ca36b822')
+
+      const call = requestBodies.find(({ method }) => method === 'eth_call')
+      assert.exists(call)
+      assert.equal(call?.params[0].from?.toLowerCase(), account.address.toLowerCase())
     })
   })
 })

@@ -1,8 +1,8 @@
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import { createPublicClient, http } from 'viem'
+import { createClient, createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
-import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
+import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { getProviderWithProduct, getProviderWithProductCall } from '../src/sp-registry/get-provider-with-product.ts'
 
 describe('getProviderWithProduct', () => {
@@ -79,6 +79,36 @@ describe('getProviderWithProduct', () => {
       assert.equal(provider.providerInfo.name, 'Test Provider')
       assert.equal(provider.product.isActive, true)
       assert.equal(provider.productCapabilityValues.length, 7)
+    })
+
+    it('should omit an accountful client address from the read call', async () => {
+      server.use(JSONRPC(presets.basic))
+
+      const requestBodies: Array<{
+        method: string
+        params: [{ from?: string }]
+      }> = []
+      const client = createClient({
+        account: ADDRESSES.client1,
+        chain: calibration,
+        transport: http(undefined, {
+          onFetchRequest(_request, init) {
+            if (typeof init.body === 'string') {
+              requestBodies.push(JSON.parse(init.body) as (typeof requestBodies)[number])
+            }
+          },
+        }),
+      })
+
+      const provider = await getProviderWithProduct(client, {
+        providerId: 1n,
+        productType: 0,
+      })
+
+      assert.isNotNull(provider)
+      const call = requestBodies.find(({ method }) => method === 'eth_call')
+      assert.exists(call)
+      assert.isUndefined(call?.params[0].from)
     })
 
     it('should return null when the contract reverts with providerExists', async () => {

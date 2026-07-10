@@ -12,6 +12,7 @@ import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getClientDataSetsLength {
   export type OptionsType = {
@@ -64,7 +65,7 @@ export async function getClientDataSetsLength(
   options: getClientDataSetsLength.OptionsType
 ): Promise<getClientDataSetsLength.OutputType> {
   const data = await readContract(
-    client,
+    toReadClient(client),
     getClientDataSetsLengthCall({
       chain: client.chain,
       address: options.address,

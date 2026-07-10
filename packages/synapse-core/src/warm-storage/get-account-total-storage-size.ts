@@ -3,6 +3,7 @@ import { multicall } from 'viem/actions'
 import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
 import { getDataSetLeafCountCall } from '../pdp-verifier/get-data-set-leaf-count.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
+import { toReadClient } from '../utils/read-client.ts'
 import { getClientDataSets } from './get-client-data-sets.ts'
 
 export namespace getAccountTotalStorageSize {
@@ -78,7 +79,7 @@ export async function getAccountTotalStorageSize(
     }),
   ])
 
-  const results = await multicall(client, {
+  const results = await multicall(toReadClient(client), {
     contracts: calls,
     allowFailure: false,
   })

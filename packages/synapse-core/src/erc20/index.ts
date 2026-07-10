@@ -13,6 +13,7 @@ import { type Address, type Chain, type Client, erc20Abi, type MulticallErrorTyp
 import { multicall } from 'viem/actions'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import { toReadClient } from '../utils/read-client.ts'
 
 export namespace balance {
   export type OptionsType = {
@@ -57,7 +58,7 @@ export async function balance(
   const chain = asChain(client.chain)
   const token = options.token ?? chain.contracts.usdfc.address
 
-  const result = await multicall(client, {
+  const result = await multicall(toReadClient(client), {
     allowFailure: false,
     contracts: [
       {
@@ -131,7 +132,7 @@ export async function balanceForPermit(
   const chain = asChain(client.chain)
   const token = options.token ?? chain.contracts.usdfc.address
 
-  const result = await multicall(client, {
+  const result = await multicall(toReadClient(client), {
     allowFailure: false,
     contracts: [
       {

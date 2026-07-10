@@ -12,6 +12,7 @@ import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getClientDataSetIds {
   export type OptionsType = {
@@ -75,7 +76,7 @@ export async function getClientDataSetIds(
   options: getClientDataSetIds.OptionsType
 ): Promise<getClientDataSetIds.OutputType> {
   const data = await readContract(
-    client,
+    toReadClient(client),
     getClientDataSetIdsCall({
       chain: client.chain,
       address: options.address,

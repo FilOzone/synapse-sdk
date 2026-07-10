@@ -1,13 +1,15 @@
 import {
-  type Account,
   type Address,
   type Chain,
   type Client,
   type GetContractErrorType,
+  type GetContractReturnType,
   type Transport,
   getContract as viemGetContract,
 } from 'viem'
+import type { pdp as pdpAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import { toReadClient } from '../utils/read-client.ts'
 
 export * from './data-set-live.ts'
 export * from './find-piece-ids-by-cid.ts'
@@ -25,12 +27,12 @@ export * from './get-scheduled-removals.ts'
 export namespace getContract {
   export type OptionsType = {
     /** The client to use to get the contract. */
-    client: Client<Transport, Chain, Account>
+    client: Client<Transport, Chain>
     /** The address of the contract. If not provided, the default is the PDP Verifier contract address for the chain. */
     address?: Address
   }
 
-  export type OutputType = ReturnType<typeof viemGetContract>
+  export type OutputType = GetContractReturnType<typeof pdpAbi, Client<Transport, Chain>>
 
   export type ErrorType = asChain.ErrorType | GetContractErrorType
 }
@@ -60,9 +62,12 @@ export namespace getContract {
  */
 export function getContract(options: getContract.OptionsType): getContract.OutputType {
   const chain = asChain(options.client.chain)
-  return viemGetContract({
+  const parameters = {
     address: options.address ?? chain.contracts.pdp.address,
     abi: chain.contracts.pdp.abi,
-    client: options.client,
-  })
+  } as const
+  const contract = viemGetContract({ ...parameters, client: options.client })
+  const readOnlyContract = viemGetContract({ ...parameters, client: toReadClient(options.client) })
+
+  return { ...contract, read: readOnlyContract.read }
 }

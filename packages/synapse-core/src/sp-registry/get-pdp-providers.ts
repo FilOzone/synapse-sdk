@@ -13,6 +13,7 @@ import { multicall, readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { toReadClient } from '../utils/read-client.ts'
 import { getApprovedProviderIdsCall } from '../warm-storage/get-approved-provider-ids.ts'
 import { getPDPProviderCall, hasActivePDPProduct, parsePDPProvider } from './get-pdp-provider.ts'
 import type { getProvidersByProductType } from './get-providers-by-product-type.ts'
@@ -65,7 +66,7 @@ export async function getPDPProviders(
   options: getPDPProviders.OptionsType = {}
 ): Promise<getPDPProviders.OutputType> {
   const data = await readContract(
-    client,
+    toReadClient(client),
     getPDPProvidersCall({
       chain: client.chain,
       onlyActive: options.onlyActive,
@@ -183,7 +184,7 @@ export async function getApprovedPDPProviders(
   client: Client<Transport, Chain>,
   options: getApprovedPDPProviders.OptionsType = {}
 ): Promise<getApprovedPDPProviders.OutputType> {
-  const [pdpProviders, approvedProviders] = await multicall(client, {
+  const [pdpProviders, approvedProviders] = await multicall(toReadClient(client), {
     allowFailure: false,
     contracts: [
       getPDPProvidersCall({
@@ -257,7 +258,7 @@ export async function getPDPProvidersByIds(
   client: Client<Transport, Chain>,
   options: getPDPProvidersByIds.OptionsType
 ): Promise<getPDPProvidersByIds.OutputType> {
-  const result = await multicall(client, {
+  const result = await multicall(toReadClient(client), {
     allowFailure: true,
     contracts: options.providerIds.map((providerId) =>
       getPDPProviderCall({

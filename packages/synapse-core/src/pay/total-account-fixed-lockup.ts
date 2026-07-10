@@ -1,5 +1,6 @@
 import type { Address, Chain, Client, MulticallErrorType, Transport } from 'viem'
 import { multicall } from 'viem/actions'
+import { toReadClient } from '../utils/read-client.ts'
 import { getRailCall } from './get-rail.ts'
 import { getRailsForPayerAndToken } from './get-rails-for-payer-and-token.ts'
 
@@ -55,7 +56,8 @@ export async function totalAccountFixedLockup(
   client: Client<Transport, Chain>,
   options: totalAccountFixedLockup.OptionsType
 ): Promise<totalAccountFixedLockup.OutputType> {
-  const { results } = await getRailsForPayerAndToken(client, {
+  const readClient = toReadClient(client)
+  const { results } = await getRailsForPayerAndToken(readClient, {
     payer: options.address,
     token: options.token,
     contractAddress: options.contractAddress,
@@ -65,7 +67,7 @@ export async function totalAccountFixedLockup(
     return { totalFixedLockup: 0n }
   }
 
-  const railDetails = await multicall(client, {
+  const railDetails = await multicall(readClient, {
     allowFailure: false,
     contracts: results.map((rail) =>
       getRailCall({

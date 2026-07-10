@@ -20,7 +20,7 @@
 import { asChain, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import { dataSetLiveCall, getDataSetListenerCall } from '@filoz/synapse-core/pdp-verifier'
-import { type MetadataObject, metadataArrayToObject } from '@filoz/synapse-core/utils'
+import { type MetadataObject, metadataArrayToObject, toReadClient } from '@filoz/synapse-core/utils'
 import {
   addApprovedProvider,
   getAccountTotalStorageSize,
@@ -53,6 +53,7 @@ import { DEFAULT_CHAIN, METADATA_KEYS } from '../utils/constants.ts'
 
 export class WarmStorageService {
   private readonly _client: Client<Transport, Chain, Account>
+  private readonly _readClient: Client<Transport, Chain, undefined>
   private readonly _chain: SynapseChain
 
   /**
@@ -64,6 +65,7 @@ export class WarmStorageService {
    */
   constructor(options: { client: Client<Transport, Chain, Account> }) {
     this._client = options.client
+    this._readClient = toReadClient(options.client)
     this._chain = asChain(options.client.chain)
   }
 
@@ -170,7 +172,7 @@ export class WarmStorageService {
     // Enhance all in parallel using dataset IDs
     const enhancedDataSetsPromises = dataSets.map(async (dataSet) => {
       try {
-        const [isLive, listener, metadata] = await multicall(this._client, {
+        const [isLive, listener, metadata] = await multicall(this._readClient, {
           allowFailure: false,
           contracts: [
             dataSetLiveCall({
@@ -253,7 +255,7 @@ export class WarmStorageService {
    */
   async validateDataSet(options: { dataSetId: bigint }): Promise<void> {
     // Parallelize validation checks
-    const [isLive, listener] = await multicall(this._client, {
+    const [isLive, listener] = await multicall(this._readClient, {
       allowFailure: false,
       contracts: [
         dataSetLiveCall({
@@ -332,7 +334,7 @@ export class WarmStorageService {
    * @returns The metadata value if it exists, null otherwise
    */
   async getDataSetMetadataByKey(options: { dataSetId: bigint; key: string }): Promise<string | null> {
-    const [exists, value] = await readContract(this._client, {
+    const [exists, value] = await readContract(this._readClient, {
       address: this._chain.contracts.fwssView.address,
       abi: this._chain.contracts.fwssView.abi,
       functionName: 'getDataSetMetadata',
@@ -363,7 +365,7 @@ export class WarmStorageService {
    * @returns The metadata value if it exists, null otherwise
    */
   async getPieceMetadataByKey(options: { dataSetId: bigint; pieceId: bigint; key: string }): Promise<string | null> {
-    const [exists, value] = await readContract(this._client, {
+    const [exists, value] = await readContract(this._readClient, {
       address: this._chain.contracts.fwssView.address,
       abi: this._chain.contracts.fwssView.abi,
       functionName: 'getPieceMetadata',
@@ -441,7 +443,7 @@ export class WarmStorageService {
    * @returns Whether the provider is approved
    */
   async isProviderIdApproved(options: { providerId: bigint }): Promise<boolean> {
-    return readContract(this._client, {
+    return readContract(this._readClient, {
       address: this._chain.contracts.fwssView.address,
       abi: this._chain.contracts.fwssView.abi,
       functionName: 'isProviderApproved',
@@ -454,7 +456,7 @@ export class WarmStorageService {
    * @returns Owner address
    */
   async getOwner(): Promise<Address> {
-    return readContract(this._client, {
+    return readContract(this._readClient, {
       address: this._chain.contracts.fwss.address,
       abi: this._chain.contracts.fwss.abi,
       functionName: 'owner',
@@ -483,7 +485,7 @@ export class WarmStorageService {
     initChallengeWindowStart: bigint
   }> {
     const [maxProvingPeriod, challengeWindowSize, challengesPerProof, initChallengeWindowStart] = await readContract(
-      this._client,
+      this._readClient,
       {
         address: this._chain.contracts.fwssView.address,
         abi: this._chain.contracts.fwssView.abi,

@@ -1,6 +1,7 @@
 import type { Address, Chain, Client, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import { asChain } from '../chains.ts'
+import { toReadClient } from '../utils/read-client.ts'
 import { PRB_ONE, prbDiv, prbExp2 } from './prb.ts'
 
 /**
@@ -25,7 +26,7 @@ export type AuctionInfo = {
  */
 export async function auctionInfo(client: Client<Transport, Chain>, token: Address): Promise<AuctionInfo> {
   const chain = asChain(client.chain)
-  const [startPrice, startTime] = await readContract(client, {
+  const [startPrice, startTime] = await readContract(toReadClient(client), {
     address: chain.contracts.filecoinPay.address,
     abi: chain.contracts.filecoinPay.abi,
     functionName: 'auctionInfo',
@@ -48,7 +49,7 @@ export async function auctionInfo(client: Client<Transport, Chain>, token: Addre
  */
 export async function auctionFunds(client: Client<Transport, Chain>, token: Address): Promise<bigint> {
   const chain = asChain(client.chain)
-  const [funds] = await readContract(client, {
+  const [funds] = await readContract(toReadClient(client), {
     address: chain.contracts.filecoinPay.address,
     abi: chain.contracts.filecoinPay.abi,
     functionName: 'accounts',
