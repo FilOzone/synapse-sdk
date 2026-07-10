@@ -1,11 +1,13 @@
+# Cloudflare Workers Git integration already builds same-repo PR previews outside this repo.
+# This workflow is the in-repo docs lint/build check, covers fork PRs without Cloudflare secrets,
+# and skips docs builds when full CI already covers them.
 name: docs-check
 
 on:
   pull_request:
-    paths:
-      - "docs/**"
-      - .github/workflows/docs-check.yml
-      - .github/workflows/docs.yml
+concurrency:
+  group: docs-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -13,10 +15,11 @@ permissions:
 
 jobs:
   changes:
-    name: Detect docs check requirement
+    name: Detect docs changes
     runs-on: ubuntu-latest
     outputs:
-      docs_check_required: ${{ steps.detect.outputs.docs_check_required }}
+      docs_relevant_changed: ${{ steps.detect.outputs.docs_relevant_changed }}
+      docs_build_required: ${{ steps.detect.outputs.docs_build_required }}
     steps:
       - name: Detect changed paths
         id: detect
@@ -50,16 +53,18 @@ jobs:
           $files
           EOF
 
+          echo "docs_relevant_changed=${docs_relevant_changed}" >> "$GITHUB_OUTPUT"
+
           if [ "$docs_relevant_changed" = true ] && [ "$full_ci_changed" = false ]; then
-            echo "docs_check_required=true" >> "$GITHUB_OUTPUT"
+            echo "docs_build_required=true" >> "$GITHUB_OUTPUT"
           else
-            echo "docs_check_required=false" >> "$GITHUB_OUTPUT"
+            echo "docs_build_required=false" >> "$GITHUB_OUTPUT"
           fi
 
-  build-docs:
-    name: Build docs
+  check-docs:
+    name: Check docs
     needs: changes
-    if: needs.changes.outputs.docs_check_required == 'true'
+    if: needs.changes.outputs.docs_relevant_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -72,7 +77,11 @@ jobs:
           node-version: lts/*
       - name: Install Dependencies
         run: pnpm install
+      - name: Check Markdown
+        run: pnpm run check:markdown
       - name: Build packages
+        if: needs.changes.outputs.docs_build_required == 'true'
         run: pnpm run build
       - name: Build docs
+        if: needs.changes.outputs.docs_build_required == 'true'
         run: pnpm -r --filter docs run build
