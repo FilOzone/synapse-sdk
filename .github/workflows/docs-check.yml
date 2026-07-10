@@ -1,0 +1,87 @@
+# Cloudflare Workers Git integration already builds same-repo PR previews outside this repo.
+# This workflow is the in-repo docs lint/build check, covers fork PRs without Cloudflare secrets,
+# and skips docs builds when full CI already covers them.
+name: docs-check
+
+on:
+  pull_request:
+concurrency:
+  group: docs-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    name: Detect docs changes
+    runs-on: ubuntu-latest
+    outputs:
+      docs_relevant_changed: ${{ steps.detect.outputs.docs_relevant_changed }}
+      docs_build_required: ${{ steps.detect.outputs.docs_build_required }}
+    steps:
+      - name: Detect changed paths
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          files="$(gh pr diff "$PR_NUMBER" --repo "$REPOSITORY" --name-only)"
+          printf '%s\n' "$files"
+
+          docs_relevant_changed=false
+          full_ci_changed=false
+
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+
+            case "$file" in
+              docs/*|.github/workflows/docs.yml|.github/workflows/docs-check.yml)
+                docs_relevant_changed=true
+                ;;
+            esac
+
+            # Keep in sync with ci.yml pull_request.paths. CI already builds docs for these changes.
+            case "$file" in
+              packages/*|apps/*|.github/workflows/ci.yml|package.json|pnpm-lock.yaml|pnpm-workspace.yaml)
+                full_ci_changed=true
+                ;;
+            esac
+          done <<EOF
+          $files
+          EOF
+
+          echo "docs_relevant_changed=${docs_relevant_changed}" >> "$GITHUB_OUTPUT"
+
+          if [ "$docs_relevant_changed" = true ] && [ "$full_ci_changed" = false ]; then
+            echo "docs_build_required=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_build_required=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  check-docs:
+    name: Check docs
+    needs: changes
+    if: needs.changes.outputs.docs_relevant_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+      - name: Use Node.js lts/*
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+      - name: Install Dependencies
+        run: pnpm install
+      - name: Check Markdown
+        run: pnpm run check:markdown
+      - name: Build packages
+        if: needs.changes.outputs.docs_build_required == 'true'
+        run: pnpm run build
+      - name: Build docs
+        if: needs.changes.outputs.docs_build_required == 'true'
+        run: pnpm -r --filter docs run build
