@@ -16,7 +16,7 @@
     "@tanstack/react-query": "~5.101.0",
     "starlight-auto-sidebar": "^0.4.0",
     "starlight-changelogs": "^0.5.0",
-    "starlight-links-validator": "^0.24.0",
+    "starlight-links-validator": "^0.25.2",
     "viem": "catalog:",
     "wagmi": "catalog:"
   },
