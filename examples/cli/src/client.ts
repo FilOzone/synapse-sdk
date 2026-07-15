@@ -1,8 +1,17 @@
 import { execSync } from 'node:child_process'
 import { basename, dirname } from 'node:path'
 import * as p from '@clack/prompts'
-import { getChain } from '@filoz/synapse-core/chains'
-import { createPublicClient, createWalletClient, type Hex, http } from 'viem'
+import { type Chain, getChain } from '@filoz/synapse-core/chains'
+import {
+  createPublicClient,
+  createWalletClient,
+  type Hex,
+  type HttpTransport,
+  http,
+  type PrivateKeyAccount,
+  type PublicClient,
+  type WalletClient,
+} from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import config from './config.ts'
 
@@ -37,7 +46,10 @@ function privateKeyFromConfig() {
   }
 }
 
-export function privateKeyClient(chainId: number) {
+export function privateKeyClient(chainId: number): {
+  client: WalletClient<HttpTransport, Chain, PrivateKeyAccount>
+  chain: Chain
+} {
   const chain = getChain(chainId)
 
   const privateKey = privateKeyFromConfig()
@@ -54,7 +66,9 @@ export function privateKeyClient(chainId: number) {
   }
 }
 
-export function publicClient(chainId: number) {
+export function publicClient(
+  chainId: number
+): PublicClient<HttpTransport, Chain> {
   const chain = getChain(chainId)
   const publicClient = createPublicClient({
     chain,
