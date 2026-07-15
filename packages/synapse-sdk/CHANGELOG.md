@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v1.0.1...synapse-sdk-v1.1.0) (2026-07-15)
+
+
+### Features
+
+* **warm-storage:** add hasActivePieces and use it in resolveByProviderId ([#852](https://github.com/FilOzone/synapse-sdk/issues/852)) ([6282f91](https://github.com/FilOzone/synapse-sdk/commit/6282f91edd8e26927e96a648b21976af42ccd6f0))
+
 ## [1.0.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.42.0...synapse-sdk-v1.0.1) (2026-06-12)
 
 
