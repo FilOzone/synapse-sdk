@@ -24,10 +24,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "knip": "^6.15.0",
-    "markdownlint-cli2": "^0.23.0",
+    "knip": "6.21.0",
+    "markdownlint-cli2": "0.23.0",
     "typescript": "catalog:",
-    "wireit": "^0.14.12"
+    "wireit": "0.14.13"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec biome check --staged --fix"
