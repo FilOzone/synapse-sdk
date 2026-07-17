@@ -36,6 +36,7 @@ import {
   findPiece,
   getDataSet,
   NetworkError,
+  ping,
   TimeoutError,
   uploadPiece,
   waitForAddPieces,
@@ -65,6 +66,56 @@ describe('SP', () => {
 
   beforeEach(() => {
     server.resetHandlers()
+  })
+
+  describe('ping', () => {
+    it('retries transient failures', async () => {
+      let attempts = 0
+      server.use(
+        http.get('http://pdp.local/pdp/ping', () => {
+          attempts++
+          if (attempts < 3) {
+            return new HttpResponse(null, { status: 503, statusText: 'Service Unavailable' })
+          }
+          return new HttpResponse(null, { status: 200 })
+        })
+      )
+
+      await ping('http://pdp.local', { timeout: 5000 })
+
+      assert.equal(attempts, 3)
+    })
+
+    it('honors a custom total timeout', async () => {
+      server.use(
+        http.get('http://pdp.local/pdp/ping', async () => {
+          await delay(100)
+          return new HttpResponse(null, { status: 200 })
+        })
+      )
+
+      try {
+        await ping('http://pdp.local', { timeout: 10 })
+        assert.fail('Expected ping to time out')
+      } catch (error) {
+        assert.instanceOf(error, TimeoutError)
+        assert.equal((error as Error).message, 'Request timed out after 10ms')
+      }
+    })
+
+    it('surfaces the underlying request error', async () => {
+      server.use(
+        http.get('http://pdp.local/pdp/ping', () => new HttpResponse(null, { status: 400, statusText: 'Bad Request' }))
+      )
+
+      try {
+        await ping('http://pdp.local')
+        assert.fail('Expected ping to fail')
+      } catch (error) {
+        assert.equal((error as Error).name, 'HttpError')
+        assert.equal((error as Error).message, '400 - Bad Request')
+      }
+    })
   })
 
   describe('createDataSet', () => {
