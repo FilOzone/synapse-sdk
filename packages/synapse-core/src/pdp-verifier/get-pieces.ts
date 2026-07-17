@@ -7,6 +7,7 @@ import { from as pieceFrom } from '../piece/parse.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 import { metadataArrayToObject } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
+import { toReadClient } from '../utils/read-client.ts'
 import { getAllPieceMetadataCall } from '../warm-storage/get-all-piece-metadata.ts'
 import type { PdpDataSet, Piece, PieceWithMetadata } from '../warm-storage/types.ts'
 import { type getActivePieces, getActivePiecesCall } from './get-active-pieces.ts'
@@ -67,7 +68,7 @@ export async function getPieces(
   const address = options.address
   const serviceURL = options.dataSet.provider.pdp.serviceURL
   try {
-    const [activePiecesResult, removalsResult] = await multicall(client, {
+    const [activePiecesResult, removalsResult] = await multicall(toReadClient(client), {
       contracts: [
         getActivePiecesCall({
           chain: client.chain,
@@ -168,14 +169,15 @@ export async function getPiecesWithMetadata(
     throw new LimitMustBeGreaterThanZeroError()
   }
 
-  const pieces = await getPieces(client, options)
+  const readClient = toReadClient(client)
+  const pieces = await getPieces(readClient, options)
   if (pieces.pieces.length === 0) {
     return {
       pieces: [],
       hasMore: pieces.hasMore,
     }
   }
-  const metadata = await multicall(client, {
+  const metadata = await multicall(readClient, {
     allowFailure: false,
     contracts: pieces.pieces.map((piece) =>
       getAllPieceMetadataCall({

@@ -495,6 +495,36 @@ describe('PaymentsService', () => {
         assert.equal(result.finalSettledEpoch.toString(), '1000000')
         assert.equal(result.note, 'Settlement successful')
       })
+
+      it('should omit from only for the read-only settlement preview', async () => {
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
+
+        const requestBodies: Array<{
+          method: string
+          params: [{ from?: string }]
+        }> = []
+        const account = privateKeyToAccount(Mocks.PRIVATE_KEYS.key1)
+        const client = createWalletClient({
+          account,
+          chain: calibration,
+          transport: viemHttp(undefined, {
+            onFetchRequest(_request, init) {
+              if (typeof init.body === 'string') {
+                requestBodies.push(JSON.parse(init.body) as (typeof requestBodies)[number])
+              }
+            },
+          }),
+        })
+        const recordingPayments = new PaymentsService({ client })
+
+        await recordingPayments.getSettlementAmounts({ railId: 123n, untilEpoch: 999999n })
+        await recordingPayments.settle({ railId: 123n, untilEpoch: 999999n })
+
+        const calls = requestBodies.filter(({ method }) => method === 'eth_call')
+        assert.equal(calls.length, 2)
+        assert.isUndefined(calls[0].params[0].from)
+        assert.equal(calls[1].params[0].from?.toLowerCase(), account.address.toLowerCase())
+      })
     })
 
     describe('settleTerminatedRail', () => {

@@ -5,6 +5,7 @@ import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
 import { getActivePieceCountCall } from '../pdp-verifier/get-active-piece-count.ts'
 import { getDataSetListenerCall } from '../pdp-verifier/get-data-set-listener.ts'
 import { getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
+import { toReadClient } from '../utils/read-client.ts'
 import { getAllDataSetMetadataCall, parseAllDataSetMetadata } from './get-all-data-set-metadata.ts'
 import { getDataSet } from './get-data-set.ts'
 import type { DataSetInfo, PdpDataSet, PdpDataSetInfo } from './types.ts'
@@ -88,7 +89,7 @@ export async function readPdpDataSetInfo(
   }
 ): Promise<PdpDataSetInfo> {
   const chain = asChain(client.chain)
-  const [live, listener, _metadata, _pdpProvider, activePieceCount] = await multicall(client, {
+  const [live, listener, _metadata, _pdpProvider, activePieceCount] = await multicall(toReadClient(client), {
     allowFailure: false,
     contracts: [
       dataSetLiveCall({

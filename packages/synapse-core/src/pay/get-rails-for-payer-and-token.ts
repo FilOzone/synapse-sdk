@@ -12,6 +12,7 @@ import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { toReadClient } from '../utils/read-client.ts'
 import type { RailInfo } from './types.ts'
 
 export namespace getRailsForPayerAndToken {
@@ -90,7 +91,7 @@ export async function getRailsForPayerAndToken(
   options: getRailsForPayerAndToken.OptionsType
 ): Promise<getRailsForPayerAndToken.OutputType> {
   const data = await readContract(
-    client,
+    toReadClient(client),
     getRailsForPayerAndTokenCall({
       chain: client.chain,
       payer: options.payer,

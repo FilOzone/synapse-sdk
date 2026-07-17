@@ -3,6 +3,7 @@ import { multicall } from 'viem/actions'
 import type { asChain } from '../chains.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
+import { toReadClient } from '../utils/read-client.ts'
 import { getDataSetLeafCountCall } from './get-data-set-leaf-count.ts'
 
 export namespace getDataSetSizes {
@@ -65,7 +66,7 @@ export async function getDataSetSizes(
     })
   )
 
-  const results = await multicall(client, {
+  const results = await multicall(toReadClient(client), {
     contracts,
     allowFailure: true,
   })

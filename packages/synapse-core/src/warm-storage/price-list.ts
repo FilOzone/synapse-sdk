@@ -12,6 +12,7 @@ import { readContract } from 'viem/actions'
 import type { fwssView as fwssViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
+import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getPriceList {
   export type OptionsType = {
@@ -86,7 +87,7 @@ export async function getPriceList(
   options: getPriceList.OptionsType = {}
 ): Promise<getPriceList.OutputType> {
   const list = await readContract(
-    client,
+    toReadClient(client),
     getPriceListCall({
       chain: client.chain,
       contractAddress: options.contractAddress,

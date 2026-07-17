@@ -1,9 +1,14 @@
 import assert from 'assert'
 import { setup } from 'iso-web/msw'
-import { createPublicClient, http } from 'viem'
+import { createClient, createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
-import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { authorizationExpiry, authorizationExpiryCall } from '../src/session-key/authorization-expiry.ts'
+import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
+import {
+  authorizationExpiry,
+  authorizationExpiryCall,
+  getExpirations,
+  isExpired,
+} from '../src/session-key/authorization-expiry.ts'
 import {
   AddPiecesPermission,
   CreateDataSetPermission,
@@ -192,6 +197,56 @@ describe('authorizationExpiry', () => {
       })
 
       assert.equal(expiry, 0n)
+    })
+
+    it('should omit the client account from direct and multicall reads', async () => {
+      server.use(JSONRPC(presets.basic))
+
+      const requestBodies: Array<{
+        method: string
+        params: [{ from?: string }]
+      }> = []
+      const client = createClient({
+        account: ADDRESSES.client1,
+        chain: calibration,
+        transport: http(undefined, {
+          onFetchRequest(_request, init) {
+            if (typeof init.body !== 'string') {
+              return
+            }
+            const body = JSON.parse(init.body) as (typeof requestBodies)[number]
+            requestBodies.push(body)
+          },
+        }),
+      })
+      const options = {
+        address: ADDRESSES.client1,
+        sessionKeyAddress: ADDRESSES.serviceProvider1,
+      }
+
+      assert.equal(
+        await authorizationExpiry(client, {
+          ...options,
+          permission: CreateDataSetPermission,
+        }),
+        0n
+      )
+      assert.equal(
+        await isExpired(client, {
+          ...options,
+          permission: AddPiecesPermission,
+        }),
+        true
+      )
+      assert.deepEqual(await getExpirations(client, { ...options, permissions: [CreateDataSetPermission] }), {
+        [CreateDataSetPermission]: 0n,
+      })
+
+      const calls = requestBodies.filter(({ method }) => method === 'eth_call')
+      assert.equal(calls.length, 3)
+      for (const call of calls) {
+        assert.equal(call.params[0].from, undefined)
+      }
     })
   })
 })
