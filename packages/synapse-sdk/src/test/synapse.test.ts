@@ -42,18 +42,6 @@ describe('Synapse', () => {
     server.resetHandlers()
   })
 
-  describe('Client access', () => {
-    it('provides memoized signed and accountless public clients', () => {
-      const synapse = new Synapse({ client, source: null })
-
-      assert.equal(synapse.client.account.address, account.address)
-      assert.isUndefined(synapse.readClient.account)
-      assert.isFunction(synapse.readClient.readContract)
-      assert.strictEqual(synapse.client, synapse.client)
-      assert.strictEqual(synapse.readClient, synapse.readClient)
-    })
-  })
-
   describe('StorageManager access', () => {
     it('should provide access to StorageManager via synapse.storage', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))

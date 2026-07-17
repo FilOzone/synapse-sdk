@@ -1,7 +1,6 @@
 import { asChain, type Chain } from '@filoz/synapse-core/chains'
 import type { SessionKeyAccount } from '@filoz/synapse-core/session-key'
 import * as SessionKey from '@filoz/synapse-core/session-key'
-import { toReadClient } from '@filoz/synapse-core/utils'
 import {
   type Account,
   type Address,
@@ -35,7 +34,6 @@ export class Synapse {
   private readonly _providers: SPRegistryService
 
   private readonly _client: Client<Transport, Chain, Account, PublicRpcSchema, PublicActions<Transport, Chain>>
-  private readonly _readClient: Client<Transport, Chain, undefined, PublicRpcSchema, PublicActions<Transport, Chain>>
   private readonly _sessionClient: Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>> | undefined
   private readonly _chain: Chain
 
@@ -95,7 +93,6 @@ export class Synapse {
 
   public constructor(options: SynapseFromClientOptions) {
     this._client = options.client.extend(publicActions)
-    this._readClient = toReadClient(options.client).extend(publicActions)
     this._sessionClient = options.sessionClient
     this._chain = asChain(options.client.chain)
     this._withCDN = options.withCDN ?? false
@@ -116,16 +113,6 @@ export class Synapse {
 
   get client(): Client<Transport, Chain, Account, PublicRpcSchema, PublicActions<Transport, Chain>> {
     return this._client
-  }
-
-  /**
-   * Accountless client for read-only RPC calls.
-   *
-   * Unlike {@link client}, this client does not add the wallet address as the
-   * default `from` value for contract calls.
-   */
-  get readClient(): Client<Transport, Chain, undefined, PublicRpcSchema, PublicActions<Transport, Chain>> {
-    return this._readClient
   }
 
   get sessionClient(): Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>> | undefined {
