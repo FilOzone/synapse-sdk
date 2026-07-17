@@ -641,6 +641,8 @@ export class StorageContext {
       // Keep selecting and pinging until a healthy provider is found
       // or all candidates are exhausted
       for (;;) {
+        if (endorsedSlot && input.endorsedIds.length === 0) break
+
         // There are few endorsed providers, so check the complete ranked pool
         // concurrently. Other slots keep the existing one-at-a-time behavior.
         const candidates = selectProviders({
