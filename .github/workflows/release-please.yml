@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       paths_released: ${{ steps.release.outputs.paths_released }}
+      releases_created: ${{ steps.release.outputs.releases_created }}
     steps:
       - uses: googleapis/release-please-action@v5
         id: release
@@ -48,8 +49,7 @@ jobs:
       - run: pnpm -r --filter './packages/**' publish --access=public
   docs:
     needs: release
-    # Only publish docs if the synapse-sdk package is released (manual publish is possible from the GitHub UI)
-    if: |
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk')
+    # Publish docs when any package is released (manual publishing is also available from the GitHub UI)
+    if: needs.release.outputs.releases_created == 'true'
     uses: ./.github/workflows/docs.yml
     secrets: inherit
