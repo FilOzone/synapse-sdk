@@ -1,3 +1,4 @@
+import { unified } from '@astrojs/markdown-remark'
 import starlight from '@astrojs/starlight'
 import { llmsPlugin } from '@hugomrdias/docs/starlight-llms'
 import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
@@ -22,15 +23,18 @@ export default defineConfig({
     '/developer-guides/devnet/': '/resources/devnet/',
   },
   markdown: {
-    rehypePlugins: [
-      [
-        rehypeExternalLinks,
-        {
-          target: '_blank',
-        },
+    // rehype-external-links attaches to the unified processor Starlight runs.
+    processor: unified({
+      gfm: true,
+      rehypePlugins: [
+        [
+          rehypeExternalLinks,
+          {
+            target: '_blank',
+          },
+        ],
       ],
-    ],
-    gfm: true,
+    }),
   },
   integrations: [
     mermaid({
