@@ -37,8 +37,8 @@ FIL is needed for gas fees on the Filecoin network.
 
 Track proofs submitted to the PDP contract.
 
-- **Mainnet**: <https://pdp.vxb.ai/mainnet>
-- **Calibration Testnet**: <https://pdp.vxb.ai/calibration>
+- **Mainnet**: <https://pdp.filecoin.cloud/mainnet>
+- **Calibration Testnet**: <https://pdp.filecoin.cloud/calibration>
 
 ### Filecoin Pay Explorer
 
