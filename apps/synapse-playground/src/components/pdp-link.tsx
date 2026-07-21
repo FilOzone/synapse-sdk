@@ -6,7 +6,7 @@ import { useConfig } from 'wagmi'
 export function PDPDatasetLink({ id }: { id: string }) {
   const config = useConfig()
   const chain = config.state.chainId === 314 ? 'mainnet' : 'calibration'
-  const explorerUrl = `https://pdp.vxb.ai/${chain}/dataset/${id}`
+  const explorerUrl = `https://pdp.filecoin.cloud/${chain}/dataset/${id}`
   return (
     <a
       className="hover:underline wrap-anywhere text-gray-400"
@@ -22,7 +22,7 @@ export function PDPDatasetLink({ id }: { id: string }) {
 export function PDPProviderLink({ address, name }: { address: string; name: string }) {
   const config = useConfig()
   const chain = config.state.chainId === 314 ? 'mainnet' : 'calibration'
-  const explorerUrl = `https://pdp.vxb.ai/${chain}/providers/${address}`
+  const explorerUrl = `https://pdp.filecoin.cloud/${chain}/providers/${address}`
   return (
     <a
       className="hover:underline wrap-anywhere text-gray-400"
@@ -38,7 +38,7 @@ export function PDPProviderLink({ address, name }: { address: string; name: stri
 export function PDPPieceLink({ cid, name }: { cid: string; name?: string }) {
   const config = useConfig()
   const chain = config.state.chainId === 314 ? 'mainnet' : 'calibration'
-  const explorerUrl = `https://pdp.vxb.ai/${chain}/piece/${cid}`
+  const explorerUrl = `https://pdp.filecoin.cloud/${chain}/piece/${cid}`
   return (
     <a className="hover:underline wrap-anywhere" href={explorerUrl} rel="noopener noreferrer" target="_blank">
       {name || cid}
