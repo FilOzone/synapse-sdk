@@ -100,6 +100,14 @@ export const SIZE_CONSTANTS = {
   MAX_ADD_PIECES_BATCH_SIZE: 40,
 
   /**
+   * Maximum pieces per schedulePieceDeletions call accepted by the Curio PDP API.
+   *
+   * PDPVerifier also limits a data set to 2,000 cumulative queued removals until
+   * its next proving period, so a valid batch can still fail when that queue is full.
+   */
+  MAX_DELETE_PIECES_BATCH_SIZE: 500,
+
+  /**
    * Bytes per leaf in the PDP merkle tree.
    * The FWSS contract converts leaf counts to bytes via `totalBytes = leafCount * BYTES_PER_LEAF`.
    */

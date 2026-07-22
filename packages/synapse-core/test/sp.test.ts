@@ -17,6 +17,7 @@ import {
   WaitForAddPiecesError,
   WaitForCreateDataSetError,
 } from '../src/errors/pdp.ts'
+import { AtLeastOnePieceRequiredError, TooManyPiecesError } from '../src/errors/warm-storage.ts'
 import { ADDRESSES, PRIVATE_KEYS } from '../src/mocks/index.ts'
 import {
   createAndAddPiecesHandler,
@@ -33,10 +34,12 @@ import {
   createDataSetAndAddPiecesApiRequest,
   createDataSetApiRequest,
   deletePiece,
+  deletePieces,
   findPiece,
   getDataSet,
   NetworkError,
   ping,
+  schedulePieceDeletions,
   TimeoutError,
   uploadPiece,
   waitForAddPieces,
@@ -935,9 +938,10 @@ InvalidSignature(address expected, address actual)
 
       server.use(
         http.delete('http://pdp.local/pdp/data-sets/1/pieces/2', async ({ request }) => {
-          const body = (await request.json()) as { extraData: string }
-          assert.hasAllKeys(body, ['extraData'])
+          const body = (await request.json()) as { extraData: string; pieceIds: number[] }
+          assert.hasAllKeys(body, ['extraData', 'pieceIds'])
           assert.isDefined(body.extraData)
+          assert.deepEqual(body.pieceIds, [2])
           return HttpResponse.json(mockResponse, {
             status: 200,
           })
@@ -986,6 +990,81 @@ InvalidSignature(address expected, address actual)
         assert.instanceOf(error, DeletePieceError)
         assert.equal(error.shortMessage, 'Failed to delete piece.')
         assert.include(error.message, 'Database error')
+      }
+    })
+  })
+
+  describe('deletePieces', () => {
+    it('deletes multiple pieces with one request and matching authorization', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const submittedPieceIds = [2n, 3n, 2n, 9_007_199_254_740_993n]
+      const expectedPieceIds = [2n, 3n, 9_007_199_254_740_993n]
+
+      server.use(
+        http.delete('http://pdp.local/pdp/data-sets/1/pieces/2', async ({ request }) => {
+          const rawBody = await request.text()
+          assert.include(rawBody, '"pieceIds":[2,3,9007199254740993]')
+
+          const body = JSON.parse(rawBody) as { extraData: `0x${string}` }
+          const expectedExtraData = await TypedData.signSchedulePieceRemovals(client, {
+            clientDataSetId: 0n,
+            pieceIds: expectedPieceIds,
+          })
+          assert.equal(body.extraData, expectedExtraData)
+
+          return HttpResponse.json({ txHash: mockTxHash })
+        })
+      )
+
+      const result = await schedulePieceDeletions(client, {
+        serviceURL: 'http://pdp.local',
+        dataSetId: 1n,
+        clientDataSetId: 0n,
+        pieceIds: submittedPieceIds,
+      })
+
+      assert.equal(result.hash, mockTxHash)
+    })
+
+    it('rejects an empty batch', async () => {
+      try {
+        await deletePieces({
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          pieceIds: [],
+          extraData: '0x',
+        })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, AtLeastOnePieceRequiredError)
+      }
+    })
+
+    it('rejects batches above the Curio limit', async () => {
+      try {
+        await deletePieces({
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          pieceIds: Array.from({ length: SIZE_CONSTANTS.MAX_DELETE_PIECES_BATCH_SIZE + 1 }, (_, i) => BigInt(i)),
+          extraData: '0x',
+        })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, TooManyPiecesError)
+      }
+    })
+
+    it("rejects piece IDs outside Curio's signed 64-bit range", async () => {
+      try {
+        await deletePieces({
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          pieceIds: [1n << 63n],
+          extraData: '0x',
+        })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, RangeError)
       }
     })
   })
