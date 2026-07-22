@@ -4,7 +4,7 @@ import { request } from 'iso-web/http'
 import { zeroAddress } from 'viem'
 import * as z from 'zod'
 import { ZodValidationError } from './src/errors/base.ts'
-import { zAddress, zAddressLoose } from './src/utils/schemas.ts'
+import { zAddress } from './src/utils/schemas.ts'
 
 // GIT_REF can be one of: '<branch name>', '<commit>' or 'tags/<tag>'
 const FILECOIN_SERVICES_GIT_REF = '3f3eceb47ce235cdbf3fb59cd919fcb4d483b08d' // v1.3.0
@@ -20,7 +20,7 @@ const DeploymentSchema = z
     }),
     FILECOIN_PAY_ADDRESS: zAddress,
     PDP_VERIFIER_PROXY_ADDRESS: zAddress,
-    PDP_VERIFIER_IMPLEMENTATION_ADDRESS: zAddressLoose,
+    PDP_VERIFIER_IMPLEMENTATION_ADDRESS: zAddress,
     SESSION_KEY_REGISTRY_ADDRESS: zAddress,
     SERVICE_PROVIDER_REGISTRY_PROXY_ADDRESS: zAddress,
     SERVICE_PROVIDER_REGISTRY_IMPLEMENTATION_ADDRESS: zAddress,
