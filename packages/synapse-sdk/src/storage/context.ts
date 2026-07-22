@@ -648,7 +648,7 @@ export class StorageContext {
         const candidates = selectProviders({
           ...input,
           endorsedIds: endorsedSlot ? input.endorsedIds : [],
-          count: endorsedSlot ? Math.max(1, input.endorsedIds.length) : 1,
+          count: endorsedSlot ? input.endorsedIds.length : 1,
           excludeProviderIds,
           metadata,
         })
@@ -667,8 +667,7 @@ export class StorageContext {
         // Await in selection order so a faster, lower-ranked provider cannot
         // displace a healthy higher-ranked provider. The checks themselves are
         // already in flight, so a failed candidate does not delay starting the next.
-        for (const healthCheck of healthChecks) {
-          const outcome = await healthCheck
+        for await (const outcome of healthChecks) {
           if (outcome.ok) {
             results.push(StorageContext.toProviderSelectionResult(outcome.candidate))
             excludeProviderIds.push(outcome.candidate.provider.id)
