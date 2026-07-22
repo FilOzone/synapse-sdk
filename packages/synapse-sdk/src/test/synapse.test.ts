@@ -639,6 +639,7 @@ describe('Synapse', () => {
     })
 
     it('selects existing data set by default when metadata matches', async () => {
+      endorsedProviderIds.push(...providerIds)
       const metadata = {
         environment: 'test',
         withCDN: '',
@@ -653,6 +654,7 @@ describe('Synapse', () => {
     })
 
     it('avoids existing data set when provider is excluded even when metadata matches', async () => {
+      endorsedProviderIds.push(...providerIds)
       const metadata = {
         environment: 'test',
         withCDN: '',
@@ -667,6 +669,7 @@ describe('Synapse', () => {
     })
 
     it('can select new data sets from different providers using default params', async () => {
+      endorsedProviderIds.push(...providerIds)
       const contexts = await synapse.storage.createContexts()
       assert.equal(contexts.length, 2)
       assert.equal((contexts[0] as any)._dataSetId, undefined)
@@ -676,6 +679,64 @@ describe('Synapse', () => {
       // should return the same contexts when invoked again
       const defaultContexts = await synapse.storage.createContexts()
       assert.isTrue(defaultContexts === contexts)
+    })
+
+    it('throws when no endorsed providers are available', async () => {
+      try {
+        await synapse.storage.createContexts({ copies: 1 })
+        assert.fail('Expected createContexts to throw when no endorsed provider is available')
+      } catch (error: any) {
+        assert.include(error.message, 'No endorsed provider available')
+      }
+    })
+
+    it('pings endorsed providers concurrently while preserving rank', async () => {
+      endorsedProviderIds.push(...providerIds)
+      const secondPingStarted = pDefer<void>()
+      server.use(
+        http.get(`${providers[0].products[0].offering.serviceURL}/pdp/ping`, async () => {
+          await secondPingStarted.promise
+          return new HttpResponse(null, { status: 200 })
+        }),
+        http.get(`${providers[1].products[0].offering.serviceURL}/pdp/ping`, () => {
+          secondPingStarted.resolve()
+          return new HttpResponse(null, { status: 200 })
+        })
+      )
+
+      const contexts = await synapse.storage.createContexts({
+        copies: 1,
+        metadata: { environment: 'test' },
+      })
+
+      assert.equal(contexts[0].provider.id, providerIds[0])
+    })
+
+    it('does not log a recovered provider ping failure', async () => {
+      endorsedProviderIds.push(...providerIds)
+      server.use(
+        http.get(
+          `${providers[0].products[0].offering.serviceURL}/pdp/ping`,
+          () => new HttpResponse(null, { status: 400, statusText: 'Bad Request' })
+        )
+      )
+      const originalWarn = console.warn
+      const warnings: unknown[][] = []
+      console.warn = (...args: unknown[]) => {
+        warnings.push(args)
+      }
+
+      try {
+        const contexts = await synapse.storage.createContexts({
+          copies: 1,
+          metadata: { environment: 'test' },
+        })
+        assert.equal(contexts[0].provider.id, providerIds[1])
+      } finally {
+        console.warn = originalWarn
+      }
+
+      assert.lengthOf(warnings, 0)
     })
 
     providerIds.forEach((endorsedProviderId, index) => {
@@ -711,6 +772,7 @@ describe('Synapse', () => {
           } catch (error: any) {
             assert.include(error.message, 'No endorsed provider available')
             assert.include(error.message, 'failed health check')
+            assert.include(error.message, 'Network request failed')
           }
         })
 
@@ -741,6 +803,7 @@ describe('Synapse', () => {
     })
 
     it('can attempt to create numerous contexts, returning fewer', async () => {
+      endorsedProviderIds.push(...providerIds)
       const contexts = await synapse.storage.createContexts({
         copies: 100,
       })

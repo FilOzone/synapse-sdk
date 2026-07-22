@@ -628,53 +628,79 @@ export class StorageContext {
       address: clientAddress,
     })
 
-    // Inline ping-retry loop: select a candidate from core, ping it,
-    // exclude on failure, re-select. One outer iteration per copy needed.
+    // Select a healthy candidate for each copy. Endorsed primary candidates
+    // are pinged concurrently, while results are consumed in ranked order.
     const results: ProviderSelectionResult[] = []
     const excludeProviderIds = [...options.excludeProviderIds]
 
     for (let i = 0; i < count; i++) {
       const endorsedSlot = requireEndorsedPrimary && i === 0
       let found = false
-      let pingFailures = 0
+      const pingFailures: Array<{ candidate: ResolvedLocation; error: unknown }> = []
 
       // Keep selecting and pinging until a healthy provider is found
       // or all candidates are exhausted
       for (;;) {
+        if (endorsedSlot && input.endorsedIds.length === 0) break
+
+        // There are few endorsed providers, so check the complete ranked pool
+        // concurrently. Other slots keep the existing one-at-a-time behavior.
         const candidates = selectProviders({
           ...input,
           endorsedIds: endorsedSlot ? input.endorsedIds : [],
-          count: 1,
+          count: endorsedSlot ? input.endorsedIds.length : 1,
           excludeProviderIds,
           metadata,
         })
 
         if (candidates.length === 0) break
 
-        const candidate = candidates[0]
-        try {
-          await SP.ping(candidate.provider.pdp.serviceURL)
-          results.push(StorageContext.toProviderSelectionResult(candidate))
-          excludeProviderIds.push(candidate.provider.id)
-          found = true
-          break
-        } catch (error) {
-          console.warn(
-            `Provider ${candidate.provider.serviceProvider} (ID: ${candidate.provider.id}) failed ping:`,
-            error instanceof Error ? error.message : String(error)
-          )
-          excludeProviderIds.push(candidate.provider.id)
-          pingFailures++
+        const healthChecks = candidates.map(async (candidate) => {
+          try {
+            await SP.ping(candidate.provider.pdp.serviceURL)
+            return { ok: true as const, candidate }
+          } catch (error) {
+            return { ok: false as const, candidate, error }
+          }
+        })
+
+        // Await in selection order so a faster, lower-ranked provider cannot
+        // displace a healthy higher-ranked provider. The checks themselves are
+        // already in flight, so a failed candidate does not delay starting the next.
+        for await (const outcome of healthChecks) {
+          if (outcome.ok) {
+            results.push(StorageContext.toProviderSelectionResult(outcome.candidate))
+            excludeProviderIds.push(outcome.candidate.provider.id)
+            found = true
+            break
+          }
+          excludeProviderIds.push(outcome.candidate.provider.id)
+          pingFailures.push(outcome)
         }
+
+        if (found) break
       }
 
       if (endorsedSlot && !found) {
+        const healthCheckError =
+          pingFailures.length > 0
+            ? new AggregateError(
+                pingFailures.map(({ error }) => error),
+                pingFailures
+                  .map(
+                    ({ candidate, error }) =>
+                      `Provider ${candidate.provider.serviceProvider} (ID: ${candidate.provider.id}): ${error instanceof Error ? error.message : String(error)}`
+                  )
+                  .join('; ')
+              )
+            : undefined
         throw createError(
           'StorageContext',
           'smartSelect',
-          pingFailures > 0
-            ? `No endorsed provider available — all endorsed provider(s) failed health check`
-            : 'No endorsed provider available'
+          healthCheckError == null
+            ? 'No endorsed provider available'
+            : `No endorsed provider available — all endorsed provider(s) failed health check`,
+          healthCheckError
         )
       }
 
