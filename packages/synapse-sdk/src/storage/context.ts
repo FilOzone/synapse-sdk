@@ -32,7 +32,7 @@ import { InvalidPieceCIDError } from '@filoz/synapse-core/errors'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import { schedulePieceDeletion, type UploadPieceStreamingData } from '@filoz/synapse-core/sp'
+import { schedulePieceDeletions, type UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { signAddPieces, signCreateDataSetAndAddPieces } from '@filoz/synapse-core/typed-data'
 import {
   calculateLastProofDate,
@@ -1148,29 +1148,48 @@ export class StorageContext {
   }
 
   /**
-   * Delete a piece with given CID from this data set.
+   * Delete pieces with the given CIDs or piece IDs from this data set in one transaction.
    *
    * @param options - Options for the delete operation
-   * @param options.piece - The PieceCID identifier or a piece number to delete by pieceID
+   * @param options.pieces - PieceCID identifiers or piece numbers to delete by piece ID
    * @returns Transaction hash of the delete operation
+   *
+   * @remarks
+   * Curio accepts at most 500 pieces per request. PDPVerifier also allows at
+   * most 2,000 cumulative queued removals until the next proving period.
    */
-  async deletePiece(options: { piece: string | PieceCID | bigint }): Promise<Hash> {
-    const { piece } = options
+  async deletePieces(options: { pieces: Array<string | PieceCID | bigint> }): Promise<Hash> {
     if (this.dataSetId == null) {
-      throw createError('StorageContext', 'deletePiece', 'Data set not found')
+      throw createError('StorageContext', 'deletePieces', 'Data set not found')
     }
-    const pieceId = typeof piece === 'bigint' ? piece : await this._getPieceIdByCID(piece)
+
+    const resolvedPieceIds = await Promise.all(
+      options.pieces.map((piece) => (typeof piece === 'bigint' ? piece : this._getPieceIdByCID(piece)))
+    )
+    const pieceIds = [...new Set(resolvedPieceIds)]
+    SP.validateDeletePiecesBatch(pieceIds.length)
 
     const clientDataSetId = await this.getClientDataSetId()
 
-    const { hash } = await schedulePieceDeletion(this._synapse.sessionClient ?? this._synapse.client, {
+    const { hash } = await schedulePieceDeletions(this._synapse.sessionClient ?? this._synapse.client, {
       serviceURL: this._pdpEndpoint,
       dataSetId: this.dataSetId,
-      pieceId: pieceId,
+      pieceIds,
       clientDataSetId: clientDataSetId,
     })
 
     return hash
+  }
+
+  /**
+   * Delete a piece with the given CID or piece ID from this data set.
+   *
+   * @param options - Options for the delete operation
+   * @param options.piece - The PieceCID identifier or a piece number to delete by piece ID
+   * @returns Transaction hash of the delete operation
+   */
+  async deletePiece(options: { piece: string | PieceCID | bigint }): Promise<Hash> {
+    return this.deletePieces({ pieces: [options.piece] })
   }
 
   /**
