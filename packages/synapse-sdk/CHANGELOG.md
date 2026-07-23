@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v1.1.0...synapse-sdk-v1.1.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* omit sender from read-only contract calls ([#876](https://github.com/FilOzone/synapse-sdk/issues/876)) ([72eb93e](https://github.com/FilOzone/synapse-sdk/commit/72eb93e6c7de4ffadb7fb869fb3a3aa1215b5e7e))
+* **sdk:** harden provider health checks ([#886](https://github.com/FilOzone/synapse-sdk/issues/886)) ([a80d308](https://github.com/FilOzone/synapse-sdk/commit/a80d308a872797bf84f333df1e5aa6bf30fb67ef))
+
 ## [1.1.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v1.0.1...synapse-sdk-v1.1.0) (2026-07-15)
 
 
