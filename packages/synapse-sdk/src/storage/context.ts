@@ -366,7 +366,14 @@ export class StorageContext {
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
     const clientAddress = synapse.client.account.address
-    const requestedMetadata = combineMetadata(options.metadata, { withCDN: options.withCDN })
+    // CDN group is opt-in. Empty by default keeps the legacy one-rail-per-data-set behavior and
+    // exact-metadata reuse. When set (here or upstream in StorageManager), FWSS keys the shared
+    // bandwidth rail by keccak256(payer, group). When metadata was already combined upstream the
+    // withCDN key is present and combineMetadata leaves its value untouched, so this is idempotent.
+    const requestedMetadata = combineMetadata(options.metadata, {
+      withCDN: options.withCDN,
+      cdnGroup: options.cdnGroup,
+    })
 
     // Handle explicit data set ID selection (highest priority)
     if (options.dataSetId != null) {

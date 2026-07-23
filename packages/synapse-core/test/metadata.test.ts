@@ -95,6 +95,15 @@ describe('Metadata Utils', () => {
       ])
     })
 
+    it('should preserve an existing non-empty withCDN value (CDN group id) when cdn flag is true', () => {
+      const result = datasetMetadataObjectToEntry({ project: 'test', withCDN: '0xpayer' }, { cdn: true })
+
+      assert.deepStrictEqual(result, [
+        { key: 'project', value: 'test' },
+        { key: 'withCDN', value: '0xpayer' },
+      ])
+    })
+
     it('should not add withCDN when cdn internal flag is false', () => {
       const result = datasetMetadataObjectToEntry({ project: 'test' }, { cdn: false })
 
