@@ -1,0 +1,428 @@
+---
+title: Install & Run a PDP Node
+description: Deploy a Filecoin Warm Storage Service stack with Lotus, YugabyteDB, and Curio, then register your PDP node on Calibration or Mainnet.
+sidebar:
+  order: 2
+---
+
+import { Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+
+This guide deploys a full Filecoin Warm Storage Service (FWSS) stack and registers a Proof of Data Possession (PDP) node. By the end you will have:
+
+- Lotus syncing with the Filecoin chain and managing wallets
+- YugabyteDB storing deal and piece metadata
+- Curio coordinating sealing, PDP proofs, and HTTP serving
+- A PDP node registered with the Warm Storage contract and serving clients
+
+The steps are identical for both networks. Where a command or value differs, use the **Calibration** / **Mainnet** switch. Selecting a network once applies your choice to every switch on the page.
+
+:::note[Written for Ubuntu 22.04]
+This guide targets Ubuntu 22.04 and a user with sudo privileges. On other distributions, adapt the package installation commands to your platform.
+:::
+
+## Prerequisites
+
+| Resource | Minimum |
+| --- | --- |
+| RAM | 32 GiB |
+| CPU | 8 cores |
+| Fast storage (NVMe/SSD) | 1 TiB |
+| Long-term storage (HDD) | 10 TiB |
+| GPU | Not required |
+| Connectivity | Public HTTPS endpoint (domain) with HTTP/2 |
+
+## Install System Packages
+
+Prepare the system with the build dependencies for the stack.
+
+```bash
+sudo apt update && sudo apt upgrade -y && sudo apt install -y \
+  mesa-opencl-icd ocl-icd-opencl-dev gcc git jq pkg-config curl clang \
+  build-essential hwloc libhwloc-dev libarchive-dev wget ntp python-is-python3 aria2
+```
+
+### Install Go 1.23.7
+
+```bash
+sudo rm -rf /usr/local/go
+wget https://go.dev/dl/go1.23.7.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.23.7.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+go version
+```
+
+You should see `go version go1.23.7 linux/amd64`.
+
+### Install Rust
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+When prompted, choose option `1) Proceed with standard installation` (the default, just press Enter). Then load Rust into your shell:
+
+```bash
+source $HOME/.cargo/env
+rustc --version
+```
+
+You should see a version such as `rustc 1.86.0 (05f9846f8 2025-03-31)`.
+
+### Add Go and Rust to the Secure Sudo Path
+
+```bash
+sudo tee /etc/sudoers.d/dev-paths <<EOF
+Defaults secure_path="/usr/local/go/bin:$HOME/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+EOF
+```
+
+## Install and Run Lotus
+
+Lotus is your gateway to the Filecoin network. It syncs the chain, manages wallets, and lets Curio interact with the node. See the [Lotus documentation](https://lotus.filecoin.io/lotus/get-started/what-is-lotus/) for background.
+
+<Steps>
+
+1. **Build the Lotus daemon.** Clone the repository and check out the latest release:
+
+   ```bash
+   git clone https://github.com/filecoin-project/lotus.git
+   cd lotus
+   git checkout $(curl -s https://api.github.com/repos/filecoin-project/lotus/releases/latest | jq -r .tag_name)
+   ```
+
+   Build and install for your network:
+
+   <Tabs syncKey="network">
+     <TabItem label="Calibration">
+       ```bash
+       make clean && make GOFLAGS="-tags=calibnet" lotus
+       sudo make install-daemon
+       lotus --version
+       ```
+
+       You should see a version such as `lotus version 1.34.1+calibnet`.
+     </TabItem>
+     <TabItem label="Mainnet">
+       ```bash
+       make clean lotus
+       sudo make install-daemon
+       lotus --version
+       ```
+
+       You should see a version such as `lotus version 1.34.1+mainnet+git.710b4ac66`.
+     </TabItem>
+   </Tabs>
+
+2. **Import a snapshot and start the daemon.** Download a recent chain snapshot:
+
+   <Tabs syncKey="network">
+     <TabItem label="Calibration">
+       ```bash
+       aria2c -x5 -o snapshot.car.zst https://forest-archive.chainsafe.dev/latest/calibnet/
+       ```
+     </TabItem>
+     <TabItem label="Mainnet">
+       ```bash
+       aria2c -x5 -o snapshot.car.zst https://forest-archive.chainsafe.dev/latest/mainnet/
+       ```
+
+       Mainnet snapshots are larger than Calibration and take longer to import.
+     </TabItem>
+   </Tabs>
+
+   Import it and start the daemon in the background:
+
+   ```bash
+   lotus daemon --import-snapshot snapshot.car.zst --remove-existing-chain --halt-after-import
+   nohup lotus daemon > ~/lotus.log 2>&1 &
+   ```
+
+   :::tip[Ethereum RPC errors]
+   If you hit errors related to `EnableEthRPC` or `EnableIndexer`, enable both and restart Lotus:
+
+   ```bash
+   sed -i 's/^\( *\)#*EnableEthRPC = .*/\1EnableEthRPC = true/; s/^\( *\)#*EnableIndexer = .*/\1EnableIndexer = true/' ~/.lotus/config.toml
+   ```
+
+   :::
+
+3. **Monitor sync progress.** Wait for the node to sync, then watch the logs:
+
+   ```bash
+   lotus sync wait
+   lotus sync wait --watch
+   tail -f ~/lotus.log
+   ```
+
+</Steps>
+
+## Run YugabyteDB
+
+Curio uses YugabyteDB to store metadata about deals, sealing operations, and PDP submissions. See the [YugabyteDB quick start](https://docs.yugabyte.com/preview/tutorials/quick-start/linux/) for reference.
+
+<Steps>
+
+1. **Raise the open-file limit.** YugabyteDB needs a high `ulimit`. Persist the new limits across reboots:
+
+   ```bash
+   echo "$(whoami) soft nofile 1048576" | sudo tee -a /etc/security/limits.conf
+   echo "$(whoami) hard nofile 1048576" | sudo tee -a /etc/security/limits.conf
+   ```
+
+   Apply the limit to the current shell and verify it:
+
+   ```bash
+   ulimit -n 1048576
+   ulimit -n
+   ```
+
+   This should output `1048576`.
+
+2. **Install YugabyteDB.**
+
+   ```bash
+   wget https://software.yugabyte.com/releases/2.25.1.0/yugabyte-2.25.1.0-b381-linux-x86_64.tar.gz
+   tar xvfz yugabyte-2.25.1.0-b381-linux-x86_64.tar.gz
+   cd yugabyte-2.25.1.0
+   ./bin/post_install.sh
+   ```
+
+3. **Start the database.**
+
+   ```bash
+   ./bin/yugabyted start \
+     --advertise_address 127.0.0.1 \
+     --master_flags rpc_bind_addresses=127.0.0.1 \
+     --tserver_flags rpc_bind_addresses=127.0.0.1
+   ```
+
+   :::caution[Locale errors on first start]
+   If you see locale-related errors, generate the UTF-8 locale and retry: `sudo locale-gen en_US.UTF-8`.
+   :::
+
+   Visit `http://127.0.0.1:15433` to confirm the install. The YugabyteDB web UI displays the dashboard when the service is healthy. You can also check the cluster from the CLI:
+
+   ```bash
+   ./bin/yugabyted status
+   ```
+
+</Steps>
+
+## Install and Configure Curio
+
+Curio is the core PDP client. It coordinates sealing, talks to Lotus, and submits PDP proofs. See the [Curio documentation](https://docs.curiostorage.org/) for reference.
+
+<Steps>
+
+1. **Increase the UDP buffer size.** Curio needs a larger UDP buffer. Set it now and persist it:
+
+   ```bash
+   sudo sysctl -w net.core.rmem_max=2097152
+   sudo sysctl -w net.core.rmem_default=2097152
+   echo 'net.core.rmem_max=2097152' | sudo tee -a /etc/sysctl.conf
+   echo 'net.core.rmem_default=2097152' | sudo tee -a /etc/sysctl.conf
+   ```
+
+2. **Build Curio.** Clone the repository and switch to the PDP branch:
+
+   ```bash
+   git clone https://github.com/filecoin-project/curio.git
+   cd curio
+   git checkout pdpv0
+   ```
+
+   Build for your network. This step takes a few minutes.
+
+   <Tabs syncKey="network">
+     <TabItem label="Calibration">
+       ```bash
+       make clean calibnet
+       ```
+     </TabItem>
+     <TabItem label="Mainnet">
+       ```bash
+       make clean build
+       ```
+     </TabItem>
+   </Tabs>
+
+   Install the compiled binary into `/usr/local/bin` and verify it:
+
+   ```bash
+   sudo make install
+   curio --version
+   ```
+
+   The version string includes your network, for example `curio version 1.27.0+calibnet+git_...` on Calibration or `+mainnet` on Mainnet.
+
+3. **Run the guided setup.** Curio ships an interactive setup utility:
+
+   ```bash
+   curio guided-setup
+   ```
+
+   Work through the prompts:
+
+   1. **Installation type.** Select **Setup non-Storage Provider cluster**. This is the correct choice for a PDP node: it provisions a Curio cluster without the sealing pipeline of a traditional Filecoin storage provider.
+   2. **YugabyteDB connection.** With the defaults from this guide, use host `127.0.0.1`, port `5433`, username `yugabyte`, password `yugabyte`, database `yugabyte`. Confirm these with `./bin/yugabyted status` from the YugabyteDB directory. Choose **Continue to connect and update schema** to let Curio create its tables.
+   3. **Telemetry.** Choose whether to share telemetry with the Curio team, then continue.
+   4. **Save configuration.** Pick a location for the database configuration file. A common default is `/home/your-username/curio.env`.
+
+4. **Launch the Curio web GUI.**
+
+   ```bash
+   curio run --layers=gui
+   ```
+
+   Open `http://127.0.0.1:4701` to reach the interface.
+
+</Steps>
+
+## Enable Proof of Data Possession
+
+This section turns on Proof of Data Possession (PDP) for your node and prepares it to serve clients. Keep Curio running with the GUI layer (`curio run --layers=gui`) while you work through the GUI steps.
+
+<Steps>
+
+1. **Attach storage locations.** Point Curio at your fast (sealing) and long-term (store) paths:
+
+   ```bash
+   curio cli storage attach --init --seal /fast-storage/path
+   curio cli storage attach --init --store /long-term-storage/path
+   ```
+
+   Your fast-storage path should be high-performance media such as NVMe or SSD.
+
+2. **Add a PDP configuration layer.** In the Curio GUI, open the **Configurations** page and create a new layer named `pdp`. Under **Subsystems**, enable:
+
+   - `EnableParkPiece`
+   - `EnablePDP`
+   - `EnableCommP`
+   - `EnableMoveStorage`
+   - `NoUnsealedDecode`
+
+   In the **HTTP** section, set:
+
+   - `Enable`: `true`
+   - `DomainName`: your domain, for example `pdp.mydomain.com`
+   - `ListenAddress`: `0.0.0.0:443`
+
+   :::tip[TLS certificates]
+   Point your domain's A record at your server's public IP so Let's Encrypt can issue a certificate. To terminate TLS with Nginx instead of Curio, see [Nginx Reverse Proxy Setup](/storage-provider-guides/advanced/nginx-reverse-proxy/).
+   :::
+
+3. **Import your wallet.** Create a new delegated FIL wallet, which Curio uses as the PDP owner address:
+
+   ```bash
+   lotus wallet new delegated
+   ```
+
+   <Tabs syncKey="network">
+     <TabItem label="Calibration">
+       ```bash
+       # Example output:
+       t410fuo4dghaeiqzokiqnxruzdr6e3cjktnxprrc56bi
+       ```
+     </TabItem>
+     <TabItem label="Mainnet">
+       ```bash
+       # Example output:
+       f410fgleqyjv4u3wtsro6tmu3utqz2obrjvqyf7gtffq
+       ```
+     </TabItem>
+   </Tabs>
+
+   List your wallets at any time with `lotus wallet list`. Export and convert the private key to hex:
+
+   ```bash
+   lotus wallet export <your-delegated-wallet-address> | xxd -r -p | jq -r '.PrivateKey' | base64 -d | xxd -p -c 32
+   ```
+
+   In the Curio GUI, open the **PDP** page. In the **Owner Address** section select **Import Key**, paste the hex key into the **Private Key (Hex)** field, and select **Import Key** again. Your `0x` address, the delegated Ethereum address derived from the wallet, is added to the Owner Address section.
+
+   :::danger[Protect your key material]
+   Never expose or store the private key in plain text without protection.
+   :::
+
+   Fund the `0x` wallet so PDP operations are not interrupted:
+
+   <Tabs syncKey="network">
+     <TabItem label="Calibration">
+       Send **5 tFIL** to your `0x` wallet. Get testnet FIL from the [Calibration faucet](https://docs.filecoin.io/smart-contracts/developing-contracts/get-test-tokens).
+     </TabItem>
+     <TabItem label="Mainnet">
+       Send **10 FIL** to your `0x` wallet. This covers the 5 FIL storage provider creation fee plus headroom for initial operation.
+     </TabItem>
+   </Tabs>
+
+4. **Restart and verify.** Restart Curio with both layers:
+
+   ```bash
+   curio run --layers=gui,pdp
+   ```
+
+   :::caution[Cannot bind to port 443]
+   If Curio cannot bind to port 443, grant the binary the capability and restart:
+
+   ```bash
+   sudo setcap 'cap_net_bind_service=+ep' /usr/local/bin/curio
+   ```
+
+   :::
+
+   Browse to your PDP node's domain. You should see `Hello, World! -Curio` in the browser.
+
+</Steps>
+
+## Register with Warm Storage
+
+Register your node with the Filecoin Warm Storage Service so clients can discover and use it. In the Curio GUI, open the **PDP** page and find the **Filecoin Service Registry** section.
+
+<Steps>
+
+1. **Update details.** Select **Update Details**, enter a **Name** and a short **Description** for your provider node, then select **Update** to submit them to the FWSS contract. You can review other providers' names and descriptions at [filecoin.services/warmstorage](https://www.filecoin.services/warmstorage).
+
+2. **Update the PDP offering.** Select **Update PDP Offering** and set:
+
+   - **Minimum Piece Size (Bytes)**: `1048576`
+   - **Maximum Piece Size (Bytes)**: `1073741824`
+   - **Minimum Proving Period (Epochs)**: `30`
+   - **Location**: your node location in the format `C=US;ST=California;L=San Francisco`
+   - **Storage Price** (per TiB per day in USDFC):
+
+     <Tabs syncKey="network">
+       <TabItem label="Calibration">`0.833`</TabItem>
+       <TabItem label="Mainnet">`0.0833`</TabItem>
+     </Tabs>
+
+   Then add two capabilities:
+
+   - `capacityTib`: your available capacity in TiB
+   - `serviceStatus`: advertises whether the node is in production or testing.
+
+     <Tabs syncKey="network">
+       <TabItem label="Calibration">Set `serviceStatus` to `prod`.</TabItem>
+       <TabItem label="Mainnet">Set `serviceStatus` to `testing`.</TabItem>
+     </Tabs>
+
+   Select **Update PDP** to submit your offering to the FWSS contract.
+
+</Steps>
+
+## You Are Done
+
+Your PDP-enabled storage provider stack is now:
+
+- Syncing with the Filecoin network via Lotus
+- Recording deal and piece metadata in YugabyteDB
+- Running Curio for sealing and coordination
+- Proving data possession through PDP
+- Registered with the Warm Storage contract
+
+## Next Steps
+
+- [Withdraw funds from Filecoin Pay](/storage-provider-guides/withdraw-from-filecoin-pay/) once clients start paying for storage
+- [Nginx Reverse Proxy Setup](/storage-provider-guides/advanced/nginx-reverse-proxy/) to terminate TLS in front of Curio
+- [LXD Container Setup](/storage-provider-guides/advanced/lxd-container-setup/) to isolate nodes on one host
+- Explore tools and resources at [filecoin.services](https://www.filecoin.services), and join [#fil-pdp](https://filecoinproject.slack.com/archives/C0717TGU7V2) on [Filecoin Slack](https://filecoin.io/slack)
