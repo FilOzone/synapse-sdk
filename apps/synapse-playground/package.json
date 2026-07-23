@@ -53,6 +53,6 @@
     "typescript": "catalog:",
     "vite": "8.1.0",
     "vite-plugin-node-polyfills-vite8": "0.25.4",
-    "wrangler": "4.105.0"
+    "wrangler": "4.110.0"
   }
 }
