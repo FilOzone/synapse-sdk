@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.7.0...synapse-core-v0.7.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* omit sender from read-only contract calls ([#876](https://github.com/FilOzone/synapse-sdk/issues/876)) ([72eb93e](https://github.com/FilOzone/synapse-sdk/commit/72eb93e6c7de4ffadb7fb869fb3a3aa1215b5e7e))
+* **sdk:** harden provider health checks ([#886](https://github.com/FilOzone/synapse-sdk/issues/886)) ([a80d308](https://github.com/FilOzone/synapse-sdk/commit/a80d308a872797bf84f333df1e5aa6bf30fb67ef))
+* **synapse-core:** validate PDP verifier address checksum ([#897](https://github.com/FilOzone/synapse-sdk/issues/897)) ([ad518d5](https://github.com/FilOzone/synapse-sdk/commit/ad518d5f51dcff34a4e5e70ed9ebd0313659d9c9))
+
 ## [0.7.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.6.1...synapse-core-v0.7.0) (2026-06-11)
 
 
