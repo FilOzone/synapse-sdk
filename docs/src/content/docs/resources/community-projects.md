@@ -26,7 +26,15 @@ Projects in **FOC WG Spotlight** are maintained by the FOC Working Group. Projec
 
 [![Screenshot of the Filecoin Pin demo](./pin-filecoin-cloud.png)](https://pin.filecoin.cloud/)
 
-`Filecoin Pin` is a reference pinning app built on FOC primitives. It is a good starting point for understanding production-style upload, IPFS pin management, and retrieval flows.
+Filecoin Pin gives the IPFS community several ways to use Filecoin Onchain Cloud (FOC) for verifiable persistence while preserving familiar IPFS content addressing and retrieval workflows.
+
+| Affordance | Best for | Get started |
+| --- | --- | --- |
+| Browser demo | Exploring the Filecoin Pin upload flow | [Open the Filecoin Pin demo](https://pin.filecoin.cloud/) |
+| CLI | Local development, scripts, and terminal workflows | [Follow the CLI quick start](/getting-started/filecoin-pin/) |
+| GitHub Action | Uploading static sites and build artifacts from CI/CD | [View the Filecoin Pin Upload Action](https://github.com/filecoin-project/filecoin-pin/tree/master/upload-action) |
+
+See the [Filecoin Pin overview](/core-concepts/filecoin-pin/) for details about its architecture, storage proofs, payments, and IPFS interoperability.
 
 ### FOC Upload dApp
 
