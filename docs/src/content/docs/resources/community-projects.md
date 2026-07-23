@@ -30,7 +30,7 @@ Filecoin Pin gives the IPFS community several ways to use Filecoin Onchain Cloud
 
 | Affordance | Best for | Get started |
 | --- | --- | --- |
-| Web app | Pinning and managing content in a browser | [Open Filecoin Pin](https://pin.filecoin.cloud/) |
+| Browser demo | Exploring the Filecoin Pin upload flow | [Open the Filecoin Pin demo](https://pin.filecoin.cloud/) |
 | CLI | Local development, scripts, and terminal workflows | [Follow the CLI quick start](/getting-started/filecoin-pin/) |
 | GitHub Action | Uploading static sites and build artifacts from CI/CD | [View the Filecoin Pin Upload Action](https://github.com/filecoin-project/filecoin-pin/tree/master/upload-action) |
 
