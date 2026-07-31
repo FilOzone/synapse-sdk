@@ -3,9 +3,5 @@
 * @hugomrdias @rvagg
 
 /docs @jennijuju @BigLep @rjan90
-
-/docs/src/content/docs/cookbooks @FilOzone/FIL-B
-/docs/src/content/docs/core-concepts @FilOzone/FIL-B
-/docs/src/content/docs/introduction @FilOzone/FIL-B
-/docs/src/content/docs/resources @FilOzone/FIL-B
-/docs/src/content/docs/developer-guides @FilOzone/FIL-B @hugomrdias @rvagg
+/docs/src/content/docs @jennijuju @BigLep @rjan90 @FilOzone/FIL-B
+/docs/src/content/docs/developer-guides @jennijuju @BigLep @rjan90 @FilOzone/FIL-B @hugomrdias @rvagg
