@@ -1,7 +1,11 @@
-* @hugomrdias @rvagg
+# Codeowners per the FOC Engineering Workstreams proposal.
+# https://app.notion.com/p/filecoindev/FOC-Engineering-Workstreams-342dc41950c1818f99d2e857a7f3cb2e
+* @hugomrdias
+
+/docs/src/content/docs/ @jennijuju @BigLep @rjan90
 
 /docs/src/content/cookbooks @FilOzone/FIL-B
-/docs/src/content/core-concepts @FilOzone/FIL-B 
-/docs/src/content/introduction @FilOzone/FIL-B 
-/docs/src/content/resources @FilOzone/FIL-B 
+/docs/src/content/core-concepts @FilOzone/FIL-B
+/docs/src/content/introduction @FilOzone/FIL-B
+/docs/src/content/resources @FilOzone/FIL-B
 /docs/src/content/developer-guides @FilOzone/FIL-B @hugomrdias @rvagg
