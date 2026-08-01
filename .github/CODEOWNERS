@@ -3,6 +3,6 @@
 * @hugomrdias @rvagg
 
 # CODEOWNERS is last-match-wins which is why there is copy/paste between the rows.
-/docs @jennijuju @BigLep @rjan90
-/docs/src/content/docs @jennijuju @BigLep @rjan90 @FilOzone/FIL-B
-/docs/src/content/docs/developer-guides @jennijuju @BigLep @rjan90 @FilOzone/FIL-B @hugomrdias @rvagg
+/docs/ @jennijuju @BigLep @rjan90
+/docs/src/content/docs/ @jennijuju @BigLep @rjan90 @FilOzone/FIL-B
+/docs/src/content/docs/developer-guides/ @jennijuju @BigLep @rjan90 @FilOzone/FIL-B @hugomrdias @rvagg
