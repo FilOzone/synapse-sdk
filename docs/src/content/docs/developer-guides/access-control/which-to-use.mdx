@@ -1,0 +1,55 @@
+---
+title: Which Access Control System To Use
+description: Which access control system to use for your data sets
+sidebar:
+  order: 1
+---
+
+## Two types of access control delegation
+
+FWSS offers 2 distinct ways of controlling access to dataset write operations (addPieces,
+schedulePieceDeletion, and terminateService). Which you should choose will depend on your use 
+case and may even vary between data sets.
+
+The two are complementary and can be used together on different datasets belonging to the same
+owner.
+
+### Session Keys
+
+Session keys allow the payer to delegate its authority to update data sets to a secp256k1
+key, enabling operations without the need for constant wallet authorizations from the
+payer wallet. This is a simple, coarse delegation that empowers the session key holder
+to update any dataset belonging to the payer.
+
+### Programmable ACLs
+
+Programmable ACLS in FWSS provide rich, fine-grained per-dataset, per-operation control using a
+smart contract that you supply. They enable you to use different signing algorithms and more detailed
+per-dataset delegation than the default mechanism (eg P256 passkey (Touch ID), a multisig, or
+per-operation rate-limits) . 
+
+## Session keys vs programmable ACLs
+
+Both approaches delegate signing away from the payer wallet; they solve different problems
+and can be used together (a session key for routine UX on basic data sets, an authorizer for
+specific policies on specific data sets).
+
+| | [Session keys](/developer-guides/access-control/session-keys/) | [Programmable ACLs](/developer-guides/access-control/programmable-acls/) |
+| --- | --- | --- |
+| **What it is** | An SDK-native ephemeral **secp256k1** key with on-chain permission grants | **Your own contract** deciding each write |
+| **Where policy lives** | The shared `SessionKeyRegistry` (per-key, per-operation, time-boxed grants) | Arbitrary logic and storage in your authorizer contract |
+| **Curves / auth** | secp256k1 (EVM signatures) | Anything — P256 passkeys/WebAuthn, multisig, thresholds, oracles - so long as they fit within [the limits](/developer-guides/access-control/programmable-acls/#security-considerations) |
+| **SDK support** | Applies to native Synapse and FWSS | FWSS only |
+| **Scope** | All your data sets at once | Fine-grained per data set |
+| **Reach for it when** | You want silent signing / better dApp UX with the standard model | You need an algorithm or policy the session key registry can't express |
+
+Session keys are the recommended default for ordinary "sign once, operate silently" UX. They are fast and
+cheap and work with raw Synapse SDK as well as FWSS.
+
+Reach for a programmable ACL when you need something the standard model can't do — most commonly
+things like **passkey/WebAuthn authorization** or **custom on-chain policy**.
+
+## Next Steps
+
+- [Session Keys](/developer-guides/access-control/session-keys/) — the SDK-native delegation model.
+- [Programmable ACLs](/developer-guides/access-control/programmable-acls/) — fine-grained per-dataset operation access control on FWSS.

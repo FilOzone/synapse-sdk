@@ -2,21 +2,13 @@
 title: Programmable ACLs
 description: Delegate the entire write-authorization decision for a data set to your own on-chain contract (Data Set Authorizers).
 sidebar:
-  order: 2
+  order: 3
 ---
 
 :::tip[Alternative: session keys]
-Programmable ACLS in FWSS provide rich, fine-grained per-dataset, per-operation control using a
-smart contract that you supply. They enable you to use different signing algorithms and more detailed
-per-dataset delegation (eg **P256 passkey** (Touch ID) a multisig, or per-operation rate-limits) than
-the default mechanism. 
+FWSS offers 2 distinct methods of controlling write access to data sets.
 
-However where such fine control is not necessary, [session keys](/developer-guides/access-control/session-keys/)
-are the recommended default for silent, popup-free signing with the standard secp256k algorithm. They are fast and
-cheap and work with raw Synapse SDK as well as FWSS.
-
-The two are complementary and can be used together on different datasets belonging to the same owner. See
-[Which should I use?](#session-keys-vs-programmable-acls) for more details.
+Ensure you pick the right one by consulting [which should I use?](/developer-guides/access-control/which-to-use/) first.
 :::
 
 ## What are programmable ACLs?
@@ -73,21 +65,6 @@ The `digest` is FWSS's EIP-712 digest for that exact operation and its parameter
 is whatever blob your authorizer expects (FWSS does not interpret it); `operationData` is the raw
 ABI-encoded operation payload, so a policy can gate on contents (it is empty for terminate).
 
-:::caution[The authorizer is the *sole* gate for the operations it covers]
-While attached, the authorizer **fully replaces** the session-key signature check for
-add-pieces, schedule-removals, and *signed (immediate)* termination. FWSS does no signature recovery
-of its own for those — your contract owns the whole decision, **including verifying whatever
-`signature` it expects over `digest`**. Exercise extreme diligence in security review of any
-authorizer contract you deploy. Ideally you should use an FWSS-provided contract and only write
-your own if you need functionality that is not already covered.
-:::
-
-:::caution[Gas limits]
-In order to mitigate SP griefing the entire `isAuthorized` check is hard limited to 150M gas.
-This is enough to implement something sophisticated like a touchID passkey verifier but you
-still need to be careful an write optimized code when writing or deploying your own authorizer.
-:::
-
 ## Step 1 — write and deploy an authorizer
 
 Here is a minimal authorizer that accepts a **P256 (secp256r1) signature** over the operation
@@ -119,13 +96,21 @@ contract SingleP256Authorizer {
 Deploy it with your usual tooling (Foundry, Hardhat, or `viem`'s `deployContract`), passing your
 P256 public-key coordinates to the constructor.
 
+:::caution[Gas limits]
+In order to mitigate SP griefing the entire `isAuthorized` check is hard limited to 150M gas.
+This is enough to implement something sophisticated like a touchID passkey verifier but you
+still need to be careful an write optimized code when writing or deploying your own authorizer.
+:::
+
 ## Step 2 — attach it to a data set
 
-*** JAGTAG *** See if we can update the ABI to prevent this being necessary.
+:::note[ABI preview]
+Because the SDK's bundled FWSS ABI predates this method, the below example uses an inline ABI fragment
+with `viem`. As soon as this feature reaches GA this will be cleaned up.
+:::
 
 Attaching is a call to `setDataSetAuthorizer(dataSetId, authorizer)` on the FWSS contract. **Only the
-data set's payer may call it.** Because the SDK's bundled FWSS ABI predates this method, use an
-inline ABI fragment with `viem`:
+data set's payer may call it.**:
 
 ```ts
 import { createWalletClient, http, getAddress, type Hex } from 'viem'
@@ -160,17 +145,27 @@ or `address(0)` to detach (see Step 4). You can read the current authorizer back
 `getDataSetAuthorizer(uint256) → address` view (or `getDataSetAuthorizer` on the FWSS **State View**
 contract).
 
-## Step 3 — authorize operations with `extraData`
+:::caution[The authorizer is the *sole* gate for the operations it covers]
+While attached, the authorizer **fully replaces** the payer and session-key signature check for
+add-pieces, schedule-removals, and *signed (immediate)* termination. **There is no payer bypass**
+so if the you still wish to call FWSS operations direct from the data set payer then they must be
+recognized by the authorizer too.
 
-:::caution[Total delegation of all operations]
-Once an authorizer is attached, FWSS delegates all access control decisions to it and the session
-key registry is not checked. You must therefore include checks for all operations in the authorizer
-(or make calls from the payer address, which will always succeed). 
+To protect the payer wallet from too much unnecessary exposure the preferred route would be to
+create a dedicated delegate key and register it with the authorizer contract, but if for any reason
+this fails the payer can always detach the authorizer with `setDataSetAuthorizer(dataSetId, address(0))`
+and return to the default signature path.
+:::
+
+## Step 3 — authorize operations with `extraData`
 
 FWSS operations that can be gated by the authorizer are:
  - AddPieces
  - SchedulePieceRemovals
  - TerminateService
+
+Because all access control decisions are passed to the registered authorizer, it must handle all of
+these operations, else they will always revert.
 
 Build the blob your `isAuthorized` implementation expects and pass it as the pre-built
 **`extraData`** on the operation:
@@ -228,8 +223,13 @@ Session keys remain the recommended default for ordinary "sign once, operate sil
 Reach for a programmable ACL when you need something the standard model can't do — most commonly
 **passkey/WebAuthn authorization** or **custom on-chain policy**.
 
-## Caveats
+## Security Considerations & Caveats
 
+- **Full responsibility.** When attached to a dataset the authorizer contract takes over **all*
+  responsibility for access controls, **including verifying whatever `signature` it expects over
+  `digest`**. Exercise extreme diligence in security review of any authorizer contract you deploy.
+  Ideally you should use an FWSS-provided contract and only write your own if you need functionality
+  that is not already covered.
 - **Gas.** A P256/passkey authorizer verifies via the FEVM secp256r1 precompile, which is expensive
   on Filecoin (~100M-120M gas for a full passkey `isAuthorized`). The storage provider that relays
   your operation must supply enough gas; FWSS caps the authorizer sub-call at 150M gas.
