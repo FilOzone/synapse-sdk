@@ -2,8 +2,22 @@
 title: Session Keys
 description: Delegate signing permissions to ephemeral keys for improved UX and security.
 sidebar:
-  order: 6
+  order: 1
 ---
+
+:::tip[Alternative: programmable ACLs]
+Session keys are the recommended default for silent, popup-free signing with the standard secp256k1
+model. It is fast and cheap and works with raw Synapse SDK as well as FWSS.
+
+However if you need different signing algorithms or more detailed per-dataset delegation (eg 
+**P256 passkey** (Touch ID) a multisig, or per-operation rate-limits) then FWSS also offers
+[Programmable ACLs](/developer-guides/access-control/programmable-acls/), which delegate the write-authorization
+decision for a data set to a contract you supply. 
+
+The two are complementary and can be used together on different datasets belonging to the same owner. See
+[Which should I use?](/developer-guides/access-control/programmable-acls/#session-keys-vs-programmable-acls)
+for more details.
+:::
 
 ## What are session keys?
 

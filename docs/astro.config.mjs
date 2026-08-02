@@ -21,6 +21,8 @@ export default defineConfig({
     '/developer-guides/storage/split-operations/': '/developer-guides/storage/upload-pipeline/',
     '/developer-guides/react-integration/': '/developer-guides/synapse-react/',
     '/developer-guides/devnet/': '/resources/devnet/',
+    '/developer-guides/session-keys/': '/developer-guides/access-control/session-keys/',
+    '/developer-guides/programmable-acls/': '/developer-guides/access-control/programmable-acls/',
   },
   markdown: {
     // rehype-external-links attaches to the unified processor Starlight runs.
