@@ -11,6 +11,7 @@
 
 export * from './account-debt.ts'
 export * from './accounts.ts'
+export * from './calculate-target-runway-deposit.ts'
 export * from './deposit.ts'
 export * from './deposit-with-permit.ts'
 export * from './fund.ts'
