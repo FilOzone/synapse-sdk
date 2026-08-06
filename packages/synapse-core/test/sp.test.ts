@@ -1027,7 +1027,7 @@ InvalidSignature(address expected, address actual)
       assert.equal(result.hash, mockTxHash)
     })
 
-    it.only('deletes multiple pieces should fail when too many pieces are queued', async () => {
+    it('deletes multiple pieces should fail when too many pieces are queued', async () => {
       const submittedPieceIds = [2n, 3n, 2n, 9_007_199_254_740_993n]
 
       server.use(
