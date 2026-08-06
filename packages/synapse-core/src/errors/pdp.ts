@@ -179,6 +179,21 @@ export class DeletePieceError extends SynapseError {
   }
 }
 
+export class TooManyPiecesQueuedError extends SynapseError {
+  override name: 'TooManyPiecesQueuedError' = 'TooManyPiecesQueuedError'
+
+  constructor() {
+    super(`Too many pieces queued.`, {
+      details:
+        'The data set already has 200 or more scheduled removals queued on-chain; retry after the next proving period flushes the queue.',
+    })
+  }
+
+  static override is(value: unknown): value is TooManyPiecesQueuedError {
+    return isSynapseError(value) && value.name === 'TooManyPiecesQueuedError'
+  }
+}
+
 export class TerminateServiceError extends SynapseError {
   override name: 'TerminateServiceError' = 'TerminateServiceError'
 

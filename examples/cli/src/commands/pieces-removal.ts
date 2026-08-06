@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts'
-import { schedulePieceDeletion } from '@filoz/synapse-core/sp'
+import { schedulePieceDeletions } from '@filoz/synapse-core/sp'
 import { getPdpDataSet } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
 import { waitForTransactionReceipt } from 'viem/actions'
@@ -42,10 +42,10 @@ export const piecesRemoval: Command = command(
         : await selectPiece(client, dataSet, argv.flags)
 
       p.log.info(`Removing piece ${pieceId} from data set ${dataSetId}...`)
-      const result = await schedulePieceDeletion(client, {
+      const result = await schedulePieceDeletions(client, {
         dataSetId,
         clientDataSetId: dataSet.clientDataSetId,
-        pieceId,
+        pieceIds: [pieceId],
         serviceURL: dataSet.provider.pdp.serviceURL,
       })
 

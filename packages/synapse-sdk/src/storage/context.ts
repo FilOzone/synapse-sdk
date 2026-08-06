@@ -1155,8 +1155,9 @@ export class StorageContext {
    * @returns Transaction hash of the delete operation
    *
    * @remarks
-   * Curio accepts at most 500 pieces per request. PDPVerifier also allows at
-   * most 2,000 cumulative queued removals until the next proving period.
+   * Curio accepts at most 200 pieces per request and rejects requests (429) when
+   * the data set already has 200 or more removals queued on-chain; the queue only
+   * drains at the next proving period.
    */
   async deletePieces(options: { pieces: Array<string | PieceCID | bigint> }): Promise<Hash> {
     if (this.dataSetId == null) {
