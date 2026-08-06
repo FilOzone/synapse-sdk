@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.7.1...synapse-core-v0.7.2) (2026-08-06)
+
+
+### Bug Fixes
+
+* **synapse-core:** accept deployment contracts metadata ([#907](https://github.com/FilOzone/synapse-sdk/issues/907)) ([1247c3d](https://github.com/FilOzone/synapse-sdk/commit/1247c3d716006693117e3cacb298a661d52040da))
+
 ## [0.7.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.7.0...synapse-core-v0.7.1) (2026-07-23)
 
 
