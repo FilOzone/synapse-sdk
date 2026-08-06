@@ -100,6 +100,14 @@ export const SIZE_CONSTANTS = {
   MAX_ADD_PIECES_BATCH_SIZE: 40,
 
   /**
+   * Maximum pieces per schedulePieceDeletions call accepted by the Curio PDP API.
+   *
+   * Curio also rejects requests (429) when the data set already has 200 or more
+   * removals queued on-chain; the queue only drains at the next proving period.
+   */
+  MAX_DELETE_PIECES_BATCH_SIZE: 200,
+
+  /**
    * Bytes per leaf in the PDP merkle tree.
    * The FWSS contract converts leaf counts to bytes via `totalBytes = leafCount * BYTES_PER_LEAF`.
    */
