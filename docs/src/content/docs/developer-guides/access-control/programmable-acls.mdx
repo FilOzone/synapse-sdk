@@ -1,0 +1,251 @@
+---
+title: Programmable ACLs
+description: Delegate the entire write-authorization decision for a data set to your own on-chain contract (Data Set Authorizers).
+sidebar:
+  order: 3
+---
+
+:::tip[Alternative: session keys]
+FWSS offers 2 distinct methods of controlling write access to data sets.
+
+Ensure you pick the right one by consulting [which should I use?](/developer-guides/access-control/which-to-use/) first.
+:::
+
+## What are programmable ACLs?
+
+By default, every write to a data set — adding pieces, scheduling piece removals, terminating the
+service — is authorized by an **EIP-712 signature from the data set's payer**, optionally delegated
+to a [session key](/developer-guides/access-control/session-keys/). Session key delegation offers a
+powerful UX upgrade over repetitive wallet signing operations but they delegate authority for *all
+datasets* that the payer owns.
+
+A **programmable ACL** overrides that built-in auth check on an individual dataset basis with a
+smart contract supplied by the payer that implements the `IDataSetAuthorizer` interface.
+When the payer attaches an *authorizer* to a dataset, FWSS calls the authorizer to make the
+decision **instead of** checking the session key registry. 
+
+The authorizer can implement any policy you want:
+
+- verify a signature using a different algorithm — for example a **P256 passkey** assertion
+  (Touch ID, secure enclave), which the built-in secp256k1 path cannot do;
+- require **human presence** (a biometric user-verification flag) for sensitive operations;
+- gate on the operation's contents (metadata, piece paths);
+- authorize a machine agent's stored key **and** your human passkey on the same data set,
+  each scoped to different operations.
+
+## The interface
+
+An authorizer is any contract implementing a single method:
+
+```solidity
+interface IDataSetAuthorizer {
+    function isAuthorized(
+        uint256 dataSetId,
+        address payer,
+        bytes32 operation,            // EIP-712 type hash of the op (AddPieces / SchedulePieceRemovals / TerminateService)
+        bytes32 digest,               // the EIP-712 digest FWSS computed for this exact operation
+        bytes calldata signature,     // opaque to FWSS — your contract interprets it
+        bytes calldata operationData  // ABI-encoded raw op payload (empty for terminate)
+    ) external returns (bool authorized);
+}
+```
+
+FWSS calls this **instead of** its built-in signature check, for the three write operations.
+Semantics:
+
+- return **`true`** → the operation proceeds;
+- return **`false`** → FWSS reverts with `Unauthorized`;
+- **revert / out-of-gas** → treated as "not authorized"; the operation reverts.
+
+`isAuthorized` is a **state-mutating** call (not `view`), so an authorizer may update its own storage
+while deciding — consume a nonce, tick a rate-limiter, log an event. FWSS gas-caps the sub-call and
+blocks re-entry into the authorization path while a decision is in flight.
+
+The `digest` is FWSS's EIP-712 digest for that exact operation and its parameters; the `signature`
+is whatever blob your authorizer expects (FWSS does not interpret it); `operationData` is the raw
+ABI-encoded operation payload, so a policy can gate on contents (it is empty for terminate).
+
+## Step 1 — write and deploy an authorizer
+
+Here is a minimal authorizer that accepts a **P256 (secp256r1) signature** over the operation
+digest from a single registered key — the kind of delegation the built-in secp256k1 path can't
+express. It verifies via the FEVM **secp256r1 precompile at `0x100`**:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract SingleP256Authorizer {
+    uint256 public immutable pubKeyX;
+    uint256 public immutable pubKeyY;
+
+    constructor(uint256 x, uint256 y) { pubKeyX = x; pubKeyY = y; }
+
+    function isAuthorized(uint256, address, bytes32, bytes32 digest, bytes calldata signature, bytes calldata)
+        external view returns (bool)
+    {
+        (bytes32 r, bytes32 s) = abi.decode(signature, (bytes32, bytes32));
+        // 0x100 input: digest ‖ r ‖ s ‖ x ‖ y ; returns 32-byte 1 on success
+        (bool ok, bytes memory out) =
+            address(0x100).staticcall(abi.encodePacked(digest, r, s, bytes32(pubKeyX), bytes32(pubKeyY)));
+        return ok && out.length == 32 && bytes32(out) == bytes32(uint256(1));
+    }
+}
+```
+
+Deploy it with your usual tooling (Foundry, Hardhat, or `viem`'s `deployContract`), passing your
+P256 public-key coordinates to the constructor.
+
+:::caution[Gas limits]
+In order to mitigate SP griefing the entire `isAuthorized` check is hard limited to 150M gas.
+This is enough to implement something sophisticated like a touchID passkey verifier but you
+still need to be careful an write optimized code when writing or deploying your own authorizer.
+:::
+
+## Step 2 — attach it to a data set
+
+:::note[ABI preview]
+Because the SDK's bundled FWSS ABI predates this method, the below example uses an inline ABI fragment
+with `viem`. As soon as this feature reaches GA this will be cleaned up.
+:::
+
+Attaching is a call to `setDataSetAuthorizer(dataSetId, authorizer)` on the FWSS contract. **Only the
+data set's payer may call it.**:
+
+```ts
+import { createWalletClient, http, getAddress, type Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-core/chains'
+
+// FWSS address for your network — see /resources/contracts/
+const WARM_STORAGE = '0x...' as Hex
+
+const setAuthorizerAbi = [{
+  type: 'function', name: 'setDataSetAuthorizer', stateMutability: 'nonpayable',
+  inputs: [{ name: 'dataSetId', type: 'uint256' }, { name: 'authorizer', type: 'address' }],
+  outputs: [],
+}] as const
+
+const payer = createWalletClient({
+  account: privateKeyToAccount('0x<payer-private-key>' as Hex),
+  chain: calibration,
+  transport: http(),
+})
+
+await payer.writeContract({
+  address: WARM_STORAGE,
+  abi: setAuthorizerAbi,
+  functionName: 'setDataSetAuthorizer',
+  args: [42n /* dataSetId */, getAddress('0x<your-authorizer>')],
+})
+```
+
+`setDataSetAuthorizer` requires the target to be a deployed contract (`authorizer.code.length > 0`),
+or `address(0)` to detach (see Step 4). You can read the current authorizer back with the matching
+`getDataSetAuthorizer(uint256) → address` view (or `getDataSetAuthorizer` on the FWSS **State View**
+contract).
+
+:::caution[The authorizer is the *sole* gate for the operations it covers]
+While attached, the authorizer **fully replaces** the payer and session-key signature check for
+add-pieces, schedule-removals, and *signed (immediate)* termination. **There is no payer bypass**
+so if the you still wish to call FWSS operations direct from the data set payer then they must be
+recognized by the authorizer too.
+
+To protect the payer wallet from too much unnecessary exposure the preferred route would be to
+create a dedicated delegate key and register it with the authorizer contract, but if for any reason
+this fails the payer can always detach the authorizer with `setDataSetAuthorizer(dataSetId, address(0))`
+and return to the default signature path.
+:::
+
+## Step 3 — authorize operations with `extraData`
+
+FWSS operations that can be gated by the authorizer are:
+ - AddPieces
+ - SchedulePieceRemovals
+ - TerminateService
+
+Because all access control decisions are passed to the registered authorizer, it must handle all of
+these operations, else they will always revert.
+
+Build the blob your `isAuthorized` implementation expects and pass it as the pre-built
+**`extraData`** on the operation:
+
+```ts
+import { encodeAbiParameters, type Hex } from 'viem'
+
+// For our SingleP256Authorizer, `signature` = abi.encode(r, s) over the FWSS digest.
+// Compute the digest FWSS will use for this add-pieces operation, sign it with your P256 key,
+// then wrap the (r, s) exactly as your authorizer's abi.decode expects.
+const signature = encodeAbiParameters(
+  [{ type: 'bytes32' }, { type: 'bytes32' }],
+  [rHex, sHex],
+)
+// FWSS forwards `extraData` to the SP, which passes it to your authorizer as `signature`.
+const extraData = signature as Hex
+
+// High-level: pass extraData to skip the SDK's own signing
+await synapse.storage.addPieces({ dataSetId: 42n, pieces, extraData })
+```
+
+## Step 4 — rotate or remove the authorizer
+
+Attach a different contract to rotate, or `address(0)` to detach and return the data set to the
+default payer/session-key behavior:
+
+```ts
+await payer.writeContract({
+  address: WARM_STORAGE,
+  abi: setAuthorizerAbi,
+  functionName: 'setDataSetAuthorizer',
+  args: [42n, '0x0000000000000000000000000000000000000000'],
+})
+```
+
+Detaching is immediate and always available to the payer, so a malfunctioning authorizer can
+never permanently lock a payer out of their own data set.
+
+## Session keys vs programmable ACLs
+
+Both approaches delegate signing away from the payer wallet; they solve different problems
+and can be used together (a session key for routine UX, an authorizer for a specific policies
+on specific data sets).
+
+| | [Session keys](/developer-guides/access-control/session-keys/) | Programmable ACLs |
+| --- | --- | --- |
+| **What it is** | An SDK-native ephemeral **secp256k1** key with on-chain permission grants | **Your own contract** deciding each write |
+| **Where policy lives** | The shared `SessionKeyRegistry` (per-key, per-operation, time-boxed grants) | Arbitrary logic in your authorizer |
+| **Curves / auth** | secp256k1 (EVM signatures) | Anything — P256 passkeys/WebAuthn, multisig, thresholds, oracles |
+| **SDK support** | First-class (`@filoz/synapse-core/session-key`, `Synapse({ sessionKey })`) | `extraData` passthrough + `viem` (no dedicated helper yet) |
+| **Scope** | Per session key, across all your data sets | Per data set |
+| **Reach for it when** | You want silent signing / better dApp UX with the standard model | You need a curve or policy the built-in check can't express |
+
+Session keys remain the recommended default for ordinary "sign once, operate silently" UX.
+Reach for a programmable ACL when you need something the standard model can't do — most commonly
+**passkey/WebAuthn authorization** or **custom on-chain policy**.
+
+## Security Considerations & Caveats
+
+- **Full responsibility.** When attached to a dataset the authorizer contract takes over **all*
+  responsibility for access controls, **including verifying whatever `signature` it expects over
+  `digest`**. Exercise extreme diligence in security review of any authorizer contract you deploy.
+  Ideally you should use an FWSS-provided contract and only write your own if you need functionality
+  that is not already covered.
+- **Gas.** A P256/passkey authorizer verifies via the FEVM secp256r1 precompile, which is expensive
+  on Filecoin (~100M-120M gas for a full passkey `isAuthorized`). The storage provider that relays
+  your operation must supply enough gas; FWSS caps the authorizer sub-call at 150M gas.
+- **`extraData` size.** Space for the auth envelope in `extraData` is limited to 1024 bytes.
+  Compact signatures (a raw P256 `(r, s)`) fit comfortably; a full WebAuthn passkey envelope is
+  larger (~600–750 bytes), so ensure that the auth data is as compact as possible. 
+- **Replay.** FWSS enforces replay protection for **add-pieces** (a per-payer nonce baked into the
+  digest). The schedule-removals and terminate digests are **not** nonce-bound, so if your policy
+  needs replay protection for those, your authorizer must provide it (e.g. consume its own nonce).
+- **Direct termination is not gated.** An attached authorizer gates *signed (immediate)* termination
+  only. It does **not** restrict a payer or the storage provider from terminating a data set via the
+  plain, unsigned path. Do not rely on an authorizer to gate or prevent termination.
+
+## Next Steps
+
+- [Session Keys](/developer-guides/access-control/session-keys/) — the SDK-native delegation model.
+- [Storage Operations](/developer-guides/storage/storage-operations/) — add-pieces, removals, and
+  termination that accept the `extraData` override.
+- [Filecoin Warm Storage Service](/core-concepts/fwss-overview/) — how FWSS authorizes writes.
