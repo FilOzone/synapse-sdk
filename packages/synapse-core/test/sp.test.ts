@@ -13,6 +13,7 @@ import {
   InvalidUploadSizeError,
   LocationHeaderError,
   PostPieceError,
+  TooManyPiecesQueuedError,
   UploadPieceError,
   WaitForAddPiecesError,
   WaitForCreateDataSetError,
@@ -1024,6 +1025,29 @@ InvalidSignature(address expected, address actual)
       })
 
       assert.equal(result.hash, mockTxHash)
+    })
+
+    it.only('deletes multiple pieces should fail when too many pieces are queued', async () => {
+      const submittedPieceIds = [2n, 3n, 2n, 9_007_199_254_740_993n]
+
+      server.use(
+        http.delete('http://pdp.local/pdp/data-sets/1/pieces/2', async () => {
+          return new HttpResponse(null, { status: 429 })
+        })
+      )
+      try {
+        await schedulePieceDeletions(client, {
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          clientDataSetId: 0n,
+          pieceIds: submittedPieceIds,
+          retryCount: 1,
+          retryDelay: 10,
+        })
+        assert.fail('Should have thrown TooManyPiecesQueuedError')
+      } catch (error) {
+        assert.instanceOf(error, TooManyPiecesQueuedError)
+      }
     })
 
     it('rejects an empty batch', async () => {

@@ -1,6 +1,6 @@
 import { HttpError, type RequestErrors, request } from 'iso-web/http'
 import type { Account, Chain, Client, Hex, Transport } from 'viem'
-import { DeletePieceError } from '../errors/pdp.ts'
+import { DeletePieceError, TooManyPiecesQueuedError } from '../errors/pdp.ts'
 import { AtLeastOnePieceRequiredError, TooManyPiecesError } from '../errors/warm-storage.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -55,12 +55,14 @@ export async function deletePieces(options: deletePieces.OptionsType): Promise<d
     retry: {
       retries: options.retryCount,
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
-      shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 429,
     },
   })
 
   if (response.error) {
     if (HttpError.is(response.error)) {
+      if (response.error.code === 429) {
+        throw new TooManyPiecesQueuedError()
+      }
       throw new DeletePieceError(await response.error.response.text())
     }
     throw response.error
@@ -175,6 +177,8 @@ export namespace deletePiece {
 
 /**
  * Delete one piece from a data set on the PDP API.
+ *
+ * @deprecated Use {@link deletePieces} instead.
  */
 export function deletePiece(options: deletePiece.OptionsType): Promise<deletePiece.OutputType> {
   const { pieceId, ...rest } = options
@@ -189,6 +193,8 @@ export namespace schedulePieceDeletion {
 
 /**
  * Schedule one piece deletion.
+ *
+ * @deprecated Use {@link schedulePieceDeletions} instead.
  */
 export function schedulePieceDeletion(
   client: Client<Transport, Chain, Account>,
