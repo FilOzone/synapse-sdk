@@ -47,14 +47,15 @@ All Synapse Core functions accept a viem `Client` as their first argument. Creat
 
 ```ts twoslash
 // @lib: esnext,dom
-import { createPublicClient, createWalletClient, http } from "viem"
+import { createPublicClient, createWalletClient } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
-import { calibration, mainnet } from "@filoz/synapse-core/chains"
+import { calibration } from "@filoz/synapse-core/chains"
+import { getTransport } from "@filoz/synapse-core/client"
 
 // Read-only client for queries
 const publicClient = createPublicClient({
   chain: calibration, // or mainnet
-  transport: http(),
+  transport: getTransport(calibration),
 })
 
 // Wallet client for transactions
@@ -62,11 +63,13 @@ const account = privateKeyToAccount("0x...")
 const walletClient = createWalletClient({
   account,
   chain: calibration, // or mainnet
-  transport: http(),
+  transport: getTransport(calibration),
 })
 ```
 
-The `@filoz/synapse-core/chains` subpath exports chain definitions with all contract addresses pre-configured for Filecoin Mainnet (`mainnet`) and Filecoin testnet (`calibration`) networks.
+The `@filoz/synapse-core/chains` subpath exports chain definitions with all contract addresses pre-configured for Filecoin Mainnet (`mainnet`) and Filecoin testnet (`calibration`) networks. Import the FOC chain type as `FilecoinChain` when you need it in TypeScript.
+
+The `@filoz/synapse-core/client` subpath exports `getTransport` (ranked Filecoin RPC fallbacks), `asClient`, and `toReadClient`. Prefer `getTransport(chain)` over a bare `http()` endpoint when talking to mainnet or Calibration.
 
 ## Pagination
 
