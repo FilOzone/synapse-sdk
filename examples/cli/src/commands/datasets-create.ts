@@ -8,7 +8,6 @@ import {
   getPDPProviders,
 } from '@filoz/synapse-core/sp-registry'
 import { type Command, command } from 'cleye'
-import type { Chain } from 'viem'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 import { hashLink } from '../utils.ts'
@@ -74,7 +73,7 @@ export const datasetsCreate: Command = command(
 )
 
 async function selectProvider(
-  client: ReadClient<Chain>,
+  client: ReadClient,
   options: { debug?: boolean }
 ) {
   const spinner = p.spinner()
