@@ -9,6 +9,7 @@ import {
   spinner,
   text,
 } from '@clack/prompts'
+import { toReadClient } from '@filoz/synapse-core/client'
 import { getPDPProvider } from '@filoz/synapse-core/sp-registry'
 import { type Command, command } from 'cleye'
 import { type Address, getContract, isAddress, isHex } from 'viem'
@@ -28,7 +29,7 @@ export const endorse: Command = command(
     intro('Endorsements')
     log.info('Loading account')
     const { client, chain } = privateKeyClient(argv.flags.chain)
-
+    const readClient = toReadClient(client)
     const endorsements = getContract({
       ...chain.contracts.endorsements,
       client,
@@ -41,7 +42,7 @@ export const endorse: Command = command(
       ])
 
       const providers = await Promise.all(
-        endorsed.map((providerId) => getPDPProvider(client, { providerId }))
+        endorsed.map((providerId) => getPDPProvider(readClient, { providerId }))
       )
       const serviceUrls = endorsed.reduce<Record<number, string>>(
         (acc, providerId, i) => {
@@ -141,7 +142,7 @@ export const endorse: Command = command(
           if (isCancel(providerId)) {
             cancel(`Canceled`)
           } else {
-            const providerWithProduct = await getPDPProvider(client, {
+            const providerWithProduct = await getPDPProvider(readClient, {
               providerId: BigInt(providerId),
             })
             if (!providerWithProduct) {

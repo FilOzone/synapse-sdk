@@ -1,11 +1,13 @@
 import * as p from '@clack/prompts'
+import type { ReadClient } from '@filoz/synapse-core'
+import { toReadClient } from '@filoz/synapse-core/client'
 import * as sp from '@filoz/synapse-core/sp'
 import {
   getPDPProvider,
   getPDPProviders,
 } from '@filoz/synapse-core/sp-registry'
 import { type Command, command } from 'cleye'
-import type { Account, Chain, Client, Transport } from 'viem'
+import type { Chain } from 'viem'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 import { hashLink } from '../utils.ts'
@@ -30,13 +32,13 @@ export const datasetsCreate: Command = command(
   },
   async (argv) => {
     const { client, chain } = privateKeyClient(argv.flags.chain)
-
+    const readClient = toReadClient(client)
     try {
       const provider = argv._.providerId
-        ? await getPDPProvider(client, {
+        ? await getPDPProvider(readClient, {
             providerId: BigInt(argv._.providerId),
           })
-        : await selectProvider(client, argv.flags)
+        : await selectProvider(readClient, argv.flags)
 
       if (!provider) {
         throw new Error('Provider not found')
@@ -71,7 +73,7 @@ export const datasetsCreate: Command = command(
 )
 
 async function selectProvider(
-  client: Client<Transport, Chain, Account>,
+  client: ReadClient<Chain>,
   options: { debug?: boolean }
 ) {
   const spinner = p.spinner()

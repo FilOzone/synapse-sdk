@@ -1,6 +1,7 @@
 import * as p from '@clack/prompts'
 import { parseUnits, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 import { hashLink } from '../utils.ts'
@@ -35,7 +36,7 @@ export const withdraw: Command = command(
 
       spinner.message(`Waiting for tx ${hashLink(hash, chain)} to be mined...`)
 
-      await synapse.client.waitForTransactionReceipt({
+      await waitForTransactionReceipt(synapse.readClient, {
         hash,
       })
 

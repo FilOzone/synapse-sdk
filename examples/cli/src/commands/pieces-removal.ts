@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts'
+import { toReadClient } from '@filoz/synapse-core/client'
 import { schedulePieceDeletion } from '@filoz/synapse-core/sp'
 import { getPdpDataSet } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
@@ -22,14 +23,15 @@ export const piecesRemoval: Command = command(
     },
   },
   async (argv) => {
-    const { client, chain } = privateKeyClient(argv.flags.chain)
+    const { client, chain, address } = privateKeyClient(argv.flags.chain)
+    const readClient = toReadClient(client)
 
     try {
       const dataSetId = argv._.dataSetId
         ? BigInt(argv._.dataSetId)
-        : await selectDataSet(client, argv.flags)
+        : await selectDataSet(readClient, address, argv.flags)
 
-      const dataSet = await getPdpDataSet(client, {
+      const dataSet = await getPdpDataSet(readClient, {
         dataSetId,
       })
       if (!dataSet) {
@@ -39,7 +41,7 @@ export const piecesRemoval: Command = command(
 
       const pieceId = argv._.pieceId
         ? BigInt(argv._.pieceId)
-        : await selectPiece(client, dataSet, argv.flags)
+        : await selectPiece(readClient, address, dataSet, argv.flags)
 
       p.log.info(`Removing piece ${pieceId} from data set ${dataSetId}...`)
       const result = await schedulePieceDeletion(client, {
@@ -52,7 +54,9 @@ export const piecesRemoval: Command = command(
       p.log.info(
         `Waiting for tx ${hashLink(result.hash, chain)} to be mined...`
       )
-      await waitForTransactionReceipt(client, result)
+      await waitForTransactionReceipt(readClient, {
+        hash: result.hash,
+      })
 
       p.log.info(`Piece removed`)
     } catch (error) {

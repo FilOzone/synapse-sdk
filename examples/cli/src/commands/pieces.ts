@@ -1,5 +1,6 @@
 import * as p from '@clack/prompts'
 import { calibration } from '@filoz/synapse-core/chains'
+import { toReadClient } from '@filoz/synapse-core/client'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
 import { metadataArrayToObject } from '@filoz/synapse-core/utils'
 import { getPdpDataSets, type Piece } from '@filoz/synapse-core/warm-storage'
@@ -29,14 +30,14 @@ export const pieces: Command = command(
     },
   },
   async (argv) => {
-    const { client } = privateKeyClient(argv.flags.chain)
-
+    const { client, address } = privateKeyClient(argv.flags.chain)
+    const readClient = toReadClient(client)
     const spinner = p.spinner()
 
     spinner.start('Fetching data sets...')
     try {
-      const dataSets = await getPdpDataSets(client, {
-        address: client.account.address,
+      const dataSets = await getPdpDataSets(readClient, {
+        address,
       })
       spinner.stop('Fetching data sets complete')
       let pieces: Piece[] = []
@@ -55,12 +56,12 @@ export const pieces: Command = command(
           },
           pieceId: async ({ results }) => {
             const dataSetId = results.dataSetId
-            const rsp = await getPieces(client, {
+            const rsp = await getPieces(readClient, {
               // biome-ignore lint/style/noNonNullAssertion: dataSetId is guaranteed to be found
               dataSet: dataSets.find(
                 (dataSet) => dataSet.dataSetId === dataSetId
               )!,
-              address: client.account.address,
+              address,
             })
             pieces = rsp.pieces
             if (rsp.pieces.length === 0) {
