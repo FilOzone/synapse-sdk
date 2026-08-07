@@ -14,7 +14,6 @@ import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace findPieceIdsByCid {
   export type OptionsType = {
@@ -79,7 +78,7 @@ export async function findPieceIdsByCid(
   options: findPieceIdsByCid.OptionsType
 ): Promise<findPieceIdsByCid.OutputType> {
   return await readContract(
-    toReadClient(client),
+    client,
     findPieceIdsByCidCall({
       chain: client.chain,
       dataSetId: options.dataSetId,

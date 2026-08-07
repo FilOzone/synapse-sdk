@@ -12,7 +12,6 @@ import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getClientDataSetIds {
   export type OptionsType = {
@@ -45,7 +44,7 @@ export namespace getClientDataSetIds {
  * For large lists, use pagination to avoid gas limit issues. If limit=0,
  * returns all remaining IDs starting from offset.
  *
- * @param client - The client to use to get data set IDs.
+ * @param client - The client to use to get the client data set IDs.
  * @param options - {@link getClientDataSetIds.OptionsType}
  * @returns Array of data set IDs {@link getClientDataSetIds.OutputType}
  * @throws Errors {@link getClientDataSetIds.ErrorType}
@@ -76,7 +75,7 @@ export async function getClientDataSetIds(
   options: getClientDataSetIds.OptionsType
 ): Promise<getClientDataSetIds.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     getClientDataSetIdsCall({
       chain: client.chain,
       address: options.address,

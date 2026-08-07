@@ -1,19 +1,12 @@
 /* globals describe it before after beforeEach */
 
-import { type Chain, calibration } from '@filoz/synapse-core/chains'
+import type { AccountClient } from '@filoz/synapse-core'
+import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { SIZE_CONSTANTS } from '@filoz/synapse-core/utils'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import {
-  type Account,
-  type Client,
-  createWalletClient,
-  maxUint256,
-  parseUnits,
-  type Transport,
-  http as viemHttp,
-} from 'viem'
+import { createWalletClient, maxUint256, parseUnits, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { StorageContext } from '../storage/context.ts'
 import { StorageManager } from '../storage/manager.ts'
@@ -71,7 +64,7 @@ describe('calculateMultiContextCosts', () => {
   /** Full-approval mock override (maxUint256 allowances) */
   const fullyApproved = () => [true, maxUint256, maxUint256, 0n, 0n, maxUint256] as const
 
-  let client: Client<Transport, Chain, Account>
+  let client: AccountClient
   let synapse: Synapse
   let warmStorageService: WarmStorageService
   let manager: StorageManager

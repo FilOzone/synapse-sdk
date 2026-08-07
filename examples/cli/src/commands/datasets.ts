@@ -19,7 +19,7 @@ export const datasets: Command = command(
     },
   },
   async (argv) => {
-    const { client } = privateKeyClient(argv.flags.chain)
+    const { client, address } = privateKeyClient(argv.flags.chain)
 
     const spinner = p.spinner()
 
@@ -28,7 +28,7 @@ export const datasets: Command = command(
     spinner.start('Listing data sets...')
     try {
       const dataSets = await getPdpDataSets(client, {
-        address: client.account.address,
+        address,
       })
       spinner.stop('Data sets:')
       dataSets.forEach(async (dataSet) => {

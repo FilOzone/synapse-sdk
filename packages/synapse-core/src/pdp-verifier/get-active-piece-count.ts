@@ -5,7 +5,6 @@ import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getActivePieceCount {
   export type OptionsType = {
@@ -48,7 +47,7 @@ export async function getActivePieceCount(
 ): Promise<getActivePieceCount.OutputType> {
   try {
     const data = await readContract(
-      toReadClient(client),
+      client,
       getActivePieceCountCall({
         chain: client.chain,
         dataSetId: options.dataSetId,

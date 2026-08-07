@@ -1,4 +1,5 @@
-import { type Chain, calibration } from '@filoz/synapse-core/chains'
+import type { AccountClient } from '@filoz/synapse-core'
+import { calibration } from '@filoz/synapse-core/chains'
 import { TooManyPiecesError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
@@ -8,16 +9,7 @@ import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { CID } from 'multiformats/cid'
-import {
-  type Account,
-  bytesToHex,
-  type Client,
-  createWalletClient,
-  numberToHex,
-  type Transport,
-  toFunctionSelector,
-  http as viemHttp,
-} from 'viem'
+import { bytesToHex, createWalletClient, numberToHex, toFunctionSelector, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { RESOLVE_CONCURRENCY, StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
@@ -62,7 +54,7 @@ function delayNonOldestReads(fastSetId: bigint, delayMs = 50): Mocks.JSONRPCHook
 }
 
 describe('StorageService', () => {
-  let client: Client<Transport, Chain, Account>
+  let client: AccountClient
   // MSW lifecycle hooks
   before(async () => {
     await server.start()

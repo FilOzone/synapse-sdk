@@ -35,7 +35,7 @@ export namespace isFwssMaxApproved {
  * Half of maxUint256 is still astronomically large — no realistic usage would
  * ever cross this threshold.
  *
- * @param client - Read-only viem client
+ * @param client - The client to use to check FWSS max approval.
  * @param options - {@link isFwssMaxApproved.OptionsType}
  * @returns `true` if FWSS is fully approved with sufficient allowances
  */

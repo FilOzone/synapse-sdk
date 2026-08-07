@@ -12,7 +12,6 @@ import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getApprovedProviderIds {
   export type OptionsType = {
@@ -72,7 +71,7 @@ export async function getApprovedProviderIds(
   options: getApprovedProviderIds.OptionsType = {}
 ): Promise<getApprovedProviderIds.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
 
     getApprovedProviderIdsCall({
       chain: client.chain,

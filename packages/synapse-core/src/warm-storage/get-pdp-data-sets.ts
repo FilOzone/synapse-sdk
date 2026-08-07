@@ -1,7 +1,6 @@
 import PQueue from 'p-queue'
 import type { Chain, Client, ReadContractErrorType, Transport } from 'viem'
 import type { asChain } from '../chains.ts'
-
 import { type getClientDataSets, getClientDataSetsIterable } from './get-client-data-sets.ts'
 import { readPdpDataSetInfo } from './get-pdp-data-set.ts'
 import type { PdpDataSet } from './types.ts'

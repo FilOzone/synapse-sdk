@@ -4,7 +4,6 @@ import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace dataSetLive {
   export type OptionsType = {
@@ -46,7 +45,7 @@ export async function dataSetLive(
   options: dataSetLive.OptionsType
 ): Promise<dataSetLive.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     dataSetLiveCall({
       chain: client.chain,
       dataSetId: options.dataSetId,

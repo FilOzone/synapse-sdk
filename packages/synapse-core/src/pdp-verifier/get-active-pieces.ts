@@ -16,7 +16,6 @@ import { from as pieceFrom } from '../piece/parse.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import type { ActionCallChain } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getActivePieces {
   export type OptionsType = {
@@ -75,7 +74,7 @@ export async function getActivePieces(
 ): Promise<getActivePieces.OutputType> {
   try {
     const data = await readContract(
-      toReadClient(client),
+      client,
       getActivePiecesCall({
         chain: client.chain,
         dataSetId: options.dataSetId,

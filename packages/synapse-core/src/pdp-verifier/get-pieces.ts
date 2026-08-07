@@ -7,7 +7,6 @@ import { from as pieceFrom } from '../piece/parse.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 import { metadataArrayToObject } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import { getAllPieceMetadataCall } from '../warm-storage/get-all-piece-metadata.ts'
 import type { PdpDataSet, Piece, PieceWithMetadata } from '../warm-storage/types.ts'
 import { type getActivePieces, getActivePiecesCall } from './get-active-pieces.ts'
@@ -50,7 +49,7 @@ export namespace getPieces {
  * })
  * ```
  *
- * @param client - The client to use to get the active pieces.
+ * @param client - The client to use to get the pieces.
  * @param options - {@link getPieces.OptionsType}
  * @returns The active pieces for the data set {@link getPieces.OutputType}
  * @throws Errors {@link getPieces.ErrorType}
@@ -68,7 +67,7 @@ export async function getPieces(
   const address = options.address
   const serviceURL = options.dataSet.provider.pdp.serviceURL
   try {
-    const [activePiecesResult, removalsResult] = await multicall(toReadClient(client), {
+    const [activePiecesResult, removalsResult] = await multicall(client, {
       contracts: [
         getActivePiecesCall({
           chain: client.chain,
@@ -156,7 +155,7 @@ export namespace getPiecesWithMetadata {
  * })
  * ```
  *
- * @param client - The client to use to get the active pieces.
+ * @param client - The client to use to get the pieces with metadata.
  * @param options - {@link getPiecesWithMetadata.OptionsType}
  * @returns The active pieces for the data set {@link getPiecesWithMetadata.OutputType}
  * @throws Errors {@link getPiecesWithMetadata.ErrorType}
@@ -168,16 +167,14 @@ export async function getPiecesWithMetadata(
   if (options.limit != null && options.limit <= 0n) {
     throw new LimitMustBeGreaterThanZeroError()
   }
-
-  const readClient = toReadClient(client)
-  const pieces = await getPieces(readClient, options)
+  const pieces = await getPieces(client, options)
   if (pieces.pieces.length === 0) {
     return {
       pieces: [],
       hasMore: pieces.hasMore,
     }
   }
-  const metadata = await multicall(readClient, {
+  const metadata = await multicall(client, {
     allowFailure: false,
     contracts: pieces.pieces.map((piece) =>
       getAllPieceMetadataCall({

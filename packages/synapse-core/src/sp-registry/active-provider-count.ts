@@ -12,7 +12,6 @@ import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace activeProviderCount {
   export type OptionsType = {
@@ -61,7 +60,7 @@ export async function activeProviderCount(
   options: activeProviderCount.OptionsType = {}
 ): Promise<activeProviderCount.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     activeProviderCountCall({
       chain: client.chain,
       contractAddress: options.contractAddress,

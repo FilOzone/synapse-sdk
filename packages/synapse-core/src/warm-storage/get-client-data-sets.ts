@@ -13,7 +13,6 @@ import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import type { getPdpDataSets } from './get-pdp-data-sets.ts'
 import type { DataSetInfo } from './types.ts'
 
@@ -82,13 +81,12 @@ export async function getClientDataSets(
   }
   let offset = options.offset ?? 0n
   let remaining = limit
-  const readClient = toReadClient(client)
 
   while (true) {
     const pageLimit = remaining === 0n || remaining > DATA_SETS_PAGE_SIZE ? DATA_SETS_PAGE_SIZE : remaining
 
     const data = await readContract(
-      readClient,
+      client,
       getClientDataSetsCall({
         chain: client.chain,
         address: options.address,
@@ -172,11 +170,10 @@ export async function* getClientDataSetsIterable(
   }
   let offset = options.offset ?? 0n
   let hasMore = true
-  const readClient = toReadClient(client)
 
   while (hasMore) {
     const data = await readContract(
-      readClient,
+      client,
       getClientDataSetsCall({
         chain: client.chain,
         address: options.address,
