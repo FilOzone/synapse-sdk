@@ -16,7 +16,7 @@ import { UnsupportedChainError } from './errors/chains.ts'
 /**
  * Viem compatible chain interface with all the FOC contracts addresses and ABIs
  */
-export interface Chain extends ViemChain {
+export interface FilecoinChain extends ViemChain {
   /**
    * The genesis timestamp of the chain in seconds (Unix timestamp)
    */
@@ -70,7 +70,7 @@ export interface Chain extends ViemChain {
  * Compatible with Viem
  *
  */
-export const mainnet: Chain = {
+export const mainnet: FilecoinChain = {
   id: 314,
   name: 'Filecoin - Mainnet',
   nativeCurrency: {
@@ -162,7 +162,7 @@ export const mainnet: Chain = {
  * Compatible with Viem
  *
  */
-export const calibration: Chain = {
+export const calibration: FilecoinChain = {
   id: 314_159,
   name: 'Filecoin - Calibration testnet',
   nativeCurrency: {
@@ -254,7 +254,7 @@ export const calibration: Chain = {
  *
  * Local development network. Contract addresses must be provided by the devnet deployment.
  */
-export const devnet: Chain = {
+export const devnet: FilecoinChain = {
   id: 31415926,
   name: 'Filecoin - Devnet',
   nativeCurrency: {
@@ -327,7 +327,7 @@ export const devnet: Chain = {
  *
  * @param [id] - The chain id. Defaults to mainnet.
  */
-export function getChain(id?: number): Chain {
+export function getChain(id?: number): FilecoinChain {
   if (id == null) {
     return mainnet
   }
@@ -355,7 +355,7 @@ export namespace asChain {
  * @returns The filecoin chain.
  * @throws Errors {@link asChain.ErrorType}
  */
-export function asChain(chain: ViemChain): Chain {
+export function asChain(chain: ViemChain): FilecoinChain {
   if (
     chain.contracts &&
     'filecoinPay' in chain.contracts &&
@@ -363,7 +363,7 @@ export function asChain(chain: ViemChain): Chain {
     'genesisTimestamp' in chain &&
     [mainnet.id, calibration.id, devnet.id].includes(chain.id)
   ) {
-    return chain as Chain
+    return chain as FilecoinChain
   }
   throw new UnsupportedChainError(chain.id)
 }

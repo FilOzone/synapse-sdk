@@ -1,6 +1,6 @@
 import { type Client, fallback, http, type RpcSchema, type Transport, type Chain as ViemChain } from 'viem'
 import type { Account } from 'viem/accounts'
-import type { Chain } from './chains.ts'
+import type { FilecoinChain } from './chains.ts'
 import { asChain, calibration, mainnet } from './chains.ts'
 import type { Extended } from './types.ts'
 
@@ -54,14 +54,14 @@ export function getTransport(chain: ViemChain): Transport {
  * @returns The synapse client.
  */
 export function asClient<
-  chain extends ViemChain = ViemChain,
+  chain extends ViemChain | FilecoinChain = ViemChain | FilecoinChain,
   account extends Account | undefined = Account | undefined,
   transport extends Transport = Transport,
   rpcSchema extends RpcSchema | undefined = undefined,
   extended extends Extended | undefined = Extended | undefined,
 >(client: Client<transport, chain, account, rpcSchema, extended>) {
   asChain(client.chain)
-  return client as Client<transport, Chain, account, rpcSchema, extended>
+  return client as Client<transport, FilecoinChain, account, rpcSchema, extended>
 }
 
 /**
@@ -73,11 +73,20 @@ export function asClient<
  * configured chain and transport behavior while removing that account default.
  *
  */
-export function toReadClient<chain extends ViemChain | undefined = undefined>(
-  client: Client<Transport, chain>
-): Client<Transport, chain, undefined> {
+export function toReadClient<
+  chain extends ViemChain | FilecoinChain | undefined = undefined,
+  account extends Account | undefined = Account | undefined,
+  transport extends Transport = Transport,
+  rpcSchema extends RpcSchema | undefined = undefined,
+  extended extends Extended | undefined = Extended | undefined,
+>(
+  client: Client<transport, chain, account, rpcSchema, extended>
+): Client<transport, FilecoinChain, undefined, rpcSchema, extended> {
+  if (client.chain != null) {
+    asChain(client.chain)
+  }
   if (client.account == null) {
-    return client as Client<Transport, chain, undefined>
+    return client as Client<transport, FilecoinChain, undefined, rpcSchema, extended>
   }
 
   const { account, ...rest } = client
@@ -87,7 +96,7 @@ export function toReadClient<chain extends ViemChain | undefined = undefined>(
 
   const key = 'synapse-read-client'
   const name = 'Synapse Read Client'
-  const noAccountClient = { ...rest, key, name } as Client<Transport, chain, undefined>
+  const noAccountClient = { ...rest, key, name } as Client<transport, FilecoinChain, undefined, rpcSchema, extended>
 
   if (!isJsonRpcAccount && transportType === 'custom') {
     const transport = client.chain ? getTransport(client.chain) : http()

@@ -1,5 +1,5 @@
 import type { Address } from 'viem'
-import type { Chain } from '../chains.ts'
+import type { FilecoinChain } from '../chains.ts'
 
 export namespace createPieceUrl {
   export type OptionsType = {
@@ -10,7 +10,7 @@ export namespace createPieceUrl {
     /** The address of the user. */
     address: Address
     /** The chain. */
-    chain: Chain
+    chain: FilecoinChain
     /** The endpoint of the PDP API. */
     serviceURL: string
   }
