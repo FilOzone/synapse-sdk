@@ -2,19 +2,16 @@ import type { Simplify } from 'type-fest'
 import {
   type Address,
   type Chain,
-  type Client,
   type ContractFunctionParameters,
   type ContractFunctionReturnType,
   type ReadContractErrorType,
-  type Transport,
   zeroAddress,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getDataSetStorageProvider {
   export type OptionsType = {
@@ -59,18 +56,18 @@ export namespace getDataSetStorageProvider {
  * })
  * ```
  *
- * @param client - The client to use to get the data set storage provider.
+ * @param client - The read-only client to use to get the data set storage provider.
  * @param options - {@link getDataSetStorageProvider.OptionsType}
  * @returns The storage provider addresses for the data set {@link getDataSetStorageProvider.OutputType}. Returns null if the data set is not live or does not exist.
  * @throws Errors {@link getDataSetStorageProvider.ErrorType}
  */
-export async function getDataSetStorageProvider(
-  client: Client<Transport, Chain>,
+export async function getDataSetStorageProvider<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getDataSetStorageProvider.OptionsType
 ): Promise<getDataSetStorageProvider.OutputType> {
   try {
     const data = await readContract(
-      toReadClient(client),
+      client,
       getDataSetStorageProviderCall({
         chain: client.chain,
         dataSetId: options.dataSetId,

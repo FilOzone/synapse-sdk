@@ -1,14 +1,11 @@
 import type { Simplify } from 'type-fest'
 import type {
-  Account,
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
-  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -16,7 +13,7 @@ import { erc20Abi, parseEventLogs } from 'viem'
 import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { AllowanceAmountError } from '../errors/erc20.ts'
-import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace approve {
   export type OptionsType = {
@@ -72,8 +69,8 @@ export namespace approve {
  * console.log(hash)
  * ```
  */
-export async function approve(
-  client: Client<Transport, Chain, Account>,
+export async function approve<chain extends Chain>(
+  client: AccountClient<chain>,
   options: approve.OptionsType
 ): Promise<approve.OutputType> {
   const { request } = await simulateContract(
@@ -134,8 +131,8 @@ export namespace approveSync {
  * console.log('Spender:', event.args.spender)
  * ```
  */
-export async function approveSync(
-  client: Client<Transport, Chain, Account>,
+export async function approveSync<chain extends Chain>(
+  client: AccountClient<chain>,
   options: approveSync.OptionsType
 ): Promise<approveSync.OutputType> {
   const hash = await approve(client, options)

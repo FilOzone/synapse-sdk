@@ -2,18 +2,15 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 import { isProviderExistsRevert } from '../utils/contract-errors.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace isProviderActive {
   export type OptionsType = {
@@ -43,7 +40,7 @@ export namespace isProviderActive {
  * reverts to `false` so callers can use it as a simple existence + active
  * check.
  *
- * @param client - The client to use to check the provider status.
+ * @param client - The read-only client to use to check the provider status.
  * @param options - {@link isProviderActive.OptionsType}
  * @returns Whether the provider exists and is active {@link isProviderActive.OutputType}
  * @throws Errors {@link isProviderActive.ErrorType}
@@ -66,13 +63,13 @@ export namespace isProviderActive {
  * console.log(active)
  * ```
  */
-export async function isProviderActive(
-  client: Client<Transport, Chain>,
+export async function isProviderActive<chain extends Chain>(
+  client: ReadClient<chain>,
   options: isProviderActive.OptionsType
 ): Promise<isProviderActive.OutputType> {
   try {
     return await readContract(
-      toReadClient(client),
+      client,
       isProviderActiveCall({
         chain: client.chain,
         providerId: options.providerId,

@@ -1,11 +1,12 @@
 import { HttpError, type RequestErrors, request } from 'iso-web/http'
-import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
+import type { Address, Chain, Hex } from 'viem'
 import { asChain } from '../chains.ts'
 import { PullError } from '../errors/pull.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import type { MetadataEntry } from '../typed-data/type-definitions.ts'
+import type { AccountClient } from '../types.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
@@ -321,8 +322,8 @@ function toPullPieces(pieces: PullPieceInput[]): pullPiecesApiRequest.PullPieceI
 /**
  * Sign extraData for a pull operation when not pre-built by the caller.
  */
-async function signPullExtraData(
-  client: Client<Transport, Chain, Account>,
+async function signPullExtraData<chain extends Chain>(
+  client: AccountClient<chain>,
   options: pullPieces.OptionsType
 ): Promise<Hex> {
   if (isExistingDataSet(options)) {
@@ -348,8 +349,8 @@ async function signPullExtraData(
  * Resolve the common SP-level options from high-level pull options.
  * Signs extraData if not pre-built by the caller.
  */
-async function resolvePullParams(
-  client: Client<Transport, Chain, Account>,
+async function resolvePullParams<chain extends Chain>(
+  client: AccountClient<chain>,
   options: pullPieces.OptionsType
 ): Promise<pullPiecesApiRequest.OptionsType> {
   const chain = asChain(client.chain)
@@ -378,8 +379,8 @@ async function resolvePullParams(
  * @returns The current status of the pull operation. {@link pullPieces.ReturnType}
  * @throws Errors {@link pullPieces.ErrorType}
  */
-export async function pullPieces(
-  client: Client<Transport, Chain, Account>,
+export async function pullPieces<chain extends Chain>(
+  client: AccountClient<chain>,
   options: pullPieces.OptionsType
 ): Promise<pullPieces.ReturnType> {
   return pullPiecesApiRequest(await resolvePullParams(client, options))
@@ -418,8 +419,8 @@ export namespace waitForPullPieces {
  * @returns The final status when complete or failed. {@link waitForPullPieces.ReturnType}
  * @throws Errors {@link waitForPullPieces.ErrorType}
  */
-export async function waitForPullPieces(
-  client: Client<Transport, Chain, Account>,
+export async function waitForPullPieces<chain extends Chain>(
+  client: AccountClient<chain>,
   options: waitForPullPieces.OptionsType
 ): Promise<waitForPullPieces.ReturnType> {
   const params = await resolvePullParams(client, options)

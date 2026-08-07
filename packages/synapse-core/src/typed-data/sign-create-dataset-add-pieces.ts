@@ -1,14 +1,6 @@
-import {
-  type Account,
-  type Address,
-  type Chain,
-  type Client,
-  type EncodeAbiParametersErrorType,
-  encodeAbiParameters,
-  type Hex,
-  type Transport,
-} from 'viem'
+import { type Address, type Chain, type EncodeAbiParametersErrorType, encodeAbiParameters, type Hex } from 'viem'
 import type { PieceCID } from '../piece/piece-cid.ts'
+import type { AccountClient } from '../types.ts'
 import { randU256 } from '../utils/rand.ts'
 import { signAddPieces } from './sign-add-pieces.ts'
 import { signCreateDataSet } from './sign-create-dataset.ts'
@@ -24,8 +16,8 @@ export const signcreateDataSetAndAddPiecesAbiParameters = [{ type: 'bytes' }, { 
  * @returns Encoded extra data {@link signCreateDataSetAndAddPieces.ReturnType}
  * @throws Errors {@link signCreateDataSetAndAddPieces.ErrorType}
  */
-export async function signCreateDataSetAndAddPieces(
-  client: Client<Transport, Chain, Account>,
+export async function signCreateDataSetAndAddPieces<chain extends Chain>(
+  client: AccountClient<chain>,
   options: signCreateDataSetAndAddPieces.OptionsType
 ): Promise<signCreateDataSetAndAddPieces.ReturnType> {
   // we need the data set nonce for add pieces to we generate it here

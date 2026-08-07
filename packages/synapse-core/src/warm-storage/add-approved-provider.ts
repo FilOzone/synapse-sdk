@@ -1,14 +1,11 @@
 import type { Simplify } from 'type-fest'
 import type {
-  Account,
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
-  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -17,7 +14,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { fwss as storageAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace addApprovedProvider {
   export type OptionsType = {
@@ -63,8 +60,8 @@ export namespace addApprovedProvider {
  * console.log(txHash)
  * ```
  */
-export async function addApprovedProvider(
-  client: Client<Transport, Chain, Account>,
+export async function addApprovedProvider<chain extends Chain>(
+  client: AccountClient<chain>,
   options: addApprovedProvider.OptionsType
 ): Promise<addApprovedProvider.OutputType> {
   const { request } = await simulateContract(
@@ -122,8 +119,8 @@ export namespace addApprovedProviderSync {
  * console.log('Provider ID:', event.args.providerId)
  * ```
  */
-export async function addApprovedProviderSync(
-  client: Client<Transport, Chain, Account>,
+export async function addApprovedProviderSync<chain extends Chain>(
+  client: AccountClient<chain>,
   options: addApprovedProviderSync.OptionsType
 ): Promise<addApprovedProviderSync.OutputType> {
   const hash = await addApprovedProvider(client, options)

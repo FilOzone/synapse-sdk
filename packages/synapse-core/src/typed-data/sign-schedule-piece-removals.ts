@@ -1,6 +1,7 @@
-import { type Account, type Chain, type Client, encodeAbiParameters, type Transport } from 'viem'
+import { type Chain, encodeAbiParameters } from 'viem'
 import { signTypedData } from 'viem/actions'
 import { asChain } from '../chains.ts'
+import type { AccountClient } from '../types.ts'
 import { EIP712Types, getStorageDomain } from './type-definitions.ts'
 
 export type SignSchedulePieceRemovalsOptions = {
@@ -14,8 +15,8 @@ export type SignSchedulePieceRemovalsOptions = {
  * @param client - The client to use to sign the message.
  * @param options - The options for the schedule piece removals message.
  */
-export async function signSchedulePieceRemovals(
-  client: Client<Transport, Chain, Account>,
+export async function signSchedulePieceRemovals<chain extends Chain>(
+  client: AccountClient<chain>,
   options: SignSchedulePieceRemovalsOptions
 ) {
   const chain = asChain(client.chain)

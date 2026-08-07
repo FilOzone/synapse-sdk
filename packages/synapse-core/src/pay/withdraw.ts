@@ -1,14 +1,11 @@
 import type { Simplify } from 'type-fest'
 import type {
-  Account,
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
-  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -17,9 +14,10 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import { toReadClient } from '../client.ts'
 import { ValidationError } from '../errors/base.ts'
 import { InsufficientAvailableFundsError } from '../errors/pay.ts'
-import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { accounts } from './accounts.ts'
 
 export namespace withdraw {
@@ -68,15 +66,15 @@ export namespace withdraw {
  * console.log(hash)
  * ```
  */
-export async function withdraw(
-  client: Client<Transport, Chain, Account>,
+export async function withdraw<chain extends Chain>(
+  client: AccountClient<chain>,
   options: withdraw.OptionsType
 ): Promise<Hash> {
   if (options.amount <= 0n) {
     throw new ValidationError('Withdraw amount must be greater than 0')
   }
 
-  const account = await accounts(client, {
+  const account = await accounts(toReadClient(client), {
     address: client.account.address,
     token: options.token,
     contractAddress: options.contractAddress,
@@ -143,8 +141,8 @@ export namespace withdrawSync {
  * console.log('To:', event.args.to)
  * ```
  */
-export async function withdrawSync(
-  client: Client<Transport, Chain, Account>,
+export async function withdrawSync<chain extends Chain>(
+  client: AccountClient<chain>,
   options: withdrawSync.OptionsType
 ): Promise<withdrawSync.OutputType> {
   const hash = await withdraw(client, options)

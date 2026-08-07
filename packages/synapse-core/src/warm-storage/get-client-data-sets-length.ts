@@ -2,17 +2,14 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 
 export namespace getClientDataSetsLength {
   export type OptionsType = {
@@ -37,7 +34,7 @@ export namespace getClientDataSetsLength {
 /**
  * Get total count of client data sets
  *
- * @param client - The client to use to get the data set count.
+ * @param client - The read-only client to use to get the data set count.
  * @param options - {@link getClientDataSetsLength.OptionsType}
  * @returns Total count of data sets {@link getClientDataSetsLength.OutputType}
  * @throws Errors {@link getClientDataSetsLength.ErrorType}
@@ -60,12 +57,12 @@ export namespace getClientDataSetsLength {
  * console.log(count)
  * ```
  */
-export async function getClientDataSetsLength(
-  client: Client<Transport, Chain>,
+export async function getClientDataSetsLength<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getClientDataSetsLength.OptionsType
 ): Promise<getClientDataSetsLength.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     getClientDataSetsLengthCall({
       chain: client.chain,
       address: options.address,

@@ -1,10 +1,9 @@
 import type { Simplify } from 'type-fest'
-import type { Address, Chain, Client, ContractFunctionParameters, ReadContractErrorType, Transport } from 'viem'
+import type { Address, Chain, ContractFunctionParameters, ReadContractErrorType } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 
 export namespace dataSetLive {
   export type OptionsType = {
@@ -36,17 +35,17 @@ export namespace dataSetLive {
  * const isLive = await dataSetLive(client, { dataSetId: 1n })
  * ```
  *
- * @param client - The client to use to check if the data set is live.
+ * @param client - The read-only client to use to check if the data set is live.
  * @param options - {@link dataSetLive.OptionsType}
  * @returns Whether the data set is live {@link dataSetLive.OutputType}
  * @throws Errors {@link dataSetLive.ErrorType}
  */
-export async function dataSetLive(
-  client: Client<Transport, Chain>,
+export async function dataSetLive<chain extends Chain>(
+  client: ReadClient<chain>,
   options: dataSetLive.OptionsType
 ): Promise<dataSetLive.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     dataSetLiveCall({
       chain: client.chain,
       dataSetId: options.dataSetId,

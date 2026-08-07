@@ -1,14 +1,11 @@
 import type { Simplify } from 'type-fest'
 import type {
-  Account,
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
-  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -17,7 +14,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { fwss as storageAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace terminateService {
   export type OptionsType = {
@@ -63,8 +60,8 @@ export namespace terminateService {
  * console.log(txHash)
  * ```
  */
-export async function terminateService(
-  client: Client<Transport, Chain, Account>,
+export async function terminateService<chain extends Chain>(
+  client: AccountClient<chain>,
   options: terminateService.OptionsType
 ): Promise<terminateService.OutputType> {
   const { request } = await simulateContract(
@@ -122,8 +119,8 @@ export namespace terminateServiceSync {
  * console.log('Data set ID:', event.args.dataSetId)
  * ```
  */
-export async function terminateServiceSync(
-  client: Client<Transport, Chain, Account>,
+export async function terminateServiceSync<chain extends Chain>(
+  client: AccountClient<chain>,
   options: terminateServiceSync.OptionsType
 ): Promise<terminateServiceSync.OutputType> {
   const hash = await terminateService(client, options)

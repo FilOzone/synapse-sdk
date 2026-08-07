@@ -1,7 +1,7 @@
-import type { Address, Chain, Client, MulticallErrorType, Transport } from 'viem'
+import type { Address, Chain, MulticallErrorType } from 'viem'
 import { multicall } from 'viem/actions'
 import { paginate } from '../pagination.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ReadClient } from '../types.ts'
 import { getRailCall } from './get-rail.ts'
 import { getRailsForPayerAndToken } from './get-rails-for-payer-and-token.ts'
 
@@ -30,7 +30,7 @@ export namespace totalAccountFixedLockup {
  * to sum `lockupFixed`. Includes terminated-but-not-finalized rails since they
  * still hold locked funds until finalization.
  *
- * @param client - The client to use for the query.
+ * @param client - The read-only client to use to get the total account fixed lockup.
  * @param options - {@link totalAccountFixedLockup.OptionsType}
  * @returns The total fixed lockup and active rail count {@link totalAccountFixedLockup.OutputType}
  * @throws Errors {@link totalAccountFixedLockup.ErrorType}
@@ -53,17 +53,16 @@ export namespace totalAccountFixedLockup {
  * console.log('Total fixed lockup:', lockup.totalFixedLockup)
  * ```
  */
-export async function totalAccountFixedLockup(
-  client: Client<Transport, Chain>,
+export async function totalAccountFixedLockup<chain extends Chain>(
+  client: ReadClient<chain>,
   options: totalAccountFixedLockup.OptionsType
 ): Promise<totalAccountFixedLockup.OutputType> {
-  const readClient = toReadClient(client)
   let totalFixedLockup = 0n
   let rails: Array<getRailsForPayerAndToken.OutputType['items'][number]> = []
 
   const processPage = async () => {
     if (rails.length > 0) {
-      const railDetails = await multicall(readClient, {
+      const railDetails = await multicall(client, {
         allowFailure: false,
         contracts: rails.map((rail) =>
           getRailCall({
@@ -81,7 +80,7 @@ export async function totalAccountFixedLockup(
   }
 
   for await (const rail of paginate(({ cursor }) =>
-    getRailsForPayerAndToken(readClient, {
+    getRailsForPayerAndToken(client, {
       payer: options.address,
       token: options.token,
       contractAddress: options.contractAddress,

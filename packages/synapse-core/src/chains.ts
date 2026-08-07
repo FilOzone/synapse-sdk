@@ -9,7 +9,7 @@
  * @module chains
  */
 
-import type { Account, Address, ChainContract, Client, Transport, Chain as ViemChain } from 'viem'
+import type { Address, ChainContract, Chain as ViemChain } from 'viem'
 import * as Abis from './abis/index.ts'
 import { UnsupportedChainError } from './errors/chains.ts'
 
@@ -83,8 +83,19 @@ export const mainnet: Chain = {
       http: ['https://api.node.glif.io/rpc/v1'],
       webSocket: ['wss://wss.node.glif.io/apigw/lotus/rpc/v1'],
     },
+    ankr: {
+      http: ['https://rpc.ankr.com/filecoin'],
+    },
+    drpc: {
+      http: ['https://filecoin.drpc.org'],
+      webSocket: ['wss://filecoin.drpc.org'],
+    },
   },
   blockExplorers: {
+    default: {
+      name: 'Blockscout',
+      url: 'https://filecoin.blockscout.com',
+    },
     Beryx: {
       name: 'Beryx',
       url: 'https://beryx.io/fil/mainnet',
@@ -96,10 +107,6 @@ export const mainnet: Chain = {
     Glif: {
       name: 'Glif',
       url: 'https://www.glif.io/en',
-    },
-    default: {
-      name: 'Blockscout',
-      url: 'https://filecoin.blockscout.com',
     },
   },
   contracts: {
@@ -168,8 +175,19 @@ export const calibration: Chain = {
       http: ['https://api.calibration.node.glif.io/rpc/v1'],
       webSocket: ['wss://wss.calibration.node.glif.io/apigw/lotus/rpc/v1'],
     },
+    ankr: {
+      http: ['https://rpc.ankr.com/filecoin_testnet'],
+    },
+    drpc: {
+      http: ['https://filecoin-calibration.drpc.org'],
+      webSocket: ['wss://filecoin-calibration.drpc.org'],
+    },
   },
   blockExplorers: {
+    default: {
+      name: 'Blockscout',
+      url: 'https://filecoin-testnet.blockscout.com',
+    },
     Beryx: {
       name: 'Beryx',
       url: 'https://beryx.io/fil/calibration',
@@ -181,10 +199,6 @@ export const calibration: Chain = {
     Glif: {
       name: 'Glif',
       url: 'https://www.glif.io/en/calibrationnet',
-    },
-    default: {
-      name: 'Blockscout',
-      url: 'https://filecoin-testnet.blockscout.com',
     },
   },
   contracts: {
@@ -330,6 +344,10 @@ export function getChain(id?: number): Chain {
   }
 }
 
+export namespace asChain {
+  export type ErrorType = UnsupportedChainError
+}
+
 /**
  * Convert a viem chain to a filecoin chain.
  *
@@ -348,18 +366,4 @@ export function asChain(chain: ViemChain): Chain {
     return chain as Chain
   }
   throw new UnsupportedChainError(chain.id)
-}
-
-export namespace asChain {
-  export type ErrorType = UnsupportedChainError
-}
-
-/**
- * Convert a viem client to a synapse client.
- * @param client - The viem client.
- * @returns The synapse client.
- */
-export function asClient(client: Client<Transport, ViemChain, Account>): Client<Transport, Chain, Account> {
-  asChain(client.chain)
-  return client as Client<Transport, Chain, Account>
 }

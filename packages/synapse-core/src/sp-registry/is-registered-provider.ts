@@ -2,17 +2,14 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 
 export namespace isRegisteredProvider {
   export type OptionsType = {
@@ -37,7 +34,7 @@ export namespace isRegisteredProvider {
 /**
  * Check if an address is a registered provider
  *
- * @param client - The client to use to check if the address is registered.
+ * @param client - The read-only client to use to check if the address is registered.
  * @param options - {@link isRegisteredProvider.OptionsType}
  * @returns Whether the address is a registered provider {@link isRegisteredProvider.OutputType}
  * @throws Errors {@link isRegisteredProvider.ErrorType}
@@ -60,12 +57,12 @@ export namespace isRegisteredProvider {
  * console.log(registered)
  * ```
  */
-export async function isRegisteredProvider(
-  client: Client<Transport, Chain>,
+export async function isRegisteredProvider<chain extends Chain>(
+  client: ReadClient<chain>,
   options: isRegisteredProvider.OptionsType
 ): Promise<isRegisteredProvider.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     isRegisteredProviderCall({
       chain: client.chain,
       provider: options.provider,

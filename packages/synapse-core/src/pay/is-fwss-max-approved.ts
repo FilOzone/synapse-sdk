@@ -1,6 +1,7 @@
-import type { Address, Chain, Client, ReadContractErrorType, Transport } from 'viem'
+import type { Address, Chain, ReadContractErrorType } from 'viem'
 import { maxUint256 } from 'viem'
 import type { asChain } from '../chains.ts'
+import type { ReadClient } from '../types.ts'
 import { getPriceList } from '../warm-storage/price-list.ts'
 import { operatorApprovals } from './operator-approvals.ts'
 
@@ -35,12 +36,12 @@ export namespace isFwssMaxApproved {
  * Half of maxUint256 is still astronomically large — no realistic usage would
  * ever cross this threshold.
  *
- * @param client - Read-only viem client
+ * @param client - The read-only client to use to check FWSS max approval.
  * @param options - {@link isFwssMaxApproved.OptionsType}
  * @returns `true` if FWSS is fully approved with sufficient allowances
  */
-export async function isFwssMaxApproved(
-  client: Client<Transport, Chain>,
+export async function isFwssMaxApproved<chain extends Chain>(
+  client: ReadClient<chain>,
   options: isFwssMaxApproved.OptionsType
 ): Promise<boolean> {
   const requiredMaxLockupPeriod =

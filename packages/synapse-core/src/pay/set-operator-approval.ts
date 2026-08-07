@@ -1,14 +1,11 @@
 import type { Simplify } from 'type-fest'
 import type {
-  Account,
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
-  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -17,8 +14,9 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import { toReadClient } from '../client.ts'
 import { ValidationError } from '../errors/base.ts'
-import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { getPriceList } from '../warm-storage/price-list.ts'
 
 export namespace setOperatorApproval {
@@ -85,14 +83,15 @@ export namespace setOperatorApproval {
  * console.log(hash)
  * ```
  */
-export async function setOperatorApproval(
-  client: Client<Transport, Chain, Account>,
+export async function setOperatorApproval<chain extends Chain>(
+  client: AccountClient<chain>,
   options: setOperatorApproval.OptionsType
 ): Promise<Hash> {
   // The synchronous call builder cannot read the chain, so resolve maxLockupPeriod
   // from the price list here when approving and pass it down.
   const maxLockupPeriod =
-    options.maxLockupPeriod ?? (options.approve ? (await getPriceList(client)).lockups.defaultLockupPeriod : 0n)
+    options.maxLockupPeriod ??
+    (options.approve ? (await getPriceList(toReadClient(client))).lockups.defaultLockupPeriod : 0n)
 
   const callOptions = {
     chain: client.chain,
@@ -159,8 +158,8 @@ export namespace setOperatorApprovalSync {
  * console.log('Rate allowance:', event.args.rateAllowance)
  * ```
  */
-export async function setOperatorApprovalSync(
-  client: Client<Transport, Chain, Account>,
+export async function setOperatorApprovalSync<chain extends Chain>(
+  client: AccountClient<chain>,
   options: setOperatorApprovalSync.OptionsType
 ): Promise<setOperatorApprovalSync.OutputType> {
   const hash = await setOperatorApproval(client, options)

@@ -8,7 +8,7 @@ import { type getDataSetLeafCount, getDataSetLeafCountCall } from '../pdp-verifi
 import { type getDataSetListener, getDataSetListenerCall } from '../pdp-verifier/get-data-set-listener.ts'
 import { type getPDPProvider, getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ReadClient } from '../types.ts'
 import {
   type getAllDataSetMetadata,
   getAllDataSetMetadataCall,
@@ -49,7 +49,7 @@ export namespace getPdpDataSets {
  * fail for large data sets. To derive a count explicitly, traverse
  * {@link getActivePiecesByCursor} and count the yielded pieces.
  *
- * @param client - The client to use to get data sets for a client address.
+ * @param client - The read-only client to use to get data sets for a client address.
  * @param options - {@link getPdpDataSets.OptionsType}
  * @returns A page of PDP data set info entries {@link getPdpDataSets.OutputType}
  * @throws Errors {@link getPdpDataSets.ErrorType}
@@ -82,8 +82,8 @@ export namespace getPdpDataSets {
  * }
  * ```
  */
-export async function getPdpDataSets(
-  client: Client<Transport, Chain>,
+export async function getPdpDataSets<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getPdpDataSets.OptionsType
 ): Promise<getPdpDataSets.OutputType> {
   const page = await getClientDataSets(client, options)
@@ -137,7 +137,7 @@ async function enrichDataSetBatch(
     getDataSetLeafCountCall({ chain: client.chain, dataSetId }),
   ])
   const providerCalls = missingProviderIds.map((providerId) => getPDPProviderCall({ chain: client.chain, providerId }))
-  const results = await multicall(toReadClient(client), {
+  const results = await multicall(client, {
     allowFailure: false,
     // Retain Viem's default 1024-byte batch size so large chunks are split safely.
     contracts: [...dataSetCalls, ...providerCalls],

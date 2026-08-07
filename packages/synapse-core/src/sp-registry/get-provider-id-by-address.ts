@@ -2,17 +2,14 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 
 export namespace getProviderIdByAddress {
   export type OptionsType = {
@@ -41,7 +38,7 @@ export namespace getProviderIdByAddress {
  * address is not registered as a provider (the contract returns `0` in that
  * case; this wrapper normalizes it to `null`).
  *
- * @param client - The client to use to get the provider ID.
+ * @param client - The read-only client to use to get the provider ID.
  * @param options - {@link getProviderIdByAddress.OptionsType}
  * @returns The provider ID, or `null` when the address is not registered {@link getProviderIdByAddress.OutputType}
  * @throws Errors {@link getProviderIdByAddress.ErrorType}
@@ -68,12 +65,12 @@ export namespace getProviderIdByAddress {
  * }
  * ```
  */
-export async function getProviderIdByAddress(
-  client: Client<Transport, Chain>,
+export async function getProviderIdByAddress<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getProviderIdByAddress.OptionsType
 ): Promise<getProviderIdByAddress.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     getProviderIdByAddressCall({
       chain: client.chain,
       providerAddress: options.providerAddress,

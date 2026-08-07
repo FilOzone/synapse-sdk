@@ -1,12 +1,12 @@
 import type { Simplify } from 'type-fest'
-import type { Address, Chain, Client, ReadContractErrorType, Transport } from 'viem'
+import type { Address, Chain, ReadContractErrorType } from 'viem'
 import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { type Page, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
+import type { ReadClient } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 import { metadataArrayToObject } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import { getAllPieceMetadataCall } from '../warm-storage/get-all-piece-metadata.ts'
 import type { PdpDataSet, Piece, PieceWithMetadata } from '../warm-storage/types.ts'
 import { getActivePiecesByCursorCall, parseGetActivePiecesByCursor } from './get-active-pieces-by-cursor.ts'
@@ -65,13 +65,13 @@ export namespace getPieces {
  * }
  * ```
  *
- * @param client - The client to use to get the active pieces.
+ * @param client - The read-only client to use to get the pieces.
  * @param options - {@link getPieces.OptionsType}
  * @returns The active pieces for the data set {@link getPieces.OutputType}
  * @throws Errors {@link getPieces.ErrorType}
  */
-export async function getPieces(
-  client: Client<Transport, Chain>,
+export async function getPieces<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getPieces.OptionsType
 ): Promise<getPieces.OutputType> {
   const chain = asChain(client.chain)
@@ -81,7 +81,7 @@ export async function getPieces(
   const address = options.address
   const serviceURL = options.dataSet.provider.pdp.serviceURL
   try {
-    const [activePiecesResult, removalsResult] = await multicall(toReadClient(client), {
+    const [activePiecesResult, removalsResult] = await multicall(client, {
       contracts: [
         getActivePiecesByCursorCall({
           chain: client.chain,
@@ -184,24 +184,23 @@ export namespace getPiecesWithMetadata {
  * }
  * ```
  *
- * @param client - The client to use to get the active pieces.
+ * @param client - The read-only client to use to get the pieces with metadata.
  * @param options - {@link getPiecesWithMetadata.OptionsType}
  * @returns The active pieces for the data set {@link getPiecesWithMetadata.OutputType}
  * @throws Errors {@link getPiecesWithMetadata.ErrorType}
  */
-export async function getPiecesWithMetadata(
-  client: Client<Transport, Chain>,
+export async function getPiecesWithMetadata<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getPiecesWithMetadata.OptionsType
 ): Promise<getPiecesWithMetadata.OutputType> {
-  const readClient = toReadClient(client)
-  const pieces = await getPieces(readClient, options)
+  const pieces = await getPieces(client, options)
   if (pieces.items.length === 0) {
     return {
       items: [],
       ...(pieces.nextCursor == null ? {} : { nextCursor: pieces.nextCursor }),
     }
   }
-  const metadata = await multicall(readClient, {
+  const metadata = await multicall(client, {
     allowFailure: false,
     contracts: pieces.items.map((piece) =>
       getAllPieceMetadataCall({

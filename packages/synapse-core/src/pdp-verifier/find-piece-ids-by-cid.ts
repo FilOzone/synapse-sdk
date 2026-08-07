@@ -1,11 +1,9 @@
 import {
   type Address,
   type Chain,
-  type Client,
   type ContractFunctionParameters,
   type ContractFunctionReturnType,
   type ReadContractErrorType,
-  type Transport,
   toHex,
 } from 'viem'
 import { readContract } from 'viem/actions'
@@ -19,8 +17,7 @@ import {
   resolvePagination,
 } from '../pagination.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import type { PaginatedActionCallOptions } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { PaginatedActionCallOptions, ReadClient } from '../types.ts'
 
 export namespace findPieceIdsByCid {
   export type OptionsType = PaginationOptions & {
@@ -82,18 +79,18 @@ export namespace findPieceIdsByCid {
  * }
  * ```
  *
- * @param client - The client to use to find piece IDs.
+ * @param client - The read-only client to use to find piece IDs.
  * @param options - {@link findPieceIdsByCid.OptionsType}
  * @returns A page of piece IDs matching the CID {@link findPieceIdsByCid.OutputType}
  * @throws Errors {@link findPieceIdsByCid.ErrorType}
  */
-export async function findPieceIdsByCid(
-  client: Client<Transport, Chain>,
+export async function findPieceIdsByCid<chain extends Chain>(
+  client: ReadClient<chain>,
   options: findPieceIdsByCid.OptionsType
 ): Promise<findPieceIdsByCid.OutputType> {
   const { cursor, limit } = resolvePagination(options, 1n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     findPieceIdsByCidCall({
       chain: client.chain,
       dataSetId: options.dataSetId,

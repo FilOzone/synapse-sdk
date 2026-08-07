@@ -1,24 +1,22 @@
 import type { Simplify } from 'type-fest'
 import type {
-  Account,
   Address,
   Chain,
-  Client,
   Hash,
   Log,
   SimulateContractErrorType,
-  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
 import { parseEventLogs, parseSignature } from 'viem'
 import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
 import * as Abis from '../abis/index.ts'
-import { getChain } from '../chains.ts'
+import { asChain } from '../chains.ts'
+import { toReadClient } from '../client.ts'
 import * as erc20 from '../erc20/index.ts'
 import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
 import { signErc20Permit } from '../typed-data/sign-erc20-permit.ts'
-import type { ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { AccountClient, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { TIME_CONSTANTS } from '../utils/constants.ts'
 
 export namespace depositWithPermit {
@@ -75,11 +73,11 @@ export namespace depositWithPermit {
  * console.log(hash)
  * ```
  */
-export async function depositWithPermit(
-  client: Client<Transport, Chain, Account>,
+export async function depositWithPermit<chain extends Chain>(
+  client: AccountClient<chain>,
   options: depositWithPermit.OptionsType
 ): Promise<Hash> {
-  const chain = getChain(client.chain.id)
+  const chain = asChain(client.chain)
   const token = options.token ?? chain.contracts.usdfc.address
   const address = options.address ?? client.account.address
   const spender = options.spender ?? chain.contracts.filecoinPay.address
@@ -93,7 +91,7 @@ export async function depositWithPermit(
     name,
     nonce,
     version,
-  } = await erc20.balanceForPermit(client, {
+  } = await erc20.balanceForPermit(toReadClient(client), {
     address,
     token,
   })
@@ -176,8 +174,8 @@ export namespace depositWithPermitSync {
  * console.log('Deposited amount:', event.args.amount)
  * ```
  */
-export async function depositWithPermitSync(
-  client: Client<Transport, Chain, Account>,
+export async function depositWithPermitSync<chain extends Chain>(
+  client: AccountClient<chain>,
   options: depositWithPermitSync.OptionsType
 ): Promise<depositWithPermitSync.OutputType> {
   const hash = await depositWithPermit(client, options)

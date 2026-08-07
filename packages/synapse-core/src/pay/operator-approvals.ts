@@ -2,17 +2,14 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 
 export namespace operatorApprovals {
   export type OptionsType = {
@@ -55,7 +52,7 @@ export namespace operatorApprovals {
  * Returns the approval status and allowances for an operator acting on behalf of a client.
  * Operators can create and manage payment rails within their approved allowances.
  *
- * @param client - The viem client to use for the contract call.
+ * @param client - The read-only client to use to get the operator approvals.
  * @param options - {@link operatorApprovals.OptionsType}
  * @returns The operator approval information {@link operatorApprovals.OutputType}
  * @throws Errors {@link operatorApprovals.ErrorType}
@@ -80,12 +77,12 @@ export namespace operatorApprovals {
  * console.log(approval.lockupAllowance)
  * ```
  */
-export async function operatorApprovals(
-  client: Client<Transport, Chain>,
+export async function operatorApprovals<chain extends Chain>(
+  client: ReadClient<chain>,
   options: operatorApprovals.OptionsType
 ): Promise<operatorApprovals.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     operatorApprovalsCall({
       chain: client.chain,
       token: options.token,

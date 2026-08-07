@@ -1,18 +1,15 @@
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { type Page, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
-import type { PaginatedActionCallOptions } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { PaginatedActionCallOptions, ReadClient } from '../types.ts'
 
 export namespace getProvidersByProductType {
   export type OptionsType = PaginationOptions & {
@@ -42,7 +39,7 @@ export namespace getProvidersByProductType {
  * Pass the returned `nextCursor` back as `cursor`; treat it as opaque. Use
  * {@link paginate} to traverse every page.
  *
- * @param client - The client to use to get the providers.
+ * @param client - The read-only client to use to get the providers.
  * @param options - {@link getProvidersByProductType.OptionsType}
  * @returns The paginated providers result {@link getProvidersByProductType.OutputType}
  * @throws Errors {@link getProvidersByProductType.ErrorType}
@@ -81,13 +78,13 @@ export namespace getProvidersByProductType {
  * }
  * ```
  */
-export async function getProvidersByProductType(
-  client: Client<Transport, Chain>,
+export async function getProvidersByProductType<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getProvidersByProductType.OptionsType
 ): Promise<getProvidersByProductType.OutputType> {
   const { cursor, limit } = resolvePagination(options, 50n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     getProvidersByProductTypeCall({
       chain: client.chain,
       productType: options.productType,
