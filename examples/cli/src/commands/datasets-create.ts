@@ -1,6 +1,5 @@
 import * as p from '@clack/prompts'
 import type { ReadClient } from '@filoz/synapse-core'
-import { toReadClient } from '@filoz/synapse-core/client'
 import * as sp from '@filoz/synapse-core/sp'
 import {
   getPDPProvider,
@@ -31,13 +30,12 @@ export const datasetsCreate: Command = command(
   },
   async (argv) => {
     const { client, chain } = privateKeyClient(argv.flags.chain)
-    const readClient = toReadClient(client)
     try {
       const provider = argv._.providerId
-        ? await getPDPProvider(readClient, {
+        ? await getPDPProvider(client, {
             providerId: BigInt(argv._.providerId),
           })
-        : await selectProvider(readClient, argv.flags)
+        : await selectProvider(client, argv.flags)
 
       if (!provider) {
         throw new Error('Provider not found')

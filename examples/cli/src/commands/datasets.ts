@@ -1,5 +1,4 @@
 import * as p from '@clack/prompts'
-import { toReadClient } from '@filoz/synapse-core/client'
 import { getPdpDataSets } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
 import { getBlockNumber } from 'viem/actions'
@@ -21,15 +20,14 @@ export const datasets: Command = command(
   },
   async (argv) => {
     const { client, address } = privateKeyClient(argv.flags.chain)
-    const readClient = toReadClient(client)
 
     const spinner = p.spinner()
 
-    const blockNumber = await getBlockNumber(readClient)
+    const blockNumber = await getBlockNumber(client)
 
     spinner.start('Listing data sets...')
     try {
-      const dataSets = await getPdpDataSets(readClient, {
+      const dataSets = await getPdpDataSets(client, {
         address,
       })
       spinner.stop('Data sets:')
