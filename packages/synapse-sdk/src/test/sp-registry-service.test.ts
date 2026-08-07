@@ -1,7 +1,7 @@
 /* globals describe it beforeEach */
 
 import type { AccountClient } from '@filoz/synapse-core'
-import { calibration, type FilecoinChain } from '@filoz/synapse-core/chains'
+import { calibration } from '@filoz/synapse-core/chains'
 import { ZodValidationError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'

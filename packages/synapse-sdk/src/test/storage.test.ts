@@ -1,5 +1,5 @@
 import type { AccountClient } from '@filoz/synapse-core'
-import { calibration, type FilecoinChain } from '@filoz/synapse-core/chains'
+import { calibration } from '@filoz/synapse-core/chains'
 import { TooManyPiecesError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'

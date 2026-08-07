@@ -1,5 +1,5 @@
 import type { AccountClient, ReadClient } from '@filoz/synapse-core'
-import { asChain, type FilecoinChain } from '@filoz/synapse-core/chains'
+import { asChain } from '@filoz/synapse-core/chains'
 import { asClient, getTransport, toReadClient } from '@filoz/synapse-core/client'
 import * as ERC20 from '@filoz/synapse-core/erc20'
 import * as Pay from '@filoz/synapse-core/pay'

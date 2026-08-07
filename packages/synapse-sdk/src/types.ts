@@ -5,7 +5,6 @@
  * used throughout the SDK. Concrete classes are defined in their own files.
  */
 
-import type { AccountClient, SessionKeyClient } from '@filoz/synapse-core'
 import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { Permission, SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
