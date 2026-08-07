@@ -4,12 +4,13 @@
  * Basic tests for Synapse class
  */
 
-import { type Chain, calibration } from '@filoz/synapse-core/chains'
+import type { AccountClient } from '@filoz/synapse-core'
+import { calibration, type FilecoinChain } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
-import { type Account, type Client, createWalletClient, type Transport, http as viemHttp } from 'viem'
+import { createWalletClient, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { Synapse } from '../synapse.ts'
 import type { PieceCID } from '../types.ts'
@@ -19,7 +20,7 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 const server = setup()
 
 describe('Storage Upload', () => {
-  let client: Client<Transport, Chain, Account>
+  let client: AccountClient<FilecoinChain>
   before(async () => {
     await server.start()
   })

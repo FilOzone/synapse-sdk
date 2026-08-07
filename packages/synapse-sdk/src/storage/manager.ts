@@ -590,7 +590,7 @@ export class StorageManager {
 
     if (options.providerAddress) {
       // Direct provider download
-      const provider = await getPDPProviderByAddress(this._synapse.client, { address: options.providerAddress })
+      const provider = await getPDPProviderByAddress(this._synapse.readClient, { address: options.providerAddress })
 
       if (provider == null) {
         throw createError('StorageManager', 'download', `Provider ${options.providerAddress} not found`)
@@ -600,7 +600,7 @@ export class StorageManager {
       // Resolve piece URL from providers
       try {
         pieceUrl = await Piece.resolvePieceUrl({
-          client: this._synapse.client,
+          client: this._synapse.readClient,
           address: clientAddress,
           pieceCid: parsedPieceCID,
           resolvers: [
@@ -634,7 +634,7 @@ export class StorageManager {
    * @returns Upload costs including rate, deposit needed, and readiness
    */
   async getUploadCosts(options: Omit<GetUploadCostsOptions, 'clientAddress'>): Promise<UploadCosts> {
-    return coreGetUploadCosts(this._synapse.client, {
+    return coreGetUploadCosts(this._synapse.readClient, {
       ...options,
       clientAddress: this._synapse.client.account.address,
     })
@@ -709,6 +709,7 @@ export class StorageManager {
     options: Pick<PrepareOptions, 'dataSize' | 'extraRunwayEpochs' | 'bufferEpochs'>
   ): Promise<UploadCosts> {
     const client = this._synapse.client
+    const readClient = this._synapse.readClient
     const clientAddress = client.account.address
     const extraRunwayEpochs = options.extraRunwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
     const bufferEpochs = options.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
@@ -718,15 +719,15 @@ export class StorageManager {
 
     // Fetch all needed data in parallel
     const [accountInfo, priceList, currentEpoch, sizes] = await Promise.all([
-      payAccounts(client, { address: clientAddress }),
-      getPriceList(client),
-      getBlockNumber(client, { cacheTime: 0 }),
-      existingDataSetIds.length > 0 ? getDataSetSizes(client, { dataSetIds: existingDataSetIds }) : [],
+      payAccounts(readClient, { address: clientAddress }),
+      getPriceList(readClient),
+      getBlockNumber(readClient, { cacheTime: 0 }),
+      existingDataSetIds.length > 0 ? getDataSetSizes(readClient, { dataSetIds: existingDataSetIds }) : [],
     ])
 
     // Reuse the fetched price list's lockup period so the approval check
     // doesn't read getPriceList again.
-    const approved = await isFwssMaxApproved(client, {
+    const approved = await isFwssMaxApproved(readClient, {
       clientAddress,
       requiredMaxLockupPeriod: priceList.lockups.defaultLockupPeriod,
     })

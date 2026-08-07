@@ -1,12 +1,13 @@
 /* globals describe it beforeEach */
 
-import { type Chain, calibration } from '@filoz/synapse-core/chains'
+import type { AccountClient } from '@filoz/synapse-core'
+import { calibration, type FilecoinChain } from '@filoz/synapse-core/chains'
 import { ZodValidationError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import { type Client, createWalletClient, type Transport, http as viemHttp } from 'viem'
-import { type Account, privateKeyToAccount } from 'viem/accounts'
+import { createWalletClient, http as viemHttp } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { SPRegistryService } from '../sp-registry/service.ts'
 import { PRODUCTS } from '../sp-registry/types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -16,7 +17,7 @@ const server = setup()
 
 describe('SPRegistryService', () => {
   let service: SPRegistryService
-  let walletClient: Client<Transport, Chain, Account>
+  let walletClient: AccountClient<FilecoinChain>
 
   before(async () => {
     await server.start()

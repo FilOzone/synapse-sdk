@@ -17,10 +17,12 @@
  * ```
  */
 
-import { asChain, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
+import type { AccountClient, ReadClient } from '@filoz/synapse-core'
+import type { FilecoinChain } from '@filoz/synapse-core/chains'
+import { asClient, getTransport, toReadClient } from '@filoz/synapse-core/client'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import { dataSetLiveCall, getDataSetListenerCall } from '@filoz/synapse-core/pdp-verifier'
-import { type MetadataObject, metadataArrayToObject, toReadClient } from '@filoz/synapse-core/utils'
+import { type MetadataObject, metadataArrayToObject } from '@filoz/synapse-core/utils'
 import {
   addApprovedProvider,
   getAccountTotalStorageSize,
@@ -36,25 +38,15 @@ import {
   removeApprovedProvider,
   terminateService,
 } from '@filoz/synapse-core/warm-storage'
-import {
-  type Account,
-  type Address,
-  type Chain,
-  type Client,
-  createClient,
-  type Hash,
-  http,
-  isAddressEqual,
-  type Transport,
-} from 'viem'
+import { type Account, type Address, type Chain, createClient, type Hash, isAddressEqual, type Transport } from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type { EnhancedDataSetInfo } from '../types.ts'
 import { DEFAULT_CHAIN, METADATA_KEYS } from '../utils/constants.ts'
 
 export class WarmStorageService {
-  private readonly _client: Client<Transport, Chain, Account>
-  private readonly _readClient: Client<Transport, Chain, undefined>
-  private readonly _chain: SynapseChain
+  private readonly _client: AccountClient<FilecoinChain>
+  private readonly _readClient: ReadClient<FilecoinChain>
+  private readonly _chain: FilecoinChain
 
   /**
    * Create a new WarmStorageService instance
@@ -63,10 +55,10 @@ export class WarmStorageService {
    * @param options.client - Wallet client
    * @returns A new WarmStorageService instance
    */
-  constructor(options: { client: Client<Transport, Chain, Account> }) {
-    this._client = options.client
-    this._readClient = toReadClient(options.client)
-    this._chain = asChain(options.client.chain)
+  constructor(options: { client: AccountClient; readClient?: ReadClient }) {
+    this._client = asClient(options.client)
+    this._readClient = options.readClient ? asClient(options.readClient) : toReadClient(options.client)
+    this._chain = this._readClient.chain
   }
 
   /**
@@ -79,17 +71,15 @@ export class WarmStorageService {
    * @returns A new {@link WarmStorageService} instance
    */
   static create(options: { transport?: Transport; chain?: Chain; account: Account }): WarmStorageService {
+    const chain = options.chain ?? DEFAULT_CHAIN
     const client = createClient({
-      chain: options.chain ?? DEFAULT_CHAIN,
-      transport: options.transport ?? http(),
+      chain,
+      transport: options.transport ?? getTransport(chain),
       account: options.account,
       name: 'WarmStorageService',
       key: 'warm-storage-service',
     })
 
-    if (client.account.type === 'json-rpc' && client.transport.type !== 'custom') {
-      throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
-    }
     return new WarmStorageService({ client })
   }
 
@@ -103,7 +93,7 @@ export class WarmStorageService {
    * @throws Errors {@link getDataSet.ErrorType}
    */
   async getDataSet(options: { dataSetId: bigint }): Promise<getDataSet.OutputType> {
-    return getDataSet(this._client, options)
+    return getDataSet(this._readClient, options)
   }
 
   /**
@@ -120,7 +110,7 @@ export class WarmStorageService {
     offset?: bigint
     limit?: bigint
   }): Promise<getClientDataSets.OutputType> {
-    return getClientDataSets(this._client, {
+    return getClientDataSets(this._readClient, {
       address: options.address,
       offset: options.offset,
       limit: options.limit,
@@ -134,7 +124,7 @@ export class WarmStorageService {
    * @returns Total count of data sets
    */
   async getClientDataSetsLength(options: { address: Address }): Promise<getClientDataSetsLength.OutputType> {
-    return getClientDataSetsLength(this._client, options)
+    return getClientDataSetsLength(this._readClient, options)
   }
 
   /**
@@ -150,7 +140,7 @@ export class WarmStorageService {
     offset?: bigint
     limit?: bigint
   }): Promise<getClientDataSetIds.OutputType> {
-    return getClientDataSetIds(this._client, options)
+    return getClientDataSetIds(this._readClient, options)
   }
 
   /**
@@ -167,7 +157,7 @@ export class WarmStorageService {
   }): Promise<EnhancedDataSetInfo[]> {
     const { address = this._client.account.address, onlyManaged = false } = options
 
-    const dataSets = await getClientDataSets(this._client, { address })
+    const dataSets = await getClientDataSets(this._readClient, { address })
 
     // Enhance all in parallel using dataset IDs
     const enhancedDataSetsPromises = dataSets.map(async (dataSet) => {
@@ -200,7 +190,7 @@ export class WarmStorageService {
 
         // Get active piece count only if the data set is live
         const activePieceCount = isLive
-          ? await PDPVerifier.getActivePieceCount(this._client, { dataSetId: dataSet.dataSetId })
+          ? await PDPVerifier.getActivePieceCount(this._readClient, { dataSetId: dataSet.dataSetId })
           : 0n
 
         return {
@@ -237,7 +227,7 @@ export class WarmStorageService {
   async getAccountTotalStorageSize(
     options: { address?: Address } = {}
   ): Promise<getAccountTotalStorageSize.OutputType> {
-    return getAccountTotalStorageSize(this._client, {
+    return getAccountTotalStorageSize(this._readClient, {
       address: options.address ?? this._client.account.address,
     })
   }
@@ -291,7 +281,7 @@ export class WarmStorageService {
    * @returns The number of active pieces
    */
   async getActivePieceCount(options: { dataSetId: bigint }): Promise<bigint> {
-    return PDPVerifier.getActivePieceCount(this._client, { dataSetId: options.dataSetId })
+    return PDPVerifier.getActivePieceCount(this._readClient, { dataSetId: options.dataSetId })
   }
 
   /**
@@ -304,7 +294,7 @@ export class WarmStorageService {
    * @returns True when the data set has at least one active piece
    */
   async hasActivePieces(options: { dataSetId: bigint }): Promise<boolean> {
-    const { pieces } = await PDPVerifier.getActivePieces(this._client, {
+    const { pieces } = await PDPVerifier.getActivePieces(this._readClient, {
       dataSetId: options.dataSetId,
       offset: 0n,
       limit: 1n,
@@ -322,7 +312,7 @@ export class WarmStorageService {
    * @returns Object with metadata key-value pairs
    */
   async getDataSetMetadata(options: { dataSetId: bigint }): Promise<MetadataObject> {
-    return getAllDataSetMetadata(this._client, { dataSetId: options.dataSetId })
+    return getAllDataSetMetadata(this._readClient, { dataSetId: options.dataSetId })
   }
 
   /**
@@ -352,7 +342,7 @@ export class WarmStorageService {
    * @returns Object with metadata key-value pairs
    */
   async getPieceMetadata(options: { dataSetId: bigint; pieceId: bigint }): Promise<MetadataObject> {
-    return getAllPieceMetadata(this._client, options)
+    return getAllPieceMetadata(this._readClient, options)
   }
 
   /**
@@ -381,7 +371,7 @@ export class WarmStorageService {
    * @returns Recurring rates, operation fees, and lockups.
    */
   async getPriceList(): Promise<getPriceList.OutputType> {
-    return getPriceList(this._client)
+    return getPriceList(this._readClient)
   }
 
   // ========== Data Set Operations ==========
@@ -418,7 +408,7 @@ export class WarmStorageService {
    */
   async removeApprovedProvider(options: { providerId: bigint }): Promise<removeApprovedProvider.OutputType> {
     // First, we need to find the index of this provider in the array
-    const approvedIds = await getApprovedProviderIds(this._client)
+    const approvedIds = await getApprovedProviderIds(this._readClient)
     const index = approvedIds.indexOf(options.providerId)
 
     if (index === -1) {
@@ -433,7 +423,7 @@ export class WarmStorageService {
    * @returns Array of approved provider IDs
    */
   async getApprovedProviderIds(): Promise<getApprovedProviderIds.OutputType> {
-    return getApprovedProviderIds(this._client)
+    return getApprovedProviderIds(this._readClient)
   }
 
   /**
