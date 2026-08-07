@@ -6,7 +6,7 @@
  */
 
 import * as Abis from '../abis/index.ts'
-import type { Chain } from '../chains.ts'
+import type { FilecoinChain } from '../chains.ts'
 import type { VersionedDevnetInfo } from './schema.ts'
 
 /**
@@ -36,7 +36,7 @@ export interface DevnetEnvVars {
  * @returns Synapse Chain object with contract ABIs and addresses
  *
  */
-export function toChain(devnetInfo: VersionedDevnetInfo): Chain {
+export function toChain(devnetInfo: VersionedDevnetInfo): FilecoinChain {
   const { info } = devnetInfo
   const contracts = info.contracts
 

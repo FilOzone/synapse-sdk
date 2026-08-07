@@ -1,6 +1,6 @@
 import type { TypedDataToPrimitiveTypes } from 'abitype'
 import type { Address } from 'viem'
-import type { Chain } from '../chains.ts'
+import type { FilecoinChain } from '../chains.ts'
 
 // EIP-712 Type definitions
 export const EIP712Types = {
@@ -51,7 +51,7 @@ export interface GetStorageDomainOptions {
   /**
    * The chain id to use.
    */
-  chain: Chain
+  chain: FilecoinChain
   /**
    * The verifying contract to use. If not provided, the default is the FilecoinWarmStorageService contract address.
    */
