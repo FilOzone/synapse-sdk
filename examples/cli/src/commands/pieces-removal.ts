@@ -52,9 +52,7 @@ export const piecesRemoval: Command = command(
       p.log.info(
         `Waiting for tx ${hashLink(result.hash, chain)} to be mined...`
       )
-      await waitForTransactionReceipt(client, {
-        hash: result.hash,
-      })
+      await waitForTransactionReceipt(client, result)
 
       p.log.info(`Piece removed`)
     } catch (error) {

@@ -17,7 +17,6 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../client.ts'
 import { ValidationError } from '../errors/base.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { getPriceList } from '../warm-storage/price-list.ts'
@@ -93,8 +92,7 @@ export async function setOperatorApproval(
   // The synchronous call builder cannot read the chain, so resolve maxLockupPeriod
   // from the price list here when approving and pass it down.
   const maxLockupPeriod =
-    options.maxLockupPeriod ??
-    (options.approve ? (await getPriceList(toReadClient(client))).lockups.defaultLockupPeriod : 0n)
+    options.maxLockupPeriod ?? (options.approve ? (await getPriceList(client)).lockups.defaultLockupPeriod : 0n)
 
   const callOptions = {
     chain: client.chain,

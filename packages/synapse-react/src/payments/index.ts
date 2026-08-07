@@ -1,5 +1,4 @@
 import { getChain } from '@filoz/synapse-core/chains'
-import { toReadClient } from '@filoz/synapse-core/client'
 import { accounts, deposit, operatorApprovals, setOperatorApproval, withdraw } from '@filoz/synapse-core/pay'
 import {
   type MutateOptions,
@@ -51,7 +50,7 @@ export function useAccountInfo(props?: UseAccountInfoProps) {
     queryKey: ['synapse-payments-account-info', owner, token, data?.number?.toString()],
     queryFn: owner
       ? async () => {
-          return await accounts(toReadClient(config.getClient()), {
+          return await accounts(config.getClient(), {
             token,
             address: owner,
 
@@ -86,7 +85,7 @@ export function useOperatorApprovals(props?: UseOperatorApprovalsProps) {
     queryKey: ['synapse-payments-operator-approvals', address, token, operator],
     queryFn: address
       ? async () => {
-          return await operatorApprovals(toReadClient(config.getClient()), {
+          return await operatorApprovals(config.getClient(), {
             token,
             address,
             operator,
@@ -139,7 +138,7 @@ export function useDeposit(props?: UseDepositProps) {
       })
 
       props?.onHash?.(hash)
-      const transactionReceipt = await waitForTransactionReceipt(toReadClient(config.getClient()), {
+      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
         hash: hash,
       })
 
@@ -186,7 +185,7 @@ export function useWithdraw(props?: UseWithdrawProps) {
         token,
       })
       props?.onHash?.(hash)
-      const transactionReceipt = await waitForTransactionReceipt(toReadClient(config.getClient()), {
+      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
         hash,
       })
 
@@ -251,7 +250,7 @@ export function useApproveOperator(props?: ApproveOperatorProps) {
       })
 
       props?.onHash?.(hash)
-      const transactionReceipt = await waitForTransactionReceipt(toReadClient(config.getClient()), {
+      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
         hash,
       })
 
@@ -318,7 +317,7 @@ export function useRevokeOperator(props?: RevokeOperatorProps) {
         approve: false,
       })
       props?.onHash?.(hash)
-      const transactionReceipt = await waitForTransactionReceipt(toReadClient(config.getClient()), {
+      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
         hash,
       })
       queryClient.invalidateQueries({
