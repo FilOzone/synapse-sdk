@@ -17,7 +17,6 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../client.ts'
 import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { InsufficientAllowanceError, InsufficientBalanceError } from '../errors/pay.ts'
@@ -78,7 +77,7 @@ export namespace deposit {
  * ```
  */
 export async function deposit(client: Client<Transport, Chain, Account>, options: deposit.OptionsType): Promise<Hash> {
-  const balance = await erc20.balance(toReadClient(client), {
+  const balance = await erc20.balance(client, {
     address: client.account.address,
     token: options.token,
   })

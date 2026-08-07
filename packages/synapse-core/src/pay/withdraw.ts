@@ -17,7 +17,6 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../client.ts'
 import { ValidationError } from '../errors/base.ts'
 import { InsufficientAvailableFundsError } from '../errors/pay.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
@@ -77,7 +76,7 @@ export async function withdraw(
     throw new ValidationError('Withdraw amount must be greater than 0')
   }
 
-  const account = await accounts(toReadClient(client), {
+  const account = await accounts(client, {
     address: client.account.address,
     token: options.token,
     contractAddress: options.contractAddress,

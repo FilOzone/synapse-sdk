@@ -15,7 +15,6 @@ import {
   writeContract,
 } from 'viem/actions'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../client.ts'
 import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
@@ -94,8 +93,7 @@ export async function depositAndApprove(client: Client<Transport, Chain, Account
   const spender = options.spender ?? chain.contracts.filecoinPay.address
   const rateAllowance = options.rateAllowance ?? maxUint256
   const lockupAllowance = options.lockupAllowance ?? maxUint256
-  const readClient = toReadClient(client)
-  const maxLockupPeriod = options.maxLockupPeriod ?? (await getPriceList(readClient)).lockups.defaultLockupPeriod
+  const maxLockupPeriod = options.maxLockupPeriod ?? (await getPriceList(client)).lockups.defaultLockupPeriod
 
   if (rateAllowance < 0n || lockupAllowance < 0n || maxLockupPeriod < 0n) {
     throw new ValidationError('Allowance or lockup period values cannot be negative')
@@ -110,7 +108,7 @@ export async function depositAndApprove(client: Client<Transport, Chain, Account
     name,
     nonce,
     version,
-  } = await erc20.balanceForPermit(readClient, {
+  } = await erc20.balanceForPermit(client, {
     address: address,
     token: token,
   })

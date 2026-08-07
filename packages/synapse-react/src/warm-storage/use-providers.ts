@@ -1,4 +1,3 @@
-import { toReadClient } from '@filoz/synapse-core/client'
 import { getApprovedPDPProviders } from '@filoz/synapse-core/sp-registry'
 import { type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import { useConfig } from 'wagmi'
@@ -16,7 +15,7 @@ export function useProviders(props?: UseProvidersProps) {
     ...props?.query,
     queryKey: ['synapse-warm-storage-providers', config.getClient().chain.id],
     queryFn: () => {
-      return getApprovedPDPProviders(toReadClient(config.getClient()))
+      return getApprovedPDPProviders(config.getClient())
     },
   })
 }

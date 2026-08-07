@@ -14,7 +14,6 @@ import {
 import { type Account, type Address, privateKeyToAccount } from 'viem/accounts'
 import { watchContractEvent } from 'viem/actions'
 import { asChain, type FilecoinChain as SynapseChain } from '../chains.ts'
-import { toReadClient } from '../client.ts'
 import { getExpirations } from './authorization-expiry.ts'
 import { extractLoginEvent } from './login.ts'
 import { DefaultEmptyExpirations, type Expirations, type Permission } from './permissions.ts'
@@ -136,7 +135,7 @@ class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements 
    * @throws Errors {@link getExpirations.ErrorType}
    */
   async syncExpirations(permissions?: Permission[]) {
-    this.#expirations = await getExpirations(toReadClient(this.#client), {
+    this.#expirations = await getExpirations(this.#client, {
       address: this.#client.account.rootAddress,
       sessionKeyAddress: this.#client.account.address,
       permissions: permissions,

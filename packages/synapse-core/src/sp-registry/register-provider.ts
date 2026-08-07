@@ -17,7 +17,6 @@ import { readContract, simulateContract, waitForTransactionReceipt, writeContrac
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../client.ts'
 import type { ValidationError } from '../errors/base.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { encodePDPCapabilities } from '../utils/pdp-capabilities.ts'
@@ -113,7 +112,7 @@ export async function registerProvider(
 
   let registrationFee: bigint
   if (options.value === undefined) {
-    registrationFee = await readContract(toReadClient(client), {
+    registrationFee = await readContract(client, {
       abi: chain.contracts.serviceProviderRegistry.abi,
       address: contractAddress,
       functionName: 'REGISTRATION_FEE',

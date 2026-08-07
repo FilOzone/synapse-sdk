@@ -10,7 +10,6 @@ import type {
 } from 'viem'
 import { maxUint256 } from 'viem'
 import { waitForTransactionReceipt } from 'viem/actions'
-import { toReadClient } from '../client.ts'
 import type { ActionSyncCallback } from '../types.ts'
 import { getPriceList } from '../warm-storage/price-list.ts'
 import { depositWithPermit } from './deposit-with-permit.ts'
@@ -73,11 +72,10 @@ export namespace fund {
 export async function fund(client: Client<Transport, Chain, Account>, options: fund.OptionsType): Promise<Hash> {
   // Resolve the approval lockup period from the chain once and reuse it for the
   // readiness check and the approval call.
-  const readClient = toReadClient(client)
-  const maxLockupPeriod = (await getPriceList(readClient)).lockups.defaultLockupPeriod
+  const maxLockupPeriod = (await getPriceList(client)).lockups.defaultLockupPeriod
   const needsApproval =
     options.needsFwssMaxApproval ??
-    !(await isFwssMaxApproved(readClient, {
+    !(await isFwssMaxApproved(client, {
       clientAddress: client.account.address,
       requiredMaxLockupPeriod: maxLockupPeriod,
     }))

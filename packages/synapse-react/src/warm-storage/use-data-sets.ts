@@ -1,5 +1,4 @@
 import { paginate } from '@filoz/synapse-core'
-import { toReadClient } from '@filoz/synapse-core/client'
 import { getPiecesWithMetadata } from '@filoz/synapse-core/pdp-verifier'
 import { getPdpDataSets, type PdpDataSet, type PieceWithMetadata } from '@filoz/synapse-core/warm-storage'
 import { skipToken, type UseQueryOptions, useQuery } from '@tanstack/react-query'
@@ -24,7 +23,7 @@ export function useDataSets(props: UseDataSetsProps) {
     queryKey: ['synapse-warm-storage-data-sets', address, config.getClient().chain.id],
     queryFn: address
       ? async () => {
-          const client = toReadClient(config.getClient())
+          const client = config.getClient()
           const dataSets = await Array.fromAsync(paginate(({ cursor }) => getPdpDataSets(client, { address, cursor })))
           const dataSetsWithPieces = await Promise.all(
             dataSets.map(async (dataSet) => {

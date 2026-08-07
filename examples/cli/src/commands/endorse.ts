@@ -28,6 +28,7 @@ export const endorse: Command = command(
     intro('Endorsements')
     log.info('Loading account')
     const { client, chain } = privateKeyClient(argv.flags.chain)
+
     const endorsements = getContract({
       ...chain.contracts.endorsements,
       client,

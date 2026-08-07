@@ -1,4 +1,3 @@
-import { toReadClient } from '@filoz/synapse-core/client'
 import { getPriceList } from '@filoz/synapse-core/warm-storage'
 import { type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import { useConfig } from 'wagmi'
@@ -28,7 +27,7 @@ export function usePriceList(props?: UsePriceListProps) {
     ...props?.query,
     queryKey: ['synapse-warm-storage-get-price-list', config.getClient().chain.id],
     queryFn: async () => {
-      const result = await getPriceList(toReadClient(config.getClient()))
+      const result = await getPriceList(config.getClient())
       return result
     },
   })

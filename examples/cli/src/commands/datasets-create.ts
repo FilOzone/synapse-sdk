@@ -1,5 +1,4 @@
 import * as p from '@clack/prompts'
-import type { ReadClient } from '@filoz/synapse-core'
 import { paginate } from '@filoz/synapse-core'
 import * as sp from '@filoz/synapse-core/sp'
 import {
@@ -7,6 +6,7 @@ import {
   getPDPProviders,
 } from '@filoz/synapse-core/sp-registry'
 import { type Command, command } from 'cleye'
+import type { Account, Chain, Client, Transport } from 'viem'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 import { hashLink } from '../utils.ts'
@@ -71,7 +71,7 @@ export const datasetsCreate: Command = command(
 )
 
 async function selectProvider(
-  client: ReadClient,
+  client: Client<Transport, Chain, Account>,
   options: { debug?: boolean }
 ) {
   const spinner = p.spinner()
