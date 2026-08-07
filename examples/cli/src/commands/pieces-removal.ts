@@ -22,12 +22,12 @@ export const piecesRemoval: Command = command(
     },
   },
   async (argv) => {
-    const { client, chain } = privateKeyClient(argv.flags.chain)
+    const { client, chain, address } = privateKeyClient(argv.flags.chain)
 
     try {
       const dataSetId = argv._.dataSetId
         ? BigInt(argv._.dataSetId)
-        : await selectDataSet(client, argv.flags)
+        : await selectDataSet(client, address, argv.flags)
 
       const dataSet = await getPdpDataSet(client, {
         dataSetId,
@@ -39,7 +39,7 @@ export const piecesRemoval: Command = command(
 
       const pieceId = argv._.pieceId
         ? BigInt(argv._.pieceId)
-        : await selectPiece(client, dataSet, argv.flags)
+        : await selectPiece(client, address, dataSet, argv.flags)
 
       p.log.info(`Removing piece ${pieceId} from data set ${dataSetId}...`)
       const result = await schedulePieceDeletions(client, {
@@ -52,7 +52,9 @@ export const piecesRemoval: Command = command(
       p.log.info(
         `Waiting for tx ${hashLink(result.hash, chain)} to be mined...`
       )
-      await waitForTransactionReceipt(client, result)
+      await waitForTransactionReceipt(client, {
+        hash: result.hash,
+      })
 
       p.log.info(`Piece removed`)
     } catch (error) {

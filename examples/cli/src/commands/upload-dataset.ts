@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
+import { toReadClient } from '@filoz/synapse-core/client'
 import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { getPDPProvider } from '@filoz/synapse-core/sp-registry'
@@ -28,11 +29,14 @@ export const uploadDataset: Command = command(
   },
   async (argv) => {
     const { client, chain } = privateKeyClient(argv.flags.chain)
+    const readClient = toReadClient(client)
 
     const filePath = argv._.path
     const provider = argv._.providerId
-      ? await getPDPProvider(client, { providerId: BigInt(argv._.providerId) })
-      : await selectProvider(client, argv.flags)
+      ? await getPDPProvider(readClient, {
+          providerId: BigInt(argv._.providerId),
+        })
+      : await selectProvider(readClient, argv.flags)
 
     if (!provider) {
       p.log.error('Provider not found')

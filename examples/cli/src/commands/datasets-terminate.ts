@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts'
+import { toReadClient } from '@filoz/synapse-core/client'
 import * as SP from '@filoz/synapse-core/sp'
 import {
   extractPDPPaymentTerminatedEvent,
@@ -29,12 +30,12 @@ export const datasetsTerminate: Command = command(
     },
   },
   async (argv) => {
-    const { client, chain } = privateKeyClient(argv.flags.chain)
-
+    const { client, chain, address } = privateKeyClient(argv.flags.chain)
+    const readClient = toReadClient(client)
     try {
       const dataSetId = argv._.dataSetId
         ? BigInt(argv._.dataSetId)
-        : await selectDataSet(client, argv.flags)
+        : await selectDataSet(readClient, address, argv.flags)
       p.log.info(`Terminating data set ${dataSetId}...`)
 
       let endEpoch: bigint
@@ -48,7 +49,7 @@ export const datasetsTerminate: Command = command(
         })
         endEpoch = extractPDPPaymentTerminatedEvent(receipt.logs).args.endEpoch
       } else {
-        const dataset = await getPdpDataSet(client, { dataSetId })
+        const dataset = await getPdpDataSet(readClient, { dataSetId })
         if (!dataset) {
           throw new Error('Data set not found')
         }

@@ -1,6 +1,7 @@
 import * as p from '@clack/prompts'
+import type { ReadClient } from '@filoz/synapse-core'
 import { paginate } from '@filoz/synapse-core'
-import type { Chain } from '@filoz/synapse-core/chains'
+import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
 import { getApprovedPDPProviders } from '@filoz/synapse-core/sp-registry'
 import {
@@ -8,9 +9,9 @@ import {
   type PdpDataSet,
 } from '@filoz/synapse-core/warm-storage'
 import terminalLink from 'terminal-link'
-import type { Account, Client, Transport } from 'viem'
+import type { Address } from 'viem'
 
-export function hashLink(hash: string, chain: Chain) {
+export function hashLink(hash: string, chain: FilecoinChain) {
   const link = terminalLink(
     hash,
     `${chain.blockExplorers?.default?.url}/tx/${hash}`
@@ -19,7 +20,8 @@ export function hashLink(hash: string, chain: Chain) {
 }
 
 export async function selectDataSet(
-  client: Client<Transport, Chain, Account>,
+  client: ReadClient<FilecoinChain>,
+  address: Address,
   options: { debug?: boolean }
 ) {
   const spinner = p.spinner()
@@ -27,9 +29,7 @@ export async function selectDataSet(
 
   try {
     const dataSets = await Array.fromAsync(
-      paginate(({ cursor }) =>
-        getPdpDataSets(client, { address: client.account.address, cursor })
-      )
+      paginate(({ cursor }) => getPdpDataSets(client, { address, cursor }))
     )
     spinner.stop(`Data sets fetched.`)
 
@@ -63,7 +63,8 @@ export async function selectDataSet(
 }
 
 export async function selectPiece(
-  client: Client<Transport, Chain, Account>,
+  client: ReadClient<FilecoinChain>,
+  address: Address,
   dataSet: PdpDataSet,
   options: { debug?: boolean }
 ) {
@@ -75,7 +76,7 @@ export async function selectPiece(
       paginate(({ cursor }) =>
         getPieces(client, {
           dataSet,
-          address: client.account.address,
+          address,
           cursor,
         })
       )
@@ -112,7 +113,7 @@ export async function selectPiece(
 }
 
 export async function selectProvider(
-  client: Client<Transport, Chain, Account>,
+  client: ReadClient<FilecoinChain>,
   options: { debug?: boolean }
 ) {
   const spinner = p.spinner()

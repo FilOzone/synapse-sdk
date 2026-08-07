@@ -1,6 +1,7 @@
 import * as p from '@clack/prompts'
 import { paginate } from '@filoz/synapse-core'
 import { calibration } from '@filoz/synapse-core/chains'
+import { toReadClient } from '@filoz/synapse-core/client'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
 import { metadataArrayToObject } from '@filoz/synapse-core/utils'
 import { getPdpDataSets, type Piece } from '@filoz/synapse-core/warm-storage'
@@ -30,16 +31,16 @@ export const pieces: Command = command(
     },
   },
   async (argv) => {
-    const { client } = privateKeyClient(argv.flags.chain)
-
+    const { client, address } = privateKeyClient(argv.flags.chain)
+    const readClient = toReadClient(client)
     const spinner = p.spinner()
 
     spinner.start('Fetching data sets...')
     try {
       const dataSets = await Array.fromAsync(
         paginate(({ cursor }) =>
-          getPdpDataSets(client, {
-            address: client.account.address,
+          getPdpDataSets(readClient, {
+            address,
             cursor,
           })
         )
@@ -63,12 +64,12 @@ export const pieces: Command = command(
             const dataSetId = results.dataSetId
             pieces = await Array.fromAsync(
               paginate(({ cursor }) =>
-                getPieces(client, {
+                getPieces(readClient, {
                   // biome-ignore lint/style/noNonNullAssertion: dataSetId is guaranteed to be found
                   dataSet: dataSets.find(
                     (dataSet) => dataSet.dataSetId === dataSetId
                   )!,
-                  address: client.account.address,
+                  address,
                   cursor,
                 })
               )
