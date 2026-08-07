@@ -90,7 +90,7 @@ export function useApproveAllowance(props?: UseApproveAllowanceProps) {
       })
 
       props?.onHash?.(approve)
-      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
+      const transactionReceipt = await waitForTransactionReceipt(client, {
         hash: approve,
       })
 

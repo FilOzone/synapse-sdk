@@ -13,14 +13,14 @@ import {
 } from 'viem'
 import { type Account, type Address, privateKeyToAccount } from 'viem/accounts'
 import { watchContractEvent } from 'viem/actions'
-import { asChain, type FilecoinChain as SynapseChain } from '../chains.ts'
+import { asChain, type FilecoinChain } from '../chains.ts'
 import { getExpirations } from './authorization-expiry.ts'
 import { extractLoginEvent } from './login.ts'
 import { DefaultEmptyExpirations, type Expirations, type Permission } from './permissions.ts'
 import type { SessionKey, SessionKeyAccount, SessionKeyEvents } from './types.ts'
 
 interface Secp256k1SessionKeyOptions {
-  client: Client<Transport, SynapseChain, SessionKeyAccount<'Secp256k1'>>
+  client: Client<Transport, FilecoinChain, SessionKeyAccount<'Secp256k1'>>
   expirations: Expirations
 }
 
@@ -28,7 +28,7 @@ interface Secp256k1SessionKeyOptions {
  * Secp256k1SessionKey - A session key for a secp256k1 private key.
  */
 class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements SessionKey<'Secp256k1'> {
-  #client: Client<Transport, SynapseChain, SessionKeyAccount<'Secp256k1'>>
+  #client: Client<Transport, FilecoinChain, SessionKeyAccount<'Secp256k1'>>
   #type: 'Secp256k1'
   #expirations: Expirations
   #unsubscribe: WatchContractEventReturnType | undefined
@@ -188,7 +188,7 @@ export function fromSecp256k1(options: FromSecp256k1Options) {
 
   const chain = asChain(options.chain)
 
-  const client = createClient<Transport, SynapseChain, SessionKeyAccount<'Secp256k1'>>({
+  const client = createClient<Transport, FilecoinChain, SessionKeyAccount<'Secp256k1'>>({
     chain: chain,
     transport: options.transport ?? http(),
     account,
