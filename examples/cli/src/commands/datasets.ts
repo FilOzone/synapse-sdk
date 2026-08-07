@@ -1,6 +1,5 @@
 import * as p from '@clack/prompts'
 import { paginate } from '@filoz/synapse-core'
-import { toReadClient } from '@filoz/synapse-core/client'
 import { getPdpDataSets } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
 import { getBlockNumber } from 'viem/actions'
@@ -27,15 +26,14 @@ export const datasets: Command = command(
   },
   async (argv) => {
     const { client } = privateKeyClient(argv.flags.chain)
-    const readClient = toReadClient(client)
 
-    const blockNumber = await getBlockNumber(readClient)
+    const blockNumber = await getBlockNumber(client)
     const address = argv.flags.address ?? client.account.address
 
     p.log.info('Listing data sets...')
     try {
       for await (const item of paginate(({ cursor }) =>
-        getPdpDataSets(readClient, { address, cursor })
+        getPdpDataSets(client, { address, cursor })
       )) {
         p.log.step(
           `#${item.dataSetId} ${new URL(item.provider.pdp.serviceURL).hostname} #${item.providerId} ${item.pdpEndEpoch > 0n ? `Terminating at epoch ${item.pdpEndEpoch}` : ''}${item.cdn ? ' CDN' : ''}`,

@@ -1,15 +1,9 @@
 import assert from 'assert'
 import { setup } from 'iso-web/msw'
-import { createClient, createPublicClient, http } from 'viem'
+import { createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
-import { toReadClient } from '../src/client.ts'
-import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import {
-  authorizationExpiry,
-  authorizationExpiryCall,
-  getExpirations,
-  isExpired,
-} from '../src/session-key/authorization-expiry.ts'
+import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
+import { authorizationExpiry, authorizationExpiryCall } from '../src/session-key/authorization-expiry.ts'
 import {
   AddPiecesPermission,
   CreateDataSetPermission,
@@ -100,7 +94,7 @@ describe('authorizationExpiry', () => {
         transport: http(),
       })
 
-      const expiry = await authorizationExpiry(toReadClient(client), {
+      const expiry = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
         permission: CreateDataSetPermission,
@@ -127,7 +121,7 @@ describe('authorizationExpiry', () => {
         transport: http(),
       })
 
-      const expiry = await authorizationExpiry(toReadClient(client), {
+      const expiry = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
         permission: AddPiecesPermission,
@@ -159,13 +153,13 @@ describe('authorizationExpiry', () => {
         transport: http(),
       })
 
-      const expirySchedule = await authorizationExpiry(toReadClient(client), {
+      const expirySchedule = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
         permission: SchedulePieceRemovalsPermission,
       })
 
-      const expiryTerminate = await authorizationExpiry(toReadClient(client), {
+      const expiryTerminate = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
         permission: TerminateServicePermission,
@@ -191,66 +185,13 @@ describe('authorizationExpiry', () => {
         transport: http(),
       })
 
-      const expiry = await authorizationExpiry(toReadClient(client), {
+      const expiry = await authorizationExpiry(client, {
         address: '0x1234567890123456789012345678901234567890',
         sessionKeyAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
         permission: CreateDataSetPermission,
       })
 
       assert.equal(expiry, 0n)
-    })
-
-    it('should omit the client account from direct and multicall reads', async () => {
-      server.use(JSONRPC(presets.basic))
-
-      const requestBodies: Array<{
-        method: string
-        params: [{ from?: string }]
-      }> = []
-      const client = createClient({
-        account: ADDRESSES.client1,
-        chain: calibration,
-        transport: http(undefined, {
-          onFetchRequest(_request, init) {
-            if (typeof init.body !== 'string') {
-              return
-            }
-            const body = JSON.parse(init.body) as (typeof requestBodies)[number]
-            requestBodies.push(body)
-          },
-        }),
-      })
-      const options = {
-        address: ADDRESSES.client1,
-        sessionKeyAddress: ADDRESSES.serviceProvider1,
-      }
-
-      assert.equal(
-        await authorizationExpiry(toReadClient(client), {
-          ...options,
-          permission: CreateDataSetPermission,
-        }),
-        0n
-      )
-      assert.equal(
-        await isExpired(toReadClient(client), {
-          ...options,
-          permission: AddPiecesPermission,
-        }),
-        true
-      )
-      assert.deepEqual(
-        await getExpirations(toReadClient(client), { ...options, permissions: [CreateDataSetPermission] }),
-        {
-          [CreateDataSetPermission]: 0n,
-        }
-      )
-
-      const calls = requestBodies.filter(({ method }) => method === 'eth_call')
-      assert.equal(calls.length, 3)
-      for (const call of calls) {
-        assert.equal(call.params[0].from, undefined)
-      }
     })
   })
 })
