@@ -89,7 +89,9 @@ export class Synapse {
 
   public constructor(options: SynapseFromClientOptions) {
     this._client = asClient(options.client).extend(publicActions)
-    this._readClient = toReadClient(options.client).extend(publicActions)
+    this._readClient = options.readClient
+      ? asClient(options.readClient).extend(publicActions)
+      : toReadClient(options.client).extend(publicActions)
     this._sessionClient = options.sessionClient ? asClient(options.sessionClient) : undefined
     this._chain = this._client.chain
     this._withCDN = options.withCDN ?? false
