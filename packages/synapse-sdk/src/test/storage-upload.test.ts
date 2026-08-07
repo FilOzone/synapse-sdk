@@ -20,7 +20,7 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 const server = setup()
 
 describe('Storage Upload', () => {
-  let client: AccountClient<FilecoinChain>
+  let client: AccountClient
   before(async () => {
     await server.start()
   })

@@ -17,7 +17,7 @@ const server = setup()
 
 describe('SPRegistryService', () => {
   let service: SPRegistryService
-  let walletClient: AccountClient<FilecoinChain>
+  let walletClient: AccountClient
 
   before(async () => {
     await server.start()

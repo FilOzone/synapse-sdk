@@ -7,6 +7,7 @@ import {
   type Account,
   type Address,
   type Chain,
+  type Client,
   createClient,
   type Hash,
   type TransactionReceipt,
@@ -40,8 +41,8 @@ export interface DepositOptions {
  * PaymentsService - Filecoin Pay client for managing deposits, approvals, and payment rails
  */
 export class PaymentsService {
-  private readonly _client: AccountClient<FilecoinChain>
-  private readonly _readClient: ReadClient<FilecoinChain>
+  private readonly _client: AccountClient
+  private readonly _readClient: ReadClient
   /**
    * Create a new PaymentsService instance
    *
@@ -49,7 +50,7 @@ export class PaymentsService {
    * @param options.client - Viem wallet client
    * @returns A new PaymentsService instance
    */
-  constructor(options: { client: AccountClient; readClient?: ReadClient }) {
+  constructor(options: { client: Client<Transport, Chain, Account>; readClient?: Client<Transport, Chain> }) {
     this._client = asClient(options.client)
     this._readClient = options.readClient ? asClient(options.readClient) : toReadClient(options.client)
   }

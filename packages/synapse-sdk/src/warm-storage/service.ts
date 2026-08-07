@@ -38,14 +38,23 @@ import {
   removeApprovedProvider,
   terminateService,
 } from '@filoz/synapse-core/warm-storage'
-import { type Account, type Address, type Chain, createClient, type Hash, isAddressEqual, type Transport } from 'viem'
+import {
+  type Account,
+  type Address,
+  type Chain,
+  type Client,
+  createClient,
+  type Hash,
+  isAddressEqual,
+  type Transport,
+} from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type { EnhancedDataSetInfo } from '../types.ts'
 import { DEFAULT_CHAIN, METADATA_KEYS } from '../utils/constants.ts'
 
 export class WarmStorageService {
-  private readonly _client: AccountClient<FilecoinChain>
-  private readonly _readClient: ReadClient<FilecoinChain>
+  private readonly _client: AccountClient
+  private readonly _readClient: ReadClient
   private readonly _chain: FilecoinChain
 
   /**
@@ -55,7 +64,7 @@ export class WarmStorageService {
    * @param options.client - Wallet client
    * @returns A new WarmStorageService instance
    */
-  constructor(options: { client: AccountClient; readClient?: ReadClient }) {
+  constructor(options: { client: Client<Transport, Chain, Account>; readClient?: Client<Transport, Chain> }) {
     this._client = asClient(options.client)
     this._readClient = options.readClient ? asClient(options.readClient) : toReadClient(options.client)
     this._chain = this._readClient.chain

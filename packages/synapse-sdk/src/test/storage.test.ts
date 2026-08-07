@@ -54,7 +54,7 @@ function delayNonOldestReads(fastSetId: bigint, delayMs = 50): Mocks.JSONRPCHook
 }
 
 describe('StorageService', () => {
-  let client: AccountClient<FilecoinChain>
+  let client: AccountClient
   // MSW lifecycle hooks
   before(async () => {
     await server.start()

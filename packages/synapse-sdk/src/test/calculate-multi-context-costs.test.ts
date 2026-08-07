@@ -64,7 +64,7 @@ describe('calculateMultiContextCosts', () => {
   /** Full-approval mock override (maxUint256 allowances) */
   const fullyApproved = () => [true, maxUint256, maxUint256, 0n, 0n, maxUint256] as const
 
-  let client: AccountClient<FilecoinChain>
+  let client: AccountClient
   let synapse: Synapse
   let warmStorageService: WarmStorageService
   let manager: StorageManager
