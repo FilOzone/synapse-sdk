@@ -1,4 +1,3 @@
-import { asClient } from '@filoz/synapse-core/chains'
 import { Synapse, type UploadResult } from '@filoz/synapse-sdk'
 import type { StorageManagerUploadOptions } from '@filoz/synapse-sdk/storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -29,7 +28,7 @@ export function useUpload(props: UseUploadProps) {
       })
 
       const synapse = new Synapse({
-        client: asClient(connectorClient),
+        client: connectorClient,
         source: props.source,
       })
 
