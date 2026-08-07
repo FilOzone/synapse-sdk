@@ -148,6 +148,11 @@ export interface SynapseFromClientOptions {
    */
   client: Client<Transport, Chain, Account>
 
+  /**
+   * Viem public client for read operations
+   */
+  readClient?: Client<Transport, Chain>
+
   // Advanced Configuration
   sessionClient?: Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>>
 
