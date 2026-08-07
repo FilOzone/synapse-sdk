@@ -1,6 +1,5 @@
-import type { Address, Chain } from 'viem'
+import type { Address, Chain, Client, Transport } from 'viem'
 import { getBlockNumber } from 'viem/actions'
-import type { ReadClient } from '../types.ts'
 import { TIME_CONSTANTS } from '../utils/constants.ts'
 import { calculateAccountDebt } from './account-debt.ts'
 import { accounts } from './accounts.ts'
@@ -110,7 +109,7 @@ export namespace getAccountSummary {
  * in parallel, then derives debt, available funds, lockup breakdown, runway,
  * and gross coverage client-side.
  *
- * @param client - The read-only client to use to get the account summary.
+ * @param client - The client to use to get the account summary.
  * @param options - {@link getAccountSummary.OptionsType}
  * @returns Full account summary {@link getAccountSummary.OutputType}
  * @throws Errors {@link getAccountSummary.ErrorType}
@@ -135,8 +134,8 @@ export namespace getAccountSummary {
  * console.log('Gross coverage in epochs:', summary.grossCoverageInEpochs)
  * ```
  */
-export async function getAccountSummary<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getAccountSummary(
+  client: Client<Transport, Chain>,
   options: getAccountSummary.OptionsType
 ): Promise<getAccountSummary.OutputType> {
   const { address, token, epoch, contractAddress } = options

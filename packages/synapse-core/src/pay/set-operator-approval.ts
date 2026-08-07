@@ -1,11 +1,14 @@
 import type { Simplify } from 'type-fest'
 import type {
+  Account,
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
+  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -16,7 +19,7 @@ import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { toReadClient } from '../client.ts'
 import { ValidationError } from '../errors/base.ts'
-import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { getPriceList } from '../warm-storage/price-list.ts'
 
 export namespace setOperatorApproval {
@@ -83,8 +86,8 @@ export namespace setOperatorApproval {
  * console.log(hash)
  * ```
  */
-export async function setOperatorApproval<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function setOperatorApproval(
+  client: Client<Transport, Chain, Account>,
   options: setOperatorApproval.OptionsType
 ): Promise<Hash> {
   // The synchronous call builder cannot read the chain, so resolve maxLockupPeriod
@@ -158,8 +161,8 @@ export namespace setOperatorApprovalSync {
  * console.log('Rate allowance:', event.args.rateAllowance)
  * ```
  */
-export async function setOperatorApprovalSync<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function setOperatorApprovalSync(
+  client: Client<Transport, Chain, Account>,
   options: setOperatorApprovalSync.OptionsType
 ): Promise<setOperatorApprovalSync.OutputType> {
   const hash = await setOperatorApproval(client, options)

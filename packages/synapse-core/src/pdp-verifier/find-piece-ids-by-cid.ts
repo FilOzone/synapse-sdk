@@ -2,16 +2,18 @@ import type { Simplify } from 'type-fest'
 import {
   type Address,
   type Chain,
+  type Client,
   type ContractFunctionParameters,
   type ContractFunctionReturnType,
   type ReadContractErrorType,
+  type Transport,
   toHex,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace findPieceIdsByCid {
   export type OptionsType = {
@@ -66,13 +68,13 @@ export namespace findPieceIdsByCid {
  * // pieceIds is an array of bigint IDs matching the CID
  * ```
  *
- * @param client - The read-only client to use to find piece IDs.
+ * @param client - The client to use to find piece IDs.
  * @param options - {@link findPieceIdsByCid.OptionsType}
  * @returns Array of piece IDs matching the CID {@link findPieceIdsByCid.OutputType}
  * @throws Errors {@link findPieceIdsByCid.ErrorType}
  */
-export async function findPieceIdsByCid<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function findPieceIdsByCid(
+  client: Client<Transport, Chain>,
   options: findPieceIdsByCid.OptionsType
 ): Promise<findPieceIdsByCid.OutputType> {
   return await readContract(

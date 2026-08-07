@@ -1,7 +1,6 @@
 import PQueue from 'p-queue'
-import type { Chain, ReadContractErrorType } from 'viem'
+import type { Chain, Client, ReadContractErrorType, Transport } from 'viem'
 import type { asChain } from '../chains.ts'
-import type { ReadClient } from '../types.ts'
 import { type getClientDataSets, getClientDataSetsIterable } from './get-client-data-sets.ts'
 import { readPdpDataSetInfo } from './get-pdp-data-set.ts'
 import type { PdpDataSet } from './types.ts'
@@ -18,7 +17,7 @@ export namespace getPdpDataSets {
 /**
  * Get PDP data sets
  *
- * @param client - The read-only client to use to get data sets for a client address.
+ * @param client - The client to use to get data sets for a client address.
  * @param options - {@link getPdpDataSets.OptionsType}
  * @returns Array of PDP data set info entries {@link getPdpDataSets.OutputType}
  * @throws Errors {@link getPdpDataSets.ErrorType}
@@ -41,8 +40,8 @@ export namespace getPdpDataSets {
  * console.log(dataSets[0]?.dataSetId)
  * ```
  */
-export async function getPdpDataSets<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getPdpDataSets(
+  client: Client<Transport, Chain>,
   options: getPdpDataSets.OptionsType
 ): Promise<getPdpDataSets.OutputType> {
   const queue = new PQueue({

@@ -2,15 +2,17 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   MulticallErrorType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { multicall, readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import { getApprovedProviderIdsCall } from '../warm-storage/get-approved-provider-ids.ts'
 import { getPDPProviderCall, hasActivePDPProduct, parsePDPProvider } from './get-pdp-provider.ts'
 import type { getProvidersByProductType } from './get-providers-by-product-type.ts'
@@ -34,7 +36,7 @@ export namespace getPDPProviders {
 /**
  * Get PDP providers with pagination
  *
- * @param client - The read-only client to use to get the providers.
+ * @param client - The client to use to get the providers.
  * @param options - {@link getPDPProviders.OptionsType}
  * @returns The paginated providers result {@link getPDPProviders.OutputType}
  * @throws Errors {@link getPDPProviders.ErrorType}
@@ -58,8 +60,8 @@ export namespace getPDPProviders {
  * console.log(result.hasMore)
  * ```
  */
-export async function getPDPProviders<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getPDPProviders(
+  client: Client<Transport, Chain>,
   options: getPDPProviders.OptionsType = {}
 ): Promise<getPDPProviders.OutputType> {
   const data = await readContract(
@@ -156,7 +158,7 @@ export namespace getApprovedPDPProviders {
 /**
  * Get FilecoinWarmStorage approved PDP providers
  *
- * @param client - The read-only client to use to get the providers.
+ * @param client - The client to use to get the providers.
  * @param options - {@link getApprovedPDPProviders.OptionsType}
  * @returns The approved PDP providers {@link getApprovedPDPProviders.OutputType}
  * @throws Errors {@link getApprovedPDPProviders.ErrorType}
@@ -177,8 +179,8 @@ export namespace getApprovedPDPProviders {
  * console.log(result)
  * ```
  */
-export async function getApprovedPDPProviders<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getApprovedPDPProviders(
+  client: Client<Transport, Chain>,
   options: getApprovedPDPProviders.OptionsType = {}
 ): Promise<getApprovedPDPProviders.OutputType> {
   const [pdpProviders, approvedProviders] = await multicall(client, {
@@ -228,7 +230,7 @@ export namespace getPDPProvidersByIds {
 /**
  * Get PDP providers by IDs
  *
- * @param client - The read-only client to use to get the providers.
+ * @param client - The client to use to get the providers.
  * @param options - {@link getPDPProvidersByIds.OptionsType}
  * @returns The approved PDP providers {@link getPDPProvidersByIds.OutputType}
  * @throws Errors {@link getPDPProvidersByIds.ErrorType}
@@ -251,8 +253,8 @@ export namespace getPDPProvidersByIds {
  * console.log(result)
  * ```
  */
-export async function getPDPProvidersByIds<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getPDPProvidersByIds(
+  client: Client<Transport, Chain>,
   options: getPDPProvidersByIds.OptionsType
 ): Promise<getPDPProvidersByIds.OutputType> {
   const result = await multicall(client, {

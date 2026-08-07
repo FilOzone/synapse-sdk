@@ -1,10 +1,13 @@
 import type { Simplify } from 'type-fest'
 import type {
+  Account,
   Address,
   Chain,
+  Client,
   Hash,
   Log,
   SimulateContractErrorType,
+  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -16,7 +19,7 @@ import { toReadClient } from '../client.ts'
 import * as erc20 from '../erc20/index.ts'
 import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
 import { signErc20Permit } from '../typed-data/sign-erc20-permit.ts'
-import type { AccountClient, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { TIME_CONSTANTS } from '../utils/constants.ts'
 
 export namespace depositWithPermit {
@@ -73,8 +76,8 @@ export namespace depositWithPermit {
  * console.log(hash)
  * ```
  */
-export async function depositWithPermit<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function depositWithPermit(
+  client: Client<Transport, Chain, Account>,
   options: depositWithPermit.OptionsType
 ): Promise<Hash> {
   const chain = asChain(client.chain)
@@ -174,8 +177,8 @@ export namespace depositWithPermitSync {
  * console.log('Deposited amount:', event.args.amount)
  * ```
  */
-export async function depositWithPermitSync<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function depositWithPermitSync(
+  client: Client<Transport, Chain, Account>,
   options: depositWithPermitSync.OptionsType
 ): Promise<depositWithPermitSync.OutputType> {
   const hash = await depositWithPermit(client, options)

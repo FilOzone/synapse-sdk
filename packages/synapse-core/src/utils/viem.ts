@@ -1,5 +1,6 @@
 import {
   type Chain,
+  type Client,
   createClient,
   type FallbackTransport,
   type HttpTransport,
@@ -8,7 +9,6 @@ import {
   type TransportConfig,
   type WebSocketTransport,
 } from 'viem'
-import type { ReadClient } from '../types.ts'
 
 /**
  * Create a Viem public client from a transport configuration
@@ -19,7 +19,7 @@ export function clientFromTransport({
 }: {
   chain: Chain
   transportConfig?: TransportConfig
-}): ReadClient<Chain> {
+}): Client<Transport, Chain> {
   return createClient({
     chain,
     transport: transportFromTransportConfig({ transportConfig }),

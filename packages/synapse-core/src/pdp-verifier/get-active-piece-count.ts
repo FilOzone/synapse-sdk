@@ -1,9 +1,9 @@
 import type { Simplify } from 'type-fest'
-import type { Address, Chain, ContractFunctionParameters, ReadContractErrorType } from 'viem'
+import type { Address, Chain, Client, ContractFunctionParameters, ReadContractErrorType, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 
 export namespace getActivePieceCount {
@@ -36,13 +36,13 @@ export namespace getActivePieceCount {
  * const activePieceCount = await getActivePieceCount(client, { dataSetId: 1n })
  * ```
  *
- * @param client - The read-only client to use to get the active piece count.
+ * @param client - The client to use to get the active piece count.
  * @param options - {@link getActivePieceCount.OptionsType}
  * @returns The active piece count for the data set {@link getActivePieceCount.OutputType}
  * @throws Errors {@link getActivePieceCount.ErrorType}
  */
-export async function getActivePieceCount<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getActivePieceCount(
+  client: Client<Transport, Chain>,
   options: getActivePieceCount.OptionsType
 ): Promise<getActivePieceCount.OutputType> {
   try {

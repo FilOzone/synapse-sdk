@@ -4,10 +4,42 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
+    "dev": "wireit",
+    "build": "wireit",
     "preview": "astro preview",
     "astro": "astro"
+  },
+  "wireit": {
+    "build": {
+      "command": "astro build",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json",
+        "astro.config.mjs"
+      ],
+      "output": [
+        "dist/**"
+      ],
+      "dependencies": [
+        "../packages/synapse-core:build",
+        "../packages/synapse-sdk:build",
+        "../packages/synapse-react:build"
+      ]
+    },
+    "dev": {
+      "command": "astro dev",
+      "service": true,
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json",
+        "astro.config.mjs"
+      ],
+      "dependencies": [
+        "../packages/synapse-core:build",
+        "../packages/synapse-sdk:build",
+        "../packages/synapse-react:build"
+      ]
+    }
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:*",

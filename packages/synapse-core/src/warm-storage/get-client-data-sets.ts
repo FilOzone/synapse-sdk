@@ -2,15 +2,17 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import type { getPdpDataSets } from './get-pdp-data-sets.ts'
 import type { DataSetInfo } from './types.ts'
 
@@ -45,7 +47,7 @@ export namespace getClientDataSets {
  *
  * Use {@link getPdpDataSets} instead to get PDP data sets.
  *
- * @param client - The read-only client to use to get data sets for a client address.
+ * @param client - The client to use to get data sets for a client address.
  * @param options - {@link getClientDataSets.OptionsType}
  * @returns Array of data set info entries {@link getClientDataSets.OutputType}
  * @throws Errors {@link getClientDataSets.ErrorType}
@@ -68,8 +70,8 @@ export namespace getClientDataSets {
  * console.log(dataSets[0]?.dataSetId)
  * ```
  */
-export async function getClientDataSets<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getClientDataSets(
+  client: Client<Transport, Chain>,
   options: getClientDataSets.OptionsType
 ): Promise<getClientDataSets.OutputType> {
   const dataSets: getClientDataSets.OutputType = []
@@ -133,7 +135,7 @@ export namespace getClientDataSetsIterable {
 /**
  * Get client data sets iterable
  *
- * @param client - The read-only client to use to get data sets for a client address.
+ * @param client - The client to use to get data sets for a client address.
  * @param options - {@link getClientDataSetsIterable.OptionsType}
  * @returns Async generator of data set info entries {@link getClientDataSetsIterable.OutputType}
  * @throws Errors {@link getClientDataSetsIterable.ErrorType}
@@ -158,8 +160,8 @@ export namespace getClientDataSetsIterable {
  * }
  * ```
  */
-export async function* getClientDataSetsIterable<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function* getClientDataSetsIterable(
+  client: Client<Transport, Chain>,
   options: getClientDataSetsIterable.OptionsType
 ): getClientDataSetsIterable.OutputType {
   const batchSize = options.batchSize ?? DATA_SETS_PAGE_SIZE

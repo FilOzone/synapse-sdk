@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as fwssViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getPriceList {
   export type OptionsType = {
@@ -58,7 +60,7 @@ export namespace getPriceList {
  *
  * Reads the `getPriceList()` view on `FilecoinWarmStorageServiceStateView`.
  *
- * @param client - The read-only client to use to read the price list.
+ * @param client - The client to use to read the price list.
  * @param options - {@link getPriceList.OptionsType}
  * @returns The price list {@link getPriceList.OutputType}
  * @throws Errors {@link getPriceList.ErrorType}
@@ -79,8 +81,8 @@ export namespace getPriceList {
  * console.log(priceList.rates.storagePerTibPerMonth)
  * ```
  */
-export async function getPriceList<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getPriceList(
+  client: Client<Transport, Chain>,
   options: getPriceList.OptionsType = {}
 ): Promise<getPriceList.OutputType> {
   const list = await readContract(

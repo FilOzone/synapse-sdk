@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { getBlockNumber, readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace accounts {
   export type OptionsType = {
@@ -50,7 +52,7 @@ export namespace accounts {
  * Returns the raw account state including deposited funds and lockup details.
  * The lockup mechanism ensures funds are available for ongoing payment rails.
  *
- * @param client - The read-only client to use to get the account info.
+ * @param client - The client to use to get the account info.
  * @param options - {@link accounts.OptionsType}
  * @returns The account information {@link accounts.OutputType}
  * @throws Errors {@link accounts.ErrorType}
@@ -74,8 +76,8 @@ export namespace accounts {
  * console.log(accountInfo.lockupCurrent)
  * ```
  */
-export async function accounts<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function accounts(
+  client: Client<Transport, Chain>,
   options: accounts.OptionsType
 ): Promise<accounts.OutputType> {
   const currentEpoch =

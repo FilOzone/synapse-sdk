@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import { type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
 
 export namespace getAllDataSetMetadata {
@@ -33,7 +35,7 @@ export namespace getAllDataSetMetadata {
 /**
  * Get all metadata for a data set formatted as a MetadataObject
  *
- * @param client - The read-only client to use to get the data set metadata.
+ * @param client - The client to use to get the data set metadata.
  * @param options - {@link getAllDataSetMetadata.OptionsType}
  * @returns The metadata formatted as a MetadataObject {@link getAllDataSetMetadata.OutputType}
  * @throws Errors {@link getAllDataSetMetadata.ErrorType}
@@ -56,8 +58,8 @@ export namespace getAllDataSetMetadata {
  * console.log(metadata)
  * ```
  */
-export async function getAllDataSetMetadata<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getAllDataSetMetadata(
+  client: Client<Transport, Chain>,
   options: getAllDataSetMetadata.OptionsType
 ): Promise<getAllDataSetMetadata.OutputType> {
   const data = await readContract(

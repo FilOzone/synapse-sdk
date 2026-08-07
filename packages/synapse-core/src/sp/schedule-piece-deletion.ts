@@ -1,8 +1,7 @@
 import { HttpError, type RequestJsonErrors, request } from 'iso-web/http'
-import type { Chain, Hex } from 'viem'
+import type { Account, Chain, Client, Hex, Transport } from 'viem'
 import { DeletePieceError } from '../errors/pdp.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
-import type { AccountClient } from '../types.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 
 export namespace deletePiece {
@@ -109,8 +108,8 @@ export namespace schedulePieceDeletion {
  * console.log(result.hash)
  * ```
  */
-export async function schedulePieceDeletion<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function schedulePieceDeletion(
+  client: Client<Transport, Chain, Account>,
   options: schedulePieceDeletion.OptionsType
 ): Promise<schedulePieceDeletion.OutputType> {
   return deletePiece({

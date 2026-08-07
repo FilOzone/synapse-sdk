@@ -9,6 +9,7 @@ import type {
   Transport,
   WaitForTransactionReceiptReturnType,
 } from 'viem'
+import type { FilecoinChain } from './chains.ts'
 import type { SessionKeyAccount } from './session-key/types.ts'
 
 export type * from './warm-storage/types.ts'
@@ -45,33 +46,28 @@ export type Extended = Prettify<
 >
 
 export type ReadClient<
-  chain extends Chain = Chain,
-  transport extends Transport = Transport,
   rpcSchema extends RpcSchema | undefined = undefined,
   extended extends Extended | undefined = Extended | undefined,
-> = Client<transport, chain, undefined, rpcSchema, extended>
+  chain extends FilecoinChain = FilecoinChain,
+  account extends Account | undefined = Account | undefined,
+  transport extends Transport = Transport,
+> = Client<transport, chain, account, rpcSchema, extended>
 
 /**
  * Wallet/account client for write actions.
- *
- * Viem's simulate/write inference breaks when the Client chain type param is a
- * generic, so the underlying Client is typed with concrete {@link Chain} while
- * still exposing the caller's `chain` type on the client value.
  */
 export type AccountClient<
-  chain extends Chain = Chain,
+  rpcSchema extends RpcSchema | undefined = undefined,
+  extended extends Extended | undefined = Extended | undefined,
+  chain extends FilecoinChain = FilecoinChain,
   account extends Account = Account,
   transport extends Transport = Transport,
-  rpcSchema extends RpcSchema | undefined = undefined,
-  extended extends Extended | undefined = Extended | undefined,
-> = Client<transport, Chain, account, rpcSchema, extended> & {
-  chain: chain
-}
+> = Client<transport, chain, account, rpcSchema, extended>
 
 export type SessionKeyClient<
-  chain extends Chain = Chain,
-  account extends SessionKeyAccount<'Secp256k1'> = SessionKeyAccount<'Secp256k1'>,
-  transport extends Transport = Transport,
   rpcSchema extends RpcSchema | undefined = undefined,
   extended extends Extended | undefined = Extended | undefined,
+  chain extends FilecoinChain = FilecoinChain,
+  account extends SessionKeyAccount<'Secp256k1'> = SessionKeyAccount<'Secp256k1'>,
+  transport extends Transport = Transport,
 > = Client<transport, chain, account, rpcSchema, extended>

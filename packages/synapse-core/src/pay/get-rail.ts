@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getRail {
   export type OptionsType = {
@@ -60,7 +62,7 @@ export namespace getRail {
  * Returns detailed information about a payment rail including payer, payee, payment rate,
  * lockup details, settlement status, and termination status.
  *
- * @param client - The read-only client to use to get the rail info.
+ * @param client - The client to use to get the rail info.
  * @param options - {@link getRail.OptionsType}
  * @returns The rail information {@link getRail.OutputType}
  * @throws Errors {@link getRail.ErrorType}
@@ -86,8 +88,8 @@ export namespace getRail {
  * console.log('Is terminated:', rail.endEpoch > 0n)
  * ```
  */
-export async function getRail<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getRail(
+  client: Client<Transport, Chain>,
   options: getRail.OptionsType
 ): Promise<getRail.OutputType> {
   return readContract(

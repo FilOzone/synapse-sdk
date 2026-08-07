@@ -19,7 +19,7 @@ export function hashLink(hash: string, chain: FilecoinChain) {
 }
 
 export async function selectDataSet(
-  client: ReadClient<FilecoinChain>,
+  client: ReadClient,
   address: Address,
   options: { debug?: boolean }
 ) {
@@ -62,7 +62,7 @@ export async function selectDataSet(
 }
 
 export async function selectPiece(
-  client: ReadClient<FilecoinChain>,
+  client: ReadClient,
   address: Address,
   dataSet: PdpDataSet,
   options: { debug?: boolean }
@@ -107,7 +107,7 @@ export async function selectPiece(
 }
 
 export async function selectProvider(
-  client: ReadClient<FilecoinChain>,
+  client: ReadClient,
   options: { debug?: boolean }
 ) {
   const spinner = p.spinner()

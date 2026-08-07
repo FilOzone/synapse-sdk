@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import type { RailInfo } from './types.ts'
 
 export namespace getRailsForPayeeAndToken {
@@ -53,7 +55,7 @@ export namespace getRailsForPayeeAndToken {
  * Returns paginated list of rails where the specified address is the payee for the given token.
  * Use pagination (offset and limit) to handle large result sets efficiently.
  *
- * @param client - The read-only client to use to get the rails.
+ * @param client - The client to use to get the rails.
  * @param options - {@link getRailsForPayeeAndToken.OptionsType}
  * @returns Paginated rail results {@link getRailsForPayeeAndToken.OutputType}
  * @throws Errors {@link getRailsForPayeeAndToken.ErrorType}
@@ -83,8 +85,8 @@ export namespace getRailsForPayeeAndToken {
  * }
  * ```
  */
-export async function getRailsForPayeeAndToken<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getRailsForPayeeAndToken(
+  client: Client<Transport, Chain>,
   options: getRailsForPayeeAndToken.OptionsType
 ): Promise<getRailsForPayeeAndToken.OutputType> {
   const data = await readContract(

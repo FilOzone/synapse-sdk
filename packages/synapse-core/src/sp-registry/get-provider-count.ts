@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getProviderCount {
   export type OptionsType = {
@@ -32,7 +34,7 @@ export namespace getProviderCount {
 /**
  * Get the total number of registered providers
  *
- * @param client - The read-only client to use to get the provider count.
+ * @param client - The client to use to get the provider count.
  * @param options - {@link getProviderCount.OptionsType}
  * @returns Total number of registered providers {@link getProviderCount.OutputType}
  * @throws Errors {@link getProviderCount.ErrorType}
@@ -53,8 +55,8 @@ export namespace getProviderCount {
  * console.log(count)
  * ```
  */
-export async function getProviderCount<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getProviderCount(
+  client: Client<Transport, Chain>,
   options: getProviderCount.OptionsType = {}
 ): Promise<getProviderCount.OutputType> {
   const data = await readContract(

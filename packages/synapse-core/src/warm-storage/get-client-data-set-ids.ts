@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getClientDataSetIds {
   export type OptionsType = {
@@ -42,7 +44,7 @@ export namespace getClientDataSetIds {
  * For large lists, use pagination to avoid gas limit issues. If limit=0,
  * returns all remaining IDs starting from offset.
  *
- * @param client - The read-only client to use to get the client data set IDs.
+ * @param client - The client to use to get the client data set IDs.
  * @param options - {@link getClientDataSetIds.OptionsType}
  * @returns Array of data set IDs {@link getClientDataSetIds.OutputType}
  * @throws Errors {@link getClientDataSetIds.ErrorType}
@@ -68,8 +70,8 @@ export namespace getClientDataSetIds {
  * console.log(ids)
  * ```
  */
-export async function getClientDataSetIds<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getClientDataSetIds(
+  client: Client<Transport, Chain>,
   options: getClientDataSetIds.OptionsType
 ): Promise<getClientDataSetIds.OutputType> {
   const data = await readContract(

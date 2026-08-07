@@ -1,10 +1,9 @@
 import type { Simplify } from 'type-fest'
-import type { Address, Chain, ReadContractErrorType } from 'viem'
+import type { Address, Chain, Client, ReadContractErrorType, Transport } from 'viem'
 import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { LimitMustBeGreaterThanZeroError } from '../errors/pdp-verifier.ts'
 import { from as pieceFrom } from '../piece/parse.ts'
-import type { ReadClient } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 import { metadataArrayToObject } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
@@ -50,13 +49,13 @@ export namespace getPieces {
  * })
  * ```
  *
- * @param client - The read-only client to use to get the pieces.
+ * @param client - The client to use to get the pieces.
  * @param options - {@link getPieces.OptionsType}
  * @returns The active pieces for the data set {@link getPieces.OutputType}
  * @throws Errors {@link getPieces.ErrorType}
  */
-export async function getPieces<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getPieces(
+  client: Client<Transport, Chain>,
   options: getPieces.OptionsType
 ): Promise<getPieces.OutputType> {
   const chain = asChain(client.chain)
@@ -156,13 +155,13 @@ export namespace getPiecesWithMetadata {
  * })
  * ```
  *
- * @param client - The read-only client to use to get the pieces with metadata.
+ * @param client - The client to use to get the pieces with metadata.
  * @param options - {@link getPiecesWithMetadata.OptionsType}
  * @returns The active pieces for the data set {@link getPiecesWithMetadata.OutputType}
  * @throws Errors {@link getPiecesWithMetadata.ErrorType}
  */
-export async function getPiecesWithMetadata<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getPiecesWithMetadata(
+  client: Client<Transport, Chain>,
   options: getPiecesWithMetadata.OptionsType
 ): Promise<getPiecesWithMetadata.OutputType> {
   if (options.limit != null && options.limit <= 0n) {

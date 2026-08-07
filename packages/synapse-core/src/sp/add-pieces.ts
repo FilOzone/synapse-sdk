@@ -1,13 +1,12 @@
 import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
 import type { ToString } from 'multiformats'
-import { type Chain, type Hex, isHex } from 'viem'
+import { type Account, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import * as z from 'zod'
 import { AddPiecesError, LocationHeaderError } from '../errors/index.ts'
 import { WaitForAddPiecesError, WaitForAddPiecesRejectedError } from '../errors/pdp.ts'
 import { AtLeastOnePieceRequiredError, TooManyPiecesError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
-import type { AccountClient } from '../types.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
@@ -145,8 +144,8 @@ export function validateAddPiecesBatch(pieceCount: number): void {
  * @returns The response from the add pieces operation. {@link addPieces.OutputType}
  * @throws Errors {@link addPieces.ErrorType}
  */
-export async function addPieces<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function addPieces(
+  client: Client<Transport, Chain, Account>,
   options: addPieces.OptionsType
 ): Promise<addPieces.OutputType> {
   validateAddPiecesBatch(options.pieces.length)

@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import type { getPdpDataSet } from './get-pdp-data-set.ts'
 import type { DataSetInfo } from './types.ts'
 
@@ -34,7 +36,7 @@ export namespace getDataSet {
  *
  * Use {@link getPdpDataSet} instead to get PDP data sets.
  *
- * @param client - The read-only client to use to get the data set.
+ * @param client - The client to use to get the data set.
  * @param options - {@link getDataSet.OptionsType}
  * @returns Data set info or undefined if the data set does not exist {@link getDataSet.OutputType}
  * @throws Errors {@link getDataSet.ErrorType}
@@ -61,8 +63,8 @@ export namespace getDataSet {
  * }
  * ```
  */
-export async function getDataSet<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getDataSet(
+  client: Client<Transport, Chain>,
   options: getDataSet.OptionsType
 ): Promise<getDataSet.OutputType> {
   const data = await readContract(

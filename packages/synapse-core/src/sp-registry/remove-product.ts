@@ -1,11 +1,14 @@
 import type { Simplify } from 'type-fest'
 import type {
+  Account,
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
+  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -14,7 +17,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace removeProduct {
   export type OptionsType = {
@@ -61,8 +64,8 @@ export namespace removeProduct {
  * console.log(hash)
  * ```
  */
-export async function removeProduct<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function removeProduct(
+  client: Client<Transport, Chain, Account>,
   options: removeProduct.OptionsType = {}
 ): Promise<removeProduct.OutputType> {
   const { request } = await simulateContract(
@@ -122,8 +125,8 @@ export namespace removeProductSync {
  * console.log('Removed product type:', event.args.productType)
  * ```
  */
-export async function removeProductSync<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function removeProductSync(
+  client: Client<Transport, Chain, Account>,
   options: removeProductSync.OptionsType = {}
 ): Promise<removeProductSync.OutputType> {
   const hash = await removeProduct(client, options)

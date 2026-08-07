@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getApprovedProviderIds {
   export type OptionsType = {
@@ -39,7 +41,7 @@ export namespace getApprovedProviderIds {
  * For large lists, use pagination to avoid gas limit issues. If limit=0,
  * returns all remaining providers starting from offset.
  *
- * @param client - The read-only client to use to get the approved providers.
+ * @param client - The client to use to get the approved providers.
  * @param options - {@link getApprovedProviderIds.OptionsType}
  * @returns Array of approved provider IDs {@link getApprovedProviderIds.OutputType}
  * @throws Errors {@link getApprovedProviderIds.ErrorType}
@@ -64,8 +66,8 @@ export namespace getApprovedProviderIds {
  * console.log(providerIds)
  * ```
  */
-export async function getApprovedProviderIds<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getApprovedProviderIds(
+  client: Client<Transport, Chain>,
   options: getApprovedProviderIds.OptionsType = {}
 ): Promise<getApprovedProviderIds.OutputType> {
   const data = await readContract(

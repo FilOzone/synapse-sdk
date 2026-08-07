@@ -9,11 +9,10 @@
  * @module erc20
  */
 
-import { type Address, type Chain, erc20Abi, type MulticallErrorType } from 'viem'
+import { type Address, type Chain, type Client, erc20Abi, type MulticallErrorType, type Transport } from 'viem'
 import { multicall } from 'viem/actions'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ReadClient } from '../types.ts'
 
 export namespace balance {
   export type OptionsType = {
@@ -46,13 +45,13 @@ export namespace balance {
 /**
  * Get the balance, decimals, symbol, and allowance of an ERC20 token.
  *
- * @param client - The read-only client to use to get the ERC20 balance.
+ * @param client - The client to use to get the ERC20 balance.
  * @param options - {@link balance.OptionsType}
  * @returns The balance, decimals, symbol, and allowance. {@link balance.OutputType}
  * @throws Errors {@link balance.ErrorType}
  */
-export async function balance<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function balance(
+  client: Client<Transport, Chain>,
   options: balance.OptionsType
 ): Promise<balance.OutputType> {
   const chain = asChain(client.chain)
@@ -120,13 +119,13 @@ export namespace balanceForPermit {
 /**
  * Get the balance, name, nonce, and version of an ERC20 token.
  *
- * @param client - The read-only client to use to get the ERC20 balance for permit.
+ * @param client - The client to use to get the ERC20 balance for permit.
  * @param options - {@link balanceForPermit.OptionsType}
  * @returns The balance, name, nonce, and version. {@link balanceForPermit.OutputType}
  * @throws Errors {@link balanceForPermit.ErrorType}
  */
-export async function balanceForPermit<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function balanceForPermit(
+  client: Client<Transport, Chain>,
   options: balanceForPermit.OptionsType
 ): Promise<balanceForPermit.OutputType> {
   const chain = asChain(client.chain)
