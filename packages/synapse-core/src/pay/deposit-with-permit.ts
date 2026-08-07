@@ -15,7 +15,6 @@ import { parseEventLogs, parseSignature } from 'viem'
 import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../client.ts'
 import * as erc20 from '../erc20/index.ts'
 import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
 import { signErc20Permit } from '../typed-data/sign-erc20-permit.ts'
@@ -94,7 +93,7 @@ export async function depositWithPermit(
     name,
     nonce,
     version,
-  } = await erc20.balanceForPermit(toReadClient(client), {
+  } = await erc20.balanceForPermit(client, {
     address,
     token,
   })

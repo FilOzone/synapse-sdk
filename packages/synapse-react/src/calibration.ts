@@ -26,7 +26,6 @@ export function useFundWallet(props?: UseFundWalletProps) {
   const config = useConfig()
   const chainId = useChainId({ config })
   const chain = getChain(chainId)
-  const publicClient = config.getClient()
   const queryClient = useQueryClient()
   const result = useMutation({
     ...props?.mutation,
@@ -50,7 +49,7 @@ export function useFundWallet(props?: UseFundWalletProps) {
 
       props?.onHash?.(hashes[0] as `0x${string}`)
 
-      const wait = await waitForTransactionReceipt(publicClient, {
+      const wait = await waitForTransactionReceipt(client, {
         hash: hashes[0] as `0x${string}`,
       })
 

@@ -23,7 +23,6 @@ export function useDeletePiece(props: UseDeletePieceProps) {
   const chainId = useChainId({ config })
   const account = useAccount({ config })
   const queryClient = useQueryClient()
-  const client = config.getClient()
 
   return useMutation({
     ...props?.mutation,
@@ -41,10 +40,10 @@ export function useDeletePiece(props: UseDeletePieceProps) {
       })
 
       props?.onHash?.(deletePieceRsp.hash)
-      const rsp = await waitForTransactionReceipt(client, deletePieceRsp)
+      const rsp = await waitForTransactionReceipt(connectorClient, deletePieceRsp)
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', account.address, config.getClient().chain.id],
+        queryKey: ['synapse-warm-storage-data-sets', account.address, connectorClient.chain.id],
       })
       return rsp
     },
