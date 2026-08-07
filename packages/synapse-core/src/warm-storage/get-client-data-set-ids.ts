@@ -1,9 +1,11 @@
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
@@ -15,7 +17,7 @@ import {
   type paginate,
   resolvePagination,
 } from '../pagination.ts'
-import type { PaginatedActionCallOptions, ReadClient } from '../types.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
 
 export namespace getClientDataSetIds {
   export type OptionsType = PaginationOptions & {
@@ -44,7 +46,7 @@ export namespace getClientDataSetIds {
  * Pass the returned `nextCursor` back as `cursor`; treat it as opaque. Use
  * {@link paginate} to traverse every page. `limit` must be greater than zero.
  *
- * @param client - The read-only client to use to get the client data set IDs.
+ * @param client - The client to use to get the client data set IDs.
  * @param options - {@link getClientDataSetIds.OptionsType}
  * @returns A page of data set IDs {@link getClientDataSetIds.OutputType}
  * @throws Errors {@link getClientDataSetIds.ErrorType}
@@ -77,8 +79,8 @@ export namespace getClientDataSetIds {
  * }
  * ```
  */
-export async function getClientDataSetIds<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getClientDataSetIds(
+  client: Client<Transport, Chain>,
   options: getClientDataSetIds.OptionsType
 ): Promise<getClientDataSetIds.OutputType> {
   const { cursor, limit } = resolvePagination(options, 100n)

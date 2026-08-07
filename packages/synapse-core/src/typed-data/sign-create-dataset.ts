@@ -1,8 +1,16 @@
-import type { Address, Chain, EncodeAbiParametersErrorType, Hex, SignTypedDataErrorType } from 'viem'
+import type {
+  Account,
+  Address,
+  Chain,
+  Client,
+  EncodeAbiParametersErrorType,
+  Hex,
+  SignTypedDataErrorType,
+  Transport,
+} from 'viem'
 import { encodeAbiParameters } from 'viem'
 import { signTypedData } from 'viem/actions'
 import { asChain } from '../chains.ts'
-import type { AccountClient } from '../types.ts'
 import { randU256 } from '../utils/rand.ts'
 import { EIP712Types, getStorageDomain, type MetadataEntry } from './type-definitions.ts'
 
@@ -32,10 +40,7 @@ export const signCreateDataSetAbiParameters = [
  * @param options - {@link signCreateDataSetOptions}
  * @throws { SignTypedDataErrorType | EncodeAbiParametersErrorType}
  */
-export async function signCreateDataSet<chain extends Chain>(
-  client: AccountClient<chain>,
-  options: signCreateDataSetOptions
-) {
+export async function signCreateDataSet(client: Client<Transport, Chain, Account>, options: signCreateDataSetOptions) {
   const chain = asChain(client.chain)
   const metadata = options.metadata ?? []
   const clientDataSetId = options.clientDataSetId ?? randU256()

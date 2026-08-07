@@ -1,9 +1,11 @@
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
@@ -15,7 +17,7 @@ import {
   type paginate,
   resolvePagination,
 } from '../pagination.ts'
-import type { PaginatedActionCallOptions, ReadClient } from '../types.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
 
 export namespace getApprovedProviderIds {
   export type OptionsType = PaginationOptions & {
@@ -41,7 +43,7 @@ export namespace getApprovedProviderIds {
  * Pass the returned `nextCursor` back as `cursor`; treat it as opaque. Use
  * {@link paginate} to traverse every page. `limit` must be greater than zero.
  *
- * @param client - The read-only client to use to get the approved providers.
+ * @param client - The client to use to get the approved providers.
  * @param options - {@link getApprovedProviderIds.OptionsType}
  * @returns A page of approved provider IDs {@link getApprovedProviderIds.OutputType}
  * @throws Errors {@link getApprovedProviderIds.ErrorType}
@@ -73,8 +75,8 @@ export namespace getApprovedProviderIds {
  * }
  * ```
  */
-export async function getApprovedProviderIds<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getApprovedProviderIds(
+  client: Client<Transport, Chain>,
   options: getApprovedProviderIds.OptionsType = {}
 ): Promise<getApprovedProviderIds.OutputType> {
   const { cursor, limit } = resolvePagination(options, 100n)

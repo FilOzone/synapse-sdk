@@ -1,11 +1,14 @@
 import type { SetRequired, Simplify } from 'type-fest'
 import type {
+  Account,
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
+  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -18,7 +21,7 @@ import { toReadClient } from '../client.ts'
 import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { InsufficientAllowanceError, InsufficientBalanceError } from '../errors/pay.ts'
-import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace deposit {
   export type OptionsType = {
@@ -74,10 +77,7 @@ export namespace deposit {
  * console.log(hash)
  * ```
  */
-export async function deposit<chain extends Chain>(
-  client: AccountClient<chain>,
-  options: deposit.OptionsType
-): Promise<Hash> {
+export async function deposit(client: Client<Transport, Chain, Account>, options: deposit.OptionsType): Promise<Hash> {
   const balance = await erc20.balance(toReadClient(client), {
     address: client.account.address,
     token: options.token,
@@ -150,8 +150,8 @@ export namespace depositSync {
  * console.log('To:', event.args.to)
  * ```
  */
-export async function depositSync<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function depositSync(
+  client: Client<Transport, Chain, Account>,
   options: depositSync.OptionsType
 ): Promise<depositSync.OutputType> {
   const hash = await deposit(client, options)

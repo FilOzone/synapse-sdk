@@ -1,11 +1,14 @@
 import type { Simplify } from 'type-fest'
 import type {
+  Account,
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
+  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -14,7 +17,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace removeProvider {
   export type OptionsType = {
@@ -57,8 +60,8 @@ export namespace removeProvider {
  * console.log(hash)
  * ```
  */
-export async function removeProvider<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function removeProvider(
+  client: Client<Transport, Chain, Account>,
   options: removeProvider.OptionsType = {}
 ): Promise<removeProvider.OutputType> {
   const { request } = await simulateContract(
@@ -115,8 +118,8 @@ export namespace removeProviderSync {
  * console.log('Removed provider ID:', event.args.providerId)
  * ```
  */
-export async function removeProviderSync<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function removeProviderSync(
+  client: Client<Transport, Chain, Account>,
   options: removeProviderSync.OptionsType = {}
 ): Promise<removeProviderSync.OutputType> {
   const hash = await removeProvider(client, options)

@@ -54,11 +54,11 @@ export function getTransport(chain: ViemChain): Transport {
  * @returns The synapse client.
  */
 export function asClient<
-  chain extends ViemChain | FilecoinChain = ViemChain | FilecoinChain,
   account extends Account | undefined = Account | undefined,
-  transport extends Transport = Transport,
   rpcSchema extends RpcSchema | undefined = undefined,
   extended extends Extended | undefined = Extended | undefined,
+  chain extends ViemChain | FilecoinChain = ViemChain | FilecoinChain,
+  transport extends Transport = Transport,
 >(client: Client<transport, chain, account, rpcSchema, extended>) {
   asChain(client.chain)
   return client as Client<transport, FilecoinChain, account, rpcSchema, extended>
@@ -66,12 +66,6 @@ export function asClient<
 
 /**
  * Turn any viem client into a read-only client and forces the default HTTP transport for JSON-RPC accounts using custom transport.
- *
- * Viem uses a client's account as the default `from` address for `eth_call`.
- * Filecoin rejects calls from contract accounts and undeployed addresses during
- * sender pre-validation, even when the call is read-only. This adapter keeps the
- * configured chain and transport behavior while removing that account default.
- *
  */
 export function toReadClient<
   chain extends ViemChain | FilecoinChain | undefined = undefined,
@@ -81,32 +75,32 @@ export function toReadClient<
   extended extends Extended | undefined = Extended | undefined,
 >(
   client: Client<transport, chain, account, rpcSchema, extended>
-): Client<transport, FilecoinChain, undefined, rpcSchema, extended> {
+): Client<transport, FilecoinChain, account, rpcSchema, extended> {
   if (client.chain != null) {
     asChain(client.chain)
   }
-  if (client.account == null) {
-    return client as Client<transport, FilecoinChain, undefined, rpcSchema, extended>
-  }
 
-  const { account, ...rest } = client
-
-  const isJsonRpcAccount = account.type === 'json-rpc'
-  const transportType = rest.transport.type
+  const isJsonRpcAccount = client.account?.type === 'json-rpc'
+  const transportType = client.transport.type
 
   const key = 'synapse-read-client'
   const name = 'Synapse Read Client'
-  const noAccountClient = { ...rest, key, name } as Client<transport, FilecoinChain, undefined, rpcSchema, extended>
 
   if (!isJsonRpcAccount && transportType === 'custom') {
     const transport = client.chain ? getTransport(client.chain) : http()
     const { config, request, value } = transport({
-      account: undefined,
+      account: client.account,
       chain: client.chain,
-      pollingInterval: rest.pollingInterval,
+      pollingInterval: client.pollingInterval,
     })
-    return { ...noAccountClient, transport: { ...config, ...value }, request }
+    return { ...client, key, name, transport: { ...config, ...value }, request } as Client<
+      transport,
+      FilecoinChain,
+      account,
+      rpcSchema,
+      extended
+    >
   }
 
-  return noAccountClient
+  return { ...client, key, name } as Client<transport, FilecoinChain, account, rpcSchema, extended>
 }

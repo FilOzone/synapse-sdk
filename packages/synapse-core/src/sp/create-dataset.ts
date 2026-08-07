@@ -1,18 +1,20 @@
 import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import {
+  type Account,
   type Address,
   type Chain,
+  type Client,
   type EncodeAbiParametersErrorType,
   type Hex,
   isHex,
   type SignTypedDataErrorType,
+  type Transport,
 } from 'viem'
 import * as z from 'zod'
 import { asChain } from '../chains.ts'
 import { CreateDataSetError, LocationHeaderError } from '../errors/index.ts'
 import { WaitForCreateDataSetError, WaitForCreateDataSetRejectedError } from '../errors/pdp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
-import type { AccountClient } from '../types.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject } from '../utils/metadata.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
@@ -132,10 +134,7 @@ export namespace createDataSet {
  * @returns Transaction hash and status URL. {@link createDataSet.ReturnType}
  * @throws Errors {@link createDataSet.ErrorType}
  */
-export async function createDataSet<chain extends Chain>(
-  client: AccountClient<chain>,
-  options: createDataSet.OptionsType
-) {
+export async function createDataSet(client: Client<Transport, Chain, Account>, options: createDataSet.OptionsType) {
   const chain = asChain(client.chain)
 
   // Sign and encode the create data set message

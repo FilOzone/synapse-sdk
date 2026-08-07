@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import { type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
 
 export namespace getAllPieceMetadata {
@@ -35,7 +37,7 @@ export namespace getAllPieceMetadata {
 /**
  * Get all metadata for a piece formatted as a MetadataObject
  *
- * @param client - The read-only client to use to get the piece metadata.
+ * @param client - The client to use to get the piece metadata.
  * @param options - {@link getAllPieceMetadata.OptionsType}
  * @returns The metadata formatted as a MetadataObject {@link getAllPieceMetadata.OutputType}
  * @throws Errors {@link getAllPieceMetadata.ErrorType}
@@ -59,8 +61,8 @@ export namespace getAllPieceMetadata {
  * console.log(metadata)
  * ```
  */
-export async function getAllPieceMetadata<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getAllPieceMetadata(
+  client: Client<Transport, Chain>,
   options: getAllPieceMetadata.OptionsType
 ): Promise<getAllPieceMetadata.OutputType> {
   const data = await readContract(

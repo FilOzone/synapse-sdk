@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import { isProviderExistsRevert } from '../utils/contract-errors.ts'
 
 export namespace getProviderWithProduct {
@@ -47,7 +49,7 @@ export namespace getProviderWithProduct {
  * default-initialized product and callers must inspect `product.isActive`
  * and `product.capabilityKeys`.
  *
- * @param client - The read-only client to use to get the provider details.
+ * @param client - The client to use to get the provider details.
  * @param options - {@link getProviderWithProduct.OptionsType}
  * @returns The provider with product details, or `null` when the provider does not exist {@link getProviderWithProduct.OutputType}
  * @throws Errors {@link getProviderWithProduct.ErrorType}
@@ -73,8 +75,8 @@ export namespace getProviderWithProduct {
  * }
  * ```
  */
-export async function getProviderWithProduct<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getProviderWithProduct(
+  client: Client<Transport, Chain>,
   options: getProviderWithProduct.OptionsType
 ): Promise<getProviderWithProduct.OutputType> {
   try {

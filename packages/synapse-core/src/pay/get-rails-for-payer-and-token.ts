@@ -1,15 +1,17 @@
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { type PageWithTotal, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
-import type { PaginatedActionCallOptions, ReadClient } from '../types.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
 import type { RailInfo } from './types.ts'
 
 export namespace getRailsForPayerAndToken {
@@ -44,7 +46,7 @@ export namespace getRailsForPayerAndToken {
  * {@link paginate} to traverse every page. `total` is the contract's underlying
  * rail-slot count, including slots skipped because their rails were finalized.
  *
- * @param client - The read-only client to use to get the rails.
+ * @param client - The client to use to get the rails.
  * @param options - {@link getRailsForPayerAndToken.OptionsType}
  * @returns Paginated rail results {@link getRailsForPayerAndToken.OutputType}
  * @throws Errors {@link getRailsForPayerAndToken.ErrorType}
@@ -77,8 +79,8 @@ export namespace getRailsForPayerAndToken {
  * }
  * ```
  */
-export async function getRailsForPayerAndToken<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getRailsForPayerAndToken(
+  client: Client<Transport, Chain>,
   options: getRailsForPayerAndToken.OptionsType
 ): Promise<getRailsForPayerAndToken.OutputType> {
   const { cursor, limit } = resolvePagination(options, 100n)

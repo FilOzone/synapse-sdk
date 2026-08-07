@@ -1,11 +1,14 @@
 import type { Simplify } from 'type-fest'
 import type {
+  Account,
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
+  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -15,7 +18,7 @@ import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../a
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ValidationError } from '../errors/base.ts'
-import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { validateProviderInfo } from './validation.ts'
 
 export namespace updateProviderInfo {
@@ -70,8 +73,8 @@ export namespace updateProviderInfo {
  * console.log(hash)
  * ```
  */
-export async function updateProviderInfo<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function updateProviderInfo(
+  client: Client<Transport, Chain, Account>,
   options: updateProviderInfo.OptionsType
 ): Promise<updateProviderInfo.OutputType> {
   const chain = asChain(client.chain)
@@ -136,8 +139,8 @@ export namespace updateProviderInfoSync {
  * console.log('Provider ID:', event.args.providerId)
  * ```
  */
-export async function updateProviderInfoSync<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function updateProviderInfoSync(
+  client: Client<Transport, Chain, Account>,
   options: updateProviderInfoSync.OptionsType
 ): Promise<updateProviderInfoSync.OutputType> {
   const hash = await updateProviderInfo(client, options)

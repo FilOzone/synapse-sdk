@@ -60,7 +60,7 @@ export function privateKeyClient(chainId: number): {
   }
 }
 
-export function publicClient(chainId: number): ReadClient<FilecoinChain> {
+export function publicClient(chainId: number): ReadClient {
   const chain = getChain(chainId)
   const publicClient = createPublicClient({
     chain,

@@ -1,9 +1,11 @@
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
@@ -15,7 +17,7 @@ import {
   type paginate,
   resolvePagination,
 } from '../pagination.ts'
-import type { PaginatedActionCallOptions, ReadClient } from '../types.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
 import type { getPdpDataSets } from './get-pdp-data-sets.ts'
 import type { DataSetInfo } from './types.ts'
 
@@ -46,7 +48,7 @@ export namespace getClientDataSets {
  * {@link paginate} to traverse every page. Use {@link getPdpDataSets} when the
  * enriched PDP data-set representation is required.
  *
- * @param client - The read-only client to use to get data sets for a client address.
+ * @param client - The client to use to get data sets for a client address.
  * @param options - {@link getClientDataSets.OptionsType}
  * @returns A page of data set info entries {@link getClientDataSets.OutputType}
  * @throws Errors {@link getClientDataSets.ErrorType}
@@ -79,8 +81,8 @@ export namespace getClientDataSets {
  * }
  * ```
  */
-export async function getClientDataSets<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getClientDataSets(
+  client: Client<Transport, Chain>,
   options: getClientDataSets.OptionsType
 ): Promise<getClientDataSets.OutputType> {
   const { cursor, limit } = resolvePagination(options, 100n)

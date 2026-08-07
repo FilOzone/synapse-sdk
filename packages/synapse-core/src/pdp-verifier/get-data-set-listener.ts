@@ -2,15 +2,17 @@ import type { Simplify } from 'type-fest'
 import {
   type Address,
   type Chain,
+  type Client,
   type ContractFunctionParameters,
   type ContractFunctionReturnType,
   type ReadContractErrorType,
+  type Transport,
   zeroAddress,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 
 export namespace getDataSetListener {
@@ -49,13 +51,13 @@ export namespace getDataSetListener {
  * const listenerAddress = await getDataSetListener(client, { dataSetId: 1n })
  * ```
  *
- * @param client - The read-only client to use to get the data set listener.
+ * @param client - The client to use to get the data set listener.
  * @param options - {@link getDataSetListener.OptionsType}
  * @returns Listener contract address {@link getDataSetListener.OutputType}. Returns null if the data set is not live or does not exist (zero address).
  * @throws Errors {@link getDataSetListener.ErrorType}
  */
-export async function getDataSetListener<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getDataSetListener(
+  client: Client<Transport, Chain>,
   options: getDataSetListener.OptionsType
 ): Promise<getDataSetListener.OutputType> {
   try {

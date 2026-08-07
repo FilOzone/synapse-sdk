@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 
 export namespace getScheduledRemovals {
@@ -44,13 +46,13 @@ export namespace getScheduledRemovals {
  * })
  * ```
  *
- * @param client - The read-only client to use to get the scheduled removals.
+ * @param client - The client to use to get the scheduled removals.
  * @param options - {@link getScheduledRemovals.OptionsType}
  * @returns The piece IDs scheduled for removal {@link getScheduledRemovals.OutputType}
  * @throws Errors {@link getScheduledRemovals.ErrorType}
  */
-export async function getScheduledRemovals<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getScheduledRemovals(
+  client: Client<Transport, Chain>,
   options: getScheduledRemovals.OptionsType
 ): Promise<getScheduledRemovals.OutputType> {
   try {

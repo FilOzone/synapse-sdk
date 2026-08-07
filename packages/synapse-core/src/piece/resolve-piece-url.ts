@@ -1,11 +1,10 @@
 import { request } from 'iso-web/http'
 import pLocate from 'p-locate'
 import pSome from 'p-some'
-import type { Address, Chain } from 'viem'
+import type { Address, Chain, Client, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { paginate } from '../pagination.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
-import type { ReadClient } from '../types.ts'
 import { createPieceUrlPDP } from '../utils/piece-url.ts'
 import { getPdpDataSets } from '../warm-storage/get-pdp-data-sets.ts'
 import type { PieceCID } from './piece-cid.ts'
@@ -13,8 +12,8 @@ import type { PieceCID } from './piece-cid.ts'
 export namespace resolvePieceUrl {
   export type ResolverFnType = (options: ResolverFnOptionsType) => Promise<string>
   export type OptionsType = {
-    /** The read-only client to use to resolve the piece URL. */
-    client: ReadClient<Chain>
+    /** The client to use to resolve the piece URL. */
+    client: Client<Transport, Chain>
     /** The address of the user. */
     address: Address
     /** The piece CID to resolve. */

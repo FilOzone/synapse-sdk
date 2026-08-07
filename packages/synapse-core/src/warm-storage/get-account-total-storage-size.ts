@@ -1,9 +1,8 @@
-import type { Address, Chain, MulticallErrorType } from 'viem'
+import type { Address, Chain, Client, MulticallErrorType, Transport } from 'viem'
 import { multicall } from 'viem/actions'
 import { paginate } from '../pagination.ts'
 import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
 import { getDataSetLeafCountCall } from '../pdp-verifier/get-data-set-leaf-count.ts'
-import type { ReadClient } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { getClientDataSets } from './get-client-data-sets.ts'
 
@@ -49,13 +48,13 @@ export namespace getAccountTotalStorageSize {
  * })
  * ```
  *
- * @param client - The read-only client to use to get the account total storage size.
+ * @param client - The client to use to get the account total storage size.
  * @param options - {@link getAccountTotalStorageSize.OptionsType}
  * @returns Total storage size and dataset count {@link getAccountTotalStorageSize.OutputType}
  * @throws Errors {@link getAccountTotalStorageSize.ErrorType}
  */
-export async function getAccountTotalStorageSize<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getAccountTotalStorageSize(
+  client: Client<Transport, Chain>,
   options: getAccountTotalStorageSize.OptionsType
 ): Promise<getAccountTotalStorageSize.OutputType> {
   let totalSizeBytes = 0n

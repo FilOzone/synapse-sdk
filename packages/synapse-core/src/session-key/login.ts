@@ -1,11 +1,14 @@
 import type { Simplify } from 'type-fest'
 import type {
+  Account,
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
+  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -14,7 +17,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { DefaultFwssPermissions, type Permission } from './permissions.ts'
 
 export namespace login {
@@ -44,8 +47,8 @@ export namespace login {
  * @returns The transaction hash {@link login.OutputType}
  * @throws Errors {@link login.ErrorType}
  */
-export async function login<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function login(
+  client: Client<Transport, Chain, Account>,
   options: login.OptionsType
 ): Promise<login.OutputType> {
   const { request } = await simulateContract(
@@ -81,8 +84,8 @@ export namespace loginSync {
  * @returns The transaction receipt and extracted event {@link loginSync.OutputType}
  * @throws Errors {@link loginSync.ErrorType}
  */
-export async function loginSync<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function loginSync(
+  client: Client<Transport, Chain, Account>,
   options: loginSync.OptionsType
 ): Promise<loginSync.OutputType> {
   const hash = await login(client, options)

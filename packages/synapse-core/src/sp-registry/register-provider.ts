@@ -1,11 +1,14 @@
 import type { SetRequired, Simplify } from 'type-fest'
 import type {
+  Account,
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
+  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -16,7 +19,7 @@ import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { toReadClient } from '../client.ts'
 import type { ValidationError } from '../errors/base.ts'
-import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { encodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 import type { PDPOffering } from './types.ts'
 import {
@@ -101,8 +104,8 @@ export namespace registerProvider {
  * console.log(hash)
  * ```
  */
-export async function registerProvider<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function registerProvider(
+  client: Client<Transport, Chain, Account>,
   options: registerProvider.OptionsType
 ): Promise<registerProvider.OutputType> {
   const chain = asChain(client.chain)
@@ -196,8 +199,8 @@ export namespace registerProviderSync {
  * console.log('Payee:', event.args.payee)
  * ```
  */
-export async function registerProviderSync<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function registerProviderSync(
+  client: Client<Transport, Chain, Account>,
   options: registerProviderSync.OptionsType
 ): Promise<registerProviderSync.OutputType> {
   const hash = await registerProvider(client, options)

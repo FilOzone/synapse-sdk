@@ -1,12 +1,11 @@
 import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
-import type { Chain } from 'viem'
+import type { Account, Chain, Client, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { toReadClient } from '../client.ts'
 import { InvalidUploadSizeError, LocationHeaderError, PostPieceError, UploadPieceError } from '../errors/pdp.ts'
 import { DataSetNotFoundError } from '../errors/warm-storage.ts'
 import * as Piece from '../piece/index.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import type { AccountClient } from '../types.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
 import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
@@ -135,7 +134,7 @@ export namespace upload {
  * @returns Upload response {@link upload.OutputType}
  * @throws Errors {@link upload.ErrorType}
  */
-export async function upload<chain extends Chain>(client: AccountClient<chain>, options: upload.OptionsType) {
+export async function upload(client: Client<Transport, Chain, Account>, options: upload.OptionsType) {
   const dataSet = await getPdpDataSet(toReadClient(client), {
     dataSetId: options.dataSetId,
   })

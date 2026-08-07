@@ -1,4 +1,13 @@
-import { type Address, type Chain, isAddressEqual, maxUint256, parseSignature } from 'viem'
+import {
+  type Account,
+  type Address,
+  type Chain,
+  type Client,
+  isAddressEqual,
+  maxUint256,
+  parseSignature,
+  type Transport,
+} from 'viem'
 import {
   type SimulateContractErrorType,
   simulateContract,
@@ -11,7 +20,6 @@ import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
 import { signErc20Permit } from '../typed-data/sign-erc20-permit.ts'
-import type { AccountClient } from '../types.ts'
 import { TIME_CONSTANTS } from '../utils/constants.ts'
 import { getPriceList } from '../warm-storage/price-list.ts'
 
@@ -65,10 +73,7 @@ export type DepositAndApproveOptions = {
  * @throws - {@link WriteContractErrorType} if the write contract fails.
  * @throws - {@link InsufficientBalanceError} if the balance is insufficient.
  */
-export async function depositAndApprove<chain extends Chain>(
-  client: AccountClient<chain>,
-  options: DepositAndApproveOptions
-) {
+export async function depositAndApprove(client: Client<Transport, Chain, Account>, options: DepositAndApproveOptions) {
   const chain = asChain(client.chain)
   const token = options.token ?? chain.contracts.usdfc.address
   const operator = options.operator ?? chain.contracts.fwss.address

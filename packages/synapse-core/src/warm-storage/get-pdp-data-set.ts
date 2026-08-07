@@ -1,4 +1,4 @@
-import { type Address, type Chain, isAddressEqual, type ReadContractErrorType } from 'viem'
+import { type Address, type Chain, type Client, isAddressEqual, type ReadContractErrorType, type Transport } from 'viem'
 import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
@@ -6,7 +6,6 @@ import type { getActivePiecesByCursor } from '../pdp-verifier/get-active-pieces-
 import { type getDataSetLeafCount, getDataSetLeafCountCall } from '../pdp-verifier/get-data-set-leaf-count.ts'
 import { getDataSetListenerCall } from '../pdp-verifier/get-data-set-listener.ts'
 import { getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
-import type { ReadClient } from '../types.ts'
 import { getAllDataSetMetadataCall, parseAllDataSetMetadata } from './get-all-data-set-metadata.ts'
 import { getDataSet } from './get-data-set.ts'
 import type { DataSetInfo, PdpDataSet, PdpDataSetInfo } from './types.ts'
@@ -35,7 +34,7 @@ export namespace getPdpDataSet {
  * explicitly, traverse {@link getActivePiecesByCursor} with `paginate` and
  * count the yielded pieces.
  *
- * @param client - The read-only client to use to get the PDP data set.
+ * @param client - The client to use to get the PDP data set.
  * @param options - {@link getPdpDataSet.OptionsType}
  * @returns PDP data set or undefined if the data set does not exist {@link getPdpDataSet.OutputType}
  * @throws Errors {@link getPdpDataSet.ErrorType}
@@ -62,8 +61,8 @@ export namespace getPdpDataSet {
  * }
  * ```
  */
-export async function getPdpDataSet<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getPdpDataSet(
+  client: Client<Transport, Chain>,
   options: getPdpDataSet.OptionsType
 ): Promise<getPdpDataSet.OutputType> {
   const data = await getDataSet(client, options)
@@ -85,12 +84,12 @@ export async function getPdpDataSet<chain extends Chain>(
 /**
  * Read PDP data set information.
  *
- * @param client - The read-only client to use to read the PDP data set info.
+ * @param client - The client to use to read the PDP data set info.
  * @param options
  * @returns PDP data set info {@link PdpDataSetInfo}
  */
-export async function readPdpDataSetInfo<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function readPdpDataSetInfo(
+  client: Client<Transport, Chain>,
   options: {
     dataSetInfo: DataSetInfo
     providerId: bigint

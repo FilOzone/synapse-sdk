@@ -2,14 +2,16 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
+  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ReadClient } from '../types.ts'
+import type { ActionCallChain } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 
 export namespace getNextChallengeEpoch {
@@ -52,13 +54,13 @@ export namespace getNextChallengeEpoch {
  * })
  * ```
  *
- * @param client - The read-only client to use to get the next challenge epoch.
+ * @param client - The client to use to get the next challenge epoch.
  * @param options - {@link getNextChallengeEpoch.OptionsType}
  * @returns The next challenge epoch for the data set {@link getNextChallengeEpoch.OutputType}. Returns null if the data set is not live or no challenge epoch has been set.
  * @throws Errors {@link getNextChallengeEpoch.ErrorType}
  */
-export async function getNextChallengeEpoch<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getNextChallengeEpoch(
+  client: Client<Transport, Chain>,
   options: getNextChallengeEpoch.OptionsType
 ): Promise<getNextChallengeEpoch.OutputType> {
   try {

@@ -1,17 +1,20 @@
 import type { Simplify } from 'type-fest'
 import type {
+  Account,
   Address,
   Chain,
+  Client,
   ContractFunctionParameters,
   Hash,
   SimulateContractErrorType,
+  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
 import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { extractLoginEvent } from './login.ts'
 import { DefaultFwssPermissions, type Permission } from './permissions.ts'
 
@@ -40,8 +43,8 @@ export namespace revoke {
  * @returns The transaction hash {@link revoke.OutputType}
  * @throws Errors {@link revoke.ErrorType}
  */
-export async function revoke<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function revoke(
+  client: Client<Transport, Chain, Account>,
   options: revoke.OptionsType
 ): Promise<revoke.OutputType> {
   const { request } = await simulateContract(
@@ -76,8 +79,8 @@ export namespace revokeSync {
  * @returns The transaction receipt and extracted event {@link revokeSync.OutputType}
  * @throws Errors {@link revokeSync.ErrorType}
  */
-export async function revokeSync<chain extends Chain>(
-  client: AccountClient<chain>,
+export async function revokeSync(
+  client: Client<Transport, Chain, Account>,
   options: revokeSync.OptionsType
 ): Promise<revokeSync.OutputType> {
   const hash = await revoke(client, options)

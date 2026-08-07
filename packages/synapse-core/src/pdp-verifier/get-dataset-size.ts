@@ -1,7 +1,6 @@
-import type { Address, Chain, MulticallErrorType } from 'viem'
+import type { Address, Chain, Client, MulticallErrorType, Transport } from 'viem'
 import { multicall } from 'viem/actions'
 import type { asChain } from '../chains.ts'
-import type { ReadClient } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 import { getDataSetLeafCountCall } from './get-data-set-leaf-count.ts'
@@ -45,13 +44,13 @@ export namespace getDataSetSizes {
  * const [size] = await getDataSetSizes(client, { dataSetIds: [1n] })
  * ```
  *
- * @param client - The read-only client to use to get the data set size.
+ * @param client - The client to use to get the data set size.
  * @param options - {@link getDataSetSizes.OptionsType}
  * @returns Array of data set sizes in bytes {@link getDataSetSizes.OutputType}
  * @throws Errors {@link getDataSetSizes.ErrorType}
  */
-export async function getDataSetSizes<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getDataSetSizes(
+  client: Client<Transport, Chain>,
   options: getDataSetSizes.OptionsType
 ): Promise<getDataSetSizes.OutputType> {
   if (options.dataSetIds.length === 0) {

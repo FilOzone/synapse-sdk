@@ -1,10 +1,9 @@
-import type { Address, Chain } from 'viem'
+import type { Address, Chain, Client, Transport } from 'viem'
 import { getBlockNumber } from 'viem/actions'
 import { calculateAccountDebt } from '../pay/account-debt.ts'
 import { accounts } from '../pay/accounts.ts'
 import { isFwssMaxApproved } from '../pay/is-fwss-max-approved.ts'
 import { resolveAccountState } from '../pay/resolve-account-state.ts'
-import type { ReadClient } from '../types.ts'
 import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { calculateDepositNeeded } from './calculate-deposit-needed.ts'
 import { calculateEffectiveRate } from './calculate-effective-rate.ts'
@@ -65,12 +64,12 @@ export namespace getUploadCosts {
  * Fetches account state, pricing, and approval via read-only contract calls,
  * then feeds results into pure calculation functions.
  *
- * @param client - The read-only client to use to compute upload costs.
+ * @param client - The client to use to compute upload costs.
  * @param options - {@link getUploadCosts.OptionsType}
  * @returns {@link getUploadCosts.OutputType}
  */
-export async function getUploadCosts<chain extends Chain>(
-  client: ReadClient<chain>,
+export async function getUploadCosts(
+  client: Client<Transport, Chain>,
   options: getUploadCosts.OptionsType
 ): Promise<getUploadCosts.OutputType> {
   const isNewDataSet = options.isNewDataSet ?? true
