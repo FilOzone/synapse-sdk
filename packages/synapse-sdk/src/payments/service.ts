@@ -1,16 +1,15 @@
+import type { AccountClient, ReadClient } from '@filoz/synapse-core'
 import { paginate } from '@filoz/synapse-core'
-import { asChain } from '@filoz/synapse-core/chains'
+import { asChain, type FilecoinChain } from '@filoz/synapse-core/chains'
+import { asClient, getTransport, toReadClient } from '@filoz/synapse-core/client'
 import * as ERC20 from '@filoz/synapse-core/erc20'
 import * as Pay from '@filoz/synapse-core/pay'
-import { toReadClient } from '@filoz/synapse-core/utils'
 import {
   type Account,
   type Address,
   type Chain,
-  type Client,
   createClient,
   type Hash,
-  http,
   type TransactionReceipt,
   type Transport,
 } from 'viem'
@@ -42,9 +41,8 @@ export interface DepositOptions {
  * PaymentsService - Filecoin Pay client for managing deposits, approvals, and payment rails
  */
 export class PaymentsService {
-  private readonly _client: Client<Transport, Chain, Account>
-  private readonly _readClient: Client<Transport, Chain, undefined>
-
+  private readonly _client: AccountClient<FilecoinChain>
+  private readonly _readClient: ReadClient<FilecoinChain>
   /**
    * Create a new PaymentsService instance
    *
@@ -52,9 +50,9 @@ export class PaymentsService {
    * @param options.client - Viem wallet client
    * @returns A new PaymentsService instance
    */
-  constructor(options: { client: Client<Transport, Chain, Account> }) {
-    this._client = options.client
-    this._readClient = toReadClient(options.client)
+  constructor(options: { client: AccountClient; readClient?: ReadClient }) {
+    this._client = asClient(options.client)
+    this._readClient = options.readClient ? asClient(options.readClient) : toReadClient(options.client)
   }
 
   /**
@@ -67,17 +65,15 @@ export class PaymentsService {
    * @returns A new {@link PaymentsService} instance
    */
   static create(options: { transport?: Transport; chain?: Chain; account: Account }): PaymentsService {
+    const chain = options.chain ?? DEFAULT_CHAIN
     const client = createClient({
-      chain: options.chain ?? DEFAULT_CHAIN,
-      transport: options.transport ?? http(),
+      chain,
+      transport: options.transport ?? getTransport(chain),
       account: options.account,
       name: 'PaymentsService',
       key: 'payments-service',
     })
 
-    if (client.account.type === 'json-rpc' && client.transport.type !== 'custom') {
-      throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
-    }
     return new PaymentsService({ client })
   }
 
@@ -118,7 +114,7 @@ export class PaymentsService {
       )
     }
 
-    return await Pay.accounts(this._client, {
+    return await Pay.accounts(this._readClient, {
       address: this._client.account.address,
     })
   }
@@ -136,7 +132,7 @@ export class PaymentsService {
     // If no token specified or FIL is requested, return native wallet balance
     if (token === TOKENS.FIL) {
       try {
-        const balance = await getBalance(this._client, {
+        const balance = await getBalance(this._readClient, {
           address: this._client.account.address,
         })
         return balance
@@ -153,7 +149,7 @@ export class PaymentsService {
     // Handle ERC20 token balance
     if (token === TOKENS.USDFC) {
       try {
-        const balance = await ERC20.balance(this._client, {
+        const balance = await ERC20.balance(this._readClient, {
           address: this._client.account.address,
         })
         return balance.value
@@ -200,7 +196,7 @@ export class PaymentsService {
     }
 
     try {
-      const balance = await ERC20.balance(this._client, {
+      const balance = await ERC20.balance(this._readClient, {
         address: this._client.account.address,
         spender,
       })
@@ -356,7 +352,7 @@ export class PaymentsService {
     }
 
     try {
-      const approval = await Pay.operatorApprovals(this._client, {
+      const approval = await Pay.operatorApprovals(this._readClient, {
         address: this._client.account.address,
         operator: service,
       })
@@ -391,7 +387,7 @@ export class PaymentsService {
     }
 
     // Check balance
-    const erc20Balance = await ERC20.balance(this._client, {
+    const erc20Balance = await ERC20.balance(this._readClient, {
       address: this._client.account.address,
     })
 
@@ -606,7 +602,7 @@ export class PaymentsService {
     const { railId, untilEpoch } = options
     const _untilEpoch =
       untilEpoch ??
-      (await getBlockNumber(this._client, {
+      (await getBlockNumber(this._readClient, {
         cacheTime: 0,
       }))
 
@@ -661,7 +657,7 @@ export class PaymentsService {
    */
   async getRail(options: { railId: bigint }): Promise<Pay.getRail.OutputType> {
     try {
-      const rail = await Pay.getRail(this._client, options)
+      const rail = await Pay.getRail(this._readClient, options)
 
       return rail
     } catch (error: any) {
@@ -734,7 +730,7 @@ export class PaymentsService {
     }
 
     try {
-      return await Pay.getAccountSummary(this._client, {
+      return await Pay.getAccountSummary(this._readClient, {
         address: this._client.account.address,
         epoch,
       })
@@ -767,7 +763,7 @@ export class PaymentsService {
     }
 
     try {
-      return await Pay.totalAccountFixedLockup(this._client, {
+      return await Pay.totalAccountFixedLockup(this._readClient, {
         address: this._client.account.address,
       })
     } catch (error) {
@@ -799,7 +795,7 @@ export class PaymentsService {
     try {
       return await Array.fromAsync(
         paginate(({ cursor }) =>
-          Pay.getRailsForPayerAndToken(this._client, {
+          Pay.getRailsForPayerAndToken(this._readClient, {
             payer: this._client.account.address,
             cursor,
           })
@@ -829,7 +825,7 @@ export class PaymentsService {
     try {
       return await Array.fromAsync(
         paginate(({ cursor }) =>
-          Pay.getRailsForPayeeAndToken(this._client, {
+          Pay.getRailsForPayeeAndToken(this._readClient, {
             payee: this._client.account.address,
             cursor,
           })

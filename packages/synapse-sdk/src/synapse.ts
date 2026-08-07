@@ -1,18 +1,8 @@
-import { asChain, type Chain } from '@filoz/synapse-core/chains'
-import type { SessionKeyAccount } from '@filoz/synapse-core/session-key'
+import type { AccountClient, ReadClient, SessionKeyClient } from '@filoz/synapse-core'
+import type { FilecoinChain } from '@filoz/synapse-core/chains'
+import { asClient, getTransport, toReadClient } from '@filoz/synapse-core/client'
 import * as SessionKey from '@filoz/synapse-core/session-key'
-import {
-  type Account,
-  type Address,
-  type Client,
-  createClient,
-  http,
-  isAddress,
-  type PublicActions,
-  type PublicRpcSchema,
-  publicActions,
-  type Transport,
-} from 'viem'
+import { type Address, createClient, isAddress } from 'viem'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
@@ -33,9 +23,10 @@ export class Synapse {
   private readonly _filbeamService: FilBeamService
   private readonly _providers: SPRegistryService
 
-  private readonly _client: Client<Transport, Chain, Account, PublicRpcSchema, PublicActions<Transport, Chain>>
-  private readonly _sessionClient: Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>> | undefined
-  private readonly _chain: Chain
+  private readonly _client: AccountClient<FilecoinChain>
+  private readonly _sessionClient: SessionKeyClient<FilecoinChain> | undefined
+  private readonly _readClient: ReadClient<FilecoinChain>
+  private readonly _chain: FilecoinChain
 
   /**
    * Create a new Synapse instance.
@@ -44,19 +35,15 @@ export class Synapse {
    * @returns A fully initialized Synapse instance
    */
   static create(options: SynapseOptions) {
+    const chain = options.chain ?? DEFAULT_CHAIN
     const client = createClient({
       // todo: change to mainnet chain for GA
-      chain: options.chain ?? DEFAULT_CHAIN,
-      // todo: add better fallback transport
-      transport: options.transport ?? http(),
+      chain,
+      transport: options.transport ?? getTransport(chain),
       account: options.account,
       name: 'Synapse Client',
       key: 'synapse-client',
     })
-
-    if (client.account.type === 'json-rpc' && client.transport.type !== 'custom') {
-      throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
-    }
 
     if (options.sessionKey != null) {
       const sessionKey = options.sessionKey
@@ -92,9 +79,10 @@ export class Synapse {
   }
 
   public constructor(options: SynapseFromClientOptions) {
-    this._client = options.client.extend(publicActions)
-    this._sessionClient = options.sessionClient
-    this._chain = asChain(options.client.chain)
+    this._client = asClient(options.client)
+    this._readClient = toReadClient(options.client)
+    this._sessionClient = options.sessionClient ? asClient(options.sessionClient) : undefined
+    this._chain = this._client.chain
     this._withCDN = options.withCDN ?? false
     this._source = options.source ?? null
     this._providers = new SPRegistryService({ client: options.client })
@@ -111,15 +99,18 @@ export class Synapse {
     })
   }
 
-  get client(): Client<Transport, Chain, Account, PublicRpcSchema, PublicActions<Transport, Chain>> {
+  get client(): AccountClient<FilecoinChain> {
     return this._client
   }
+  get readClient(): ReadClient<FilecoinChain> {
+    return this._readClient
+  }
 
-  get sessionClient(): Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>> | undefined {
+  get sessionClient(): SessionKeyClient<FilecoinChain> | undefined {
     return this._sessionClient
   }
 
-  get chain(): Chain {
+  get chain(): FilecoinChain {
     return this._chain
   }
 
