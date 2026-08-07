@@ -1,4 +1,5 @@
 import { getChain } from '@filoz/synapse-core/chains'
+import { toReadClient } from '@filoz/synapse-core/client'
 import type { balance } from '@filoz/synapse-core/erc20'
 import * as erc20 from '@filoz/synapse-core/erc20'
 import {
@@ -36,7 +37,7 @@ export function useERC20Balance(props: UseERC20BalanceProps) {
     queryKey: ['synapse-erc20-balance', address, token],
     queryFn: address
       ? async () => {
-          const result = await erc20.balance(config.getClient(), {
+          const result = await erc20.balance(toReadClient(config.getClient()), {
             address,
             token,
           })
@@ -90,7 +91,7 @@ export function useApproveAllowance(props?: UseApproveAllowanceProps) {
       })
 
       props?.onHash?.(approve)
-      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
+      const transactionReceipt = await waitForTransactionReceipt(toReadClient(config.getClient()), {
         hash: approve,
       })
 
