@@ -110,8 +110,8 @@ export interface StorageContextOptions {
 }
 
 export class StorageContext {
-  private readonly _client: AccountClient<FilecoinChain>
-  private readonly _readClient: ReadClient<FilecoinChain>
+  private readonly _client: AccountClient
+  private readonly _readClient: ReadClient
   private readonly _chain: FilecoinChain
   private readonly _synapse: Synapse
   private readonly _provider: PDPProvider

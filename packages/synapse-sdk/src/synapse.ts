@@ -2,7 +2,16 @@ import type { AccountClient, ReadClient, SessionKeyClient } from '@filoz/synapse
 import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import { asClient, getTransport, toReadClient } from '@filoz/synapse-core/client'
 import * as SessionKey from '@filoz/synapse-core/session-key'
-import { type Address, createClient, isAddress } from 'viem'
+import {
+  type Address,
+  createClient,
+  isAddress,
+  type PublicActions,
+  type PublicRpcSchema,
+  publicActions,
+  type RpcSchema,
+  type Transport,
+} from 'viem'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
@@ -23,9 +32,9 @@ export class Synapse {
   private readonly _filbeamService: FilBeamService
   private readonly _providers: SPRegistryService
 
-  private readonly _client: AccountClient<FilecoinChain>
-  private readonly _sessionClient: SessionKeyClient<FilecoinChain> | undefined
-  private readonly _readClient: ReadClient<FilecoinChain>
+  private readonly _client: AccountClient<PublicRpcSchema, PublicActions<Transport, FilecoinChain>>
+  private readonly _sessionClient: SessionKeyClient | undefined
+  private readonly _readClient: ReadClient<RpcSchema, PublicActions<Transport, FilecoinChain>>
   private readonly _chain: FilecoinChain
 
   /**
@@ -79,16 +88,16 @@ export class Synapse {
   }
 
   public constructor(options: SynapseFromClientOptions) {
-    this._client = asClient(options.client)
-    this._readClient = toReadClient(options.client)
+    this._client = asClient(options.client).extend(publicActions)
+    this._readClient = toReadClient(options.client).extend(publicActions)
     this._sessionClient = options.sessionClient ? asClient(options.sessionClient) : undefined
     this._chain = this._client.chain
     this._withCDN = options.withCDN ?? false
     this._source = options.source ?? null
-    this._providers = new SPRegistryService({ client: options.client })
+    this._providers = new SPRegistryService({ client: this._client, readClient: this._readClient })
     this._filbeamService = new FilBeamService(this._chain)
-    this._warmStorageService = new WarmStorageService({ client: options.client })
-    this._payments = new PaymentsService({ client: options.client })
+    this._warmStorageService = new WarmStorageService({ client: this._client, readClient: this._readClient })
+    this._payments = new PaymentsService({ client: this._client })
 
     // Initialize StorageManager
     this._storageManager = new StorageManager({
@@ -99,18 +108,18 @@ export class Synapse {
     })
   }
 
-  get client(): AccountClient<FilecoinChain> {
+  get client() {
     return this._client
   }
-  get readClient(): ReadClient<FilecoinChain> {
+  get readClient() {
     return this._readClient
   }
 
-  get sessionClient(): SessionKeyClient<FilecoinChain> | undefined {
+  get sessionClient() {
     return this._sessionClient
   }
 
-  get chain(): FilecoinChain {
+  get chain() {
     return this._chain
   }
 

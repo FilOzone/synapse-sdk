@@ -34,7 +34,7 @@ const confirmedStatus = {
 }
 
 describe('StorageManager.terminateService', () => {
-  let client: AccountClient<FilecoinChain>
+  let client: AccountClient
 
   before(async () => {
     await server.start()

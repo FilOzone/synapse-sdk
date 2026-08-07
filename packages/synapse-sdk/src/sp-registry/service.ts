@@ -29,22 +29,22 @@ import { paginate } from '@filoz/synapse-core'
 import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import { asClient, getTransport, toReadClient } from '@filoz/synapse-core/client'
 import * as SP from '@filoz/synapse-core/sp-registry'
-import { type Account, type Address, createClient, type Hash, type Transport } from 'viem'
+import { type Account, type Address, type Chain, type Client, createClient, type Hash, type Transport } from 'viem'
 import { DEFAULT_CHAIN } from '../utils/constants.ts'
 import type { PDPOffering, ProductType, ProviderRegistrationInfo } from './types.ts'
 
 export class SPRegistryService {
-  private readonly _client: AccountClient<FilecoinChain>
-  private readonly _readClient: ReadClient<FilecoinChain>
+  private readonly _client: AccountClient
+  private readonly _readClient: ReadClient
 
   /**
    * Constructor for SPRegistryService
    * @param options - Options for the SPRegistryService
    * @param options.client - Wallet client used for read and write operations
    */
-  constructor(options: { client: AccountClient }) {
+  constructor(options: { client: Client<Transport, Chain, Account>; readClient?: Client<Transport, Chain> }) {
     this._client = asClient(options.client)
-    this._readClient = toReadClient(options.client)
+    this._readClient = options.readClient ? asClient(options.readClient) : toReadClient(options.client)
   }
 
   /**

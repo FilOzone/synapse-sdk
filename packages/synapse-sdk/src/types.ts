@@ -13,7 +13,7 @@ import type { pullPiecesApiRequest } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { getPriceList, getUploadCosts } from '@filoz/synapse-core/warm-storage'
-import type { Account, Address, Client, Hash, Hex, Transport } from 'viem'
+import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
 import type { Synapse } from './synapse.ts'
 import type { WarmStorageService } from './warm-storage/service.ts'
 
@@ -147,10 +147,10 @@ export interface SynapseFromClientOptions {
    *
    * @see https://viem.sh/docs/clients/wallet#optional-hoist-the-account
    */
-  client: AccountClient
+  client: Client<Transport, Chain, Account>
 
   // Advanced Configuration
-  sessionClient?: SessionKeyClient
+  sessionClient?: Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>>
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
