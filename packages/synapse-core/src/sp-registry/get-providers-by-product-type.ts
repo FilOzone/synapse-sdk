@@ -2,17 +2,14 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 
 export namespace getProvidersByProductType {
   export type OptionsType = {
@@ -43,7 +40,7 @@ export namespace getProvidersByProductType {
 /**
  * Get providers that offer a specific product type with pagination
  *
- * @param client - The client to use to get the providers.
+ * @param client - The read-only client to use to get the providers.
  * @param options - {@link getProvidersByProductType.OptionsType}
  * @returns The paginated providers result {@link getProvidersByProductType.OutputType}
  * @throws Errors {@link getProvidersByProductType.ErrorType}
@@ -68,12 +65,12 @@ export namespace getProvidersByProductType {
  * console.log(result.hasMore)
  * ```
  */
-export async function getProvidersByProductType(
-  client: Client<Transport, Chain>,
+export async function getProvidersByProductType<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getProvidersByProductType.OptionsType
 ): Promise<getProvidersByProductType.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     getProvidersByProductTypeCall({
       chain: client.chain,
       productType: options.productType,

@@ -9,7 +9,7 @@ import {
 } from 'viem'
 import type { pdp as pdpAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import { toReadClient } from '../client.ts'
 
 export * from './data-set-live.ts'
 export * from './find-piece-ids-by-cid.ts'

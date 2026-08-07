@@ -33,6 +33,10 @@
       "types": "./dist/src/chains.d.ts",
       "default": "./dist/src/chains.js"
     },
+    "./client": {
+      "types": "./dist/src/client.d.ts",
+      "default": "./dist/src/client.js"
+    },
     "./sp": {
       "types": "./dist/src/sp/index.d.ts",
       "default": "./dist/src/sp/index.js"
@@ -106,6 +110,9 @@
     "*": {
       "chains": [
         "./dist/src/chains"
+      ],
+      "client": [
+        "./dist/src/client"
       ],
       "sp": [
         "./dist/src/sp/index"

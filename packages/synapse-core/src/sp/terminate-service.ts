@@ -1,14 +1,5 @@
 import { HttpError, type RequestErrors, type RequestJsonErrors, request, SchemaError } from 'iso-web/http'
-import type {
-  Account,
-  Chain,
-  Client,
-  EncodeAbiParametersErrorType,
-  Hash,
-  Hex,
-  SignTypedDataErrorType,
-  Transport,
-} from 'viem'
+import type { Chain, EncodeAbiParametersErrorType, Hash, Hex, SignTypedDataErrorType } from 'viem'
 import * as z from 'zod'
 import type { asChain } from '../chains.ts'
 import {
@@ -21,6 +12,7 @@ import {
   WaitForTerminateServiceRejectedError,
 } from '../errors/pdp.ts'
 import { signTerminateService } from '../typed-data/sign-terminate-service.ts'
+import type { AccountClient } from '../types.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
 
@@ -228,8 +220,8 @@ export namespace terminateService {
  * console.log(status.serviceTerminationEpoch)
  * ```
  */
-export async function terminateService(
-  client: Client<Transport, Chain, Account>,
+export async function terminateService<chain extends Chain>(
+  client: AccountClient<chain>,
   options: terminateService.OptionsType
 ): Promise<terminateService.OutputType> {
   const extraData = options.extraData ?? (await signTerminateService(client, { dataSetId: options.dataSetId }))

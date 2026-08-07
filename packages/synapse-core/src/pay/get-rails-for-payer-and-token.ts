@@ -2,17 +2,14 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 import type { RailInfo } from './types.ts'
 
 export namespace getRailsForPayerAndToken {
@@ -56,7 +53,7 @@ export namespace getRailsForPayerAndToken {
  * Returns paginated list of rails where the specified address is the payer for the given token.
  * Use pagination (offset and limit) to handle large result sets efficiently.
  *
- * @param client - The client to use to get the rails.
+ * @param client - The read-only client to use to get the rails.
  * @param options - {@link getRailsForPayerAndToken.OptionsType}
  * @returns Paginated rail results {@link getRailsForPayerAndToken.OutputType}
  * @throws Errors {@link getRailsForPayerAndToken.ErrorType}
@@ -86,12 +83,12 @@ export namespace getRailsForPayerAndToken {
  * }
  * ```
  */
-export async function getRailsForPayerAndToken(
-  client: Client<Transport, Chain>,
+export async function getRailsForPayerAndToken<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getRailsForPayerAndToken.OptionsType
 ): Promise<getRailsForPayerAndToken.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     getRailsForPayerAndTokenCall({
       chain: client.chain,
       payer: options.payer,

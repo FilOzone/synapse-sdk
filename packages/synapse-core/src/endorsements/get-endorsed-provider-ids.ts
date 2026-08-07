@@ -2,17 +2,14 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { providerIdSetAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 
 export namespace getEndorsedProviderIds {
   export type OptionsType = {
@@ -35,7 +32,7 @@ export namespace getEndorsedProviderIds {
 /**
  * Get all endorsed provider IDs
  *
- * @param client - The client to use to get the endorsed providers.
+ * @param client - The read-only client to use to get the endorsed providers.
  * @param options - {@link getEndorsedProviderIds.OptionsType}
  * @returns Array of endorsed provider IDs {@link getEndorsedProviderIds.OutputType}
  * @throws Errors {@link getEndorsedProviderIds.ErrorType}
@@ -56,12 +53,12 @@ export namespace getEndorsedProviderIds {
  * console.log(providerIds)
  * ```
  */
-export async function getEndorsedProviderIds(
-  client: Client<Transport, Chain>,
+export async function getEndorsedProviderIds<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getEndorsedProviderIds.OptionsType = {}
 ): Promise<getEndorsedProviderIds.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     getEndorsedProviderIdsCall({
       chain: client.chain,
       contractAddress: options.contractAddress,

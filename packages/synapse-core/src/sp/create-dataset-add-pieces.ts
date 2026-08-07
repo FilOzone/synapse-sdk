@@ -1,6 +1,6 @@
 import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import type { ToString } from 'multiformats'
-import { type Account, type Address, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
+import { type Address, type Chain, type Hex, isHex } from 'viem'
 import { asChain } from '../chains.ts'
 import { CreateDataSetError, LocationHeaderError } from '../errors/index.ts'
 import type {
@@ -11,6 +11,7 @@ import type {
 } from '../errors/pdp.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
+import type { AccountClient } from '../types.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { validateAddPiecesBatch, waitForAddPieces } from './add-pieces.ts'
@@ -140,8 +141,8 @@ export namespace createDataSetAndAddPieces {
  * @returns The response from the create data set on PDP API. {@link createDataSetAndAddPieces.ReturnType}
  * @throws Errors {@link createDataSetAndAddPieces.ErrorType}
  */
-export async function createDataSetAndAddPieces(
-  client: Client<Transport, Chain, Account>,
+export async function createDataSetAndAddPieces<chain extends Chain>(
+  client: AccountClient<chain>,
   options: CreateDataSetAndAddPiecesOptions
 ): Promise<createDataSetAndAddPieces.ReturnType> {
   validateAddPiecesBatch(options.pieces.length)

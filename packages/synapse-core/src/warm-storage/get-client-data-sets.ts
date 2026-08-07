@@ -2,18 +2,15 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 import type { getPdpDataSets } from './get-pdp-data-sets.ts'
 import type { DataSetInfo } from './types.ts'
 
@@ -48,7 +45,7 @@ export namespace getClientDataSets {
  *
  * Use {@link getPdpDataSets} instead to get PDP data sets.
  *
- * @param client - The client to use to get data sets for a client address.
+ * @param client - The read-only client to use to get data sets for a client address.
  * @param options - {@link getClientDataSets.OptionsType}
  * @returns Array of data set info entries {@link getClientDataSets.OutputType}
  * @throws Errors {@link getClientDataSets.ErrorType}
@@ -71,8 +68,8 @@ export namespace getClientDataSets {
  * console.log(dataSets[0]?.dataSetId)
  * ```
  */
-export async function getClientDataSets(
-  client: Client<Transport, Chain>,
+export async function getClientDataSets<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getClientDataSets.OptionsType
 ): Promise<getClientDataSets.OutputType> {
   const dataSets: getClientDataSets.OutputType = []
@@ -82,13 +79,12 @@ export async function getClientDataSets(
   }
   let offset = options.offset ?? 0n
   let remaining = limit
-  const readClient = toReadClient(client)
 
   while (true) {
     const pageLimit = remaining === 0n || remaining > DATA_SETS_PAGE_SIZE ? DATA_SETS_PAGE_SIZE : remaining
 
     const data = await readContract(
-      readClient,
+      client,
       getClientDataSetsCall({
         chain: client.chain,
         address: options.address,
@@ -137,7 +133,7 @@ export namespace getClientDataSetsIterable {
 /**
  * Get client data sets iterable
  *
- * @param client - The client to use to get data sets for a client address.
+ * @param client - The read-only client to use to get data sets for a client address.
  * @param options - {@link getClientDataSetsIterable.OptionsType}
  * @returns Async generator of data set info entries {@link getClientDataSetsIterable.OutputType}
  * @throws Errors {@link getClientDataSetsIterable.ErrorType}
@@ -162,8 +158,8 @@ export namespace getClientDataSetsIterable {
  * }
  * ```
  */
-export async function* getClientDataSetsIterable(
-  client: Client<Transport, Chain>,
+export async function* getClientDataSetsIterable<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getClientDataSetsIterable.OptionsType
 ): getClientDataSetsIterable.OutputType {
   const batchSize = options.batchSize ?? DATA_SETS_PAGE_SIZE
@@ -172,11 +168,10 @@ export async function* getClientDataSetsIterable(
   }
   let offset = options.offset ?? 0n
   let hasMore = true
-  const readClient = toReadClient(client)
 
   while (hasMore) {
     const data = await readContract(
-      readClient,
+      client,
       getClientDataSetsCall({
         chain: client.chain,
         address: options.address,

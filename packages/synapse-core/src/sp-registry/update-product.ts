@@ -1,14 +1,11 @@
 import type { Simplify } from 'type-fest'
 import type {
-  Account,
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
-  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -18,7 +15,7 @@ import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../a
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ValidationError } from '../errors/base.ts'
-import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { encodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 import type { PDPOffering } from './types.ts'
 import { validateCapabilities, validateProductType } from './validation.ts'
@@ -85,8 +82,8 @@ export namespace updateProduct {
  * console.log(hash)
  * ```
  */
-export async function updateProduct(
-  client: Client<Transport, Chain, Account>,
+export async function updateProduct<chain extends Chain>(
+  client: AccountClient<chain>,
   options: updateProduct.OptionsType
 ): Promise<updateProduct.OutputType> {
   // Encode PDP capabilities
@@ -159,8 +156,8 @@ export namespace updateProductSync {
  * console.log('Product Type:', event.args.productType)
  * ```
  */
-export async function updateProductSync(
-  client: Client<Transport, Chain, Account>,
+export async function updateProductSync<chain extends Chain>(
+  client: AccountClient<chain>,
   options: updateProductSync.OptionsType
 ): Promise<updateProductSync.OutputType> {
   const hash = await updateProduct(client, options)

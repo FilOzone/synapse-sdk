@@ -1,11 +1,11 @@
-import { type Address, type Chain, type Client, isAddressEqual, type ReadContractErrorType, type Transport } from 'viem'
+import { type Address, type Chain, isAddressEqual, type ReadContractErrorType } from 'viem'
 import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
 import { getActivePieceCountCall } from '../pdp-verifier/get-active-piece-count.ts'
 import { getDataSetListenerCall } from '../pdp-verifier/get-data-set-listener.ts'
 import { getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ReadClient } from '../types.ts'
 import { getAllDataSetMetadataCall, parseAllDataSetMetadata } from './get-all-data-set-metadata.ts'
 import { getDataSet } from './get-data-set.ts'
 import type { DataSetInfo, PdpDataSet, PdpDataSetInfo } from './types.ts'
@@ -27,7 +27,7 @@ export namespace getPdpDataSet {
 /**
  * Get a PDP data set by ID
  *
- * @param client - The client to use to get the PDP data set.
+ * @param client - The read-only client to use to get the PDP data set.
  * @param options - {@link getPdpDataSet.OptionsType}
  * @returns PDP data set or undefined if the data set does not exist {@link getPdpDataSet.OutputType}
  * @throws Errors {@link getPdpDataSet.ErrorType}
@@ -54,8 +54,8 @@ export namespace getPdpDataSet {
  * }
  * ```
  */
-export async function getPdpDataSet(
-  client: Client<Transport, Chain>,
+export async function getPdpDataSet<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getPdpDataSet.OptionsType
 ): Promise<getPdpDataSet.OutputType> {
   const data = await getDataSet(client, options)
@@ -77,19 +77,19 @@ export async function getPdpDataSet(
 /**
  * Read the PDP data set info.
  *
- * @param client - The client to use to read the PDP data set info.
+ * @param client - The read-only client to use to read the PDP data set info.
  * @param options
  * @returns PDP data set info {@link PdpDataSetInfo}
  */
-export async function readPdpDataSetInfo(
-  client: Client<Transport, Chain>,
+export async function readPdpDataSetInfo<chain extends Chain>(
+  client: ReadClient<chain>,
   options: {
     dataSetInfo: DataSetInfo
     providerId: bigint
   }
 ): Promise<PdpDataSetInfo> {
   const chain = asChain(client.chain)
-  const [live, listener, _metadata, _pdpProvider, activePieceCount] = await multicall(toReadClient(client), {
+  const [live, listener, _metadata, _pdpProvider, activePieceCount] = await multicall(client, {
     allowFailure: false,
     contracts: [
       dataSetLiveCall({

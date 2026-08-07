@@ -1,13 +1,4 @@
-import {
-  type Account,
-  type Address,
-  type Chain,
-  type Client,
-  isAddressEqual,
-  maxUint256,
-  parseSignature,
-  type Transport,
-} from 'viem'
+import { type Address, type Chain, isAddressEqual, maxUint256, parseSignature } from 'viem'
 import {
   type SimulateContractErrorType,
   simulateContract,
@@ -15,10 +6,12 @@ import {
   writeContract,
 } from 'viem/actions'
 import { asChain } from '../chains.ts'
+import { toReadClient } from '../client.ts'
 import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
 import { signErc20Permit } from '../typed-data/sign-erc20-permit.ts'
+import type { AccountClient } from '../types.ts'
 import { TIME_CONSTANTS } from '../utils/constants.ts'
 import { getPriceList } from '../warm-storage/price-list.ts'
 
@@ -72,7 +65,10 @@ export type DepositAndApproveOptions = {
  * @throws - {@link WriteContractErrorType} if the write contract fails.
  * @throws - {@link InsufficientBalanceError} if the balance is insufficient.
  */
-export async function depositAndApprove(client: Client<Transport, Chain, Account>, options: DepositAndApproveOptions) {
+export async function depositAndApprove<chain extends Chain>(
+  client: AccountClient<chain>,
+  options: DepositAndApproveOptions
+) {
   const chain = asChain(client.chain)
   const token = options.token ?? chain.contracts.usdfc.address
   const operator = options.operator ?? chain.contracts.fwss.address
@@ -93,7 +89,9 @@ export async function depositAndApprove(client: Client<Transport, Chain, Account
   const spender = options.spender ?? chain.contracts.filecoinPay.address
   const rateAllowance = options.rateAllowance ?? maxUint256
   const lockupAllowance = options.lockupAllowance ?? maxUint256
-  const maxLockupPeriod = options.maxLockupPeriod ?? (await getPriceList(client)).lockups.defaultLockupPeriod
+  const readClient = toReadClient(client)
+  const maxLockupPeriod =
+    options.maxLockupPeriod ?? (await getPriceList(readClient)).lockups.defaultLockupPeriod
 
   if (rateAllowance < 0n || lockupAllowance < 0n || maxLockupPeriod < 0n) {
     throw new ValidationError('Allowance or lockup period values cannot be negative')
@@ -108,7 +106,7 @@ export async function depositAndApprove(client: Client<Transport, Chain, Account
     name,
     nonce,
     version,
-  } = await erc20.balanceForPermit(client, {
+  } = await erc20.balanceForPermit(readClient, {
     address: address,
     token: token,
   })

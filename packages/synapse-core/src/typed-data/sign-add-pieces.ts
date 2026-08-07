@@ -1,18 +1,16 @@
 import {
-  type Account,
   type Address,
   type Chain,
-  type Client,
   type EncodeAbiParametersErrorType,
   encodeAbiParameters,
   type Hex,
   type SignTypedDataErrorType,
-  type Transport,
   toHex,
 } from 'viem'
 import { signTypedData } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
+import type { AccountClient } from '../types.ts'
 import { randU256 } from '../utils/rand.ts'
 import { EIP712Types, getStorageDomain, type MetadataEntry } from './type-definitions.ts'
 
@@ -42,8 +40,8 @@ export const signAddPiecesAbiParameters = [
  * @returns Encoded extra data {@link signAddPieces.ReturnType}
  * @throws Errors {@link signAddPieces.ErrorType}
  */
-export async function signAddPieces(
-  client: Client<Transport, Chain, Account>,
+export async function signAddPieces<chain extends Chain>(
+  client: AccountClient<chain>,
   options: signAddPieces.OptionsType
 ): Promise<signAddPieces.ReturnType> {
   const chain = asChain(client.chain)

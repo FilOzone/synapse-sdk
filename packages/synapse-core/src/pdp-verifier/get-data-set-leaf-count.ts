@@ -1,11 +1,10 @@
 import type { Simplify } from 'type-fest'
-import type { Address, Chain, Client, ContractFunctionParameters, ReadContractErrorType, Transport } from 'viem'
+import type { Address, Chain, ContractFunctionParameters, ReadContractErrorType } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getDataSetLeafCount {
   export type OptionsType = {
@@ -37,18 +36,18 @@ export namespace getDataSetLeafCount {
  * const leafCount = await getDataSetLeafCount(client, { dataSetId: 1n })
  * ```
  *
- * @param client - The client to use to get the data set leaf count.
+ * @param client - The read-only client to use to get the data set leaf count.
  * @param options - {@link getDataSetLeafCount.OptionsType}
  * @returns The leaf count for the data set {@link getDataSetLeafCount.OutputType}
  * @throws Errors {@link getDataSetLeafCount.ErrorType}
  */
-export async function getDataSetLeafCount(
-  client: Client<Transport, Chain>,
+export async function getDataSetLeafCount<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getDataSetLeafCount.OptionsType
 ): Promise<getDataSetLeafCount.OutputType> {
   try {
     const data = await readContract(
-      toReadClient(client),
+      client,
       getDataSetLeafCountCall({
         chain: client.chain,
         dataSetId: options.dataSetId,

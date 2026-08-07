@@ -1,8 +1,8 @@
 import type { Simplify } from 'type-fest'
-import type { Address, Chain, Client, ContractFunctionReturnType, Transport } from 'viem'
+import type { Address, Chain, ContractFunctionReturnType } from 'viem'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import type { ZodValidationError } from '../errors/base.ts'
-import type { ActionCallChain } from '../types.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 import { decodePDPOffering } from '../utils/pdp-capabilities.ts'
 import { getProviderIdByAddress } from './get-provider-id-by-address.ts'
 import { getProviderWithProduct, getProviderWithProductCall } from './get-provider-with-product.ts'
@@ -54,7 +54,7 @@ export function hasActivePDPProduct(data: getPDPProvider.ContractOutputType): bo
  * - the provider exists but has no active PDP product (e.g. never added or
  *   removed).
  *
- * @param client - The client to use to get the provider details.
+ * @param client - The read-only client to use to get the provider details.
  * @param options - {@link getPDPProvider.OptionsType}
  * @returns The PDP provider details, or `null` when unavailable {@link getPDPProvider.OutputType}
  * @throws Errors {@link getPDPProvider.ErrorType}
@@ -79,8 +79,8 @@ export function hasActivePDPProduct(data: getPDPProvider.ContractOutputType): bo
  * }
  * ```
  */
-export async function getPDPProvider(
-  client: Client<Transport, Chain>,
+export async function getPDPProvider<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getPDPProvider.OptionsType
 ): Promise<getPDPProvider.OutputType> {
   const data = await getProviderWithProduct(client, {
@@ -168,7 +168,7 @@ export namespace getPDPProviderByAddress {
 /**
  * Get PDP provider by address
  *
- * @param client - The client to use to get the provider.
+ * @param client - The read-only client to use to get the provider.
  * @param options - {@link getPDPProviderByAddress.OptionsType}
  * @returns The PDP provider {@link getPDPProviderByAddress.OutputType}
  * @throws Errors {@link getPDPProviderByAddress.ErrorType}
@@ -191,8 +191,8 @@ export namespace getPDPProviderByAddress {
  * console.log(provider.name)
  * ```
  */
-export async function getPDPProviderByAddress(
-  client: Client<Transport, Chain>,
+export async function getPDPProviderByAddress<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getPDPProviderByAddress.OptionsType
 ): Promise<getPDPProviderByAddress.OutputType> {
   const providerId = await getProviderIdByAddress(client, {

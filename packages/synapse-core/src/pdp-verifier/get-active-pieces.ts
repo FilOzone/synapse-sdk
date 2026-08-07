@@ -2,11 +2,9 @@ import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   ContractFunctionReturnType,
   ReadContractErrorType,
-  Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
@@ -14,9 +12,8 @@ import { asChain } from '../chains.ts'
 import { LimitMustBeGreaterThanZeroError } from '../errors/pdp-verifier.ts'
 import { from as pieceFrom } from '../piece/parse.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import type { ActionCallChain } from '../types.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getActivePieces {
   export type OptionsType = {
@@ -64,18 +61,18 @@ export namespace getActivePieces {
  * })
  * ```
  *
- * @param client - The client to use to get the active pieces.
+ * @param client - The read-only client to use to get the active pieces.
  * @param options - {@link getActivePieces.OptionsType}
  * @returns The active pieces for the data set {@link getActivePieces.OutputType}
  * @throws Errors {@link getActivePieces.ErrorType}
  */
-export async function getActivePieces(
-  client: Client<Transport, Chain>,
+export async function getActivePieces<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getActivePieces.OptionsType
 ): Promise<getActivePieces.OutputType> {
   try {
     const data = await readContract(
-      toReadClient(client),
+      client,
       getActivePiecesCall({
         chain: client.chain,
         dataSetId: options.dataSetId,

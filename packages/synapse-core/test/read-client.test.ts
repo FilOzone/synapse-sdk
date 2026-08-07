@@ -4,8 +4,8 @@ import { HttpResponse, http } from 'msw'
 import { createClient, custom, encodeFunctionResult, http as viemHttp } from 'viem'
 import { readContract } from 'viem/actions'
 import { calibration } from '../src/chains.ts'
+import { toReadClient } from '../src/client.ts'
 import { ADDRESSES } from '../src/mocks/jsonrpc/index.ts'
-import { toReadClient } from '../src/utils/read-client.ts'
 
 const valueAbi = [
   {

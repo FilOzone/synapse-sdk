@@ -9,11 +9,11 @@
  * @module erc20
  */
 
-import { type Address, type Chain, type Client, erc20Abi, type MulticallErrorType, type Transport } from 'viem'
+import { type Address, type Chain, erc20Abi, type MulticallErrorType } from 'viem'
 import { multicall } from 'viem/actions'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ReadClient } from '../types.ts'
 
 export namespace balance {
   export type OptionsType = {
@@ -46,19 +46,19 @@ export namespace balance {
 /**
  * Get the balance, decimals, symbol, and allowance of an ERC20 token.
  *
- * @param client - The client to use.
+ * @param client - The read-only client to use to get the ERC20 balance.
  * @param options - {@link balance.OptionsType}
  * @returns The balance, decimals, symbol, and allowance. {@link balance.OutputType}
  * @throws Errors {@link balance.ErrorType}
  */
-export async function balance(
-  client: Client<Transport, Chain>,
+export async function balance<chain extends Chain>(
+  client: ReadClient<chain>,
   options: balance.OptionsType
 ): Promise<balance.OutputType> {
   const chain = asChain(client.chain)
   const token = options.token ?? chain.contracts.usdfc.address
 
-  const result = await multicall(toReadClient(client), {
+  const result = await multicall(client, {
     allowFailure: false,
     contracts: [
       {
@@ -120,19 +120,19 @@ export namespace balanceForPermit {
 /**
  * Get the balance, name, nonce, and version of an ERC20 token.
  *
- * @param client - The client to use.
+ * @param client - The read-only client to use to get the ERC20 balance for permit.
  * @param options - {@link balanceForPermit.OptionsType}
  * @returns The balance, name, nonce, and version. {@link balanceForPermit.OutputType}
  * @throws Errors {@link balanceForPermit.ErrorType}
  */
-export async function balanceForPermit(
-  client: Client<Transport, Chain>,
+export async function balanceForPermit<chain extends Chain>(
+  client: ReadClient<chain>,
   options: balanceForPermit.OptionsType
 ): Promise<balanceForPermit.OutputType> {
   const chain = asChain(client.chain)
   const token = options.token ?? chain.contracts.usdfc.address
 
-  const result = await multicall(toReadClient(client), {
+  const result = await multicall(client, {
     allowFailure: false,
     contracts: [
       {

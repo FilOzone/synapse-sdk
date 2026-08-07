@@ -2,6 +2,7 @@ import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { createClient, createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
+import { toReadClient } from '../src/client.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { getProviderWithProduct, getProviderWithProductCall } from '../src/sp-registry/get-provider-with-product.ts'
 
@@ -69,7 +70,7 @@ describe('getProviderWithProduct', () => {
         transport: http(),
       })
 
-      const provider = await getProviderWithProduct(client, {
+      const provider = await getProviderWithProduct(toReadClient(client), {
         providerId: 1n,
         productType: 0,
       })
@@ -100,7 +101,7 @@ describe('getProviderWithProduct', () => {
         }),
       })
 
-      const provider = await getProviderWithProduct(client, {
+      const provider = await getProviderWithProduct(toReadClient(client), {
         providerId: 1n,
         productType: 0,
       })
@@ -119,7 +120,7 @@ describe('getProviderWithProduct', () => {
         transport: http(),
       })
 
-      const result = await getProviderWithProduct(client, {
+      const result = await getProviderWithProduct(toReadClient(client), {
         providerId: 999n,
         productType: 0,
       })
@@ -145,7 +146,7 @@ describe('getProviderWithProduct', () => {
         transport: http(),
       })
 
-      const result = await getProviderWithProduct(client, {
+      const result = await getProviderWithProduct(toReadClient(client), {
         providerId: 42n,
         productType: 0,
       })
@@ -172,7 +173,7 @@ describe('getProviderWithProduct', () => {
       })
 
       try {
-        await getProviderWithProduct(client, {
+        await getProviderWithProduct(toReadClient(client), {
           providerId: 1n,
           productType: 0,
         })

@@ -1,6 +1,7 @@
-import type { Address, Chain, Client, Transport } from 'viem'
+import type { Address, Chain } from 'viem'
 import { getEndorsedProviderIds } from '../endorsements/get-endorsed-provider-ids.ts'
 import { getApprovedPDPProviders } from '../sp-registry/get-pdp-providers.ts'
+import type { ReadClient } from '../types.ts'
 import { getPdpDataSets } from './get-pdp-data-sets.ts'
 import type { ProviderSelectionInput } from './location-types.ts'
 
@@ -24,12 +25,12 @@ export namespace fetchProviderSelectionInput {
  * For users who need custom caching or only need a subset of this data,
  * assemble ProviderSelectionInput manually instead.
  *
- * @param client - Viem public client configured for the target chain
+ * @param client - The read-only client to use to fetch provider selection input.
  * @param options - Client address for dataset lookup
  * @returns ProviderSelectionInput (caller provides metadata via selectProviders options)
  */
-export async function fetchProviderSelectionInput(
-  client: Client<Transport, Chain>,
+export async function fetchProviderSelectionInput<chain extends Chain>(
+  client: ReadClient<chain>,
   options: fetchProviderSelectionInput.OptionsType
 ): Promise<ProviderSelectionInput> {
   const [providers, endorsedIds, pdpDataSets] = await Promise.all([

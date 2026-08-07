@@ -2,19 +2,16 @@ import type { Simplify } from 'type-fest'
 import {
   type Address,
   type Chain,
-  type Client,
   ContractFunctionExecutionError,
   type ContractFunctionParameters,
   type ContractFunctionReturnType,
   type MulticallErrorType,
   type ReadContractErrorType,
-  type Transport,
 } from 'viem'
 import { multicall, readContract } from 'viem/actions'
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 import { DefaultFwssPermissions, type Expirations, type Permission } from './permissions.ts'
 
 export namespace authorizationExpiry {
@@ -47,7 +44,7 @@ export namespace authorizationExpiry {
  * Returns the Unix timestamp (in seconds) when the authorization for the given
  * address, sessionKeyAddress, and permission combination expires. Returns 0 if no authorization exists.
  *
- * @param client - The client to use to get the authorization expiry.
+ * @param client - The read-only client to use to get the authorization expiry.
  * @param options - {@link authorizationExpiry.OptionsType}
  * @returns The expiry timestamp as a bigint (Unix timestamp in seconds) {@link authorizationExpiry.OutputType}
  * @throws Errors {@link authorizationExpiry.ErrorType}
@@ -72,12 +69,12 @@ export namespace authorizationExpiry {
  * console.log('Authorization expires at:', expiry)
  * ```
  */
-export async function authorizationExpiry(
-  client: Client<Transport, Chain>,
+export async function authorizationExpiry<chain extends Chain>(
+  client: ReadClient<chain>,
   options: authorizationExpiry.OptionsType
 ): Promise<authorizationExpiry.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     authorizationExpiryCall({
       chain: client.chain,
       address: options.address,
@@ -153,13 +150,13 @@ export namespace isExpired {
 /**
  * Check if the session key is expired.
  *
- * @param client - The client to use.
+ * @param client - The read-only client to use to check if the session key is expired.
  * @param options - The options to use.
  * @returns Whether the session key is expired.
  * @throws - {@link isExpired.ErrorType} if the read contract fails.
  */
-export async function isExpired(
-  client: Client<Transport, Chain>,
+export async function isExpired<chain extends Chain>(
+  client: ReadClient<chain>,
   options: isExpired.OptionsType
 ): Promise<isExpired.OutputType> {
   const expiry = await authorizationExpiry(client, options)
@@ -178,7 +175,7 @@ export namespace getExpirations {
 /**
  * Get the expirations for all FWSS permissions.
  *
- * @param client - The client to use.
+ * @param client - The read-only client to use to get the session key expirations.
  * @param options - {@link getExpirations.OptionsType}
  * @returns Expirations {@link getExpirations.OutputType}
  * @throws Errors {@link getExpirations.ErrorType}
@@ -201,14 +198,15 @@ export namespace getExpirations {
  *
  * console.log(expirations)
  */
-export async function getExpirations(client: Client<Transport, Chain>, options: getExpirations.OptionsType) {
+export async function getExpirations<chain extends Chain>(
+  client: ReadClient<chain>,
+  options: getExpirations.OptionsType
+) {
   const permissions = options.permissions ?? DefaultFwssPermissions
   const expirations: Expirations = Object.fromEntries(permissions.map((permission) => [permission, 0n]))
 
-  const readClient = toReadClient(client)
-
   try {
-    const result = await multicall(readClient, {
+    const result = await multicall(client, {
       allowFailure: false,
       contracts: permissions.map((permission) =>
         authorizationExpiryCall({

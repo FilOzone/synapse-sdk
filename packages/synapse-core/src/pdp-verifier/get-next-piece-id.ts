@@ -1,11 +1,10 @@
 import type { Simplify } from 'type-fest'
-import type { Address, Chain, Client, ContractFunctionParameters, ReadContractErrorType, Transport } from 'viem'
+import type { Address, Chain, ContractFunctionParameters, ReadContractErrorType } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
+import type { ActionCallChain, ReadClient } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getNextPieceId {
   export type OptionsType = {
@@ -39,18 +38,18 @@ export namespace getNextPieceId {
  * const nextPieceId = await getNextPieceId(client, { dataSetId: 1n })
  * ```
  *
- * @param client - The client to use to get the next piece ID.
+ * @param client - The read-only client to use to get the next piece ID.
  * @param options - {@link getNextPieceId.OptionsType}
  * @returns The next piece ID for the data set {@link getNextPieceId.OutputType}
  * @throws Errors {@link getNextPieceId.ErrorType}
  */
-export async function getNextPieceId(
-  client: Client<Transport, Chain>,
+export async function getNextPieceId<chain extends Chain>(
+  client: ReadClient<chain>,
   options: getNextPieceId.OptionsType
 ): Promise<getNextPieceId.OutputType> {
   try {
     const data = await readContract(
-      toReadClient(client),
+      client,
       getNextPieceIdCall({
         chain: client.chain,
         dataSetId: options.dataSetId,

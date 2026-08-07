@@ -1,14 +1,11 @@
 import type { Simplify } from 'type-fest'
 import type {
-  Account,
   Address,
   Chain,
-  Client,
   ContractFunctionParameters,
   Hash,
   Log,
   SimulateContractErrorType,
-  Transport,
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
@@ -17,7 +14,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import type { AccountClient, ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace settleTerminatedRailWithoutValidation {
   export type OptionsType = {
@@ -67,8 +64,8 @@ export namespace settleTerminatedRailWithoutValidation {
  * console.log(hash)
  * ```
  */
-export async function settleTerminatedRailWithoutValidation(
-  client: Client<Transport, Chain, Account>,
+export async function settleTerminatedRailWithoutValidation<chain extends Chain>(
+  client: AccountClient<chain>,
   options: settleTerminatedRailWithoutValidation.OptionsType
 ): Promise<Hash> {
   const { request } = await simulateContract(
@@ -128,8 +125,8 @@ export namespace settleTerminatedRailWithoutValidationSync {
  * console.log('Settled up to epoch:', event.args.settledUpTo)
  * ```
  */
-export async function settleTerminatedRailWithoutValidationSync(
-  client: Client<Transport, Chain, Account>,
+export async function settleTerminatedRailWithoutValidationSync<chain extends Chain>(
+  client: AccountClient<chain>,
   options: settleTerminatedRailWithoutValidationSync.OptionsType
 ): Promise<settleTerminatedRailWithoutValidationSync.OutputType> {
   const hash = await settleTerminatedRailWithoutValidation(client, options)

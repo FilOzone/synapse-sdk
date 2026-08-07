@@ -1,6 +1,6 @@
-import type { Address, Chain, Client, MulticallErrorType, Transport } from 'viem'
+import type { Address, Chain, MulticallErrorType } from 'viem'
 import { multicall } from 'viem/actions'
-import { toReadClient } from '../utils/read-client.ts'
+import type { ReadClient } from '../types.ts'
 import { getRailCall } from './get-rail.ts'
 import { getRailsForPayerAndToken } from './get-rails-for-payer-and-token.ts'
 
@@ -29,7 +29,7 @@ export namespace totalAccountFixedLockup {
  * to sum `lockupFixed`. Includes terminated-but-not-finalized rails since they
  * still hold locked funds until finalization.
  *
- * @param client - The client to use for the query.
+ * @param client - The read-only client to use to get the total account fixed lockup.
  * @param options - {@link totalAccountFixedLockup.OptionsType}
  * @returns The total fixed lockup and active rail count {@link totalAccountFixedLockup.OutputType}
  * @throws Errors {@link totalAccountFixedLockup.ErrorType}
@@ -52,12 +52,11 @@ export namespace totalAccountFixedLockup {
  * console.log('Total fixed lockup:', lockup.totalFixedLockup)
  * ```
  */
-export async function totalAccountFixedLockup(
-  client: Client<Transport, Chain>,
+export async function totalAccountFixedLockup<chain extends Chain>(
+  client: ReadClient<chain>,
   options: totalAccountFixedLockup.OptionsType
 ): Promise<totalAccountFixedLockup.OutputType> {
-  const readClient = toReadClient(client)
-  const { results } = await getRailsForPayerAndToken(readClient, {
+  const { results } = await getRailsForPayerAndToken(client, {
     payer: options.address,
     token: options.token,
     contractAddress: options.contractAddress,
@@ -67,7 +66,7 @@ export async function totalAccountFixedLockup(
     return { totalFixedLockup: 0n }
   }
 
-  const railDetails = await multicall(readClient, {
+  const railDetails = await multicall(client, {
     allowFailure: false,
     contracts: results.map((rail) =>
       getRailCall({
