@@ -165,6 +165,8 @@ export const CreateDataSetPendingSchema = z.object({
   service: z.string(),
   txStatus: z.union([z.literal('pending'), z.literal('confirmed')]),
   ok: z.null(),
+  /** Present once confirmed; equals createMessageHash unless Curio replaced-by-fee. */
+  confirmedTxHash: zHex.optional(),
 })
 
 /**
@@ -176,6 +178,7 @@ export const CreateDataSetRejectedSchema = z.object({
   service: z.string(),
   txStatus: z.literal('rejected'),
   ok: z.literal(false),
+  confirmedTxHash: zHex.optional(),
 })
 
 /**
@@ -188,6 +191,8 @@ export const CreateDataSetSuccessSchema = z.object({
   txStatus: z.literal('confirmed'),
   ok: z.literal(true),
   dataSetId: zNumberToBigInt,
+  /** Hash included on chain. Equals createMessageHash unless Curio replaced-by-fee. Use `confirmedTxHash ?? createMessageHash` for explorers/receipts. */
+  confirmedTxHash: zHex.optional(),
 })
 
 export type CreateDataSetSuccess = z.infer<typeof CreateDataSetSuccessSchema>

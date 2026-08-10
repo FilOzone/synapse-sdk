@@ -185,7 +185,13 @@ export namespace waitForCreateDataSetAddPieces {
     pollInterval?: number
   }
   export type ReturnType = {
+    /** Original Location / wait-key hash (not necessarily the included on-chain hash). */
     hash: string
+    /**
+     * Hash included on chain once confirmed. Differs from hash after replace-by-fee.
+     * For explorers and receipt lookups use `confirmedTxHash ?? hash`.
+     */
+    confirmedTxHash?: string
     dataSetId: bigint
     piecesIds: bigint[]
   }
@@ -227,6 +233,7 @@ export async function waitForCreateDataSetAddPieces(
   })
   return {
     hash: createdDataset.createMessageHash,
+    confirmedTxHash: createdDataset.confirmedTxHash ?? addedPieces.confirmedTxHash,
     dataSetId: createdDataset.dataSetId,
     piecesIds: addedPieces.confirmedPieceIds,
   }

@@ -38,7 +38,12 @@ export async function terminateServiceFlow(
       onHash: onSubmitted,
     })
     const event = extractPDPPaymentTerminatedEvent(receipt.logs)
-    return { txHash: receipt.transactionHash, dataSetId, endEpoch: event.args.endEpoch }
+    return {
+      txHash: receipt.transactionHash,
+      confirmedTxHash: receipt.transactionHash,
+      dataSetId,
+      endEpoch: event.args.endEpoch,
+    }
   }
 
   // Resolve (and, on the manager path, validate) the target first so a bad
@@ -86,6 +91,7 @@ export async function terminateServiceFlow(
         })
         return {
           txHash: status.terminationTxHash === '' ? undefined : status.terminationTxHash,
+          ...(status.confirmedTxHash !== undefined ? { confirmedTxHash: status.confirmedTxHash } : {}),
           dataSetId,
           endEpoch: status.serviceTerminationEpoch,
         }
@@ -102,6 +108,7 @@ export async function terminateServiceFlow(
   const status = await waitForTerminateService({ statusUrl, onHash: onSubmitted })
   return {
     txHash: status.terminationTxHash === '' ? undefined : status.terminationTxHash,
+    ...(status.confirmedTxHash !== undefined ? { confirmedTxHash: status.confirmedTxHash } : {}),
     dataSetId,
     endEpoch: status.serviceTerminationEpoch,
   }
