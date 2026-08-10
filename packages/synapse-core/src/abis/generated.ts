@@ -250,16 +250,6 @@ export const errorsAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
-    name: 'InvalidServiceDescriptionLength',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
-    name: 'InvalidServiceNameLength',
-  },
-  {
-    type: 'error',
     inputs: [
       { name: 'expected', internalType: 'address', type: 'address' },
       { name: 'actual', internalType: 'address', type: 'address' },
@@ -423,11 +413,6 @@ export const errorsAbi = [
       { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'ProvingPeriodPassed',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'RailNotAssociated',
   },
   {
     type: 'error',
@@ -1811,6 +1796,16 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'function',
     inputs: [
+      { name: 'nextImplementation', internalType: 'address', type: 'address' },
+      { name: 'delayEpochs', internalType: 'uint96', type: 'uint96' },
+    ],
+    name: 'announceUpgradePlan',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
       { name: '_maxProvingPeriod', internalType: 'uint64', type: 'uint64' },
       {
         name: '_challengeWindowSize',
@@ -1843,6 +1838,13 @@ export const filecoinWarmStorageServiceAbi = [
     name: 'dataSetDeleted',
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'description',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'pure',
   },
   {
     type: 'function',
@@ -1946,6 +1948,13 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'homepage',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: '_maxProvingPeriod', internalType: 'uint64', type: 'uint64' },
       {
@@ -1958,8 +1967,6 @@ export const filecoinWarmStorageServiceAbi = [
         internalType: 'address',
         type: 'address',
       },
-      { name: '_name', internalType: 'string', type: 'string' },
-      { name: '_description', internalType: 'string', type: 'string' },
     ],
     name: 'initialize',
     outputs: [],
@@ -1973,6 +1980,13 @@ export const filecoinWarmStorageServiceAbi = [
     name: 'migrate',
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'name',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'pure',
   },
   {
     type: 'function',
@@ -2138,7 +2152,7 @@ export const filecoinWarmStorageServiceAbi = [
     ],
     name: 'storageProviderChanged',
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -2827,16 +2841,6 @@ export const filecoinWarmStorageServiceAbi = [
     name: 'InvalidEpochRange',
   },
   { type: 'error', inputs: [], name: 'InvalidInitialization' },
-  {
-    type: 'error',
-    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
-    name: 'InvalidServiceDescriptionLength',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
-    name: 'InvalidServiceNameLength',
-  },
   { type: 'error', inputs: [], name: 'MaxProvingPeriodZero' },
   {
     type: 'error',
@@ -2965,11 +2969,6 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'RailNotAssociated',
-  },
-  {
-    type: 'error',
     inputs: [
       { name: 'railId', internalType: 'uint256', type: 'uint256' },
       { name: 'settledUpTo', internalType: 'uint256', type: 'uint256' },
@@ -3004,6 +3003,130 @@ export const filecoinWarmStorageServiceAbi = [
     ],
     name: 'ZeroAddress',
   },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'cdnAmountAdded',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'totalCdnLockup',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'cacheMissAmountAdded',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'totalCacheMissLockup',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'CDNPaymentRailsToppedUp',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'caller',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'cacheMissRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'cdnRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'CDNServiceTerminated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'pdpRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'cacheMissRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'cdnRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'DataSetAbandoned',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newRate',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailRateUpdated',
+  },
 ] as const
 
 /**
@@ -3030,7 +3153,7 @@ export const filecoinWarmStorageServiceConfig = {
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xAD28BBF18A72f728Ed816D07F5a1d7Ec40D68b5e)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xF4B446171b3677fD2B9b183a9fB76d517365700a)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x9BF9e67e83EC8613883FDdDec4D3b38AEE937177)
  */
 export const filecoinWarmStorageServiceStateViewAbi = [
   {
@@ -3520,16 +3643,16 @@ export const filecoinWarmStorageServiceStateViewAbi = [
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xAD28BBF18A72f728Ed816D07F5a1d7Ec40D68b5e)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xF4B446171b3677fD2B9b183a9fB76d517365700a)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x9BF9e67e83EC8613883FDdDec4D3b38AEE937177)
  */
 export const filecoinWarmStorageServiceStateViewAddress = {
   314: '0xAD28BBF18A72f728Ed816D07F5a1d7Ec40D68b5e',
-  314159: '0xF4B446171b3677fD2B9b183a9fB76d517365700a',
+  314159: '0x9BF9e67e83EC8613883FDdDec4D3b38AEE937177',
 } as const
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xAD28BBF18A72f728Ed816D07F5a1d7Ec40D68b5e)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xF4B446171b3677fD2B9b183a9fB76d517365700a)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x9BF9e67e83EC8613883FDdDec4D3b38AEE937177)
  */
 export const filecoinWarmStorageServiceStateViewConfig = {
   address: filecoinWarmStorageServiceStateViewAddress,
@@ -3637,6 +3760,16 @@ export const pdpVerifierAbi = [
       },
     ],
     name: 'announcePlannedUpgrade',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'nextImplementation', internalType: 'address', type: 'address' },
+      { name: 'delayEpochs', internalType: 'uint96', type: 'uint96' },
+    ],
+    name: 'announceUpgradePlan',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -4266,6 +4399,25 @@ export const pdpVerifierAbi = [
         indexed: true,
       },
       {
+        name: 'pieceIds',
+        internalType: 'uint256[]',
+        type: 'uint256[]',
+        indexed: false,
+      },
+    ],
+    name: 'PiecesScheduledForRemoval',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
         name: 'challenges',
         internalType: 'struct IPDPTypes.PieceIdAndOffset[]',
         type: 'tuple[]',
@@ -4394,6 +4546,13 @@ export const pdpVerifierAbi = [
       { name: 'minDelay', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'InsufficientChallengeDelay',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
+    name: 'InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'InvalidInitialization' },
   { type: 'error', inputs: [], name: 'MaxPiecesMustBePositive' },
@@ -4679,6 +4838,16 @@ export const serviceProviderRegistryAbi = [
       },
     ],
     name: 'announcePlannedUpgrade',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'nextImplementation', internalType: 'address', type: 'address' },
+      { name: 'delayEpochs', internalType: 'uint96', type: 'uint96' },
+    ],
+    name: 'announceUpgradePlan',
     outputs: [],
     stateMutability: 'nonpayable',
   },
