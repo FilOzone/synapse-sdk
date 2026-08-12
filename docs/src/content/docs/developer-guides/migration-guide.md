@@ -104,6 +104,40 @@ for await (const piece of paginate(({ cursor }) =>
 
 Raw `*Call` helpers in `@filoz/synapse-core` remain ABI-oriented: provide their required contract-facing `offset` or `startPieceId` and `limit` fields explicitly when constructing multicalls.
 
+### Action: Replace core `activePieceCount` with `hasActivePieces`
+
+The enriched `PdpDataSet` values returned by `getPdpDataSet()` and `getPdpDataSets()` no longer include an exact `activePieceCount`. They now expose `hasActivePieces`, which is derived from a bounded one-item `getActivePiecesByCursor` read:
+
+```ts
+// before
+const dataSet = await getPdpDataSet(client, { dataSetId })
+if (dataSet && dataSet.activePieceCount > 0n) {
+  // the data set has pieces
+}
+
+// after
+const dataSet = await getPdpDataSet(client, { dataSetId })
+if (dataSet?.hasActivePieces) {
+  // the data set has pieces
+}
+```
+
+`WarmStorageService.hasActivePieces()` keeps the same public API, but now performs the same bounded cursor read instead of calculating an exact count.
+
+The standalone `getActivePieceCount()` action remains available, but the underlying contract getter scans the data set's piece-ID range and can fail for large data sets. If you need an exact count, explicitly paginate the active pieces:
+
+```ts
+let activePieceCount = 0n
+
+for await (const _piece of paginate(({ cursor }) =>
+  getActivePiecesByCursor(client, { dataSetId, cursor })
+)) {
+  activePieceCount++
+}
+```
+
+This field change is limited to the enriched data set types in `@filoz/synapse-core`; the SDK's legacy `EnhancedDataSetInfo.activePieceCount` field is unchanged.
+
 ---
 
 ## 1.0.0
