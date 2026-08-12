@@ -11,7 +11,7 @@ import type { Extended } from './types.ts'
  */
 export const mainnetTransport = fallback(
   [http(mainnet.rpcUrls.default.http[0]), http(mainnet.rpcUrls.ankr.http[0]), http(mainnet.rpcUrls.drpc.http[0])],
-  { rank: true }
+  { rank: false }
 )
 
 /**
@@ -25,7 +25,7 @@ export const calibrationTransport = fallback(
     http(calibration.rpcUrls.ankr.http[0]),
     http(calibration.rpcUrls.drpc.http[0]),
   ],
-  { rank: true }
+  { rank: false }
 )
 
 /**
