@@ -290,13 +290,18 @@ export class WarmStorageService {
   /**
    * Report whether a data set has at least one active piece.
    *
-   * Uses the contract's dedicated active-piece count rather than paginating pieces.
+   * Reads one cursor-paginated piece rather than calculating the exact active
+   * piece count, which can run out of gas for large data sets.
    * @param options - Options for the data set
    * @param options.dataSetId - The PDPVerifier data set ID
    * @returns True when the data set has at least one active piece
    */
   async hasActivePieces(options: { dataSetId: bigint }): Promise<boolean> {
-    return (await PDPVerifier.getActivePieceCount(this._client, options)) > 0n
+    const page = await PDPVerifier.getActivePiecesByCursor(this._client, {
+      ...options,
+      limit: 1n,
+    })
+    return page.items.length > 0
   }
 
   // ========== Metadata Operations ==========

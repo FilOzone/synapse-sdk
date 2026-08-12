@@ -59,6 +59,7 @@ describe('getPdpDataSet', () => {
       assert.equal(dataSet.provider.id, 1n)
       assert.equal(dataSet.provider.name, 'Test Provider')
       assert.equal(dataSet.provider.serviceProvider.toLowerCase(), ADDRESSES.serviceProvider1.toLowerCase())
+      assert.equal(typeof dataSet.hasActivePieces, 'boolean')
     })
 
     it('should return undefined for non-existent data set', async () => {

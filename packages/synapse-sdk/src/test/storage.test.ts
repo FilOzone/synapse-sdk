@@ -31,13 +31,14 @@ const server = setup()
 const pdpOptions = {
   baseUrl: 'https://pdp.example.com',
 }
+const activePieceCid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
 
 // The two per-data-set reads resolveByProviderId issues; both take the data set
 // id as their first uint256 argument, so the id is the first 32-byte word after
 // the 4-byte selector in the call data.
 const RESOLVE_READ_SELECTORS = [
   toFunctionSelector('getAllDataSetMetadata(uint256)'),
-  toFunctionSelector('getActivePieceCount(uint256)'),
+  toFunctionSelector('getActivePiecesByCursor(uint256,uint256,uint256)'),
 ]
 
 /**
@@ -346,9 +347,13 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieceCount: (args) => {
+            getActivePiecesByCursor: (args) => {
               const [dataSetId] = args
-              return [dataSetId === 2n ? 1n : 0n]
+              if (dataSetId === 2n) {
+                const cid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+                return [[{ data: bytesToHex(cid.bytes) }], [1n], false]
+              }
+              return [[], [], false]
             },
           },
           warmStorageView: {
@@ -398,7 +403,7 @@ describe('StorageService', () => {
         pdpRailId: BigInt(i + 1),
       }))
 
-      let getActivePieceCountCalls = 0
+      let getActivePiecesByCursorCalls = 0
       let getAllDataSetMetadataCalls = 0
       server.use(
         Mocks.JSONRPC(
@@ -406,10 +411,10 @@ describe('StorageService', () => {
             ...Mocks.presets.basic,
             pdpVerifier: {
               ...Mocks.presets.basic.pdpVerifier,
-              getActivePieceCount: (args) => {
-                getActivePieceCountCalls++
+              getActivePiecesByCursor: (args) => {
+                getActivePiecesByCursorCalls++
                 const [dataSetId] = args
-                return [dataSetId === 1n ? 1n : 0n]
+                return dataSetId === 1n ? [[{ data: bytesToHex(activePieceCid.bytes) }], [1n], false] : [[], [], false]
               },
             },
             warmStorageView: {
@@ -456,8 +461,8 @@ describe('StorageService', () => {
       // tracks the concurrency rather than hard-coding the count.
       const maxExpectedCalls = RESOLVE_CONCURRENCY * 2
       assert.ok(
-        getActivePieceCountCalls <= maxExpectedCalls,
-        `expected <=${maxExpectedCalls} getActivePieceCount calls, got ${getActivePieceCountCalls} (unbounded fan-out regression)`
+        getActivePiecesByCursorCalls <= maxExpectedCalls,
+        `expected <=${maxExpectedCalls} getActivePiecesByCursor calls, got ${getActivePiecesByCursorCalls} (unbounded fan-out regression)`
       )
       assert.ok(
         getAllDataSetMetadataCalls <= maxExpectedCalls,
@@ -496,9 +501,11 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieceCount: (args) => {
+            getActivePiecesByCursor: (args) => {
               const [dataSetId] = args
-              return [dataSetId === NON_EMPTY_ID ? 1n : 0n]
+              return dataSetId === NON_EMPTY_ID
+                ? [[{ data: bytesToHex(activePieceCid.bytes) }], [1n], false]
+                : [[], [], false]
             },
           },
           warmStorageView: {
@@ -566,10 +573,12 @@ describe('StorageService', () => {
             ...Mocks.presets.basic,
             pdpVerifier: {
               ...Mocks.presets.basic.pdpVerifier,
-              getActivePieceCount: (args) => {
+              getActivePiecesByCursor: (args) => {
                 const [dataSetId] = args
                 pieceCountQueriedIds.push(dataSetId)
-                return [dataSetId === OLDEST_NON_EMPTY_ID || dataSetId === NEWER_NON_EMPTY_ID ? 1n : 0n]
+                return dataSetId === OLDEST_NON_EMPTY_ID || dataSetId === NEWER_NON_EMPTY_ID
+                  ? [[{ data: bytesToHex(activePieceCid.bytes) }], [1n], false]
+                  : [[], [], false]
               },
             },
             warmStorageView: {
@@ -604,7 +613,7 @@ describe('StorageService', () => {
       // The newer non-empty match is never inspected once the oldest is known.
       assert.ok(
         !pieceCountQueriedIds.includes(NEWER_NON_EMPTY_ID),
-        `getActivePieceCount should not be read for the newer match ${NEWER_NON_EMPTY_ID}, queried: ${pieceCountQueriedIds.join(', ')}`
+        `getActivePiecesByCursor should not be read for the newer match ${NEWER_NON_EMPTY_ID}, queried: ${pieceCountQueriedIds.join(', ')}`
       )
     })
 

@@ -6,6 +6,7 @@ import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
 import { toReadClient } from '../utils/read-client.ts'
+import type { getActivePiecesByCursor } from './get-active-pieces-by-cursor.ts'
 
 export namespace getActivePieceCount {
   export type OptionsType = {
@@ -22,6 +23,10 @@ export namespace getActivePieceCount {
 
 /**
  * Get the active piece count for a data set (non-zero leaf count)
+ *
+ * This contract method scans the complete historical piece-ID range and can
+ * run out of gas for large data sets. Prefer explicitly traversing
+ * {@link getActivePiecesByCursor} when reliability for large sets is required.
  *
  * @example
  * ```ts

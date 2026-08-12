@@ -8,7 +8,8 @@ import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import { type Address, createWalletClient, http as viemHttp } from 'viem'
+import { CID } from 'multiformats/cid'
+import { type Address, bytesToHex, createWalletClient, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 
@@ -21,6 +22,7 @@ const client = createWalletClient({
 })
 
 describe('WarmStorageService', () => {
+  const activePieceCid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
   // Helper to create WarmStorageService with factory pattern
   const createWarmStorageService = async () => {
     return new WarmStorageService({ client })
@@ -54,7 +56,10 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieceCount: () => [1n],
+            getActivePiecesByCursor: (args) => {
+              assert.deepEqual(args, [1n, 0n, 1n])
+              return [[{ data: bytesToHex(activePieceCid.bytes) }], [1n], false]
+            },
           },
         })
       )
@@ -68,7 +73,10 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieceCount: () => [0n],
+            getActivePiecesByCursor: (args) => {
+              assert.deepEqual(args, [1n, 0n, 1n])
+              return [[], [], false]
+            },
           },
         })
       )

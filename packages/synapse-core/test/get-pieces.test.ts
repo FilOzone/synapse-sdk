@@ -30,7 +30,7 @@ describe('getPieces', () => {
       managed: true,
       cdn: false,
       metadata: Object.create(null),
-      activePieceCount: 2n,
+      hasActivePieces: true,
       provider: {
         id: 1n,
         serviceProvider: ADDRESSES.serviceProvider1,

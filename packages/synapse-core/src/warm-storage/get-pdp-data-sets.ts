@@ -3,7 +3,10 @@ import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import type { Page, paginate } from '../pagination.ts'
 import { type dataSetLive, dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
-import { type getActivePieceCount, getActivePieceCountCall } from '../pdp-verifier/get-active-piece-count.ts'
+import {
+  type getActivePiecesByCursor,
+  getActivePiecesByCursorCall,
+} from '../pdp-verifier/get-active-pieces-by-cursor.ts'
 import { type getDataSetListener, getDataSetListenerCall } from '../pdp-verifier/get-data-set-listener.ts'
 import { type getPDPProvider, getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
@@ -24,7 +27,7 @@ type DataSetEnrichmentResults = [
   dataSetLive.OutputType,
   getDataSetListener.ContractOutputType,
   getAllDataSetMetadata.ContractOutputType,
-  getActivePieceCount.OutputType,
+  getActivePiecesByCursor.ContractOutputType,
 ]
 
 export namespace getPdpDataSets {
@@ -41,7 +44,11 @@ export namespace getPdpDataSets {
  *
  * Only the current source page is enriched, in bounded batches with source
  * order preserved. Pass `nextCursor` back as `cursor`; treat it as
- * opaque. Use {@link paginate} to traverse every page.
+ * opaque. Use {@link paginate} to traverse every page. Results report piece
+ * presence from a one-item cursor read, but intentionally omit exact
+ * active-piece counts because the contract's count getter performs a linear
+ * scan and can fail for large data sets. To derive a count explicitly, traverse
+ * {@link getActivePiecesByCursor} and count the yielded pieces.
  *
  * @param client - The client to use to get data sets for a client address.
  * @param options - {@link getPdpDataSets.OptionsType}
@@ -97,7 +104,7 @@ export async function getPdpDataSets(
 
 /**
  * Enrich one bounded batch of source data sets with their PDP state, metadata,
- * provider details, and active-piece counts.
+ * provider details, and active-piece presence.
  *
  * The four data-set-specific reads are flattened into one Viem multicall. PDP
  * provider reads are deduplicated by provider ID and cached in `providers`, so
@@ -128,7 +135,7 @@ async function enrichDataSetBatch(
     dataSetLiveCall({ chain: client.chain, dataSetId }),
     getDataSetListenerCall({ chain: client.chain, dataSetId }),
     getAllDataSetMetadataCall({ chain: client.chain, dataSetId }),
-    getActivePieceCountCall({ chain: client.chain, dataSetId }),
+    getActivePiecesByCursorCall({ chain: client.chain, dataSetId, startPieceId: 0n, limit: 1n }),
   ])
   const providerCalls = missingProviderIds.map((providerId) => getPDPProviderCall({ chain: client.chain, providerId }))
   const results = await multicall(toReadClient(client), {
@@ -149,7 +156,7 @@ async function enrichDataSetBatch(
 
   return dataSets.map((dataSet, index) => {
     const resultOffset = index * DATA_SET_CALL_COUNT
-    const [live, listener, rawMetadata, activePieceCount] = results.slice(
+    const [live, listener, rawMetadata, activePieces] = results.slice(
       resultOffset,
       resultOffset + DATA_SET_CALL_COUNT
     ) as DataSetEnrichmentResults
@@ -166,7 +173,7 @@ async function enrichDataSetBatch(
       cdn: dataSet.cdnRailId > 0n && 'withCDN' in metadata,
       metadata,
       provider,
-      activePieceCount,
+      hasActivePieces: activePieces[1].length > 0,
     }
   })
 }
