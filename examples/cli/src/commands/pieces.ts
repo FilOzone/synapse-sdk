@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts'
+import { paginate } from '@filoz/synapse-core'
 import { calibration } from '@filoz/synapse-core/chains'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
 import { metadataArrayToObject } from '@filoz/synapse-core/utils'
@@ -35,9 +36,14 @@ export const pieces: Command = command(
 
     spinner.start('Fetching data sets...')
     try {
-      const dataSets = await getPdpDataSets(client, {
-        address: client.account.address,
-      })
+      const dataSets = await Array.fromAsync(
+        paginate(({ cursor }) =>
+          getPdpDataSets(client, {
+            address: client.account.address,
+            cursor,
+          })
+        )
+      )
       spinner.stop('Fetching data sets complete')
       let pieces: Piece[] = []
       const group = await p.group(
@@ -55,21 +61,25 @@ export const pieces: Command = command(
           },
           pieceId: async ({ results }) => {
             const dataSetId = results.dataSetId
-            const rsp = await getPieces(client, {
-              // biome-ignore lint/style/noNonNullAssertion: dataSetId is guaranteed to be found
-              dataSet: dataSets.find(
-                (dataSet) => dataSet.dataSetId === dataSetId
-              )!,
-              address: client.account.address,
-            })
-            pieces = rsp.pieces
-            if (rsp.pieces.length === 0) {
+            pieces = await Array.fromAsync(
+              paginate(({ cursor }) =>
+                getPieces(client, {
+                  // biome-ignore lint/style/noNonNullAssertion: dataSetId is guaranteed to be found
+                  dataSet: dataSets.find(
+                    (dataSet) => dataSet.dataSetId === dataSetId
+                  )!,
+                  address: client.account.address,
+                  cursor,
+                })
+              )
+            )
+            if (pieces.length === 0) {
               p.outro('No pieces found')
               return
             }
             return await p.select({
               message: 'Pick a piece.',
-              options: rsp.pieces.map((piece) => ({
+              options: pieces.map((piece) => ({
                 value: piece.id,
                 label: `#${piece.id} ${piece.cid}`,
               })),

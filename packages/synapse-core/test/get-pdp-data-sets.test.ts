@@ -33,8 +33,8 @@ describe('getPdpDataSets', () => {
         address: ADDRESSES.client1,
       })
 
-      assert.ok(dataSets.length > 0)
-      const [first] = dataSets
+      assert.ok(dataSets.items.length > 0)
+      const [first] = dataSets.items
       assert.ok(first)
       if (!first) return
 
@@ -90,8 +90,7 @@ describe('getPdpDataSets', () => {
         address: emptyClientAddress,
       })
 
-      assert.ok(Array.isArray(dataSets))
-      assert.equal(dataSets.length, 0)
+      assert.deepEqual(dataSets, { items: [] })
     })
 
     it('should fetch PDP data sets with custom contract address', async () => {
@@ -107,11 +106,59 @@ describe('getPdpDataSets', () => {
         contractAddress: calibration.contracts.fwssView.address,
       })
 
-      assert.ok(Array.isArray(dataSets))
-      if (dataSets.length > 0) {
-        assert.ok(dataSets[0])
-        assert.equal(typeof dataSets[0].dataSetId, 'bigint')
+      assert.ok(Array.isArray(dataSets.items))
+      if (dataSets.items.length > 0) {
+        assert.ok(dataSets.items[0])
+        assert.equal(typeof dataSets.items[0].dataSetId, 'bigint')
       }
+    })
+
+    it('should preserve order and deduplicate provider enrichment across batches', async () => {
+      let providerReads = 0
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            ...presets.basic.warmStorageView,
+            getClientDataSets: (args) => {
+              const source = presets.basic.warmStorageView?.getClientDataSets?.(args)
+              const template = source?.[0]?.[0]
+              assert.ok(template)
+              return [
+                Array.from({ length: 21 }, (_, index) => ({
+                  ...template,
+                  clientDataSetId: BigInt(index),
+                  dataSetId: BigInt(index + 1),
+                })),
+              ]
+            },
+          },
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            getProviderWithProduct: (args) => {
+              providerReads++
+              const result = presets.basic.serviceRegistry?.getProviderWithProduct?.(args)
+              assert.ok(result)
+              return result
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+      const dataSets = await getPdpDataSets(client, {
+        address: ADDRESSES.client1,
+        limit: 21n,
+      })
+
+      assert.deepEqual(
+        dataSets.items.map(({ dataSetId }) => dataSetId),
+        Array.from({ length: 21 }, (_, index) => BigInt(index + 1))
+      )
+      assert.equal(providerReads, 1)
     })
   })
 })

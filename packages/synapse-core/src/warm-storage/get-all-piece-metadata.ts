@@ -108,6 +108,7 @@ export namespace getAllPieceMetadataCall {
  * })
  *
  * const results = await multicall(client, {
+ *   allowFailure: false,
  *   contracts: [
  *     getAllPieceMetadataCall({ chain: calibration, dataSetId: 1n, pieceId: 0n }),
  *     getAllPieceMetadataCall({ chain: calibration, dataSetId: 1n, pieceId: 1n }),

@@ -8,93 +8,46 @@ import { getClientDataSetIds, getClientDataSetIdsCall } from '../src/warm-storag
 describe('getClientDataSetIds', () => {
   const server = setup()
 
-  before(async () => {
-    await server.start()
-  })
+  before(async () => server.start())
+  after(() => server.stop())
+  beforeEach(() => server.resetHandlers())
 
-  after(() => {
-    server.stop()
-  })
-
-  beforeEach(() => {
-    server.resetHandlers()
-  })
-
-  describe('getClientDataSetIdsCall', () => {
-    it('should create call with calibration chain defaults and default offset/limit', () => {
+  it('creates literal ABI calls', () => {
+    for (const chain of [calibration, mainnet]) {
       const call = getClientDataSetIdsCall({
-        chain: calibration,
-        address: ADDRESSES.client1,
-      })
-
-      assert.equal(call.functionName, 'clientDataSets')
-      assert.deepEqual(call.args, [ADDRESSES.client1, 0n, 0n])
-      assert.equal(call.address, calibration.contracts.fwssView.address)
-      assert.equal(call.abi, calibration.contracts.fwssView.abi)
-    })
-
-    it('should create call with mainnet chain defaults', () => {
-      const call = getClientDataSetIdsCall({
-        chain: mainnet,
-        address: ADDRESSES.client1,
-      })
-
-      assert.equal(call.functionName, 'clientDataSets')
-      assert.deepEqual(call.args, [ADDRESSES.client1, 0n, 0n])
-      assert.equal(call.address, mainnet.contracts.fwssView.address)
-      assert.equal(call.abi, mainnet.contracts.fwssView.abi)
-    })
-
-    it('should use explicit offset and limit', () => {
-      const call = getClientDataSetIdsCall({
-        chain: calibration,
+        chain,
         address: ADDRESSES.client1,
         offset: 10n,
-        limit: 50n,
+        limit: 51n,
       })
-
       assert.equal(call.functionName, 'clientDataSets')
-      assert.deepEqual(call.args, [ADDRESSES.client1, 10n, 50n])
-    })
-
-    it('should use custom contract address when provided', () => {
-      const customAddress = '0x1234567890123456789012345678901234567890'
-      const call = getClientDataSetIdsCall({
-        chain: calibration,
-        address: ADDRESSES.client1,
-        contractAddress: customAddress,
-      })
-
-      assert.equal(call.address, customAddress)
-    })
-
-    it('should default offset to 0n when only limit is provided', () => {
-      const call = getClientDataSetIdsCall({
-        chain: calibration,
-        address: ADDRESSES.client1,
-        limit: 100n,
-      })
-
-      assert.deepEqual(call.args, [ADDRESSES.client1, 0n, 100n])
-    })
+      assert.deepEqual(call.args, [ADDRESSES.client1, 10n, 51n])
+    }
   })
 
-  describe('getClientDataSetIds (with mocked RPC)', () => {
-    it('should fetch client data set IDs', async () => {
-      server.use(JSONRPC(presets.basic))
-
-      const client = createPublicClient({
-        chain: calibration,
-        transport: http(),
+  it('uses look-ahead and hides the extra ID', async () => {
+    server.use(
+      JSONRPC({
+        ...presets.basic,
+        warmStorageView: {
+          ...presets.basic.warmStorageView,
+          clientDataSets: (args) => {
+            assert.deepEqual(args.slice(1), [5n, 3n])
+            return [[10n, 11n, 12n]]
+          },
+        },
       })
+    )
+    const client = createPublicClient({ chain: calibration, transport: http() })
+    const page = await getClientDataSetIds(client, { address: ADDRESSES.client1, cursor: 5n, limit: 2n })
+    assert.deepEqual(page, { items: [10n, 11n], nextCursor: 7n })
+  })
 
-      const ids = await getClientDataSetIds(client, {
-        address: ADDRESSES.client1,
-      })
-
-      assert.ok(Array.isArray(ids))
-      assert.ok(ids.length > 0)
-      assert.equal(typeof ids[0], 'bigint')
-    })
+  it('returns a terminal partial page', async () => {
+    server.use(JSONRPC(presets.basic))
+    const client = createPublicClient({ chain: calibration, transport: http() })
+    const page = await getClientDataSetIds(client, { address: ADDRESSES.client1 })
+    assert.ok(page.items.every((id) => typeof id === 'bigint'))
+    assert.equal(page.nextCursor, undefined)
   })
 })

@@ -1,9 +1,10 @@
 import * as p from '@clack/prompts'
+import { paginate } from '@filoz/synapse-core'
 import { getPdpDataSets } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
 import { getBlockNumber } from 'viem/actions'
 import { privateKeyClient } from '../client.ts'
-import { globalFlags } from '../flags.ts'
+import { Address, globalFlags } from '../flags.ts'
 
 export const datasets: Command = command(
   {
@@ -12,6 +13,11 @@ export const datasets: Command = command(
     alias: 'ds',
     flags: {
       ...globalFlags,
+      address: {
+        type: Address,
+        description: 'The address to list data sets for',
+        default: undefined,
+      },
     },
     help: {
       description: 'List all data sets',
@@ -21,29 +27,25 @@ export const datasets: Command = command(
   async (argv) => {
     const { client } = privateKeyClient(argv.flags.chain)
 
-    const spinner = p.spinner()
-
     const blockNumber = await getBlockNumber(client)
+    const address = argv.flags.address ?? client.account.address
 
-    spinner.start('Listing data sets...')
+    p.log.info('Listing data sets...')
     try {
-      const dataSets = await getPdpDataSets(client, {
-        address: client.account.address,
-      })
-      spinner.stop('Data sets:')
-      dataSets.forEach(async (dataSet) => {
-        p.log.info(
-          `#${dataSet.dataSetId} ${new URL(dataSet.provider.pdp.serviceURL).hostname} #${dataSet.providerId} ${dataSet.pdpEndEpoch > 0n ? `Terminating at epoch ${dataSet.pdpEndEpoch}` : ''}${dataSet.cdn ? ' CDN' : ''}`,
+      for await (const item of paginate(({ cursor }) =>
+        getPdpDataSets(client, { address, cursor })
+      )) {
+        p.log.step(
+          `#${item.dataSetId} ${new URL(item.provider.pdp.serviceURL).hostname} #${item.providerId} ${item.pdpEndEpoch > 0n ? `Terminating at epoch ${item.pdpEndEpoch}` : ''}${item.cdn ? ' CDN' : ''}`,
           { spacing: 0 }
         )
-      })
+      }
       p.log.warn(`Block number: ${blockNumber}`)
     } catch (error) {
       if (argv.flags.debug) {
-        spinner.clear()
         console.error(error)
       } else {
-        spinner.error((error as Error).message)
+        p.log.error((error as Error).message)
       }
     }
   }

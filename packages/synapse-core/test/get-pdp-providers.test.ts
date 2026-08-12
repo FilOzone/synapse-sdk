@@ -31,10 +31,10 @@ describe('getPDPProviders (actions)', () => {
 
       const result = await getPDPProviders(client, { onlyActive: true })
 
-      assert.equal(result.providers.length, 2)
-      assert.equal(result.hasMore, false)
-      assert.equal(result.providers[0].id, 1n)
-      assert.equal(result.providers[0].pdp.serviceURL, 'https://pdp.example.com')
+      assert.equal(result.items.length, 2)
+      assert.equal(result.nextCursor, undefined)
+      assert.equal(result.items[0].id, 1n)
+      assert.equal(result.items[0].pdp.serviceURL, 'https://pdp.example.com')
     })
   })
 

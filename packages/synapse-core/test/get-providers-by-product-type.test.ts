@@ -29,6 +29,8 @@ describe('getProvidersByProductType', () => {
         chain: calibration,
         productType: 0,
         onlyActive: true,
+        offset: 0n,
+        limit: 50n,
       })
 
       assert.equal(call.functionName, 'getProvidersByProductType')
@@ -42,6 +44,8 @@ describe('getProvidersByProductType', () => {
         chain: mainnet,
         productType: 0,
         onlyActive: true,
+        offset: 0n,
+        limit: 50n,
       })
 
       assert.equal(call.functionName, 'getProvidersByProductType')
@@ -66,6 +70,8 @@ describe('getProvidersByProductType', () => {
       const call = getProvidersByProductTypeCall({
         chain: calibration,
         productType: 0,
+        offset: 0n,
+        limit: 50n,
       })
 
       assert.deepEqual(call.args, [0, true, 0n, 50n])
@@ -77,6 +83,8 @@ describe('getProvidersByProductType', () => {
         chain: calibration,
         productType: 0,
         onlyActive: true,
+        offset: 0n,
+        limit: 50n,
         contractAddress: customAddress,
       })
 
@@ -98,13 +106,13 @@ describe('getProvidersByProductType', () => {
         onlyActive: true,
       })
 
-      assert.equal(result.providers.length, 2)
-      assert.equal(result.hasMore, false)
-      assert.equal(result.providers[0].providerId, 1n)
-      assert.equal(result.providers[0].providerInfo.name, 'Test Provider 1')
-      assert.equal(result.providers[0].product.isActive, true)
-      assert.equal(result.providers[1].providerId, 2n)
-      assert.equal(result.providers[1].providerInfo.name, 'Test Provider 2')
+      assert.equal(result.items.length, 2)
+      assert.equal(result.nextCursor, undefined)
+      assert.equal(result.items[0].providerId, 1n)
+      assert.equal(result.items[0].providerInfo.name, 'Test Provider 1')
+      assert.equal(result.items[0].product.isActive, true)
+      assert.equal(result.items[1].providerId, 2n)
+      assert.equal(result.items[1].providerInfo.name, 'Test Provider 2')
     })
   })
 })

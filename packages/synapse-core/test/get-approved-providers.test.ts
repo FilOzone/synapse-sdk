@@ -24,10 +24,12 @@ describe('getApprovedProviders', () => {
     it('should create call with calibration chain defaults', () => {
       const call = getApprovedProviderIdsCall({
         chain: calibration,
+        offset: 0n,
+        limit: 100n,
       })
 
       assert.equal(call.functionName, 'getApprovedProviders')
-      assert.deepEqual(call.args, [0n, 0n]) // default offset and limit
+      assert.deepEqual(call.args, [0n, 100n])
       assert.equal(call.address, calibration.contracts.fwssView.address)
       assert.equal(call.abi, calibration.contracts.fwssView.abi)
     })
@@ -35,10 +37,12 @@ describe('getApprovedProviders', () => {
     it('should create call with mainnet chain defaults', () => {
       const call = getApprovedProviderIdsCall({
         chain: mainnet,
+        offset: 0n,
+        limit: 100n,
       })
 
       assert.equal(call.functionName, 'getApprovedProviders')
-      assert.deepEqual(call.args, [0n, 0n])
+      assert.deepEqual(call.args, [0n, 100n])
       assert.equal(call.address, mainnet.contracts.fwssView.address)
       assert.equal(call.abi, mainnet.contracts.fwssView.abi)
     })
@@ -57,6 +61,8 @@ describe('getApprovedProviders', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
       const call = getApprovedProviderIdsCall({
         chain: calibration,
+        offset: 0n,
+        limit: 100n,
         contractAddress: customAddress,
       })
 
@@ -75,7 +81,7 @@ describe('getApprovedProviders', () => {
 
       const providerIds = await getApprovedProviderIds(client)
 
-      assert.deepEqual(providerIds, [1n, 2n])
+      assert.deepEqual(providerIds, { items: [1n, 2n] })
     })
 
     it('should fetch approved providers with custom offset and limit', async () => {
@@ -87,7 +93,7 @@ describe('getApprovedProviders', () => {
             getApprovedProviders: (args) => {
               const [offset, limit] = args
               assert.equal(offset, 5n)
-              assert.equal(limit, 10n)
+              assert.equal(limit, 11n)
               return [[3n, 4n, 5n]]
             },
           },
@@ -100,11 +106,11 @@ describe('getApprovedProviders', () => {
       })
 
       const providerIds = await getApprovedProviderIds(client, {
-        offset: 5n,
+        cursor: 5n,
         limit: 10n,
       })
 
-      assert.deepEqual(providerIds, [3n, 4n, 5n])
+      assert.deepEqual(providerIds, { items: [3n, 4n, 5n] })
     })
 
     it('should return empty array when no providers approved', async () => {
@@ -125,7 +131,7 @@ describe('getApprovedProviders', () => {
 
       const providerIds = await getApprovedProviderIds(client)
 
-      assert.deepEqual(providerIds, [])
+      assert.deepEqual(providerIds, { items: [] })
     })
   })
 })

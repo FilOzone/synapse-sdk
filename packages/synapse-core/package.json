@@ -235,7 +235,6 @@
     "multiformats": "^14.0.0",
     "ox": "catalog:",
     "p-locate": "^7.0.0",
-    "p-queue": "^9.1.2",
     "p-some": "^7.0.0",
     "sync-multihash-sha2": "^1.0.0",
     "zod": "catalog:"

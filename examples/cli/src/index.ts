@@ -3,6 +3,7 @@
 import { cli } from 'cleye'
 import { datasets } from './commands/datasets.ts'
 import { datasetsCreate } from './commands/datasets-create.ts'
+import { datasetsInfo } from './commands/datasets-info.ts'
 import { datasetsTerminate } from './commands/datasets-terminate.ts'
 import { deposit } from './commands/deposit.ts'
 import { endorse } from './commands/endorse.ts'
@@ -31,6 +32,7 @@ const argv = cli({
     endorse,
     upload,
     datasets,
+    datasetsInfo,
     datasetsTerminate,
     datasetsCreate,
     pieces,

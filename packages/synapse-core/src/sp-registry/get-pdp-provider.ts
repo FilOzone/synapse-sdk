@@ -125,12 +125,13 @@ export namespace getPDPProviderCall {
  * })
  *
  * const results = await multicall(client, {
+ *   allowFailure: false,
  *   contracts: [
  *     getPDPProviderCall({ chain: calibration, providerId: 1n }),
  *   ],
  * })
  *
- * console.log(parsePDPProvider(results))
+ * console.log(parsePDPProvider(results[0]))
  * ```
  */
 export function getPDPProviderCall(options: getPDPProviderCall.OptionsType) {
@@ -141,10 +142,13 @@ export function getPDPProviderCall(options: getPDPProviderCall.OptionsType) {
 }
 
 /**
- * Parse the contract output into a PDPProvider object
+ * Parse raw provider and PDP-product contract output into a provider object.
  *
- * @param data - The contract output from the getPDPProvider function {@link getPDPProvider.ContractOutputType}
- * @returns The PDPProvider object {@link getPDPProvider.OutputType}
+ * This parser expects an active PDP product. Unlike {@link getPDPProvider}, it
+ * does not convert missing or inactive products to `null`.
+ *
+ * @param data - Raw contract output {@link getPDPProvider.ContractOutputType}
+ * @returns The decoded PDP provider {@link PDPProvider}
  */
 export function parsePDPProvider(data: getPDPProvider.ContractOutputType): PDPProvider {
   return {
