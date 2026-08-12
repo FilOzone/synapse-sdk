@@ -24,6 +24,7 @@
  * ```
  */
 
+import { paginate } from '@filoz/synapse-core'
 import * as SP from '@filoz/synapse-core/sp-registry'
 import {
   type Account,
@@ -180,25 +181,14 @@ export class SPRegistryService {
    * @returns List of all active providers
    */
   async getAllActiveProviders(): Promise<SP.PDPProvider[]> {
-    const providers: SP.PDPProvider[] = []
-    const limit = 50n // Fetch 50 providers at a time (conservative for multicall limits)
-    let offset = 0n
-    let hasMore = true
-
-    // Loop through all pages and start fetching
-    while (hasMore) {
-      const result = await SP.getPDPProviders(this._client, {
-        onlyActive: true,
-        offset,
-        limit,
-      })
-      providers.push(...result.providers)
-      hasMore = result.hasMore
-
-      offset += limit
-    }
-
-    return providers
+    return await Array.fromAsync(
+      paginate(({ cursor }) =>
+        SP.getPDPProviders(this._client, {
+          onlyActive: true,
+          cursor,
+        })
+      )
+    )
   }
 
   /**
@@ -208,28 +198,15 @@ export class SPRegistryService {
    * @returns List of providers with specified product type
    */
   async getActiveProvidersByProductType(options: { productType: ProductType }): Promise<SP.ProviderWithProduct[]> {
-    const providers: SP.ProviderWithProduct[] = []
-
-    const limit = 50n // Fetch in batches (conservative for multicall limits)
-    let offset = 0n
-    let hasMore = true
-
-    // Loop through all pages and start fetching provider details in parallel
-    while (hasMore) {
-      const result = await SP.getProvidersByProductType(this._client, {
-        productType: options.productType,
-        onlyActive: true,
-        offset,
-        limit,
-      })
-      providers.push(...result.providers)
-
-      hasMore = result.hasMore
-      offset += limit
-    }
-
-    // Wait for all provider details to be fetched and flatten the results
-    return providers
+    return await Array.fromAsync(
+      paginate(({ cursor }) =>
+        SP.getProvidersByProductType(this._client, {
+          productType: options.productType,
+          onlyActive: true,
+          cursor,
+        })
+      )
+    )
   }
 
   /**

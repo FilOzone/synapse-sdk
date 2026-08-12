@@ -17,6 +17,7 @@
  * ```
  */
 
+import { type PaginationOptions, paginate } from '@filoz/synapse-core'
 import { asChain, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import { dataSetLiveCall, getDataSetListenerCall } from '@filoz/synapse-core/pdp-verifier'
@@ -107,24 +108,16 @@ export class WarmStorageService {
   }
 
   /**
-   * Get all data sets for a specific client
+   * Get one bounded page of data sets for a specific client
    * @param options - Options for the client data sets
    * @param options.address - The client address
-   * @param options.offset - Starting index (0-based). Use `0n` to start from beginning.
-   * @param options.limit - Maximum number of data sets to return. Use `0n` to get all remaining.
-   * @returns Array of data set information {@link getClientDataSets.OutputType}
+   * @param options.cursor - Opaque cursor returned by the preceding page
+   * @param options.limit - Maximum number of data sets to return
+   * @returns A page of data set information {@link getClientDataSets.OutputType}
    * @throws Errors {@link getClientDataSets.ErrorType}
    */
-  async getClientDataSets(options: {
-    address: Address
-    offset?: bigint
-    limit?: bigint
-  }): Promise<getClientDataSets.OutputType> {
-    return getClientDataSets(this._client, {
-      address: options.address,
-      offset: options.offset,
-      limit: options.limit,
-    })
+  async getClientDataSets(options: PaginationOptions & { address: Address }): Promise<getClientDataSets.OutputType> {
+    return getClientDataSets(this._client, options)
   }
 
   /**
@@ -141,15 +134,13 @@ export class WarmStorageService {
    * Get data set IDs for a specific client with optional pagination
    * @param options - Options for the client data set IDs
    * @param options.address - The client address
-   * @param options.offset - Starting index (0-based). Use `0n` to start from beginning.
-   * @param options.limit - Maximum number of IDs to return. Use `0n` to get all remaining.
-   * @returns Array of data set IDs {@link getClientDataSetIds.OutputType}
+   * @param options.cursor - Opaque cursor returned by the preceding page
+   * @param options.limit - Maximum number of IDs to return
+   * @returns A page of data set IDs {@link getClientDataSetIds.OutputType}
    */
-  async getClientDataSetIds(options: {
-    address: Address
-    offset?: bigint
-    limit?: bigint
-  }): Promise<getClientDataSetIds.OutputType> {
+  async getClientDataSetIds(
+    options: PaginationOptions & { address: Address }
+  ): Promise<getClientDataSetIds.OutputType> {
     return getClientDataSetIds(this._client, options)
   }
 
@@ -167,7 +158,9 @@ export class WarmStorageService {
   }): Promise<EnhancedDataSetInfo[]> {
     const { address = this._client.account.address, onlyManaged = false } = options
 
-    const dataSets = await getClientDataSets(this._client, { address })
+    const dataSets = await Array.fromAsync(
+      paginate(({ cursor }) => getClientDataSets(this._client, { address, cursor }))
+    )
 
     // Enhance all in parallel using dataset IDs
     const enhancedDataSetsPromises = dataSets.map(async (dataSet) => {
@@ -297,19 +290,13 @@ export class WarmStorageService {
   /**
    * Report whether a data set has at least one active piece.
    *
-   * Reads a single piece (`limit: 1`) rather than the full active-piece count, so
-   * the cost is independent of how many pieces the data set holds.
+   * Uses the contract's dedicated active-piece count rather than paginating pieces.
    * @param options - Options for the data set
    * @param options.dataSetId - The PDPVerifier data set ID
    * @returns True when the data set has at least one active piece
    */
   async hasActivePieces(options: { dataSetId: bigint }): Promise<boolean> {
-    const { pieces } = await PDPVerifier.getActivePieces(this._client, {
-      dataSetId: options.dataSetId,
-      offset: 0n,
-      limit: 1n,
-    })
-    return pieces.length > 0
+    return (await PDPVerifier.getActivePieceCount(this._client, options)) > 0n
   }
 
   // ========== Metadata Operations ==========
@@ -418,7 +405,7 @@ export class WarmStorageService {
    */
   async removeApprovedProvider(options: { providerId: bigint }): Promise<removeApprovedProvider.OutputType> {
     // First, we need to find the index of this provider in the array
-    const approvedIds = await getApprovedProviderIds(this._client)
+    const approvedIds = await this.getApprovedProviderIds()
     const index = approvedIds.indexOf(options.providerId)
 
     if (index === -1) {
@@ -432,8 +419,8 @@ export class WarmStorageService {
    * Get list of approved provider IDs
    * @returns Array of approved provider IDs
    */
-  async getApprovedProviderIds(): Promise<getApprovedProviderIds.OutputType> {
-    return getApprovedProviderIds(this._client)
+  async getApprovedProviderIds(): Promise<bigint[]> {
+    return await Array.fromAsync(paginate(({ cursor }) => getApprovedProviderIds(this._client, { cursor })))
   }
 
   /**
