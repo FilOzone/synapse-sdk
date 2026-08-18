@@ -938,9 +938,7 @@ export class StorageContext {
 
         return {
           txHash: addPiecesResult.txHash as Hex,
-          ...(confirmation.confirmedTxHash !== undefined
-            ? { confirmedTxHash: confirmation.confirmedTxHash }
-            : {}),
+          ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash }),
           pieceIds: confirmedPieceIds,
           dataSetId: this._dataSetId,
           isNewDataSet: false,
@@ -965,9 +963,7 @@ export class StorageContext {
 
       return {
         txHash: result.txHash as Hex,
-        ...(confirmation.confirmedTxHash !== undefined
-          ? { confirmedTxHash: confirmation.confirmedTxHash as Hex }
-          : {}),
+        ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash as Hex }),
         pieceIds: confirmation.piecesIds,
         dataSetId: this._dataSetId,
         isNewDataSet: true,

@@ -91,7 +91,7 @@ export async function terminateServiceFlow(
         })
         return {
           txHash: status.terminationTxHash === '' ? undefined : status.terminationTxHash,
-          ...(status.confirmedTxHash !== undefined ? { confirmedTxHash: status.confirmedTxHash } : {}),
+          ...(status.confirmedTxHash === undefined ? {} : { confirmedTxHash: status.confirmedTxHash }),
           dataSetId,
           endEpoch: status.serviceTerminationEpoch,
         }
@@ -108,7 +108,7 @@ export async function terminateServiceFlow(
   const status = await waitForTerminateService({ statusUrl, onHash: onSubmitted })
   return {
     txHash: status.terminationTxHash === '' ? undefined : status.terminationTxHash,
-    ...(status.confirmedTxHash !== undefined ? { confirmedTxHash: status.confirmedTxHash } : {}),
+    ...(status.confirmedTxHash === undefined ? {} : { confirmedTxHash: status.confirmedTxHash }),
     dataSetId,
     endEpoch: status.serviceTerminationEpoch,
   }
