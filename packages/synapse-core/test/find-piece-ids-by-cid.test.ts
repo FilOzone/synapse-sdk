@@ -139,5 +139,26 @@ describe('findPieceIdsByCid', () => {
 
       assert.deepEqual(result, { items: [42n, 99n] })
     })
+
+    it('should hide the look-ahead match and advance from the last visible piece ID', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            findPieceIdsByCid: (args) => {
+              assert.deepEqual(args.slice(2), [40n, 3n])
+              return [[42n, 99n, 120n]]
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({ chain: calibration, transport: http() })
+      const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const page = await findPieceIdsByCid(client, { dataSetId: 1n, pieceCid, cursor: 40n, limit: 2n })
+
+      assert.deepEqual(page, { items: [42n, 99n], nextCursor: 100n })
+    })
   })
 })

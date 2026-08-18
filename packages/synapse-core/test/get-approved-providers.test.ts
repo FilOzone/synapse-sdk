@@ -113,6 +113,26 @@ describe('getApprovedProviders', () => {
       assert.deepEqual(providerIds, { items: [3n, 4n, 5n] })
     })
 
+    it('should hide the look-ahead provider and return the next cursor', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            ...presets.basic.warmStorageView,
+            getApprovedProviders: (args) => {
+              assert.deepEqual(args, [5n, 3n])
+              return [[3n, 4n, 5n]]
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({ chain: calibration, transport: http() })
+      const page = await getApprovedProviderIds(client, { cursor: 5n, limit: 2n })
+
+      assert.deepEqual(page, { items: [3n, 4n], nextCursor: 7n })
+    })
+
     it('should return empty array when no providers approved', async () => {
       server.use(
         JSONRPC({

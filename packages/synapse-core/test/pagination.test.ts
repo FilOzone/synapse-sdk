@@ -1,5 +1,24 @@
 import assert from 'assert'
-import { type Page, paginate } from '../src/pagination.ts'
+import { type Page, pageFromLookahead, paginate } from '../src/pagination.ts'
+
+describe('pageFromLookahead', () => {
+  it('returns all items without a cursor at the exact limit', () => {
+    assert.deepEqual(
+      pageFromLookahead([1, 2], 2n, (last) => BigInt(last + 1)),
+      { items: [1, 2] }
+    )
+  })
+
+  it('hides the look-ahead item and derives a cursor from the last visible item', () => {
+    assert.deepEqual(
+      pageFromLookahead([4n, 9n, 15n], 2n, (last) => last + 1n),
+      {
+        items: [4n, 9n],
+        nextCursor: 10n,
+      }
+    )
+  })
+})
 
 describe('paginate', () => {
   it('iterates through pages from the default cursor', async () => {

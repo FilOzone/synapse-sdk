@@ -11,7 +11,13 @@ import {
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
-import { type Page, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
+import {
+  type Page,
+  type PaginationOptions,
+  pageFromLookahead,
+  type paginate,
+  resolvePagination,
+} from '../pagination.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
 import { toReadClient } from '../utils/read-client.ts'
@@ -97,13 +103,7 @@ export async function findPieceIdsByCid(
       contractAddress: options.contractAddress,
     })
   )
-  const hasMore = BigInt(data.length) > limit
-  const items = Array.from(hasMore ? data.slice(0, -1) : data)
-  const last = items.at(-1)
-  return {
-    items,
-    ...(hasMore && last != null ? { nextCursor: last + 1n } : {}),
-  }
+  return pageFromLookahead(data, limit, (last) => last + 1n)
 }
 
 export namespace findPieceIdsByCidCall {

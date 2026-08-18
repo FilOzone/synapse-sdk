@@ -114,7 +114,7 @@ if (page.nextCursor !== undefined) {
 }
 ```
 
-Use `paginate()` when you want to traverse every page. It follows `nextCursor`, yields individual items, and rejects a repeated or non-advancing cursor.
+Use `paginate()` when you want to traverse every page. It follows `nextCursor`, yields individual items, and rejects a repeated or non-advancing cursor. A normal `break` exits the `for await` loop, closes the generator, and prevents any further page requests.
 
 ```ts twoslash
 // @lib: esnext,dom

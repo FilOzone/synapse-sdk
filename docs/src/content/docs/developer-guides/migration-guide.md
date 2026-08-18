@@ -92,6 +92,7 @@ const page = await getActivePiecesByCursor(client, {
   limit: 100n,
 })
 
+// iterate
 for await (const piece of paginate(({ cursor }) =>
   getActivePiecesByCursor(client, { dataSetId, cursor, limit: 100n })
 )) {
@@ -101,7 +102,7 @@ for await (const piece of paginate(({ cursor }) =>
 
 `findPieceIdsByCid`, `getPieces`, and `getPiecesWithMetadata` also return pages and accept `cursor` rather than `startPieceId` or `offset` at the action level.
 
-Raw `*Call` helpers remain ABI-oriented: provide their required contract-facing `offset` or `startPieceId` and `limit` fields explicitly when constructing multicalls.
+Raw `*Call` helpers in `@filoz/synapse-core` remain ABI-oriented: provide their required contract-facing `offset` or `startPieceId` and `limit` fields explicitly when constructing multicalls.
 
 ---
 

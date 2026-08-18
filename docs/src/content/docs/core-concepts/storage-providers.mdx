@@ -84,10 +84,13 @@ import { createPublicClient, http } from "viem"
 import { calibration } from "@filoz/synapse-core/chains"
 const publicClient = createPublicClient({ chain: calibration, transport: http() })
 // ---cut---
+import { paginate } from "@filoz/synapse-core"
 import { getApprovedProviderIds } from "@filoz/synapse-core/warm-storage"
 import { getEndorsedProviderIds } from "@filoz/synapse-core/endorsements"
 
-const approved = await getApprovedProviderIds(publicClient)
+const approved = await Array.fromAsync(
+  paginate(({ cursor }) => getApprovedProviderIds(publicClient, { cursor }))
+)
 const endorsed = await getEndorsedProviderIds(publicClient)
 
 console.log("Approved provider IDs:", approved)

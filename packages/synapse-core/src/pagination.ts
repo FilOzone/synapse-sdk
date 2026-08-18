@@ -36,6 +36,31 @@ export namespace resolvePagination {
   export type ErrorType = ValidationError
 }
 
+/**
+ * Convert a contract response fetched with `limit + 1` into a bounded page.
+ *
+ * The extra item is used only to detect whether another page exists. When it
+ * does, the item is removed and `getNextCursor` derives the continuation
+ * cursor from the last visible item.
+ */
+export function pageFromLookahead<T>(
+  source: readonly T[],
+  limit: bigint,
+  getNextCursor: (lastItem: T) => bigint
+): Page<T> {
+  const hasMore = BigInt(source.length) > limit
+  const items = Array.from(hasMore ? source.slice(0, -1) : source)
+  if (!hasMore) {
+    return { items }
+  }
+
+  const lastItem = items.at(-1)
+  if (lastItem == null) {
+    throw new ValidationError('A look-ahead page must contain at least one visible item.')
+  }
+  return { items, nextCursor: getNextCursor(lastItem) }
+}
+
 export namespace paginate {
   export type OptionsType = {
     /** Cursor to use for the first page. Defaults to `0n`. */

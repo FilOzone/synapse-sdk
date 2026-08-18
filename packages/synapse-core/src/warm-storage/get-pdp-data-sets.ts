@@ -17,6 +17,7 @@ import { getClientDataSets } from './get-client-data-sets.ts'
 import type { DataSetInfo, PdpDataSet } from './types.ts'
 
 const ENRICHMENT_BATCH_SIZE = 20
+// Keep aligned with DataSetEnrichmentResults and the per-data-set entries in dataSetCalls.
 const DATA_SET_CALL_COUNT = 4
 
 type DataSetEnrichmentResults = [

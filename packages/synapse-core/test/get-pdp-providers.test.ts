@@ -2,8 +2,9 @@ import assert from 'assert'
 import { setup } from 'iso-web/msw'
 import { createPublicClient, http } from 'viem'
 import { calibration } from '../src/chains.ts'
-import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { getPDPProviders, getPDPProvidersByIds } from '../src/sp-registry/get-pdp-providers.ts'
+import { ADDRESSES, JSONRPC, PROVIDERS, presets } from '../src/mocks/jsonrpc/index.ts'
+import { mockServiceProviderRegistry, type ProviderDecoded } from '../src/mocks/jsonrpc/service-registry.ts'
+import { getApprovedPDPProviders, getPDPProviders, getPDPProvidersByIds } from '../src/sp-registry/get-pdp-providers.ts'
 
 describe('getPDPProviders (actions)', () => {
   const server = setup()
@@ -132,6 +133,39 @@ describe('getPDPProviders (actions)', () => {
 
       assert.equal(providers.length, 1)
       assert.equal(providers[0].id, 1n)
+    })
+  })
+
+  describe('getApprovedPDPProviders (with mocked RPC)', () => {
+    it('traverses multiple provider and approved-ID pages before intersecting them', async () => {
+      const providers: ProviderDecoded[] = Array.from({ length: 101 }, (_, index) => ({
+        ...PROVIDERS.provider1,
+        providerId: BigInt(index + 1),
+        providerInfo: {
+          ...PROVIDERS.provider1.providerInfo,
+          name: `Provider ${index + 1}`,
+        },
+      }))
+      const approvedIds = providers.map(({ providerId }) => providerId)
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: mockServiceProviderRegistry(providers),
+          warmStorageView: {
+            ...presets.basic.warmStorageView,
+            getApprovedProviders: ([offset, limit]) => [approvedIds.slice(Number(offset), Number(offset + limit))],
+          },
+        })
+      )
+
+      const client = createPublicClient({ chain: calibration, transport: http() })
+      const result = await getApprovedPDPProviders(client)
+
+      assert.equal(result.length, 101)
+      assert.deepEqual(
+        result.map(({ id }) => id),
+        approvedIds
+      )
     })
   })
 })

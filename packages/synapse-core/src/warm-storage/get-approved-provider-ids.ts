@@ -10,7 +10,13 @@ import type {
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { type Page, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
+import {
+  type Page,
+  type PaginationOptions,
+  pageFromLookahead,
+  type paginate,
+  resolvePagination,
+} from '../pagination.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
 import { toReadClient } from '../utils/read-client.ts'
 
@@ -85,11 +91,7 @@ export async function getApprovedProviderIds(
       contractAddress: options.contractAddress,
     })
   )
-  const hasMore = BigInt(data.length) > limit
-  return {
-    items: Array.from(hasMore ? data.slice(0, -1) : data),
-    ...(hasMore ? { nextCursor: cursor + limit } : {}),
-  }
+  return pageFromLookahead(data, limit, () => cursor + limit)
 }
 
 export namespace getApprovedProviderIdsCall {
