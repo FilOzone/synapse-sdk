@@ -41,7 +41,7 @@ export class Hasher {
 
   /** Append bytes to the hasher. */
   write(bytes: Uint8Array): this {
-    const { buffer, layers } = this
+    const { buffer, offset, layers } = this
     const leaves = layers[0]
     const { length } = bytes
 
@@ -51,16 +51,16 @@ export class Hasher {
     }
 
     // Not enough for a quad yet: stash in the buffer.
-    if (this.offset + length < buffer.length) {
-      buffer.set(bytes, this.offset)
+    if (offset + length < buffer.length) {
+      buffer.set(bytes, offset)
       this.offset += length
       this.bytesWritten += BigInt(length)
       return this
     }
 
     // Fill the buffer to complete a quad, then process whole quads from `bytes`.
-    const bytesRequired = buffer.length - this.offset
-    buffer.set(bytes.subarray(0, bytesRequired), this.offset)
+    const bytesRequired = buffer.length - offset
+    buffer.set(bytes.subarray(0, bytesRequired), offset)
     leaves.push(...split(fr32Expand(buffer)))
 
     let readOffset = bytesRequired
@@ -88,14 +88,14 @@ export class Hasher {
   }
 
   private digestInto(output: Uint8Array, byteOffset: number, asMultihash: boolean): number {
-    const { buffer, layers, bytesWritten } = this
+    const { buffer, layers, offset, bytesWritten } = this
 
     // Snapshot the layers so we don't mutate hasher state.
     let [leaves, ...nodes] = layers
 
     // If there's a partial quad in the buffer, zero-pad and absorb it.
-    if (this.offset > 0 || bytesWritten === 0n) {
-      leaves = [...leaves, ...split(fr32Expand(buffer.fill(0, this.offset)))]
+    if (offset > 0 || bytesWritten === 0n) {
+      leaves = [...leaves, ...split(fr32Expand(buffer.fill(0, offset)))]
     }
 
     const tree = build([leaves, ...nodes])
