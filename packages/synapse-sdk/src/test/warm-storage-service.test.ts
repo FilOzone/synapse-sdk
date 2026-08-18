@@ -8,7 +8,8 @@ import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import { type Address, createWalletClient, http as viemHttp } from 'viem'
+import { CID } from 'multiformats/cid'
+import { type Address, bytesToHex, createWalletClient, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 
@@ -80,6 +81,51 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
       assert.isFalse(await warmStorageService.hasActivePieces({ dataSetId: 1n }))
+    })
+  })
+
+  describe('getActivePieceCount', () => {
+    it('should count active pieces by paginating the cursor', async () => {
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
+      const warmStorageService = await createWarmStorageService()
+      assert.equal(await warmStorageService.getActivePieceCount({ dataSetId: 1n }), 2n)
+    })
+
+    it('should return zero when the data set has no active pieces', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getActivePiecesByCursor: () => [[], [], false],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      assert.equal(await warmStorageService.getActivePieceCount({ dataSetId: 1n }), 0n)
+    })
+
+    it('should sum pieces across cursor pages', async () => {
+      const first = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const second = CID.parse('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace')
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getActivePiecesByCursor: (args) => {
+              const startPieceId = args[1]
+              if (startPieceId === 0n) {
+                return [[{ data: bytesToHex(first.bytes) }], [1n], true]
+              }
+              assert.equal(startPieceId, 2n)
+              return [[{ data: bytesToHex(second.bytes) }], [2n], false]
+            },
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      assert.equal(await warmStorageService.getActivePieceCount({ dataSetId: 1n }), 2n)
     })
   })
 
@@ -485,7 +531,7 @@ describe('WarmStorageService', () => {
       assert.lengthOf(detailedDataSets, 1)
       assert.equal(detailedDataSets[0].pdpRailId, 48n)
       assert.equal(detailedDataSets[0].pdpVerifierDataSetId, 242n)
-      assert.equal(detailedDataSets[0].activePieceCount, 2n)
+      assert.isTrue(detailedDataSets[0].hasActivePieces)
       assert.isTrue(detailedDataSets[0].isLive)
       assert.isTrue(detailedDataSets[0].isManaged)
     })

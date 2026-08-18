@@ -122,9 +122,15 @@ if (dataSet?.hasActivePieces) {
 }
 ```
 
-`WarmStorageService.hasActivePieces()` keeps the same public API, but now uses the same leaf-count proxy instead of calculating an exact count.
+`WarmStorageService.hasActivePieces()` keeps the same public API, but now uses the same leaf-count proxy instead of calculating an exact count. `EnhancedDataSetInfo` from `getClientDataSetsWithDetails()` / `findDataSets()` also exposes `hasActivePieces` instead of `activePieceCount`.
 
-The standalone `getActivePieceCount()` action remains available, but the underlying contract getter scans the data set's piece-ID range and can fail for large data sets. If you need an exact count, explicitly paginate the active pieces:
+The core `getActivePieceCount()` action remains available, but the underlying contract getter scans the data set's piece-ID range and can fail for large data sets. `WarmStorageService.getActivePieceCount()` now paginates `getActivePiecesByCursor` to derive an exact count:
+
+```ts
+const activePieceCount = await warmStorageService.getActivePieceCount({ dataSetId })
+```
+
+To paginate explicitly in core:
 
 ```ts
 let activePieceCount = 0n
@@ -135,8 +141,6 @@ for await (const _piece of paginate(({ cursor }) =>
   activePieceCount++
 }
 ```
-
-This field change is limited to the enriched data set types in `@filoz/synapse-core`; the SDK's legacy `EnhancedDataSetInfo.activePieceCount` field is unchanged.
 
 ---
 

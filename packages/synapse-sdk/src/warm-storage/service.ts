@@ -148,9 +148,8 @@ export class WarmStorageService {
    * Get all data sets for a client with enhanced details
    * This includes live status and management information.
    *
-   * `activePieceCount` still uses the contract's linear-scan getter and can run
-   * out of gas for large data sets. Prefer {@link hasActivePieces} when only
-   * presence is needed.
+   * Piece presence uses a non-zero PDP leaf count rather than an exact active
+   * piece count. Prefer {@link getActivePieceCount} when an exact count is needed.
    * @param options - Options for the client data sets
    * @param options.address - The client address. Defaults to the client account address.
    * @param options.onlyManaged - If true, only return data sets managed by this Warm Storage contract. Defaults to false.
@@ -195,15 +194,13 @@ export class WarmStorageService {
           return null // Will be filtered out
         }
 
-        // Get active piece count only if the data set is live
-        const activePieceCount = isLive
-          ? await PDPVerifier.getActivePieceCount(this._client, { dataSetId: dataSet.dataSetId })
-          : 0n
+        // Get piece presence only if the data set is live
+        const hasActivePieces = isLive ? await this.hasActivePieces({ dataSetId: dataSet.dataSetId }) : false
 
         return {
           ...dataSet,
           pdpVerifierDataSetId: dataSet.dataSetId,
-          activePieceCount,
+          hasActivePieces,
           isLive,
           isManaged,
           withCDN: dataSet.cdnRailId > 0 && metadata[0].includes(METADATA_KEYS.WITH_CDN),
@@ -284,15 +281,18 @@ export class WarmStorageService {
   /**
    * Get the count of active pieces in a dataset (excludes removed pieces)
    *
-   * The contract getter scans the data set's piece-ID range and can run out of
-   * gas for large data sets. Prefer {@link hasActivePieces} when only presence
-   * is needed, or paginate `getActivePiecesByCursor` to derive an exact count.
+   * Paginates `getActivePiecesByCursor` rather than calling the contract's
+   * linear-scan getter, which can run out of gas for large data sets.
+   * Prefer {@link hasActivePieces} when only presence is needed.
    * @param options - Options for the data set
    * @param options.dataSetId - The PDPVerifier data set ID
    * @returns The number of active pieces
    */
   async getActivePieceCount(options: { dataSetId: bigint }): Promise<bigint> {
-    return PDPVerifier.getActivePieceCount(this._client, { dataSetId: options.dataSetId })
+    const pieces = await Array.fromAsync(
+      paginate(({ cursor }) => PDPVerifier.getActivePiecesByCursor(this._client, { ...options, cursor }))
+    )
+    return BigInt(pieces.length)
   }
 
   /**
