@@ -233,6 +233,13 @@ Reach for a programmable ACL when you need something the standard model can't do
 - **Gas.** A P256/passkey authorizer verifies via the FEVM secp256r1 precompile, which is expensive
   on Filecoin (~100M-120M gas for a full passkey `isAuthorized`). The storage provider that relays
   your operation must supply enough gas; FWSS caps the authorizer sub-call at 150M gas.
+- **Providers may not accept every authorizer.** Because the storage provider fronts the gas for
+  `isAuthorized`, a provider can restrict which authorizer *code* it is willing to relay for —
+  typically an allowlist of audited implementations, matched by code identity rather than address (so
+  you can run your own isolated instance of approved code, e.g. an EIP-1167 clone). A bespoke
+  authorizer may be rejected at add-pieces / removal / terminate time unless the provider recognizes
+  it. Prefer an FWSS-provided / audited authorizer (or a clone of one), or check with your provider
+  before relying on a custom one.
 - **`extraData` size.** Space for the auth envelope in `extraData` is limited to 1024 bytes.
   Compact signatures (a raw P256 `(r, s)`) fit comfortably; a full WebAuthn passkey envelope is
   larger (~600–750 bytes), so ensure that the auth data is as compact as possible. 
