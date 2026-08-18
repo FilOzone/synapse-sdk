@@ -184,8 +184,7 @@ export class TooManyPiecesQueuedError extends SynapseError {
 
   constructor() {
     super(`Too many pieces queued.`, {
-      details:
-        'The data set already has 200 or more scheduled removals queued on-chain; retry after the next proving period flushes the queue.',
+      details: `The data set already has ${SIZE_CONSTANTS.MAX_DELETE_PIECES_BATCH_SIZE} or more scheduled removals queued on-chain; retry after the next proving period flushes the queue.`,
     })
   }
 

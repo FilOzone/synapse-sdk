@@ -105,7 +105,7 @@ export const SIZE_CONSTANTS = {
    * Curio also rejects requests (429) when the data set already has 200 or more
    * removals queued on-chain; the queue only drains at the next proving period.
    */
-  MAX_DELETE_PIECES_BATCH_SIZE: 200,
+  MAX_DELETE_PIECES_BATCH_SIZE: 35,
 
   /**
    * Bytes per leaf in the PDP merkle tree.
