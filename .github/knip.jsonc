@@ -7,7 +7,6 @@
   "ignoreDependencies": [
     "@types/*",
     "assert",
-    "mocha",
     "wrangler",
     "typedoc",
     "typedoc-plugin-mdn-links",
@@ -18,8 +17,7 @@
   },
   "workspaces": {
     "docs": {
-      "ignoreDependencies": ["@filoz/synapse-sdk", "@filoz/synapse-react", "@tanstack/react-query", "wagmi"],
-      "ignoreFiles": ["src/custom.css"]
+      "ignoreDependencies": ["@filoz/synapse-sdk", "@filoz/synapse-react", "@tanstack/react-query", "wagmi"]
     },
     "packages/synapse-core": {
       "ignoreFiles": ["wagmi.config.ts"]
