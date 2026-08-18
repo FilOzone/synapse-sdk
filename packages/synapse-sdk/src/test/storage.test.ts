@@ -31,14 +31,13 @@ const server = setup()
 const pdpOptions = {
   baseUrl: 'https://pdp.example.com',
 }
-const activePieceCid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
 
 // The two per-data-set reads resolveByProviderId issues; both take the data set
 // id as their first uint256 argument, so the id is the first 32-byte word after
 // the 4-byte selector in the call data.
 const RESOLVE_READ_SELECTORS = [
   toFunctionSelector('getAllDataSetMetadata(uint256)'),
-  toFunctionSelector('getActivePiecesByCursor(uint256,uint256,uint256)'),
+  toFunctionSelector('getDataSetLeafCount(uint256)'),
 ]
 
 /**
@@ -347,13 +346,9 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePiecesByCursor: (args) => {
+            getDataSetLeafCount: (args) => {
               const [dataSetId] = args
-              if (dataSetId === 2n) {
-                const cid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
-                return [[{ data: bytesToHex(cid.bytes) }], [1n], false]
-              }
-              return [[], [], false]
+              return [dataSetId === 2n ? 1n : 0n]
             },
           },
           warmStorageView: {
@@ -403,7 +398,7 @@ describe('StorageService', () => {
         pdpRailId: BigInt(i + 1),
       }))
 
-      let getActivePiecesByCursorCalls = 0
+      let getDataSetLeafCountCalls = 0
       let getAllDataSetMetadataCalls = 0
       server.use(
         Mocks.JSONRPC(
@@ -411,10 +406,10 @@ describe('StorageService', () => {
             ...Mocks.presets.basic,
             pdpVerifier: {
               ...Mocks.presets.basic.pdpVerifier,
-              getActivePiecesByCursor: (args) => {
-                getActivePiecesByCursorCalls++
+              getDataSetLeafCount: (args) => {
+                getDataSetLeafCountCalls++
                 const [dataSetId] = args
-                return dataSetId === 1n ? [[{ data: bytesToHex(activePieceCid.bytes) }], [1n], false] : [[], [], false]
+                return [dataSetId === 1n ? 1n : 0n]
               },
             },
             warmStorageView: {
@@ -461,8 +456,8 @@ describe('StorageService', () => {
       // tracks the concurrency rather than hard-coding the count.
       const maxExpectedCalls = RESOLVE_CONCURRENCY * 2
       assert.ok(
-        getActivePiecesByCursorCalls <= maxExpectedCalls,
-        `expected <=${maxExpectedCalls} getActivePiecesByCursor calls, got ${getActivePiecesByCursorCalls} (unbounded fan-out regression)`
+        getDataSetLeafCountCalls <= maxExpectedCalls,
+        `expected <=${maxExpectedCalls} getDataSetLeafCount calls, got ${getDataSetLeafCountCalls} (unbounded fan-out regression)`
       )
       assert.ok(
         getAllDataSetMetadataCalls <= maxExpectedCalls,
@@ -501,11 +496,9 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePiecesByCursor: (args) => {
+            getDataSetLeafCount: (args) => {
               const [dataSetId] = args
-              return dataSetId === NON_EMPTY_ID
-                ? [[{ data: bytesToHex(activePieceCid.bytes) }], [1n], false]
-                : [[], [], false]
+              return [dataSetId === NON_EMPTY_ID ? 1n : 0n]
             },
           },
           warmStorageView: {
@@ -538,7 +531,7 @@ describe('StorageService', () => {
     it('should prefer the oldest of several non-empty matches and skip newer ones (#631)', async () => {
       // Two non-empty metadata matches: the oldest (id 1) and a newer one deep in
       // the list (id 25). The oldest must win, and because it is found before the
-      // newer one's window starts, the newer one's active-piece count is never
+      // newer one's window starts, the newer one's leaf count is never
       // read. This pins both the oldest-wins ordering and the early-exit guard,
       // which a "newest non-empty wins" or "no early-exit" regression would break.
       // The non-oldest resolve reads are delayed so the oldest match settles
@@ -573,12 +566,10 @@ describe('StorageService', () => {
             ...Mocks.presets.basic,
             pdpVerifier: {
               ...Mocks.presets.basic.pdpVerifier,
-              getActivePiecesByCursor: (args) => {
+              getDataSetLeafCount: (args) => {
                 const [dataSetId] = args
                 pieceCountQueriedIds.push(dataSetId)
-                return dataSetId === OLDEST_NON_EMPTY_ID || dataSetId === NEWER_NON_EMPTY_ID
-                  ? [[{ data: bytesToHex(activePieceCid.bytes) }], [1n], false]
-                  : [[], [], false]
+                return [dataSetId === OLDEST_NON_EMPTY_ID || dataSetId === NEWER_NON_EMPTY_ID ? 1n : 0n]
               },
             },
             warmStorageView: {
@@ -613,7 +604,7 @@ describe('StorageService', () => {
       // The newer non-empty match is never inspected once the oldest is known.
       assert.ok(
         !pieceCountQueriedIds.includes(NEWER_NON_EMPTY_ID),
-        `getActivePiecesByCursor should not be read for the newer match ${NEWER_NON_EMPTY_ID}, queried: ${pieceCountQueriedIds.join(', ')}`
+        `getDataSetLeafCount should not be read for the newer match ${NEWER_NON_EMPTY_ID}, queried: ${pieceCountQueriedIds.join(', ')}`
       )
     })
 

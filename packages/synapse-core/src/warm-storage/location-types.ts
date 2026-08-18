@@ -5,7 +5,7 @@ import type { MetadataObject } from '../utils/metadata.ts'
  * Dataset with piece-presence information used for provider selection.
  *
  * Picks the fields that selectProviders() and findMatchingDataSets()
- * need, plus whether the data set contains an active piece.
+ * need, plus whether the data set contains at least one active piece.
  *
  * Core callers can spread a PdpDataSet directly.
  * SDK callers map from EnhancedDataSetInfo (different field names).

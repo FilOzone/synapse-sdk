@@ -60,6 +60,32 @@ describe('getPdpDataSet', () => {
       assert.equal(dataSet.provider.name, 'Test Provider')
       assert.equal(dataSet.provider.serviceProvider.toLowerCase(), ADDRESSES.serviceProvider1.toLowerCase())
       assert.equal(typeof dataSet.hasActivePieces, 'boolean')
+      assert.equal(dataSet.hasActivePieces, true)
+    })
+
+    it('should report hasActivePieces false when leaf count is zero', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getDataSetLeafCount: () => [0n],
+          },
+        })
+      )
+
+      const client = createPublicClient({
+        chain: calibration,
+        transport: http(),
+      })
+
+      const dataSet = await getPdpDataSet(client, {
+        dataSetId: 1n,
+      })
+
+      assert.ok(dataSet)
+      if (!dataSet) return
+      assert.equal(dataSet.hasActivePieces, false)
     })
 
     it('should return undefined for non-existent data set', async () => {

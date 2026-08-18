@@ -44,7 +44,7 @@ export type PdpDataSetInfo = {
   metadata: MetadataObject
   /** PDP provider associated with the data set. */
   provider: PDPProvider
-  /** Whether the data set contains at least one active piece. */
+  /** Whether the data set contains at least one active piece (non-zero leaf count). */
   hasActivePieces: boolean
 }
 

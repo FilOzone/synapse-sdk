@@ -60,6 +60,7 @@ describe('getPdpDataSets', () => {
       assert.equal(first.provider.id, 1n)
       assert.equal(first.provider.name, 'Test Provider')
       assert.equal(typeof first.hasActivePieces, 'boolean')
+      assert.equal(first.hasActivePieces, true)
     })
 
     it('should return empty array for client with no data sets', async () => {

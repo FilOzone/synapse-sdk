@@ -146,7 +146,11 @@ export class WarmStorageService {
 
   /**
    * Get all data sets for a client with enhanced details
-   * This includes live status and management information
+   * This includes live status and management information.
+   *
+   * `activePieceCount` still uses the contract's linear-scan getter and can run
+   * out of gas for large data sets. Prefer {@link hasActivePieces} when only
+   * presence is needed.
    * @param options - Options for the client data sets
    * @param options.address - The client address. Defaults to the client account address.
    * @param options.onlyManaged - If true, only return data sets managed by this Warm Storage contract. Defaults to false.
@@ -279,6 +283,10 @@ export class WarmStorageService {
 
   /**
    * Get the count of active pieces in a dataset (excludes removed pieces)
+   *
+   * The contract getter scans the data set's piece-ID range and can run out of
+   * gas for large data sets. Prefer {@link hasActivePieces} when only presence
+   * is needed, or paginate `getActivePiecesByCursor` to derive an exact count.
    * @param options - Options for the data set
    * @param options.dataSetId - The PDPVerifier data set ID
    * @returns The number of active pieces
@@ -290,18 +298,15 @@ export class WarmStorageService {
   /**
    * Report whether a data set has at least one active piece.
    *
-   * Reads one cursor-paginated piece rather than calculating the exact active
-   * piece count, which can run out of gas for large data sets.
+   * Uses a non-zero PDP leaf count as a proxy rather than scanning piece IDs or
+   * calculating the exact active piece count, both of which can run out of gas
+   * for large data sets.
    * @param options - Options for the data set
    * @param options.dataSetId - The PDPVerifier data set ID
    * @returns True when the data set has at least one active piece
    */
   async hasActivePieces(options: { dataSetId: bigint }): Promise<boolean> {
-    const page = await PDPVerifier.getActivePiecesByCursor(this._client, {
-      ...options,
-      limit: 1n,
-    })
-    return page.items.length > 0
+    return (await PDPVerifier.getDataSetLeafCount(this._client, options)) > 0n
   }
 
   // ========== Metadata Operations ==========

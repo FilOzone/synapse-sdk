@@ -106,7 +106,7 @@ Raw `*Call` helpers in `@filoz/synapse-core` remain ABI-oriented: provide their 
 
 ### Action: Replace core `activePieceCount` with `hasActivePieces`
 
-The enriched `PdpDataSet` values returned by `getPdpDataSet()` and `getPdpDataSets()` no longer include an exact `activePieceCount`. They now expose `hasActivePieces`, which is derived from a bounded one-item `getActivePiecesByCursor` read:
+The enriched `PdpDataSet` values returned by `getPdpDataSet()` and `getPdpDataSets()` no longer include an exact `activePieceCount`. They now expose `hasActivePieces`, derived from a non-zero `getDataSetLeafCount` read. Leaf count is an O(1) storage lookup, unlike `getActivePiecesByCursor` and `getActivePieceCount`, which scan piece IDs and can run out of gas on large or fully drained data sets:
 
 ```ts
 // before
@@ -122,7 +122,7 @@ if (dataSet?.hasActivePieces) {
 }
 ```
 
-`WarmStorageService.hasActivePieces()` keeps the same public API, but now performs the same bounded cursor read instead of calculating an exact count.
+`WarmStorageService.hasActivePieces()` keeps the same public API, but now uses the same leaf-count proxy instead of calculating an exact count.
 
 The standalone `getActivePieceCount()` action remains available, but the underlying contract getter scans the data set's piece-ID range and can fail for large data sets. If you need an exact count, explicitly paginate the active pieces:
 
