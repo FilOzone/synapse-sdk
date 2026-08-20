@@ -196,7 +196,7 @@ These APIs are useful when you want to inspect existing data sets, query stored 
 
 ### Getting All Data Sets
 
-Retrieve all data sets owned by your account to inspect piece counts, CDN status, and metadata:
+Retrieve all data sets owned by your account to inspect piece presence, CDN status, and metadata:
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -210,7 +210,7 @@ for (const ds of dataSets) {
   console.log(`Dataset ${ds.pdpVerifierDataSetId}:`, {
     live: ds.isLive,
     cdn: ds.withCDN,
-    pieces: ds.activePieceCount,
+    hasActivePieces: ds.hasActivePieces,
     metadata: ds.metadata
   });
 }

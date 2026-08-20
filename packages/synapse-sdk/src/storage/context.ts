@@ -514,7 +514,7 @@ export class StorageContext {
     // of order: `bestNonEmptyIndex` is the oldest non-empty metadata match and
     // `firstMatchIndex` the oldest metadata match (the fallback). Metadata is read
     // first and hasActivePieces only on a metadata match, so non-matching
-    // datasets skip the piece-count read.
+    // datasets skip the leaf-count read.
     const evaluated: (EvaluatedDataSet | null)[] = new Array(sortedDataSets.length).fill(null)
     let firstMatchIndex = Number.POSITIVE_INFINITY
     let bestNonEmptyIndex = Number.POSITIVE_INFINITY

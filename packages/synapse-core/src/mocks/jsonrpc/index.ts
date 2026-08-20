@@ -570,7 +570,7 @@ export const presets = {
         false,
       ],
       getDataSetStorageProvider: () => [ADDRESSES.serviceProvider1, ADDRESSES.zero],
-      getDataSetLeafCount: () => [0n],
+      getDataSetLeafCount: () => [2n],
       getScheduledRemovals: () => [[]],
       getNextChallengeEpoch: () => [5000n],
       findPieceIdsByCid: () => [[0n]],

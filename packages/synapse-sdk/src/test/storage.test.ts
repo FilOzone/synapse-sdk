@@ -37,7 +37,7 @@ const pdpOptions = {
 // the 4-byte selector in the call data.
 const RESOLVE_READ_SELECTORS = [
   toFunctionSelector('getAllDataSetMetadata(uint256)'),
-  toFunctionSelector('getActivePieceCount(uint256)'),
+  toFunctionSelector('getDataSetLeafCount(uint256)'),
 ]
 
 /**
@@ -346,7 +346,7 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieceCount: (args) => {
+            getDataSetLeafCount: (args) => {
               const [dataSetId] = args
               return [dataSetId === 2n ? 1n : 0n]
             },
@@ -398,7 +398,7 @@ describe('StorageService', () => {
         pdpRailId: BigInt(i + 1),
       }))
 
-      let getActivePieceCountCalls = 0
+      let getDataSetLeafCountCalls = 0
       let getAllDataSetMetadataCalls = 0
       server.use(
         Mocks.JSONRPC(
@@ -406,8 +406,8 @@ describe('StorageService', () => {
             ...Mocks.presets.basic,
             pdpVerifier: {
               ...Mocks.presets.basic.pdpVerifier,
-              getActivePieceCount: (args) => {
-                getActivePieceCountCalls++
+              getDataSetLeafCount: (args) => {
+                getDataSetLeafCountCalls++
                 const [dataSetId] = args
                 return [dataSetId === 1n ? 1n : 0n]
               },
@@ -456,8 +456,8 @@ describe('StorageService', () => {
       // tracks the concurrency rather than hard-coding the count.
       const maxExpectedCalls = RESOLVE_CONCURRENCY * 2
       assert.ok(
-        getActivePieceCountCalls <= maxExpectedCalls,
-        `expected <=${maxExpectedCalls} getActivePieceCount calls, got ${getActivePieceCountCalls} (unbounded fan-out regression)`
+        getDataSetLeafCountCalls <= maxExpectedCalls,
+        `expected <=${maxExpectedCalls} getDataSetLeafCount calls, got ${getDataSetLeafCountCalls} (unbounded fan-out regression)`
       )
       assert.ok(
         getAllDataSetMetadataCalls <= maxExpectedCalls,
@@ -496,7 +496,7 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieceCount: (args) => {
+            getDataSetLeafCount: (args) => {
               const [dataSetId] = args
               return [dataSetId === NON_EMPTY_ID ? 1n : 0n]
             },
@@ -531,7 +531,7 @@ describe('StorageService', () => {
     it('should prefer the oldest of several non-empty matches and skip newer ones (#631)', async () => {
       // Two non-empty metadata matches: the oldest (id 1) and a newer one deep in
       // the list (id 25). The oldest must win, and because it is found before the
-      // newer one's window starts, the newer one's active-piece count is never
+      // newer one's window starts, the newer one's leaf count is never
       // read. This pins both the oldest-wins ordering and the early-exit guard,
       // which a "newest non-empty wins" or "no early-exit" regression would break.
       // The non-oldest resolve reads are delayed so the oldest match settles
@@ -566,7 +566,7 @@ describe('StorageService', () => {
             ...Mocks.presets.basic,
             pdpVerifier: {
               ...Mocks.presets.basic.pdpVerifier,
-              getActivePieceCount: (args) => {
+              getDataSetLeafCount: (args) => {
                 const [dataSetId] = args
                 pieceCountQueriedIds.push(dataSetId)
                 return [dataSetId === OLDEST_NON_EMPTY_ID || dataSetId === NEWER_NON_EMPTY_ID ? 1n : 0n]
@@ -604,7 +604,7 @@ describe('StorageService', () => {
       // The newer non-empty match is never inspected once the oldest is known.
       assert.ok(
         !pieceCountQueriedIds.includes(NEWER_NON_EMPTY_ID),
-        `getActivePieceCount should not be read for the newer match ${NEWER_NON_EMPTY_ID}, queried: ${pieceCountQueriedIds.join(', ')}`
+        `getDataSetLeafCount should not be read for the newer match ${NEWER_NON_EMPTY_ID}, queried: ${pieceCountQueriedIds.join(', ')}`
       )
     })
 

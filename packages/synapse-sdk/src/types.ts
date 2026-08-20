@@ -256,8 +256,8 @@ export interface DataSetInfo {
 export interface EnhancedDataSetInfo extends DataSetInfo {
   /** PDPVerifier global data set ID */
   pdpVerifierDataSetId: bigint
-  /** Number of active pieces in the data set (excludes removed pieces) */
-  activePieceCount: bigint
+  /** Whether the data set contains at least one active piece (non-zero leaf count). */
+  hasActivePieces: boolean
   /** Whether the data set is live on-chain */
   isLive: boolean
   /** Whether this data set is managed by the current Warm Storage contract */
