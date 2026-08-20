@@ -15,7 +15,7 @@ allowBuilds:
 blockExoticSubdeps: true
 
 catalog:
-  '@biomejs/biome': 2.5.6
+  '@biomejs/biome': 2.5.8
   '@types/mocha': ^10.0.10
   '@types/node': ^26.0.1
   '@types/react': ^19.2.16
@@ -53,3 +53,4 @@ trustPolicyExclude:
   # 3.3.1 (Jan 2025) predates langium adopting trusted publishing at 4.x.
   # Exact-pinned by @mermaid-js/parser; permanent while mermaid pins langium@3.
   - langium@3.3.1
+  - cytoscape@3.34.1
