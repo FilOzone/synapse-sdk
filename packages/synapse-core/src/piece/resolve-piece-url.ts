@@ -3,6 +3,7 @@ import pLocate from 'p-locate'
 import pSome from 'p-some'
 import type { Address, Chain, Client, Transport } from 'viem'
 import { asChain } from '../chains.ts'
+import { paginate } from '../pagination.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
 import { createPieceUrlPDP } from '../utils/piece-url.ts'
 import { getPdpDataSets } from '../warm-storage/get-pdp-data-sets.ts'
@@ -119,9 +120,7 @@ export async function filbeamResolver(options: resolvePieceUrl.ResolverFnOptions
  */
 export async function chainResolver(options: resolvePieceUrl.ResolverFnOptionsType): Promise<string> {
   const { address, client, pieceCid, signal } = options
-  const dataSets = await getPdpDataSets(client, {
-    address,
-  })
+  const dataSets = await Array.fromAsync(paginate(({ cursor }) => getPdpDataSets(client, { address, cursor })))
 
   const providersById = dataSets.reduce((acc, dataSet) => {
     if (dataSet.live && dataSet.managed && dataSet.pdpEndEpoch === 0n) {

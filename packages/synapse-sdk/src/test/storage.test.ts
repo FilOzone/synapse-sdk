@@ -37,7 +37,7 @@ const pdpOptions = {
 // the 4-byte selector in the call data.
 const RESOLVE_READ_SELECTORS = [
   toFunctionSelector('getAllDataSetMetadata(uint256)'),
-  toFunctionSelector('getActivePieces(uint256,uint256,uint256)'),
+  toFunctionSelector('getActivePieceCount(uint256)'),
 ]
 
 /**
@@ -346,13 +346,9 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: (args) => {
+            getActivePieceCount: (args) => {
               const [dataSetId] = args
-              if (dataSetId === 2n) {
-                const cid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
-                return [[{ data: bytesToHex(cid.bytes) }], [101n], false]
-              }
-              return [[], [], false]
+              return [dataSetId === 2n ? 1n : 0n]
             },
           },
           warmStorageView: {
@@ -402,8 +398,7 @@ describe('StorageService', () => {
         pdpRailId: BigInt(i + 1),
       }))
 
-      const cid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
-      let getActivePiecesCalls = 0
+      let getActivePieceCountCalls = 0
       let getAllDataSetMetadataCalls = 0
       server.use(
         Mocks.JSONRPC(
@@ -411,10 +406,10 @@ describe('StorageService', () => {
             ...Mocks.presets.basic,
             pdpVerifier: {
               ...Mocks.presets.basic.pdpVerifier,
-              getActivePieces: (args) => {
-                getActivePiecesCalls++
+              getActivePieceCount: (args) => {
+                getActivePieceCountCalls++
                 const [dataSetId] = args
-                return dataSetId === 1n ? [[{ data: bytesToHex(cid.bytes) }], [101n], false] : [[], [], false]
+                return [dataSetId === 1n ? 1n : 0n]
               },
             },
             warmStorageView: {
@@ -461,8 +456,8 @@ describe('StorageService', () => {
       // tracks the concurrency rather than hard-coding the count.
       const maxExpectedCalls = RESOLVE_CONCURRENCY * 2
       assert.ok(
-        getActivePiecesCalls <= maxExpectedCalls,
-        `expected <=${maxExpectedCalls} getActivePieces calls, got ${getActivePiecesCalls} (unbounded fan-out regression)`
+        getActivePieceCountCalls <= maxExpectedCalls,
+        `expected <=${maxExpectedCalls} getActivePieceCount calls, got ${getActivePieceCountCalls} (unbounded fan-out regression)`
       )
       assert.ok(
         getAllDataSetMetadataCalls <= maxExpectedCalls,
@@ -496,15 +491,14 @@ describe('StorageService', () => {
         pdpRailId: BigInt(i + 1),
       }))
 
-      const cid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: (args) => {
+            getActivePieceCount: (args) => {
               const [dataSetId] = args
-              return dataSetId === NON_EMPTY_ID ? [[{ data: bytesToHex(cid.bytes) }], [101n], false] : [[], [], false]
+              return [dataSetId === NON_EMPTY_ID ? 1n : 0n]
             },
           },
           warmStorageView: {
@@ -537,7 +531,7 @@ describe('StorageService', () => {
     it('should prefer the oldest of several non-empty matches and skip newer ones (#631)', async () => {
       // Two non-empty metadata matches: the oldest (id 1) and a newer one deep in
       // the list (id 25). The oldest must win, and because it is found before the
-      // newer one's window starts, the newer one's getActivePieces is never
+      // newer one's window starts, the newer one's active-piece count is never
       // read. This pins both the oldest-wins ordering and the early-exit guard,
       // which a "newest non-empty wins" or "no early-exit" regression would break.
       // The non-oldest resolve reads are delayed so the oldest match settles
@@ -565,7 +559,6 @@ describe('StorageService', () => {
         pdpRailId: BigInt(i + 1),
       }))
 
-      const cid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
       const pieceCountQueriedIds: bigint[] = []
       server.use(
         Mocks.JSONRPC(
@@ -573,12 +566,10 @@ describe('StorageService', () => {
             ...Mocks.presets.basic,
             pdpVerifier: {
               ...Mocks.presets.basic.pdpVerifier,
-              getActivePieces: (args) => {
+              getActivePieceCount: (args) => {
                 const [dataSetId] = args
                 pieceCountQueriedIds.push(dataSetId)
-                return dataSetId === OLDEST_NON_EMPTY_ID || dataSetId === NEWER_NON_EMPTY_ID
-                  ? [[{ data: bytesToHex(cid.bytes) }], [101n], false]
-                  : [[], [], false]
+                return [dataSetId === OLDEST_NON_EMPTY_ID || dataSetId === NEWER_NON_EMPTY_ID ? 1n : 0n]
               },
             },
             warmStorageView: {
@@ -613,7 +604,7 @@ describe('StorageService', () => {
       // The newer non-empty match is never inspected once the oldest is known.
       assert.ok(
         !pieceCountQueriedIds.includes(NEWER_NON_EMPTY_ID),
-        `getActivePieces should not be read for the newer match ${NEWER_NON_EMPTY_ID}, queried: ${pieceCountQueriedIds.join(', ')}`
+        `getActivePieceCount should not be read for the newer match ${NEWER_NON_EMPTY_ID}, queried: ${pieceCountQueriedIds.join(', ')}`
       )
     })
 
@@ -1639,7 +1630,7 @@ describe('StorageService', () => {
         ],
         nextChallengeEpoch: 1500,
       }
-      // Mock getActivePieces to return the expected pieces
+      // Mock getActivePiecesByCursor to return the expected pieces.
       const piecesData = mockDataSetData.pieces.map((piece) => {
         const cid = CID.parse(piece.pieceCid)
         return { data: bytesToHex(cid.bytes) }
@@ -1650,7 +1641,7 @@ describe('StorageService', () => {
           serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: () => [piecesData, [101n, 102n], false],
+            getActivePiecesByCursor: () => [piecesData, [101n, 102n], false],
           },
         }),
         Mocks.PING({
@@ -1676,7 +1667,7 @@ describe('StorageService', () => {
           serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: () => [[], [], false],
+            getActivePiecesByCursor: () => [[], [], false],
           },
         }),
         Mocks.PING({
@@ -1701,7 +1692,7 @@ describe('StorageService', () => {
           serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: () => [[{ data: invalidCidBytes }], [101n], false],
+            getActivePiecesByCursor: () => [[{ data: invalidCidBytes }], [101n], false],
           },
         }),
         Mocks.PING({
@@ -1729,7 +1720,7 @@ describe('StorageService', () => {
           serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: () => {
+            getActivePiecesByCursor: () => {
               throw new Error('Data set not found: 999')
             },
           },
@@ -1741,7 +1732,7 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client, source: null })
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
-      // Mock getActivePieces to throw an error
+      // Mock getActivePiecesByCursor to throw an error.
 
       try {
         await Array.fromAsync(service.getPieces())
@@ -1980,22 +1971,22 @@ describe('StorageService', () => {
       const piece2Cid = await calculatePieceCID(new Uint8Array(256).fill(2))
       const piece3Cid = await calculatePieceCID(new Uint8Array(512).fill(3))
 
-      // Mock getActivePieces to return paginated results
+      // Mock cursor-paginated active pieces.
       server.use(
         Mocks.PING(),
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: (args) => {
-              const offset = Number(args[1])
+            getActivePiecesByCursor: (args) => {
+              const cursor = Number(args[1])
 
               // First page: return 2 pieces with hasMore=true
-              if (offset === 0) {
+              if (cursor === 0) {
                 return [[{ data: bytesToHex(piece1Cid.bytes) }, { data: bytesToHex(piece2Cid.bytes) }], [1n, 2n], true]
               }
               // Second page: return 1 piece with hasMore=false
-              if (offset === 2) {
+              if (cursor === 3) {
                 return [[{ data: bytesToHex(piece3Cid.bytes) }], [3n], false]
               }
               return [[], [], false]
@@ -2026,13 +2017,13 @@ describe('StorageService', () => {
     })
 
     it('should handle empty results', async () => {
-      // Mock getActivePieces to return no pieces
+      // Mock getActivePiecesByCursor to return no pieces.
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: () => [[], [], false],
+            getActivePiecesByCursor: () => [[], [], false],
           },
         })
       )
@@ -2053,21 +2044,21 @@ describe('StorageService', () => {
       const piece1Cid = await calculatePieceCID(new Uint8Array(128).fill(1))
       const piece2Cid = await calculatePieceCID(new Uint8Array(256).fill(2))
 
-      // Mock getActivePieces to return paginated results
+      // Mock cursor-paginated active pieces.
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: (args) => {
-              const offset = Number(args[1])
+            getActivePiecesByCursor: (args) => {
+              const cursor = Number(args[1])
 
               // First page
-              if (offset === 0) {
+              if (cursor === 0) {
                 return [[{ data: bytesToHex(piece1Cid.bytes) }], [1n], true]
               }
               // Second page
-              if (offset === 1) {
+              if (cursor === 2) {
                 return [[{ data: bytesToHex(piece2Cid.bytes) }], [2n], false]
               }
               return [[], [], false]

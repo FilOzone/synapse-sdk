@@ -94,7 +94,7 @@ export namespace getAllDataSetMetadataCall {
  *
  * @example
  * ```ts
- * import { getAllDataSetMetadataCall } from '@filoz/synapse-core/warm-storage'
+ * import { getAllDataSetMetadataCall, parseAllDataSetMetadata } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -105,6 +105,7 @@ export namespace getAllDataSetMetadataCall {
  * })
  *
  * const results = await multicall(client, {
+ *   allowFailure: false,
  *   contracts: [
  *     getAllDataSetMetadataCall({ chain: calibration, dataSetId: 1n }),
  *     getAllDataSetMetadataCall({ chain: calibration, dataSetId: 2n }),

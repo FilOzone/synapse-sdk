@@ -22,8 +22,6 @@ export type getProvidersByProductType = ExtractAbiFunction<
   'getProvidersByProductType'
 >
 
-export type getAllActiveProviders = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getAllActiveProviders'>
-
 export type getProviderCount = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProviderCount'>
 
 export type activeProviderCount = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'activeProviderCount'>
@@ -56,9 +54,6 @@ export interface ServiceRegistryOptions {
   getProvidersByProductType?: (
     args: AbiToType<getProvidersByProductType['inputs']>
   ) => AbiToType<getProvidersByProductType['outputs']>
-  getAllActiveProviders?: (
-    args: AbiToType<getAllActiveProviders['inputs']>
-  ) => AbiToType<getAllActiveProviders['outputs']>
   getProviderCount?: (args: AbiToType<getProviderCount['inputs']>) => AbiToType<getProviderCount['outputs']>
   activeProviderCount?: (args: AbiToType<activeProviderCount['inputs']>) => AbiToType<activeProviderCount['outputs']>
   isProviderActive?: (args: AbiToType<isProviderActive['inputs']>) => AbiToType<isProviderActive['outputs']>
@@ -148,11 +143,6 @@ export function mockServiceProviderRegistry(providers: ProviderDecoded[]): Servi
           info: provider.providerInfo,
         },
       ]
-    },
-    getAllActiveProviders: ([offset, limit]) => {
-      const providerIds = activeProviders.map((p) => p.providerId).slice(Number(offset), Number(offset + limit))
-      const hasMore = offset + limit < activeProviders.length
-      return [providerIds, hasMore]
     },
     getProviderCount: () => {
       return [BigInt(providers.length)]
@@ -322,16 +312,6 @@ export function serviceProviderRegistryCallHandler(data: Hex, value: Hex, from: 
         Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'getProvidersByProductType')!
           .outputs,
         options.serviceRegistry.getProvidersByProductType(args)
-      )
-    }
-    case 'getAllActiveProviders': {
-      if (!options.serviceRegistry?.getAllActiveProviders) {
-        throw new Error('Service Provider Registry: getAllActiveProviders is not defined')
-      }
-      return encodeAbiParameters(
-        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'getAllActiveProviders')!
-          .outputs,
-        options.serviceRegistry.getAllActiveProviders(args)
       )
     }
     case 'getProviderCount': {

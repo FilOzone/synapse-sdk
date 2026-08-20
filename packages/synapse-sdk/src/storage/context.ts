@@ -27,6 +27,7 @@
  * ```
  */
 
+import { paginate } from '@filoz/synapse-core'
 import { asChain, type Chain as FilecoinChain } from '@filoz/synapse-core/chains'
 import { InvalidPieceCIDError } from '@filoz/synapse-core/errors'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
@@ -481,7 +482,9 @@ export class StorageContext {
   ): Promise<ProviderSelectionResult> {
     const [provider, dataSets] = await Promise.all([
       spRegistry.getProvider({ providerId }),
-      warmStorageService.getClientDataSets({ address: clientAddress }),
+      Array.fromAsync(
+        paginate(({ cursor }) => warmStorageService.getClientDataSets({ address: clientAddress, cursor }))
+      ),
     ])
 
     if (provider == null) {
@@ -1103,26 +1106,16 @@ export class StorageContext {
       return
     }
 
-    const batchSize = options?.batchSize ?? 100n
-    let offset = 0n
-    let hasMore = true
-
-    while (hasMore) {
-      const result = await PDPVerifier.getActivePieces(this._client, {
-        dataSetId: this._dataSetId,
-        offset,
+    const dataSetId = this._dataSetId
+    const batchSize = options.batchSize ?? 100n
+    for await (const piece of paginate(({ cursor }) =>
+      PDPVerifier.getActivePiecesByCursor(this._client, {
+        dataSetId,
+        cursor,
         limit: batchSize,
       })
-
-      for (let i = 0; i < result.pieces.length; i++) {
-        yield {
-          pieceCid: result.pieces[i].cid,
-          pieceId: result.pieces[i].id,
-        }
-      }
-
-      hasMore = result.hasMore
-      offset += batchSize
+    )) {
+      yield { pieceCid: piece.cid, pieceId: piece.id }
     }
   }
 
@@ -1135,16 +1128,15 @@ export class StorageContext {
       throw createError('StorageContext', 'getPieceIdByCID', 'Invalid PieceCID provided')
     }
 
-    const pieceIds = await PDPVerifier.findPieceIdsByCid(this._client, {
+    const page = await PDPVerifier.findPieceIdsByCid(this._client, {
       dataSetId: this.dataSetId,
       pieceCid: parsedPieceCID,
-      startPieceId: 0n,
-      limit: 1n,
     })
-    if (pieceIds.length === 0) {
+    const pieceId = page.items[0]
+    if (pieceId == null) {
       throw createError('StorageContext', 'getPieceIdByCID', 'Piece not found in data set')
     }
-    return pieceIds[0]
+    return pieceId
   }
 
   /**
@@ -1216,12 +1208,10 @@ export class StorageContext {
     }
 
     // Run multiple operations in parallel for better performance
-    const [pieceIds, nextChallengeEpoch, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
+    const [piecePage, nextChallengeEpoch, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
       PDPVerifier.findPieceIdsByCid(this._client, {
         dataSetId: this.dataSetId,
         pieceCid: parsedPieceCID,
-        startPieceId: 0n,
-        limit: 1n,
       }),
       PDPVerifier.getNextChallengeEpoch(this._client, {
         dataSetId: this.dataSetId,
@@ -1234,10 +1224,10 @@ export class StorageContext {
       this.getProviderInfo().catch(() => null),
     ])
 
-    if (pieceIds.length === 0) {
+    const pieceId = piecePage.items[0]
+    if (pieceId == null) {
       return null
     }
-    const pieceId = pieceIds[0]
 
     // Initialize return values
     let retrievalUrl: string | null = null

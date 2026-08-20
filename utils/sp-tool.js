@@ -11,6 +11,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { waitForTransactionReceipt } from 'viem/actions'
 import { calibration, mainnet } from '../packages/synapse-core/src/chains.ts'
 import { getEndorsedProviderIds } from '../packages/synapse-core/src/endorsements/index.ts'
+import { paginate } from '../packages/synapse-core/src/index.ts'
 import {
   extractRegisterProviderEvent,
   getPDPProvider,
@@ -109,7 +110,10 @@ function makeAccount(options, command) {
 }
 
 async function loadStatus(client) {
-  const [approvedIds, endorsedIds] = await Promise.all([getApprovedProviderIds(client), getEndorsedProviderIds(client)])
+  const [approvedIds, endorsedIds] = await Promise.all([
+    Array.fromAsync(paginate(({ cursor }) => getApprovedProviderIds(client, { cursor }))),
+    getEndorsedProviderIds(client),
+  ])
   const approvedSet = new Set(approvedIds.map(String))
   const endorsedSet = new Set(endorsedIds.map(String))
   return {
@@ -339,16 +343,9 @@ async function handleList(client, options, filterFn) {
 }
 
 async function fetchAllActiveProviders(client) {
-  const out = []
-  const limit = 50n
-  let offset = 0n
-  for (;;) {
-    const page = await getPDPProviders(client, { onlyActive: true, offset, limit })
-    out.push(...page.providers)
-    if (!page.hasMore) break
-    offset += limit
-  }
-  return out
+  return await Array.fromAsync(
+    paginate(({ cursor }) => getPDPProviders(client, { onlyActive: true, cursor, limit: 50n }))
+  )
 }
 
 async function handleRegister(client, account, options) {

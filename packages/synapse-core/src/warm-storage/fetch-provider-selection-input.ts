@@ -1,5 +1,6 @@
 import type { Address, Chain, Client, Transport } from 'viem'
 import { getEndorsedProviderIds } from '../endorsements/get-endorsed-provider-ids.ts'
+import { paginate } from '../pagination.ts'
 import { getApprovedPDPProviders } from '../sp-registry/get-pdp-providers.ts'
 import { getPdpDataSets } from './get-pdp-data-sets.ts'
 import type { ProviderSelectionInput } from './location-types.ts'
@@ -35,7 +36,7 @@ export async function fetchProviderSelectionInput(
   const [providers, endorsedIds, pdpDataSets] = await Promise.all([
     getApprovedPDPProviders(client),
     getEndorsedProviderIds(client),
-    getPdpDataSets(client, { address: options.address }),
+    Array.fromAsync(paginate(({ cursor }) => getPdpDataSets(client, { address: options.address, cursor }))),
   ])
 
   return {

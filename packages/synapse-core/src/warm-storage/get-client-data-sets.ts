@@ -1,4 +1,3 @@
-import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -11,22 +10,22 @@ import type {
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { ValidationError } from '../errors/base.ts'
-import type { ActionCallChain } from '../types.ts'
+import {
+  type Page,
+  type PaginationOptions,
+  pageFromLookahead,
+  type paginate,
+  resolvePagination,
+} from '../pagination.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
 import { toReadClient } from '../utils/read-client.ts'
 import type { getPdpDataSets } from './get-pdp-data-sets.ts'
 import type { DataSetInfo } from './types.ts'
 
-const DATA_SETS_PAGE_SIZE = 100n
-
 export namespace getClientDataSets {
-  export type OptionsType = {
+  export type OptionsType = PaginationOptions & {
     /** Client address to fetch data sets for. */
     address: Address
-    /** Starting index (0-based). Use `0` to start from the beginning. Defaults to `0n`. */
-    offset?: bigint
-    /** Maximum number of data sets to return. Use `0` to get all remaining. Defaults to `0n` (all). */
-    limit?: bigint
     /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
     contractAddress?: Address
   }
@@ -37,23 +36,25 @@ export namespace getClientDataSets {
     'getClientDataSets'
   >
 
-  /** Array of client data set info entries */
-  export type OutputType = DataSetInfo[]
+  /** A page of client data set info entries. */
+  export type OutputType = Page<DataSetInfo>
 
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType | resolvePagination.ErrorType
 }
 
 /**
- * Get client data sets
+ * Get one bounded page of a client's data sets.
  *
- * Use {@link getPdpDataSets} instead to get PDP data sets.
+ * Pass the returned `nextCursor` back as `cursor`; treat it as opaque. Use
+ * {@link paginate} to traverse every page. Use {@link getPdpDataSets} when the
+ * enriched PDP data-set representation is required.
  *
  * @param client - The client to use to get data sets for a client address.
  * @param options - {@link getClientDataSets.OptionsType}
- * @returns Array of data set info entries {@link getClientDataSets.OutputType}
+ * @returns A page of data set info entries {@link getClientDataSets.OutputType}
  * @throws Errors {@link getClientDataSets.ErrorType}
  *
- * @example
+ * @example Read the first page
  * ```ts
  * import { getClientDataSets } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
@@ -64,139 +65,43 @@ export namespace getClientDataSets {
  *   transport: http(),
  * })
  *
- * const dataSets = await getClientDataSets(client, {
- *   address: '0x0000000000000000000000000000000000000000',
- * })
+ * const address = '0x0000000000000000000000000000000000000000'
+ * const page = await getClientDataSets(client, { address })
+ * console.log(page.items, page.nextCursor)
+ * ```
  *
- * console.log(dataSets[0]?.dataSetId)
+ * @example Iterate over every page
+ * ```ts
+ * import { paginate } from '@filoz/synapse-core'
+ * import { getClientDataSets } from '@filoz/synapse-core/warm-storage'
+ *
+ * for await (const dataSet of paginate(({ cursor }) =>
+ *   getClientDataSets(client, { address, cursor })
+ * )) {
+ *   console.log(dataSet.dataSetId)
+ * }
  * ```
  */
 export async function getClientDataSets(
   client: Client<Transport, Chain>,
   options: getClientDataSets.OptionsType
 ): Promise<getClientDataSets.OutputType> {
-  const dataSets: getClientDataSets.OutputType = []
-  const limit = options.limit ?? 0n
-  if (limit < 0n) {
-    throw new ValidationError('`limit` must be >= 0n.')
-  }
-  let offset = options.offset ?? 0n
-  let remaining = limit
-  const readClient = toReadClient(client)
-
-  while (true) {
-    const pageLimit = remaining === 0n || remaining > DATA_SETS_PAGE_SIZE ? DATA_SETS_PAGE_SIZE : remaining
-
-    const data = await readContract(
-      readClient,
-      getClientDataSetsCall({
-        chain: client.chain,
-        address: options.address,
-        offset,
-        limit: pageLimit,
-        contractAddress: options.contractAddress,
-      })
-    )
-
-    dataSets.push(...data)
-
-    const pageLength = BigInt(data.length)
-    if (pageLength < pageLimit) {
-      break
-    }
-
-    offset += pageLength
-    if (remaining > 0n) {
-      remaining -= pageLength
-      if (remaining === 0n) {
-        break
-      }
-    }
-  }
-
-  return dataSets
-}
-
-export namespace getClientDataSetsIterable {
-  export type OptionsType = {
-    /** Client address to fetch data sets for. */
-    address: Address
-    /** Starting index (0-based). Use `0` to start from the beginning. Defaults to `0n`. */
-    offset?: bigint
-    /** Batch size for each pagination call. Must be greater than `0n`. Defaults to `100n`. */
-    batchSize?: bigint
-    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
-    contractAddress?: Address
-  }
-
-  export type OutputType = AsyncGenerator<DataSetInfo>
-
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType | ValidationError
-}
-
-/**
- * Get client data sets iterable
- *
- * @param client - The client to use to get data sets for a client address.
- * @param options - {@link getClientDataSetsIterable.OptionsType}
- * @returns Async generator of data set info entries {@link getClientDataSetsIterable.OutputType}
- * @throws Errors {@link getClientDataSetsIterable.ErrorType}
- *
- * @example
- * ```ts
- * import { getClientDataSetsIterable } from '@filoz/synapse-core/warm-storage'
- * import { createPublicClient, http } from 'viem'
- * import { calibration } from '@filoz/synapse-core/chains'
- *
- * const client = createPublicClient({
- *   chain: calibration,
- *   transport: http(),
- * })
- *
- * const dataSets = await getClientDataSetsIterable(client, {
- *   address: '0x0000000000000000000000000000000000000000',
- * })
- *
- * for await (const dataSet of dataSets) {
- *   console.log(dataSet.dataSetId)
- * }
- * ```
- */
-export async function* getClientDataSetsIterable(
-  client: Client<Transport, Chain>,
-  options: getClientDataSetsIterable.OptionsType
-): getClientDataSetsIterable.OutputType {
-  const batchSize = options.batchSize ?? DATA_SETS_PAGE_SIZE
-  if (batchSize <= 0n) {
-    throw new ValidationError('`batchSize` must be greater than 0n.')
-  }
-  let offset = options.offset ?? 0n
-  let hasMore = true
-  const readClient = toReadClient(client)
-
-  while (hasMore) {
-    const data = await readContract(
-      readClient,
-      getClientDataSetsCall({
-        chain: client.chain,
-        address: options.address,
-        offset,
-        limit: batchSize,
-        contractAddress: options.contractAddress,
-      })
-    )
-    for (const dataSet of data) {
-      yield dataSet
-    }
-    if (data.length < batchSize) {
-      hasMore = false
-    }
-    offset += batchSize
-  }
+  const { cursor, limit } = resolvePagination(options, 100n)
+  const data = await readContract(
+    toReadClient(client),
+    getClientDataSetsCall({
+      chain: client.chain,
+      address: options.address,
+      offset: cursor,
+      limit: limit + 1n,
+      contractAddress: options.contractAddress,
+    })
+  )
+  return pageFromLookahead(data, limit, () => cursor + limit)
 }
 
 export namespace getClientDataSetsCall {
-  export type OptionsType = Simplify<getClientDataSets.OptionsType & ActionCallChain>
+  export type OptionsType = PaginatedActionCallOptions<getClientDataSets.OptionsType, 'offset'>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof storageViewAbi,
@@ -230,6 +135,8 @@ export namespace getClientDataSetsCall {
  *     getClientDataSetsCall({
  *       chain: calibration,
  *       address: '0x0000000000000000000000000000000000000000',
+ *       offset: 0n,
+ *       limit: 100n,
  *     }),
  *   ],
  * })
@@ -243,6 +150,6 @@ export function getClientDataSetsCall(options: getClientDataSetsCall.OptionsType
     abi: chain.contracts.fwssView.abi,
     address: options.contractAddress ?? chain.contracts.fwssView.address,
     functionName: 'getClientDataSets',
-    args: [options.address, options.offset ?? 0n, options.limit ?? 0n],
+    args: [options.address, options.offset, options.limit],
   } satisfies getClientDataSetsCall.OutputType
 }

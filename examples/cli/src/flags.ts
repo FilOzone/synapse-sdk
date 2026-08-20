@@ -1,3 +1,5 @@
+import { isAddress } from 'viem'
+
 const possibleChains = [314159, 314] as const
 type Chains = (typeof possibleChains)[number]
 
@@ -9,6 +11,13 @@ const Chain = (chainStr: string) => {
     )
   }
   return chain
+}
+
+export const Address = (addressStr: string) => {
+  if (!isAddress(addressStr)) {
+    throw new Error(`Invalid address: ${addressStr}`)
+  }
+  return addressStr
 }
 
 export const globalFlags = {

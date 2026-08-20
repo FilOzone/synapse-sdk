@@ -1,4 +1,3 @@
-import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -11,15 +10,18 @@ import type {
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
+import {
+  type Page,
+  type PaginationOptions,
+  pageFromLookahead,
+  type paginate,
+  resolvePagination,
+} from '../pagination.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
 import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getApprovedProviderIds {
-  export type OptionsType = {
-    /** Starting index (0-based). Use 0 to start from beginning. Defaults to 0. */
-    offset?: bigint
-    /** Maximum number of providers to return. Use 0 to get all remaining providers. Defaults to 0. */
-    limit?: bigint
+  export type OptionsType = PaginationOptions & {
     /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
     contractAddress?: Address
   }
@@ -30,24 +32,24 @@ export namespace getApprovedProviderIds {
     'getApprovedProviders'
   >
 
-  /** Array of approved provider IDs */
-  export type OutputType = bigint[]
+  /** A page of approved provider IDs. */
+  export type OutputType = Page<bigint>
 
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType | resolvePagination.ErrorType
 }
 
 /**
- * Get all approved provider IDs with optional pagination
+ * Get one bounded page of approved provider IDs.
  *
- * For large lists, use pagination to avoid gas limit issues. If limit=0,
- * returns all remaining providers starting from offset.
+ * Pass the returned `nextCursor` back as `cursor`; treat it as opaque. Use
+ * {@link paginate} to traverse every page. `limit` must be greater than zero.
  *
  * @param client - The client to use to get the approved providers.
  * @param options - {@link getApprovedProviderIds.OptionsType}
- * @returns Array of approved provider IDs {@link getApprovedProviderIds.OutputType}
+ * @returns A page of approved provider IDs {@link getApprovedProviderIds.OutputType}
  * @throws Errors {@link getApprovedProviderIds.ErrorType}
  *
- * @example
+ * @example Read the first page
  * ```ts
  * import { getApprovedProviderIds } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
@@ -58,34 +60,42 @@ export namespace getApprovedProviderIds {
  *   transport: http(),
  * })
  *
- * // Get first 100 providers
- * const providerIds = await getApprovedProviderIds(client, {
- *   offset: 0n,
- *   limit: 100n,
- * })
+ * const page = await getApprovedProviderIds(client)
+ * console.log(page.items, page.nextCursor)
+ * ```
  *
- * console.log(providerIds)
+ * @example Iterate over every page
+ * ```ts
+ * import { paginate } from '@filoz/synapse-core'
+ * import { getApprovedProviderIds } from '@filoz/synapse-core/warm-storage'
+ *
+ * for await (const providerId of paginate(({ cursor }) =>
+ *   getApprovedProviderIds(client, { cursor })
+ * )) {
+ *   console.log(providerId)
+ * }
  * ```
  */
 export async function getApprovedProviderIds(
   client: Client<Transport, Chain>,
   options: getApprovedProviderIds.OptionsType = {}
 ): Promise<getApprovedProviderIds.OutputType> {
+  const { cursor, limit } = resolvePagination(options, 100n)
   const data = await readContract(
     toReadClient(client),
 
     getApprovedProviderIdsCall({
       chain: client.chain,
-      offset: options.offset,
-      limit: options.limit,
+      offset: cursor,
+      limit: limit + 1n,
       contractAddress: options.contractAddress,
     })
   )
-  return data as getApprovedProviderIds.OutputType
+  return pageFromLookahead(data, limit, () => cursor + limit)
 }
 
 export namespace getApprovedProviderIdsCall {
-  export type OptionsType = Simplify<getApprovedProviderIds.OptionsType & ActionCallChain>
+  export type OptionsType = PaginatedActionCallOptions<getApprovedProviderIds.OptionsType, 'offset'>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageViewAbi, 'pure' | 'view', 'getApprovedProviders'>
 }
@@ -126,6 +136,6 @@ export function getApprovedProviderIdsCall(options: getApprovedProviderIdsCall.O
     abi: chain.contracts.fwssView.abi,
     address: options.contractAddress ?? chain.contracts.fwssView.address,
     functionName: 'getApprovedProviders',
-    args: [options.offset ?? 0n, options.limit ?? 0n],
+    args: [options.offset, options.limit],
   } satisfies getApprovedProviderIdsCall.OutputType
 }

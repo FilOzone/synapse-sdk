@@ -1,3 +1,4 @@
+import { paginate } from '@filoz/synapse-core'
 import { asChain } from '@filoz/synapse-core/chains'
 import * as ERC20 from '@filoz/synapse-core/erc20'
 import * as Pay from '@filoz/synapse-core/pay'
@@ -796,11 +797,14 @@ export class PaymentsService {
     }
 
     try {
-      const { results } = await Pay.getRailsForPayerAndToken(this._client, {
-        payer: this._client.account.address,
-      })
-
-      return results
+      return await Array.fromAsync(
+        paginate(({ cursor }) =>
+          Pay.getRailsForPayerAndToken(this._client, {
+            payer: this._client.account.address,
+            cursor,
+          })
+        )
+      )
     } catch (error) {
       throw createError('PaymentsService', 'getRailsAsPayer', 'Failed to get rails where wallet is payer', error)
     }
@@ -823,11 +827,14 @@ export class PaymentsService {
     }
 
     try {
-      const { results } = await Pay.getRailsForPayeeAndToken(this._client, {
-        payee: this._client.account.address,
-      })
-
-      return results
+      return await Array.fromAsync(
+        paginate(({ cursor }) =>
+          Pay.getRailsForPayeeAndToken(this._client, {
+            payee: this._client.account.address,
+            cursor,
+          })
+        )
+      )
     } catch (error) {
       throw createError('PaymentsService', 'getRailsAsPayee', 'Failed to get rails where wallet is payee', error)
     }

@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts'
+import { paginate } from '@filoz/synapse-core'
 import type { Chain } from '@filoz/synapse-core/chains'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
 import { getApprovedPDPProviders } from '@filoz/synapse-core/sp-registry'
@@ -25,9 +26,11 @@ export async function selectDataSet(
   spinner.start(`Fetching data sets...`)
 
   try {
-    const dataSets = await getPdpDataSets(client, {
-      address: client.account.address,
-    })
+    const dataSets = await Array.fromAsync(
+      paginate(({ cursor }) =>
+        getPdpDataSets(client, { address: client.account.address, cursor })
+      )
+    )
     spinner.stop(`Data sets fetched.`)
 
     if (dataSets.length === 0) {
@@ -68,20 +71,25 @@ export async function selectPiece(
   spinner.start(`Fetching pieces...`)
 
   try {
-    const pieces = await getPieces(client, {
-      dataSet,
-      address: client.account.address,
-    })
+    const pieces = await Array.fromAsync(
+      paginate(({ cursor }) =>
+        getPieces(client, {
+          dataSet,
+          address: client.account.address,
+          cursor,
+        })
+      )
+    )
     spinner.stop(`Pieces fetched.`)
 
-    if (pieces.pieces.length === 0) {
+    if (pieces.length === 0) {
       p.cancel('No pieces found.')
       process.exit(1)
     }
 
     const pieceId = await p.select({
       message: 'Select a piece:',
-      options: pieces.pieces.map((piece) => ({
+      options: pieces.map((piece) => ({
         value: piece.id,
         label: `#${piece.id} ${piece.cid}`,
       })),
