@@ -49,14 +49,16 @@ describe('WarmStorageService', () => {
   })
 
   describe('hasActivePieces', () => {
-    it('should return true when the data set has at least one active piece', async () => {
-      const cid = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+    it('should return true when the data set has a non-zero leaf count', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: () => [[{ data: bytesToHex(cid.bytes) }], [101n], false],
+            getDataSetLeafCount: (args) => {
+              assert.deepEqual(args, [1n])
+              return [2n]
+            },
           },
         })
       )
@@ -64,18 +66,66 @@ describe('WarmStorageService', () => {
       assert.isTrue(await warmStorageService.hasActivePieces({ dataSetId: 1n }))
     })
 
-    it('should return false when the data set has no active pieces', async () => {
+    it('should return false when the data set has no leaves', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getActivePieces: () => [[], [], false],
+            getDataSetLeafCount: (args) => {
+              assert.deepEqual(args, [1n])
+              return [0n]
+            },
           },
         })
       )
       const warmStorageService = await createWarmStorageService()
       assert.isFalse(await warmStorageService.hasActivePieces({ dataSetId: 1n }))
+    })
+  })
+
+  describe('getActivePieceCount', () => {
+    it('should count active pieces by paginating the cursor', async () => {
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
+      const warmStorageService = await createWarmStorageService()
+      assert.equal(await warmStorageService.getActivePieceCount({ dataSetId: 1n }), 2n)
+    })
+
+    it('should return zero when the data set has no active pieces', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getActivePiecesByCursor: () => [[], [], false],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      assert.equal(await warmStorageService.getActivePieceCount({ dataSetId: 1n }), 0n)
+    })
+
+    it('should sum pieces across cursor pages', async () => {
+      const first = CID.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const second = CID.parse('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace')
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getActivePiecesByCursor: (args) => {
+              const startPieceId = args[1]
+              if (startPieceId === 0n) {
+                return [[{ data: bytesToHex(first.bytes) }], [1n], true]
+              }
+              assert.equal(startPieceId, 2n)
+              return [[{ data: bytesToHex(second.bytes) }], [2n], false]
+            },
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      assert.equal(await warmStorageService.getActivePieceCount({ dataSetId: 1n }), 2n)
     })
   })
 
@@ -145,8 +195,8 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
       const dataSets = await warmStorageService.getClientDataSets({ address: Mocks.ADDRESSES.client1 })
-      assert.isArray(dataSets)
-      assert.lengthOf(dataSets, 0)
+      assert.isArray(dataSets.items)
+      assert.lengthOf(dataSets.items, 0)
     })
 
     it('should return data sets for a client', async () => {
@@ -197,36 +247,36 @@ describe('WarmStorageService', () => {
 
       const dataSets = await warmStorageService.getClientDataSets({ address: Mocks.ADDRESSES.client1 })
 
-      assert.isArray(dataSets)
-      assert.lengthOf(dataSets, 2)
+      assert.isArray(dataSets.items)
+      assert.lengthOf(dataSets.items, 2)
 
       // Check first data set
-      assert.equal(dataSets[0].pdpRailId, 1n)
-      assert.equal(dataSets[0].payer, Mocks.ADDRESSES.client1)
-      assert.equal(dataSets[0].payee, Mocks.ADDRESSES.serviceProvider1)
-      assert.equal(dataSets[0].commissionBps, 100n)
-      assert.equal(dataSets[0].clientDataSetId, 0n)
-      assert.equal(dataSets[0].cdnRailId, 0n)
+      assert.equal(dataSets.items[0].pdpRailId, 1n)
+      assert.equal(dataSets.items[0].payer, Mocks.ADDRESSES.client1)
+      assert.equal(dataSets.items[0].payee, Mocks.ADDRESSES.serviceProvider1)
+      assert.equal(dataSets.items[0].commissionBps, 100n)
+      assert.equal(dataSets.items[0].clientDataSetId, 0n)
+      assert.equal(dataSets.items[0].cdnRailId, 0n)
 
       // Check second data set
-      assert.equal(dataSets[1].pdpRailId, 2n)
-      assert.equal(dataSets[1].payer, Mocks.ADDRESSES.client1)
-      assert.equal(dataSets[1].payee, Mocks.ADDRESSES.serviceProvider1)
-      assert.equal(dataSets[1].commissionBps, 200n)
-      assert.equal(dataSets[1].clientDataSetId, 1n)
-      assert.isAbove(Number(dataSets[1].cdnRailId), 0)
-      assert.equal(dataSets[1].cdnRailId, 100n)
+      assert.equal(dataSets.items[1].pdpRailId, 2n)
+      assert.equal(dataSets.items[1].payer, Mocks.ADDRESSES.client1)
+      assert.equal(dataSets.items[1].payee, Mocks.ADDRESSES.serviceProvider1)
+      assert.equal(dataSets.items[1].commissionBps, 200n)
+      assert.equal(dataSets.items[1].clientDataSetId, 1n)
+      assert.isAbove(Number(dataSets.items[1].cdnRailId), 0)
+      assert.equal(dataSets.items[1].cdnRailId, 100n)
     })
 
-    it('should support pagination with offset and limit', async () => {
+    it('should support pagination with cursor and limit', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           warmStorageView: {
             getClientDataSets: (args) => {
               const [, offset, limit] = args
-              // Return first dataset when offset=0, limit=1
-              if (offset === 0n && limit === 1n) {
+              // Core performs a one-item look-ahead, so page size 1 reads 2.
+              if (offset === 0n && limit === 2n) {
                 return [
                   [
                     {
@@ -248,8 +298,7 @@ describe('WarmStorageService', () => {
                   ],
                 ]
               }
-              // Return second dataset when offset=1, limit=1
-              if (offset === 1n && limit === 1n) {
+              if (offset === 1n && limit === 2n) {
                 return [
                   [
                     {
@@ -281,20 +330,20 @@ describe('WarmStorageService', () => {
       // Get first page
       const firstPage = await warmStorageService.getClientDataSets({
         address: Mocks.ADDRESSES.client1,
-        offset: 0n,
+        cursor: 0n,
         limit: 1n,
       })
-      assert.lengthOf(firstPage, 1)
-      assert.equal(firstPage[0].dataSetId, 1n)
+      assert.lengthOf(firstPage.items, 1)
+      assert.equal(firstPage.items[0].dataSetId, 1n)
 
       // Get second page
       const secondPage = await warmStorageService.getClientDataSets({
         address: Mocks.ADDRESSES.client1,
-        offset: 1n,
+        cursor: 1n,
         limit: 1n,
       })
-      assert.lengthOf(secondPage, 1)
-      assert.equal(secondPage[0].dataSetId, 2n)
+      assert.lengthOf(secondPage.items, 1)
+      assert.equal(secondPage.items[0].dataSetId, 2n)
     })
 
     it('should handle contract call errors gracefully', async () => {
@@ -360,11 +409,11 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
       const ids = await warmStorageService.getClientDataSetIds({ address: Mocks.ADDRESSES.client1 })
-      assert.isArray(ids)
-      assert.lengthOf(ids, 3)
-      assert.equal(ids[0], 1n)
-      assert.equal(ids[1], 2n)
-      assert.equal(ids[2], 3n)
+      assert.isArray(ids.items)
+      assert.lengthOf(ids.items, 3)
+      assert.equal(ids.items[0], 1n)
+      assert.equal(ids.items[1], 2n)
+      assert.equal(ids.items[2], 3n)
     })
 
     it('should return empty array when client has no data sets', async () => {
@@ -378,23 +427,22 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
       const ids = await warmStorageService.getClientDataSetIds({ address: Mocks.ADDRESSES.client1 })
-      assert.isArray(ids)
-      assert.lengthOf(ids, 0)
+      assert.isArray(ids.items)
+      assert.lengthOf(ids.items, 0)
     })
 
-    it('should support pagination with offset and limit', async () => {
+    it('should support pagination with cursor and limit', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           warmStorageView: {
             clientDataSets: (args) => {
               const [, offset, limit] = args
-              // Return first ID when offset=0, limit=1
-              if (offset === 0n && limit === 1n) {
+              // Core performs a one-item look-ahead, so page size 1 reads 2.
+              if (offset === 0n && limit === 2n) {
                 return [[1n]]
               }
-              // Return second ID when offset=1, limit=1
-              if (offset === 1n && limit === 1n) {
+              if (offset === 1n && limit === 2n) {
                 return [[2n]]
               }
               return [[]]
@@ -407,38 +455,34 @@ describe('WarmStorageService', () => {
       // Get first page
       const firstPage = await warmStorageService.getClientDataSetIds({
         address: Mocks.ADDRESSES.client1,
-        offset: 0n,
+        cursor: 0n,
         limit: 1n,
       })
-      assert.lengthOf(firstPage, 1)
-      assert.equal(firstPage[0], 1n)
+      assert.lengthOf(firstPage.items, 1)
+      assert.equal(firstPage.items[0], 1n)
 
       // Get second page
       const secondPage = await warmStorageService.getClientDataSetIds({
         address: Mocks.ADDRESSES.client1,
-        offset: 1n,
+        cursor: 1n,
         limit: 1n,
       })
-      assert.lengthOf(secondPage, 1)
-      assert.equal(secondPage[0], 2n)
+      assert.lengthOf(secondPage.items, 1)
+      assert.equal(secondPage.items[0], 2n)
     })
 
-    it('should fetch all IDs when limit is 0n', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          warmStorageView: {
-            clientDataSets: () => [[1n, 2n, 3n, 4n, 5n]],
-          },
-        })
-      )
+    it('should reject limit 0n', async () => {
       const warmStorageService = await createWarmStorageService()
-      const ids = await warmStorageService.getClientDataSetIds({
-        address: Mocks.ADDRESSES.client1,
-        offset: 0n,
-        limit: 0n,
-      })
-      assert.lengthOf(ids, 5)
+      try {
+        await warmStorageService.getClientDataSetIds({
+          address: Mocks.ADDRESSES.client1,
+          cursor: 0n,
+          limit: 0n,
+        })
+        assert.fail('Expected limit validation to reject')
+      } catch (error) {
+        assert.include(String(error), '`limit` must be greater than 0n')
+      }
     })
   })
 
@@ -487,7 +531,7 @@ describe('WarmStorageService', () => {
       assert.lengthOf(detailedDataSets, 1)
       assert.equal(detailedDataSets[0].pdpRailId, 48n)
       assert.equal(detailedDataSets[0].pdpVerifierDataSetId, 242n)
-      assert.equal(detailedDataSets[0].activePieceCount, 2n)
+      assert.isTrue(detailedDataSets[0].hasActivePieces)
       assert.isTrue(detailedDataSets[0].isLive)
       assert.isTrue(detailedDataSets[0].isManaged)
     })

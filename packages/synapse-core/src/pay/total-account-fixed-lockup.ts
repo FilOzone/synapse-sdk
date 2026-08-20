@@ -1,5 +1,6 @@
 import type { Address, Chain, Client, MulticallErrorType, Transport } from 'viem'
 import { multicall } from 'viem/actions'
+import { paginate } from '../pagination.ts'
 import { toReadClient } from '../utils/read-client.ts'
 import { getRailCall } from './get-rail.ts'
 import { getRailsForPayerAndToken } from './get-rails-for-payer-and-token.ts'
@@ -57,31 +58,42 @@ export async function totalAccountFixedLockup(
   options: totalAccountFixedLockup.OptionsType
 ): Promise<totalAccountFixedLockup.OutputType> {
   const readClient = toReadClient(client)
-  const { results } = await getRailsForPayerAndToken(readClient, {
-    payer: options.address,
-    token: options.token,
-    contractAddress: options.contractAddress,
-  })
-
-  if (results.length === 0) {
-    return { totalFixedLockup: 0n }
-  }
-
-  const railDetails = await multicall(readClient, {
-    allowFailure: false,
-    contracts: results.map((rail) =>
-      getRailCall({
-        chain: client.chain,
-        railId: rail.railId,
-        contractAddress: options.contractAddress,
-      })
-    ),
-  })
-
   let totalFixedLockup = 0n
-  for (const rail of railDetails) {
-    totalFixedLockup += rail.lockupFixed
+  let rails: Array<getRailsForPayerAndToken.OutputType['items'][number]> = []
+
+  const processPage = async () => {
+    if (rails.length > 0) {
+      const railDetails = await multicall(readClient, {
+        allowFailure: false,
+        contracts: rails.map((rail) =>
+          getRailCall({
+            chain: client.chain,
+            railId: rail.railId,
+            contractAddress: options.contractAddress,
+          })
+        ),
+      })
+      for (const rail of railDetails) {
+        totalFixedLockup += rail.lockupFixed
+      }
+    }
+    rails = []
   }
 
+  for await (const rail of paginate(({ cursor }) =>
+    getRailsForPayerAndToken(readClient, {
+      payer: options.address,
+      token: options.token,
+      contractAddress: options.contractAddress,
+      cursor,
+      limit: 100n,
+    })
+  )) {
+    rails.push(rail)
+    if (rails.length === 100) {
+      await processPage()
+    }
+  }
+  await processPage()
   return { totalFixedLockup }
 }

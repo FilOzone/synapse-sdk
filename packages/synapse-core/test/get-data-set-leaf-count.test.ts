@@ -69,7 +69,7 @@ describe('getDataSetLeafCount', () => {
       const count = await getDataSetLeafCount(client, { dataSetId: 1n })
 
       assert.equal(typeof count, 'bigint')
-      assert.equal(count, 0n)
+      assert.equal(count, 2n)
     })
 
     it('should return 0 when the data set is not live', async () => {

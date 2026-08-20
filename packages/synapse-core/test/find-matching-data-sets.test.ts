@@ -8,7 +8,7 @@ function makeDataSet(
 ): SelectionDataSet {
   return {
     metadata: {},
-    activePieceCount: 0n,
+    hasActivePieces: false,
     pdpEndEpoch: 0n,
     live: true,
     managed: true,
@@ -71,18 +71,18 @@ describe('findMatchingDataSets', () => {
 
   it('sorts datasets with pieces before empty ones', () => {
     const dataSets = [
-      makeDataSet({ dataSetId: 1n, providerId: 1n, metadata: { source: 'app' }, activePieceCount: 0n }),
-      makeDataSet({ dataSetId: 2n, providerId: 2n, metadata: { source: 'app' }, activePieceCount: 5n }),
+      makeDataSet({ dataSetId: 1n, providerId: 1n, metadata: { source: 'app' }, hasActivePieces: false }),
+      makeDataSet({ dataSetId: 2n, providerId: 2n, metadata: { source: 'app' }, hasActivePieces: true }),
     ]
     const result = findMatchingDataSets(dataSets, { source: 'app' })
     assert.equal(result[0].dataSetId, 2n)
     assert.equal(result[1].dataSetId, 1n)
   })
 
-  it('sorts by ID ascending within same piece group', () => {
+  it('sorts by ID ascending', () => {
     const dataSets = [
-      makeDataSet({ dataSetId: 10n, providerId: 1n, metadata: { source: 'app' }, activePieceCount: 3n }),
-      makeDataSet({ dataSetId: 5n, providerId: 2n, metadata: { source: 'app' }, activePieceCount: 3n }),
+      makeDataSet({ dataSetId: 10n, providerId: 1n, metadata: { source: 'app' }, hasActivePieces: true }),
+      makeDataSet({ dataSetId: 5n, providerId: 2n, metadata: { source: 'app' }, hasActivePieces: true }),
     ]
     const result = findMatchingDataSets(dataSets, { source: 'app' })
     assert.equal(result[0].dataSetId, 5n)
@@ -134,15 +134,14 @@ describe('findMatchingDataSets', () => {
     assert.equal(result.length, 0)
   })
 
-  it('full sorting: pieces first, then by ID within groups', () => {
+  it('sorts by piece presence and then by ID', () => {
     const dataSets = [
-      makeDataSet({ dataSetId: 10n, providerId: 1n, metadata: { source: 'app' }, activePieceCount: 0n }),
-      makeDataSet({ dataSetId: 5n, providerId: 2n, metadata: { source: 'app' }, activePieceCount: 3n }),
-      makeDataSet({ dataSetId: 3n, providerId: 3n, metadata: { source: 'app' }, activePieceCount: 0n }),
-      makeDataSet({ dataSetId: 8n, providerId: 4n, metadata: { source: 'app' }, activePieceCount: 7n }),
+      makeDataSet({ dataSetId: 10n, providerId: 1n, metadata: { source: 'app' }, hasActivePieces: false }),
+      makeDataSet({ dataSetId: 5n, providerId: 2n, metadata: { source: 'app' }, hasActivePieces: true }),
+      makeDataSet({ dataSetId: 3n, providerId: 3n, metadata: { source: 'app' }, hasActivePieces: false }),
+      makeDataSet({ dataSetId: 8n, providerId: 4n, metadata: { source: 'app' }, hasActivePieces: true }),
     ]
     const result = findMatchingDataSets(dataSets, { source: 'app' })
-    // Pieces first (5n, 8n by ID ascending), then empty (3n, 10n by ID ascending)
     assert.deepEqual(
       result.map((ds) => ds.dataSetId),
       [5n, 8n, 3n, 10n]

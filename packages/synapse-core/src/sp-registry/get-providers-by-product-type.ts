@@ -1,4 +1,3 @@
-import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -11,19 +10,16 @@ import type {
 import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
+import { type Page, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
 import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getProvidersByProductType {
-  export type OptionsType = {
+  export type OptionsType = PaginationOptions & {
     /** The product type to filter by. */
     productType: number
     /** If true, return only active providers with active products. Defaults to true. */
     onlyActive?: boolean
-    /** Starting index for pagination (0-based). Defaults to 0. */
-    offset?: bigint
-    /** Maximum number of results to return. Defaults to 50. */
-    limit?: bigint
     /** Service Provider Registry contract address. If not provided, the default is the ServiceProviderRegistry contract address for the chain. */
     contractAddress?: Address
   }
@@ -34,21 +30,24 @@ export namespace getProvidersByProductType {
     'getProvidersByProductType'
   >
 
-  /** The paginated providers result */
-  export type OutputType = ContractOutputType
+  /** A page of providers offering the requested product. */
+  export type OutputType = Page<ContractOutputType['providers'][number]>
 
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType | resolvePagination.ErrorType
 }
 
 /**
- * Get providers that offer a specific product type with pagination
+ * Get one bounded page of providers offering a product type.
+ *
+ * Pass the returned `nextCursor` back as `cursor`; treat it as opaque. Use
+ * {@link paginate} to traverse every page.
  *
  * @param client - The client to use to get the providers.
  * @param options - {@link getProvidersByProductType.OptionsType}
  * @returns The paginated providers result {@link getProvidersByProductType.OutputType}
  * @throws Errors {@link getProvidersByProductType.ErrorType}
  *
- * @example
+ * @example Read the first page
  * ```ts
  * import { getProvidersByProductType } from '@filoz/synapse-core/sp-registry'
  * import { createPublicClient, http } from 'viem'
@@ -59,35 +58,53 @@ export namespace getProvidersByProductType {
  *   transport: http(),
  * })
  *
- * const result = await getProvidersByProductType(client, {
+ * const page = await getProvidersByProductType(client, {
  *   productType: 0, // ProductType.PDP
  *   onlyActive: true,
  * })
+ * console.log(page.items, page.nextCursor)
+ * ```
  *
- * console.log(result.providers)
- * console.log(result.hasMore)
+ * @example Iterate over every page
+ * ```ts
+ * import { paginate } from '@filoz/synapse-core'
+ * import { getProvidersByProductType } from '@filoz/synapse-core/sp-registry'
+ *
+ * for await (const provider of paginate(({ cursor }) =>
+ *   getProvidersByProductType(client, {
+ *     productType: 0, // ProductType.PDP
+ *     onlyActive: true,
+ *     cursor,
+ *   })
+ * )) {
+ *   console.log(provider.providerId)
+ * }
  * ```
  */
 export async function getProvidersByProductType(
   client: Client<Transport, Chain>,
   options: getProvidersByProductType.OptionsType
 ): Promise<getProvidersByProductType.OutputType> {
+  const { cursor, limit } = resolvePagination(options, 50n)
   const data = await readContract(
     toReadClient(client),
     getProvidersByProductTypeCall({
       chain: client.chain,
       productType: options.productType,
       onlyActive: options.onlyActive,
-      offset: options.offset,
-      limit: options.limit,
+      offset: cursor,
+      limit,
       contractAddress: options.contractAddress,
     })
   )
-  return data
+  return {
+    items: Array.from(data.providers),
+    ...(data.hasMore ? { nextCursor: cursor + BigInt(data.providers.length) } : {}),
+  }
 }
 
 export namespace getProvidersByProductTypeCall {
-  export type OptionsType = Simplify<getProvidersByProductType.OptionsType & ActionCallChain>
+  export type OptionsType = PaginatedActionCallOptions<getProvidersByProductType.OptionsType, 'offset'>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof serviceProviderRegistryAbi,
@@ -123,6 +140,8 @@ export namespace getProvidersByProductTypeCall {
  *       chain: calibration,
  *       productType: 0,
  *       onlyActive: true,
+ *       offset: 0n,
+ *       limit: 50n,
  *     }),
  *   ],
  * })
@@ -136,6 +155,6 @@ export function getProvidersByProductTypeCall(options: getProvidersByProductType
     abi: chain.contracts.serviceProviderRegistry.abi,
     address: options.contractAddress ?? chain.contracts.serviceProviderRegistry.address,
     functionName: 'getProvidersByProductType',
-    args: [options.productType, options.onlyActive ?? true, options.offset ?? 0n, options.limit ?? 50n],
+    args: [options.productType, options.onlyActive ?? true, options.offset, options.limit],
   } satisfies getProvidersByProductTypeCall.OutputType
 }

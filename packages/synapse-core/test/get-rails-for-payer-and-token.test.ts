@@ -83,14 +83,14 @@ describe('getRailsForPayerAndToken', () => {
 
       const result = parseGetRailsForPayerAndToken(contractOutput)
 
-      assert.equal(result.results.length, 2)
-      assert.equal(result.results[0].railId, 1n)
-      assert.equal(result.results[0].isTerminated, false)
-      assert.equal(result.results[0].endEpoch, 0n)
-      assert.equal(result.results[1].railId, 2n)
-      assert.equal(result.results[1].isTerminated, true)
-      assert.equal(result.results[1].endEpoch, 999999n)
-      assert.equal(result.nextOffset, 2n)
+      assert.equal(result.items.length, 2)
+      assert.equal(result.items[0].railId, 1n)
+      assert.equal(result.items[0].isTerminated, false)
+      assert.equal(result.items[0].endEpoch, 0n)
+      assert.equal(result.items[1].railId, 2n)
+      assert.equal(result.items[1].isTerminated, true)
+      assert.equal(result.items[1].endEpoch, 999999n)
+      assert.equal(result.nextCursor, undefined)
       assert.equal(result.total, 2n)
     })
   })
@@ -108,10 +108,9 @@ describe('getRailsForPayerAndToken', () => {
         payer: ADDRESSES.client1,
       })
 
-      assert.equal(Array.isArray(result.results), true)
-      assert.equal(typeof result.nextOffset, 'bigint')
+      assert.equal(Array.isArray(result.items), true)
       assert.equal(typeof result.total, 'bigint')
-      assert.equal(result.results.length, 2)
+      assert.equal(result.items.length, 2)
       assert.equal(result.total, 2n)
     })
 
@@ -127,14 +126,14 @@ describe('getRailsForPayerAndToken', () => {
         payer: ADDRESSES.client1,
       })
 
-      assert.equal(result.results.length, 2)
-      assert.equal(result.results[0].railId, 1n)
-      assert.equal(result.results[0].isTerminated, false)
-      assert.equal(result.results[0].endEpoch, 0n)
-      assert.equal(result.results[1].railId, 2n)
-      assert.equal(result.results[1].isTerminated, true)
-      assert.equal(result.results[1].endEpoch, 999999n)
-      assert.equal(result.nextOffset, 2n)
+      assert.equal(result.items.length, 2)
+      assert.equal(result.items[0].railId, 1n)
+      assert.equal(result.items[0].isTerminated, false)
+      assert.equal(result.items[0].endEpoch, 0n)
+      assert.equal(result.items[1].railId, 2n)
+      assert.equal(result.items[1].isTerminated, true)
+      assert.equal(result.items[1].endEpoch, 999999n)
+      assert.equal(result.nextCursor, undefined)
       assert.equal(result.total, 2n)
     })
 
@@ -165,7 +164,7 @@ describe('getRailsForPayerAndToken', () => {
         token: customToken,
       })
 
-      assert.equal(result.results.length, 1)
+      assert.equal(result.items.length, 1)
     })
 
     it('should use pagination parameters', async () => {
@@ -191,12 +190,12 @@ describe('getRailsForPayerAndToken', () => {
 
       const result = await getRailsForPayerAndToken(client, {
         payer: ADDRESSES.client1,
-        offset: 5n,
+        cursor: 5n,
         limit: 10n,
       })
 
-      assert.equal(result.results.length, 1)
-      assert.equal(result.nextOffset, 6n)
+      assert.equal(result.items.length, 1)
+      assert.equal(result.nextCursor, 6n)
       assert.equal(result.total, 10n)
     })
 
@@ -209,7 +208,7 @@ describe('getRailsForPayerAndToken', () => {
             getRailsForPayerAndToken: (args) => {
               const [, , offset, limit] = args
               assert.equal(offset, 0n)
-              assert.equal(limit, 0n) // 0 means get all
+              assert.equal(limit, 100n)
               return [[{ railId: 1n, isTerminated: false, endEpoch: 0n }], 1n, 1n]
             },
           },
@@ -225,7 +224,7 @@ describe('getRailsForPayerAndToken', () => {
         payer: ADDRESSES.client1,
       })
 
-      assert.equal(result.results.length, 1)
+      assert.equal(result.items.length, 1)
     })
   })
 })

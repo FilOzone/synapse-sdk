@@ -26,7 +26,7 @@ Check the documentation [website](https://synapse.filecoin.services/)
 
 ## Contributing
 
-Read contributing  [guidelines](../../.github/CONTRIBUTING.md).
+Read contributing [guidelines](../../.github/CONTRIBUTING.md).
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/FilOzone/synapse-sdk)
 

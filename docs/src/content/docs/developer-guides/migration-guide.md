@@ -9,6 +9,141 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ---
 
+## synapse-core 0.8.0
+
+### Action: Migrate paginated reads to cursors and pages
+
+Paginated actions in `@filoz/synapse-core` now share a bounded cursor interface:
+
+```ts
+type PaginationOptions = {
+  cursor?: bigint
+  limit?: bigint
+}
+
+type Page<T> = {
+  items: T[]
+  nextCursor?: bigint
+}
+```
+
+Replace contract-specific `offset`, `hasMore`, and array result handling with `cursor`, `items`, and `nextCursor`. Treat `nextCursor` as opaque and pass it back unchanged. Omitting `limit` uses a bounded default; `limit: 0n` is now rejected instead of meaning “fetch everything.”
+
+```ts
+// before
+const dataSets = await getClientDataSets(client, {
+  address,
+  offset: 0n,
+  limit: 0n,
+})
+
+// after: read one page
+const page = await getClientDataSets(client, {
+  address,
+  limit: 100n,
+})
+console.log(page.items)
+
+const nextPage = page.nextCursor === undefined
+  ? undefined
+  : await getClientDataSets(client, {
+      address,
+      cursor: page.nextCursor,
+      limit: 100n,
+    })
+```
+
+Use the generic `paginate()` generator to traverse every page or accumulate all items:
+
+```ts
+import { paginate } from '@filoz/synapse-core'
+import { getClientDataSets } from '@filoz/synapse-core/warm-storage'
+
+for await (const dataSet of paginate(({ cursor }) =>
+  getClientDataSets(client, { address, cursor })
+)) {
+  console.log(dataSet.dataSetId)
+}
+
+const allDataSets = await Array.fromAsync(
+  paginate(({ cursor }) => getClientDataSets(client, { address, cursor }))
+)
+```
+
+This result change applies to paginated payment rails, FWSS client data sets and approved providers, PDP pieces and CID matches, and service-provider registry queries. Payment rail pages additionally include `total`.
+
+The `WarmStorageService.getClientDataSets()` and `getClientDataSetIds()` methods in `@filoz/synapse-sdk` expose the same page interface. Higher-level SDK methods whose names promise all results, such as provider listing and rail listing methods, continue to return complete arrays and paginate internally.
+
+### Action: Replace `getActivePieces` with `getActivePiecesByCursor`
+
+The offset-based `getActivePieces` action was removed. Use piece-ID cursor pagination instead:
+
+```ts
+// before
+const result = await getActivePieces(client, {
+  dataSetId,
+  offset: 0n,
+  limit: 100n,
+})
+
+// after
+const page = await getActivePiecesByCursor(client, {
+  dataSetId,
+  limit: 100n,
+})
+
+// iterate
+for await (const piece of paginate(({ cursor }) =>
+  getActivePiecesByCursor(client, { dataSetId, cursor, limit: 100n })
+)) {
+  console.log(piece.id, piece.cid)
+}
+```
+
+`findPieceIdsByCid`, `getPieces`, and `getPiecesWithMetadata` also return pages and accept `cursor` rather than `startPieceId` or `offset` at the action level.
+
+Raw `*Call` helpers in `@filoz/synapse-core` remain ABI-oriented: provide their required contract-facing `offset` or `startPieceId` and `limit` fields explicitly when constructing multicalls.
+
+### Action: Replace core `activePieceCount` with `hasActivePieces`
+
+The enriched `PdpDataSet` values returned by `getPdpDataSet()` and `getPdpDataSets()` no longer include an exact `activePieceCount`. They now expose `hasActivePieces`, derived from a non-zero `getDataSetLeafCount` read. Leaf count is an O(1) storage lookup, unlike `getActivePiecesByCursor` and `getActivePieceCount`, which scan piece IDs and can run out of gas on large or fully drained data sets:
+
+```ts
+// before
+const dataSet = await getPdpDataSet(client, { dataSetId })
+if (dataSet && dataSet.activePieceCount > 0n) {
+  // the data set has pieces
+}
+
+// after
+const dataSet = await getPdpDataSet(client, { dataSetId })
+if (dataSet?.hasActivePieces) {
+  // the data set has pieces
+}
+```
+
+`WarmStorageService.hasActivePieces()` keeps the same public API, but now uses the same leaf-count proxy instead of calculating an exact count. `EnhancedDataSetInfo` from `getClientDataSetsWithDetails()` / `findDataSets()` also exposes `hasActivePieces` instead of `activePieceCount`.
+
+The core `getActivePieceCount()` action remains available, but the underlying contract getter scans the data set's piece-ID range and can fail for large data sets. `WarmStorageService.getActivePieceCount()` now paginates `getActivePiecesByCursor` to derive an exact count:
+
+```ts
+const activePieceCount = await warmStorageService.getActivePieceCount({ dataSetId })
+```
+
+To paginate explicitly in core:
+
+```ts
+let activePieceCount = 0n
+
+for await (const _piece of paginate(({ cursor }) =>
+  getActivePiecesByCursor(client, { dataSetId, cursor })
+)) {
+  activePieceCount++
+}
+```
+
+---
+
 ## 1.0.0
 
 ### Action: Replace `terminateDataSet` with `terminateService`

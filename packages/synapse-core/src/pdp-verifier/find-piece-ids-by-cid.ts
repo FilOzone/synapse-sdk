@@ -1,4 +1,3 @@
-import type { Simplify } from 'type-fest'
 import {
   type Address,
   type Chain,
@@ -12,25 +11,28 @@ import {
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
+import {
+  type Page,
+  type PaginationOptions,
+  pageFromLookahead,
+  type paginate,
+  resolvePagination,
+} from '../pagination.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import type { ActionCallChain } from '../types.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
 import { toReadClient } from '../utils/read-client.ts'
 
 export namespace findPieceIdsByCid {
-  export type OptionsType = {
+  export type OptionsType = PaginationOptions & {
     /** The ID of the data set to search in. */
     dataSetId: bigint
     /** The PieceCID to search for. */
     pieceCid: PieceCID
-    /** The starting piece ID for the search. @default 0n */
-    startPieceId?: bigint
-    /** The maximum number of results to return. @default 1n */
-    limit?: bigint
     /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
     contractAddress?: Address
   }
 
-  export type OutputType = readonly bigint[]
+  export type OutputType = Page<bigint>
 
   /**
    * `uint256[]` - Array of piece IDs matching the given CID
@@ -41,15 +43,17 @@ export namespace findPieceIdsByCid {
     'findPieceIdsByCid'
   >
 
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType | resolvePagination.ErrorType
 }
 
 /**
- * Find piece IDs for a given PieceCID in a data set.
+ * Find one bounded page of piece IDs matching a PieceCID in a data set.
  *
- * Uses the on-chain `findPieceIdsByCid` function for efficient CID→ID lookup.
+ * Uses the on-chain `findPieceIdsByCid` function for efficient CID-to-ID
+ * lookup. Pass `nextCursor` back unchanged; use {@link paginate} to collect
+ * every match. The default page size is one match.
  *
- * @example
+ * @example Read the first page
  * ```ts
  * import { findPieceIdsByCid } from '@filoz/synapse-core/pdp-verifier'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -62,37 +66,48 @@ export namespace findPieceIdsByCid {
  * })
  *
  * const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
- * const pieceIds = await findPieceIdsByCid(client, {
- *   dataSetId: 1n,
- *   pieceCid,
- * })
- * // pieceIds is an array of bigint IDs matching the CID
+ * const page = await findPieceIdsByCid(client, { dataSetId: 1n, pieceCid })
+ * console.log(page.items, page.nextCursor)
+ * ```
+ *
+ * @example Iterate over every page
+ * ```ts
+ * import { paginate } from '@filoz/synapse-core'
+ * import { findPieceIdsByCid } from '@filoz/synapse-core/pdp-verifier'
+ *
+ * for await (const pieceId of paginate(({ cursor }) =>
+ *   findPieceIdsByCid(client, { dataSetId: 1n, pieceCid, cursor })
+ * )) {
+ *   console.log(pieceId)
+ * }
  * ```
  *
  * @param client - The client to use to find piece IDs.
  * @param options - {@link findPieceIdsByCid.OptionsType}
- * @returns Array of piece IDs matching the CID {@link findPieceIdsByCid.OutputType}
+ * @returns A page of piece IDs matching the CID {@link findPieceIdsByCid.OutputType}
  * @throws Errors {@link findPieceIdsByCid.ErrorType}
  */
 export async function findPieceIdsByCid(
   client: Client<Transport, Chain>,
   options: findPieceIdsByCid.OptionsType
 ): Promise<findPieceIdsByCid.OutputType> {
-  return await readContract(
+  const { cursor, limit } = resolvePagination(options, 1n)
+  const data = await readContract(
     toReadClient(client),
     findPieceIdsByCidCall({
       chain: client.chain,
       dataSetId: options.dataSetId,
       pieceCid: options.pieceCid,
-      startPieceId: options.startPieceId,
-      limit: options.limit,
+      startPieceId: cursor,
+      limit: limit + 1n,
       contractAddress: options.contractAddress,
     })
   )
+  return pageFromLookahead(data, limit, (last) => last + 1n)
 }
 
 export namespace findPieceIdsByCidCall {
-  export type OptionsType = Simplify<findPieceIdsByCid.OptionsType & ActionCallChain>
+  export type OptionsType = PaginatedActionCallOptions<findPieceIdsByCid.OptionsType, 'startPieceId'>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof pdpVerifierAbi, 'pure' | 'view', 'findPieceIdsByCid'>
 }
@@ -118,6 +133,8 @@ export namespace findPieceIdsByCidCall {
  *   chain: calibration,
  *   dataSetId: 1n,
  *   pieceCid,
+ *   startPieceId: 0n,
+ *   limit: 1n,
  * }))
  * ```
  *
@@ -131,6 +148,6 @@ export function findPieceIdsByCidCall(options: findPieceIdsByCidCall.OptionsType
     abi: chain.contracts.pdp.abi,
     address: options.contractAddress ?? chain.contracts.pdp.address,
     functionName: 'findPieceIdsByCid',
-    args: [options.dataSetId, { data: toHex(options.pieceCid.bytes) }, options.startPieceId ?? 0n, options.limit ?? 1n],
+    args: [options.dataSetId, { data: toHex(options.pieceCid.bytes) }, options.startPieceId, options.limit],
   } satisfies findPieceIdsByCidCall.OutputType
 }

@@ -561,7 +561,7 @@ export const presets = {
       getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
       getNextPieceId: () => [2n],
       getActivePieceCount: () => [2n],
-      getActivePieces: () => [
+      getActivePiecesByCursor: () => [
         [
           { data: toHex(Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy').bytes) },
           { data: toHex(Piece.from('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace').bytes) },
@@ -570,7 +570,7 @@ export const presets = {
         false,
       ],
       getDataSetStorageProvider: () => [ADDRESSES.serviceProvider1, ADDRESSES.zero],
-      getDataSetLeafCount: () => [0n],
+      getDataSetLeafCount: () => [2n],
       getScheduledRemovals: () => [[]],
       getNextChallengeEpoch: () => [5000n],
       findPieceIdsByCid: () => [[0n]],
@@ -646,7 +646,6 @@ export const presets = {
           },
         ]
       },
-      getAllActiveProviders: () => [[1n, 2n], false],
       getProviderCount: () => [2n],
       activeProviderCount: () => [2n],
       isProviderActive: (data) => {

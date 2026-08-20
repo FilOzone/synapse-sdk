@@ -1,8 +1,8 @@
 import assert from 'assert'
 import { setup } from 'iso-web/msw'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, toHex } from 'viem'
 import { calibration } from '../src/chains.ts'
-import { LimitMustBeGreaterThanZeroError } from '../src/errors/pdp-verifier.ts'
+import { ValidationError } from '../src/errors/base.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { getPieces, getPiecesWithMetadata } from '../src/pdp-verifier/get-pieces.ts'
 import * as Piece from '../src/piece/index.ts'
@@ -30,7 +30,7 @@ describe('getPieces', () => {
       managed: true,
       cdn: false,
       metadata: Object.create(null),
-      activePieceCount: 2n,
+      hasActivePieces: true,
       provider: {
         id: 1n,
         serviceProvider: ADDRESSES.serviceProvider1,
@@ -87,8 +87,7 @@ describe('getPieces', () => {
     })
 
     assert.deepEqual(result, {
-      hasMore: false,
-      pieces: [
+      items: [
         {
           cid: firstPieceCid,
           id: 0n,
@@ -104,7 +103,7 @@ describe('getPieces', () => {
         ...presets.basic,
         pdpVerifier: {
           ...presets.basic.pdpVerifier,
-          getActivePieces: () => {
+          getActivePiecesByCursor: () => {
             throw new Error('Data set not live')
           },
         },
@@ -121,10 +120,28 @@ describe('getPieces', () => {
       address: ADDRESSES.client1,
     })
 
-    assert.deepEqual(result, {
-      pieces: [],
-      hasMore: false,
+    assert.deepEqual(result, { items: [] })
+  })
+
+  it('preserves the source cursor when filtering yields an empty visible page', async () => {
+    server.use(
+      JSONRPC({
+        ...presets.basic,
+        pdpVerifier: {
+          ...presets.basic.pdpVerifier,
+          getActivePiecesByCursor: () => [[{ data: toHex(firstPieceCid.bytes) }], [5n], true],
+          getScheduledRemovals: () => [[5n]],
+        },
+      })
+    )
+    const client = createPublicClient({ chain: calibration, transport: http() })
+    const result = await getPieces(client, {
+      dataSet: createDataSet(),
+      address: ADDRESSES.client1,
+      cursor: 5n,
+      limit: 1n,
     })
+    assert.deepEqual(result, { items: [], nextCursor: 6n })
   })
 
   it('should throw when getPieces limit is negative', async () => {
@@ -140,7 +157,7 @@ describe('getPieces', () => {
           address: ADDRESSES.client1,
           limit: -1n,
         }),
-      LimitMustBeGreaterThanZeroError
+      ValidationError
     )
   })
 
@@ -150,7 +167,7 @@ describe('getPieces', () => {
         ...presets.basic,
         pdpVerifier: {
           ...presets.basic.pdpVerifier,
-          getActivePieces: () => [[], [], false],
+          getActivePiecesByCursor: () => [[], [], false],
         },
         warmStorageView: {
           ...presets.basic.warmStorageView,
@@ -171,10 +188,7 @@ describe('getPieces', () => {
       address: ADDRESSES.client1,
     })
 
-    assert.deepEqual(result, {
-      pieces: [],
-      hasMore: false,
-    })
+    assert.deepEqual(result, { items: [] })
   })
 
   it('should throw when getPiecesWithMetadata limit is negative', async () => {
@@ -190,7 +204,7 @@ describe('getPieces', () => {
           address: ADDRESSES.client1,
           limit: -1n,
         }),
-      LimitMustBeGreaterThanZeroError
+      ValidationError
     )
   })
 })

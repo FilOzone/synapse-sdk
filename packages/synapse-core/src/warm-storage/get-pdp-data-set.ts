@@ -2,7 +2,8 @@ import { type Address, type Chain, type Client, isAddressEqual, type ReadContrac
 import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
-import { getActivePieceCountCall } from '../pdp-verifier/get-active-piece-count.ts'
+import type { getActivePiecesByCursor } from '../pdp-verifier/get-active-pieces-by-cursor.ts'
+import { type getDataSetLeafCount, getDataSetLeafCountCall } from '../pdp-verifier/get-data-set-leaf-count.ts'
 import { getDataSetListenerCall } from '../pdp-verifier/get-data-set-listener.ts'
 import { getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
 import { toReadClient } from '../utils/read-client.ts'
@@ -25,7 +26,14 @@ export namespace getPdpDataSet {
 }
 
 /**
- * Get a PDP data set by ID
+ * Get a PDP data set by ID.
+ *
+ * The result reports piece presence from a non-zero {@link getDataSetLeafCount}
+ * read, which is an O(1) storage lookup, rather than scanning piece IDs. Exact
+ * active-piece counts are omitted because the contract's count getter performs
+ * a linear scan and can fail for large data sets. To derive an exact count
+ * explicitly, traverse {@link getActivePiecesByCursor} with `paginate` and
+ * count the yielded pieces.
  *
  * @param client - The client to use to get the PDP data set.
  * @param options - {@link getPdpDataSet.OptionsType}
@@ -75,7 +83,7 @@ export async function getPdpDataSet(
 }
 
 /**
- * Read the PDP data set info.
+ * Read PDP data set information.
  *
  * @param client - The client to use to read the PDP data set info.
  * @param options
@@ -89,7 +97,7 @@ export async function readPdpDataSetInfo(
   }
 ): Promise<PdpDataSetInfo> {
   const chain = asChain(client.chain)
-  const [live, listener, _metadata, _pdpProvider, activePieceCount] = await multicall(toReadClient(client), {
+  const [live, listener, _metadata, _pdpProvider, leafCount] = await multicall(toReadClient(client), {
     allowFailure: false,
     contracts: [
       dataSetLiveCall({
@@ -108,7 +116,7 @@ export async function readPdpDataSetInfo(
         chain: client.chain,
         providerId: options.providerId,
       }),
-      getActivePieceCountCall({
+      getDataSetLeafCountCall({
         chain: client.chain,
         dataSetId: options.dataSetInfo.dataSetId,
       }),
@@ -124,6 +132,6 @@ export async function readPdpDataSetInfo(
     cdn: options.dataSetInfo.cdnRailId > 0n && 'withCDN' in metadata,
     metadata,
     provider: pdpProvider,
-    activePieceCount,
+    hasActivePieces: leafCount > 0n,
   }
 }

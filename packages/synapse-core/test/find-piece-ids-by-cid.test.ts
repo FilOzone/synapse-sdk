@@ -29,6 +29,8 @@ describe('findPieceIdsByCid', () => {
         chain: calibration,
         dataSetId: 1n,
         pieceCid,
+        startPieceId: 0n,
+        limit: 1n,
       })
 
       assert.equal(call.functionName, 'findPieceIdsByCid')
@@ -42,6 +44,8 @@ describe('findPieceIdsByCid', () => {
         chain: mainnet,
         dataSetId: 1n,
         pieceCid,
+        startPieceId: 0n,
+        limit: 1n,
       })
 
       assert.equal(call.functionName, 'findPieceIdsByCid')
@@ -68,6 +72,8 @@ describe('findPieceIdsByCid', () => {
         chain: calibration,
         dataSetId: 1n,
         pieceCid,
+        startPieceId: 0n,
+        limit: 1n,
         contractAddress: customAddress,
       })
 
@@ -87,9 +93,7 @@ describe('findPieceIdsByCid', () => {
       const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
       const result = await findPieceIdsByCid(client, { dataSetId: 1n, pieceCid })
 
-      assert.ok(Array.isArray(result))
-      assert.equal(result.length, 1)
-      assert.equal(result[0], 0n)
+      assert.deepEqual(result, { items: [0n] })
     })
 
     it('should return empty array when piece not found', async () => {
@@ -111,8 +115,7 @@ describe('findPieceIdsByCid', () => {
       const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
       const result = await findPieceIdsByCid(client, { dataSetId: 1n, pieceCid })
 
-      assert.ok(Array.isArray(result))
-      assert.equal(result.length, 0)
+      assert.deepEqual(result, { items: [] })
     })
 
     it('should return multiple piece IDs', async () => {
@@ -134,10 +137,28 @@ describe('findPieceIdsByCid', () => {
       const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
       const result = await findPieceIdsByCid(client, { dataSetId: 1n, pieceCid, limit: 10n })
 
-      assert.ok(Array.isArray(result))
-      assert.equal(result.length, 2)
-      assert.equal(result[0], 42n)
-      assert.equal(result[1], 99n)
+      assert.deepEqual(result, { items: [42n, 99n] })
+    })
+
+    it('should hide the look-ahead match and advance from the last visible piece ID', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            findPieceIdsByCid: (args) => {
+              assert.deepEqual(args.slice(2), [40n, 3n])
+              return [[42n, 99n, 120n]]
+            },
+          },
+        })
+      )
+
+      const client = createPublicClient({ chain: calibration, transport: http() })
+      const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const page = await findPieceIdsByCid(client, { dataSetId: 1n, pieceCid, cursor: 40n, limit: 2n })
+
+      assert.deepEqual(page, { items: [42n, 99n], nextCursor: 100n })
     })
   })
 })
