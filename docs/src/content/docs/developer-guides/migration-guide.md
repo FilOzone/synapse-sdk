@@ -9,7 +9,7 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ---
 
-## Unreleased
+## synapse-core 0.8.0
 
 ### Action: Migrate paginated reads to cursors and pages
 
