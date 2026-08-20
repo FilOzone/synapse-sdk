@@ -15,7 +15,6 @@ import { from as pieceFrom } from '../piece/parse.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getActivePiecesByCursor {
   export type OptionsType = PaginationOptions & {
@@ -74,7 +73,7 @@ export async function getActivePiecesByCursor(
   const { cursor, limit } = resolvePagination(options, 100n)
   try {
     const data = await readContract(
-      toReadClient(client),
+      client,
       getActivePiecesByCursorCall({
         chain: client.chain,
         dataSetId: options.dataSetId,
