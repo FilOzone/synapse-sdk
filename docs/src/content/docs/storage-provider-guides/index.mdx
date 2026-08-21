@@ -1,0 +1,53 @@
+---
+title: Overview
+description: Run a storage provider on Filecoin Onchain Cloud. Deploy a PDP node, register with Warm Storage, and withdraw your earnings.
+sidebar:
+  order: 1
+  label: Overview
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+These guides are for operators who want to **supply storage** to Filecoin Onchain Cloud, rather than build applications on top of it. You run a Proof of Data Possession (PDP) node, register it with the [Filecoin Warm Storage Service](/core-concepts/fwss-overview/) (FWSS), and earn USDFC as clients store data with you.
+
+A storage provider node is a [Curio](https://docs.curiostorage.org/) deployment backed by a [Lotus](https://lotus.filecoin.io/) chain node and a [YugabyteDB](https://docs.yugabyte.com/) database. PDP is the proof mechanism: your node periodically proves to the PDPVerifier contract that it still holds each client's data in a retrievable state. Once registered, your node appears in the [provider directory](https://www.filecoin.services/providers) and the SDK can select it for client uploads.
+
+:::note[Terminology]
+In the Filecoin Onchain Cloud context, *storage provider*, *PDP provider*, and *FWSS provider* refer to the same role: an operator running a PDP-enabled node registered with Warm Storage. These guides use **PDP node** for the running stack and **storage provider** for the operator.
+:::
+
+## Guides
+
+<CardGrid>
+  <Card title="Install & Run a PDP Node" icon="rocket">
+    Deploy the full Lotus, YugabyteDB, and Curio stack and register with Warm Storage. Covers both Calibration and Mainnet. [Start →](/storage-provider-guides/install-and-run-a-pdp-node/)
+  </Card>
+  <Card title="Withdraw from Filecoin Pay" icon="cloud-download">
+    Withdraw your available USDFC balance from Filecoin Pay and swap it to FIL, using either filpay-cli or Foundry. [Read →](/storage-provider-guides/withdraw-from-filecoin-pay/)
+  </Card>
+  <Card title="Advanced" icon="open-book">
+    Production hardening: an Nginx reverse proxy for TLS termination and LXD containers for isolating nodes. [Explore →](/storage-provider-guides/advanced/nginx-reverse-proxy/)
+  </Card>
+</CardGrid>
+
+## Before You Start
+
+You need a Linux host that meets the PDP hardware requirements and a public HTTPS endpoint.
+
+| Resource | Minimum |
+| --- | --- |
+| RAM | 32 GiB |
+| CPU | 8 cores |
+| Fast storage (NVMe/SSD) | 1 TiB |
+| Long-term storage (HDD) | 10 TiB |
+| GPU | Not required |
+| Connectivity | Public HTTPS endpoint (domain) with HTTP/2 |
+
+The install guide is written for **Ubuntu 22.04**. On other distributions, adapt the package installation steps to your platform.
+
+## Get Help
+
+- [#fil-pdp](https://filecoinproject.slack.com/archives/C0717TGU7V2) on [Filecoin Slack](https://filecoin.io/slack) for PDP and FWSS questions
+- [#fil-curio-help](https://filecoinproject.slack.com/archives/C06LF5YP8S3) for Curio
+- [#fil-lotus-help](https://filecoinproject.slack.com/archives/CPFTWMY7N) for Lotus
+- [filecoin.services](https://www.filecoin.services) for the provider directory and Warm Storage overview
