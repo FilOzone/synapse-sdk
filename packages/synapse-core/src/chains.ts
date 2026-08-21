@@ -322,10 +322,15 @@ export const devnet: FilecoinChain = {
   genesisTimestamp: 0,
 }
 
+export namespace getChain {
+  export type ErrorType = UnsupportedChainError
+}
+
 /**
  * Get a chain by id
  *
  * @param [id] - The chain id. Defaults to mainnet.
+ * @throws Errors {@link getChain.ErrorType}
  */
 export function getChain(id?: number): FilecoinChain {
   if (id == null) {
@@ -340,7 +345,7 @@ export function getChain(id?: number): FilecoinChain {
     case 31415926:
       return devnet
     default:
-      throw new Error(`Chain with id ${id} not found`)
+      throw new UnsupportedChainError(id)
   }
 }
 

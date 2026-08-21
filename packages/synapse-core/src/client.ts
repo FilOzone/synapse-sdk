@@ -1,7 +1,8 @@
 import { type Client, fallback, http, type RpcSchema, type Transport, type Chain as ViemChain } from 'viem'
 import type { Account } from 'viem/accounts'
 import type { FilecoinChain } from './chains.ts'
-import { asChain, calibration, mainnet } from './chains.ts'
+import { asChain, calibration, devnet, mainnet } from './chains.ts'
+import { UnsupportedChainError } from './errors/chains.ts'
 import type { Extended } from './types.ts'
 
 /**
@@ -29,11 +30,25 @@ export const calibrationTransport = fallback(
 )
 
 /**
- * Get the default ranked fallback transport for a Filecoin chain.
+ * Local HTTP transport for Filecoin Devnet.
+ *
+ * Uses the chain's default RPC; there is no public fallback set.
+ */
+export const devnetTransport = http(devnet.rpcUrls.default.http[0])
+
+export namespace getTransport {
+  export type ErrorType = UnsupportedChainError
+}
+
+/**
+ * Get the default HTTP transport for a Filecoin chain.
+ *
+ * Mainnet and Calibration use fallbacks across public RPC endpoints. Devnet
+ * uses the local default RPC.
  *
  * @param chain - The viem chain to resolve a transport for.
- * @returns The ranked fallback transport for mainnet or Calibration.
- * @throws Error if the chain is not supported.
+ * @returns The default transport for the chain.
+ * @throws Errors {@link getTransport.ErrorType}
  */
 export function getTransport(chain: ViemChain): Transport {
   if (chain.id === mainnet.id) {
@@ -44,7 +59,11 @@ export function getTransport(chain: ViemChain): Transport {
     return calibrationTransport
   }
 
-  throw new Error(`Unsupported chain: ${chain.id}`)
+  if (chain.id === devnet.id) {
+    return devnetTransport
+  }
+
+  throw new UnsupportedChainError(chain.id)
 }
 
 /**
