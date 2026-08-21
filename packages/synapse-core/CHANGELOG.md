@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.8.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.7.1...synapse-core-v0.8.0) (2026-08-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* actions pagination and active piece count removal (#914, #913)
+
+### Features
+
+* actions pagination and active piece count removal ([#914](https://github.com/FilOzone/synapse-sdk/issues/914), [#913](https://github.com/FilOzone/synapse-sdk/issues/913)) ([b1fdbe9](https://github.com/FilOzone/synapse-sdk/commit/b1fdbe98fefe3e16e56d70bb1d3db57d3444115a))
+* add batch piece deletion ([#898](https://github.com/FilOzone/synapse-sdk/issues/898)) ([61169d1](https://github.com/FilOzone/synapse-sdk/commit/61169d1661f6f84c15a2db4c9e462a56dbc58e96))
+* add support for Curios's confirmedTxHash ([#912](https://github.com/FilOzone/synapse-sdk/issues/912)) ([3b0af02](https://github.com/FilOzone/synapse-sdk/commit/3b0af02644a595ee427ab1bbcb534d717b6a9730))
+* support custom client for reads ([#909](https://github.com/FilOzone/synapse-sdk/issues/909)) ([1b8b54e](https://github.com/FilOzone/synapse-sdk/commit/1b8b54e873bf28002fa045bf56940adbe10d44d3))
+
+
+### Bug Fixes
+
+* **synapse-core:** accept deployment contracts metadata ([#907](https://github.com/FilOzone/synapse-sdk/issues/907)) ([1247c3d](https://github.com/FilOzone/synapse-sdk/commit/1247c3d716006693117e3cacb298a661d52040da))
+
+
+### Chores
+
+* **synapse-core:** publish v1.3.1 Mainnet addresses ([#916](https://github.com/FilOzone/synapse-sdk/issues/916)) ([44ffc12](https://github.com/FilOzone/synapse-sdk/commit/44ffc12fd9b5390820d9642148f6a36b9b2baed4))
+* **synapse-core:** update filecoin-services ref to v1.3.1 ([#911](https://github.com/FilOzone/synapse-sdk/issues/911)) ([466767d](https://github.com/FilOzone/synapse-sdk/commit/466767dddb963c69ede66b50eeb5f111e4d8a4ab))
+
 ## [0.7.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.7.0...synapse-core-v0.7.1) (2026-07-23)
 
 
