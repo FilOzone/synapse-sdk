@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v1.1.1...synapse-sdk-v1.2.0) (2026-08-21)
+
+
+### Features
+
+* add batch piece deletion ([#898](https://github.com/FilOzone/synapse-sdk/issues/898)) ([61169d1](https://github.com/FilOzone/synapse-sdk/commit/61169d1661f6f84c15a2db4c9e462a56dbc58e96))
+* add support for Curios's confirmedTxHash ([#912](https://github.com/FilOzone/synapse-sdk/issues/912)) ([3b0af02](https://github.com/FilOzone/synapse-sdk/commit/3b0af02644a595ee427ab1bbcb534d717b6a9730))
+* support custom client for reads ([#909](https://github.com/FilOzone/synapse-sdk/issues/909)) ([1b8b54e](https://github.com/FilOzone/synapse-sdk/commit/1b8b54e873bf28002fa045bf56940adbe10d44d3))
+
 ## [1.1.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v1.1.0...synapse-sdk-v1.1.1) (2026-07-27)
 
 
