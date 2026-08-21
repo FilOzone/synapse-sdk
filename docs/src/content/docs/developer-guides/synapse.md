@@ -55,6 +55,15 @@ graph LR
 - **`StorageManager`**, **`StorageContext`**: Storage operation modules
 - **`WarmStorageService`**: Storage coordination and pricing module
 
+`Synapse` exposes `client` (account client for signing and writes) and `readClient` (for queries). When constructing from an existing viem client, you can pass an optional public `readClient`:
+
+```ts
+const synapse = new Synapse({
+  client: walletClient,
+  readClient: publicClient, // optional; derived from client when omitted
+})
+```
+
 ## Payment Operations
 
 Fund your account and manage payments for Filecoin storage services.

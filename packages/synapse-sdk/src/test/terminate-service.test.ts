@@ -1,20 +1,18 @@
+import type { AccountClient } from '@filoz/synapse-core'
 import { fwss } from '@filoz/synapse-core/abis'
-import { type Chain, calibration } from '@filoz/synapse-core/chains'
+import { calibration } from '@filoz/synapse-core/chains'
 import { TerminateServicePendingError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import {
-  type Account,
-  type Client,
   createWalletClient,
   encodeAbiParameters,
   encodeEventTopics,
   type Hex,
   numberToHex,
   parseUnits,
-  type Transport,
   http as viemHttp,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -36,7 +34,7 @@ const confirmedStatus = {
 }
 
 describe('StorageManager.terminateService', () => {
-  let client: Client<Transport, Chain, Account>
+  let client: AccountClient
 
   before(async () => {
     await server.start()

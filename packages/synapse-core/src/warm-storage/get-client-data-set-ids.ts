@@ -18,7 +18,6 @@ import {
   resolvePagination,
 } from '../pagination.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getClientDataSetIds {
   export type OptionsType = PaginationOptions & {
@@ -47,7 +46,7 @@ export namespace getClientDataSetIds {
  * Pass the returned `nextCursor` back as `cursor`; treat it as opaque. Use
  * {@link paginate} to traverse every page. `limit` must be greater than zero.
  *
- * @param client - The client to use to get data set IDs.
+ * @param client - The client to use to get the client data set IDs.
  * @param options - {@link getClientDataSetIds.OptionsType}
  * @returns A page of data set IDs {@link getClientDataSetIds.OutputType}
  * @throws Errors {@link getClientDataSetIds.ErrorType}
@@ -86,7 +85,7 @@ export async function getClientDataSetIds(
 ): Promise<getClientDataSetIds.OutputType> {
   const { cursor, limit } = resolvePagination(options, 100n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     getClientDataSetIdsCall({
       chain: client.chain,
       address: options.address,

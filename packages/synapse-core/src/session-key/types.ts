@@ -1,7 +1,7 @@
 import type { TypedEventTarget } from 'iso-web/event-target'
 import type { Simplify } from 'type-fest'
 import type { Account, Address, Client, CustomSource, LocalAccount, Transport } from 'viem'
-import type { Chain as SynapseChain } from '../chains.ts'
+import type { FilecoinChain as SynapseChain } from '../chains.ts'
 import type { Expirations, Permission } from './permissions.ts'
 
 export type SessionKeyEvents = {

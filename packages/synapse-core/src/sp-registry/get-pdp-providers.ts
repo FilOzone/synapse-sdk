@@ -13,7 +13,6 @@ import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../a
 import { asChain } from '../chains.ts'
 import { type Page, type PaginationOptions, paginate, resolvePagination } from '../pagination.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import { getApprovedProviderIds } from '../warm-storage/get-approved-provider-ids.ts'
 import { getPDPProviderCall, hasActivePDPProduct, parsePDPProvider } from './get-pdp-provider.ts'
 import type { getProvidersByProductType } from './get-providers-by-product-type.ts'
@@ -78,7 +77,7 @@ export async function getPDPProviders(
 ): Promise<getPDPProviders.OutputType> {
   const { cursor, limit } = resolvePagination(options, 50n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     getPDPProvidersCall({
       chain: client.chain,
       onlyActive: options.onlyActive,
@@ -265,7 +264,7 @@ export async function getPDPProvidersByIds(
   client: Client<Transport, Chain>,
   options: getPDPProvidersByIds.OptionsType
 ): Promise<getPDPProvidersByIds.OutputType> {
-  const result = await multicall(toReadClient(client), {
+  const result = await multicall(client, {
     allowFailure: true,
     contracts: options.providerIds.map((providerId) =>
       getPDPProviderCall({

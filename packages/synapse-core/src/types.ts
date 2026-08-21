@@ -1,6 +1,18 @@
 import type { Simplify } from 'type-fest'
-import type { Chain, Hash, Log, WaitForTransactionReceiptReturnType } from 'viem'
+import type {
+  Account,
+  Chain,
+  Client,
+  Hash,
+  Log,
+  Prettify,
+  RpcSchema,
+  Transport,
+  WaitForTransactionReceiptReturnType,
+} from 'viem'
+import type { FilecoinChain } from './chains.ts'
 import type { PaginationOptions } from './pagination.ts'
+import type { SessionKeyAccount } from './session-key/types.ts'
 
 export type * from './warm-storage/types.ts'
 
@@ -36,3 +48,37 @@ export type ActionSyncOutput<ExtractFn extends (logs: Log[]) => any, chain exten
   /** The extracted event */
   event: ReturnType<ExtractFn>
 }
+
+export type Extended = Prettify<
+  // disallow redefining base properties
+  { [_ in keyof Client]?: undefined } & {
+    [key: string]: unknown
+  }
+>
+
+export type ReadClient<
+  rpcSchema extends RpcSchema | undefined = undefined,
+  extended extends Extended | undefined = Extended | undefined,
+  chain extends FilecoinChain = FilecoinChain,
+  account extends Account | undefined = Account | undefined,
+  transport extends Transport = Transport,
+> = Client<transport, chain, account, rpcSchema, extended>
+
+/**
+ * Wallet/account client for write actions.
+ */
+export type AccountClient<
+  rpcSchema extends RpcSchema | undefined = undefined,
+  extended extends Extended | undefined = Extended | undefined,
+  chain extends FilecoinChain = FilecoinChain,
+  account extends Account = Account,
+  transport extends Transport = Transport,
+> = Client<transport, chain, account, rpcSchema, extended>
+
+export type SessionKeyClient<
+  rpcSchema extends RpcSchema | undefined = undefined,
+  extended extends Extended | undefined = Extended | undefined,
+  chain extends FilecoinChain = FilecoinChain,
+  account extends SessionKeyAccount<'Secp256k1'> = SessionKeyAccount<'Secp256k1'>,
+  transport extends Transport = Transport,
+> = Client<transport, chain, account, rpcSchema, extended>

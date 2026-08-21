@@ -109,7 +109,7 @@ export namespace getAccountSummary {
  * in parallel, then derives debt, available funds, lockup breakdown, runway,
  * and gross coverage client-side.
  *
- * @param client - The client to use for the query.
+ * @param client - The client to use to get the account summary.
  * @param options - {@link getAccountSummary.OptionsType}
  * @returns Full account summary {@link getAccountSummary.OutputType}
  * @throws Errors {@link getAccountSummary.ErrorType}

@@ -8,7 +8,6 @@ import { type getDataSetLeafCount, getDataSetLeafCountCall } from '../pdp-verifi
 import { type getDataSetListener, getDataSetListenerCall } from '../pdp-verifier/get-data-set-listener.ts'
 import { type getPDPProvider, getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import {
   type getAllDataSetMetadata,
   getAllDataSetMetadataCall,
@@ -137,7 +136,7 @@ async function enrichDataSetBatch(
     getDataSetLeafCountCall({ chain: client.chain, dataSetId }),
   ])
   const providerCalls = missingProviderIds.map((providerId) => getPDPProviderCall({ chain: client.chain, providerId }))
-  const results = await multicall(toReadClient(client), {
+  const results = await multicall(client, {
     allowFailure: false,
     // Retain Viem's default 1024-byte batch size so large chunks are split safely.
     contracts: [...dataSetCalls, ...providerCalls],

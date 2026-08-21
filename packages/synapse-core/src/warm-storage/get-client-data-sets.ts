@@ -18,7 +18,6 @@ import {
   resolvePagination,
 } from '../pagination.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import type { getPdpDataSets } from './get-pdp-data-sets.ts'
 import type { DataSetInfo } from './types.ts'
 
@@ -88,7 +87,7 @@ export async function getClientDataSets(
 ): Promise<getClientDataSets.OutputType> {
   const { cursor, limit } = resolvePagination(options, 100n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     getClientDataSetsCall({
       chain: client.chain,
       address: options.address,

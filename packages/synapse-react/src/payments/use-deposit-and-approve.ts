@@ -46,7 +46,7 @@ export function useDepositAndApprove(props?: UseDepositAndApproveProps) {
       })
 
       props?.onHash?.(hash)
-      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
+      const transactionReceipt = await waitForTransactionReceipt(client, {
         hash: hash,
       })
 

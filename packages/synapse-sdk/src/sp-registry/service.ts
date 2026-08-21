@@ -24,31 +24,27 @@
  * ```
  */
 
+import type { AccountClient, ReadClient } from '@filoz/synapse-core'
 import { paginate } from '@filoz/synapse-core'
+import type { FilecoinChain } from '@filoz/synapse-core/chains'
+import { asClient, getTransport, toReadClient } from '@filoz/synapse-core/client'
 import * as SP from '@filoz/synapse-core/sp-registry'
-import {
-  type Account,
-  type Address,
-  type Chain,
-  type Client,
-  createClient,
-  type Hash,
-  http,
-  type Transport,
-} from 'viem'
+import { type Account, type Address, type Chain, type Client, createClient, type Hash, type Transport } from 'viem'
 import { DEFAULT_CHAIN } from '../utils/constants.ts'
 import type { PDPOffering, ProductType, ProviderRegistrationInfo } from './types.ts'
 
 export class SPRegistryService {
-  private readonly _client: Client<Transport, Chain, Account>
+  private readonly _client: AccountClient
+  private readonly _readClient: ReadClient
 
   /**
    * Constructor for SPRegistryService
    * @param options - Options for the SPRegistryService
    * @param options.client - Wallet client used for read and write operations
    */
-  constructor(options: { client: Client<Transport, Chain, Account> }) {
-    this._client = options.client
+  constructor(options: { client: Client<Transport, Chain, Account>; readClient?: Client<Transport, Chain> }) {
+    this._client = asClient(options.client)
+    this._readClient = options.readClient ? asClient(options.readClient) : toReadClient(options.client)
   }
 
   /**
@@ -58,18 +54,20 @@ export class SPRegistryService {
    * @param options.chain - Filecoin chain (optional, defaults to {@link DEFAULT_CHAIN})
    * @param options.account - Viem account (required)
    */
-  static create(options: { transport?: Transport; chain?: Chain; account: Account }): SPRegistryService {
+  static create(options: {
+    transport?: Transport
+    chain?: FilecoinChain
+    account: Account | Address
+  }): SPRegistryService {
+    const chain = options.chain ?? DEFAULT_CHAIN
     const client = createClient({
-      chain: options.chain ?? DEFAULT_CHAIN,
-      transport: options.transport ?? http(),
+      chain,
+      transport: options.transport ?? getTransport(chain),
       account: options.account,
       name: 'SPRegistryService',
       key: 'sp-registry-service',
     })
 
-    if (client.account.type === 'json-rpc' && client.transport.type !== 'custom') {
-      throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
-    }
     return new SPRegistryService({ client })
   }
 
@@ -142,7 +140,7 @@ export class SPRegistryService {
    */
   async getProvider(options: { providerId: bigint }): Promise<SP.getPDPProvider.OutputType | null> {
     try {
-      return await SP.getPDPProvider(this._client, { providerId: options.providerId })
+      return await SP.getPDPProvider(this._readClient, { providerId: options.providerId })
     } catch (error) {
       if (error instanceof Error && error.message.includes('Provider not found')) {
         return null
@@ -158,7 +156,7 @@ export class SPRegistryService {
    * @returns Provider info with decoded products
    */
   async getProviderByAddress(options: { address: Address }): Promise<SP.getPDPProvider.OutputType | null> {
-    const providerId = await SP.getProviderIdByAddress(this._client, { providerAddress: options.address })
+    const providerId = await SP.getProviderIdByAddress(this._readClient, { providerAddress: options.address })
     if (providerId === null) {
       return null
     }
@@ -173,7 +171,7 @@ export class SPRegistryService {
    * @returns Provider ID, or `null` when the address is not registered
    */
   async getProviderIdByAddress(options: { address: Address }): Promise<bigint | null> {
-    return SP.getProviderIdByAddress(this._client, { providerAddress: options.address })
+    return SP.getProviderIdByAddress(this._readClient, { providerAddress: options.address })
   }
 
   /**
@@ -183,7 +181,7 @@ export class SPRegistryService {
   async getAllActiveProviders(): Promise<SP.PDPProvider[]> {
     return await Array.fromAsync(
       paginate(({ cursor }) =>
-        SP.getPDPProviders(this._client, {
+        SP.getPDPProviders(this._readClient, {
           onlyActive: true,
           cursor,
         })
@@ -200,7 +198,7 @@ export class SPRegistryService {
   async getActiveProvidersByProductType(options: { productType: ProductType }): Promise<SP.ProviderWithProduct[]> {
     return await Array.fromAsync(
       paginate(({ cursor }) =>
-        SP.getProvidersByProductType(this._client, {
+        SP.getProvidersByProductType(this._readClient, {
           productType: options.productType,
           onlyActive: true,
           cursor,
@@ -216,7 +214,7 @@ export class SPRegistryService {
    * @returns Whether provider is active
    */
   async isProviderActive(options: { providerId: bigint }): Promise<boolean> {
-    return SP.isProviderActive(this._client, { providerId: options.providerId })
+    return SP.isProviderActive(this._readClient, { providerId: options.providerId })
   }
 
   /**
@@ -226,7 +224,7 @@ export class SPRegistryService {
    * @returns Whether address is registered
    */
   async isRegisteredProvider(options: { address: Address }): Promise<boolean> {
-    return SP.isRegisteredProvider(this._client, { provider: options.address })
+    return SP.isRegisteredProvider(this._readClient, { provider: options.address })
   }
 
   /**
@@ -234,7 +232,7 @@ export class SPRegistryService {
    * @returns Total provider count
    */
   async getProviderCount(): Promise<bigint> {
-    return SP.getProviderCount(this._client)
+    return SP.getProviderCount(this._readClient)
   }
 
   /**
@@ -242,7 +240,7 @@ export class SPRegistryService {
    * @returns Active provider count
    */
   async activeProviderCount(): Promise<bigint> {
-    return SP.activeProviderCount(this._client)
+    return SP.activeProviderCount(this._readClient)
   }
 
   // ========== Product Management ==========
@@ -306,7 +304,7 @@ export class SPRegistryService {
       return []
     }
 
-    return SP.getPDPProvidersByIds(this._client, {
+    return SP.getPDPProvidersByIds(this._readClient, {
       providerIds: options.providerIds,
     })
   }

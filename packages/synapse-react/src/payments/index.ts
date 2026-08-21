@@ -138,7 +138,7 @@ export function useDeposit(props?: UseDepositProps) {
       })
 
       props?.onHash?.(hash)
-      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
+      const transactionReceipt = await waitForTransactionReceipt(client, {
         hash: hash,
       })
 
@@ -185,7 +185,7 @@ export function useWithdraw(props?: UseWithdrawProps) {
         token,
       })
       props?.onHash?.(hash)
-      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
+      const transactionReceipt = await waitForTransactionReceipt(client, {
         hash,
       })
 
@@ -250,7 +250,7 @@ export function useApproveOperator(props?: ApproveOperatorProps) {
       })
 
       props?.onHash?.(hash)
-      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
+      const transactionReceipt = await waitForTransactionReceipt(client, {
         hash,
       })
 
@@ -317,7 +317,7 @@ export function useRevokeOperator(props?: RevokeOperatorProps) {
         approve: false,
       })
       props?.onHash?.(hash)
-      const transactionReceipt = await waitForTransactionReceipt(config.getClient(), {
+      const transactionReceipt = await waitForTransactionReceipt(client, {
         hash,
       })
       queryClient.invalidateQueries({

@@ -27,8 +27,9 @@
  * ```
  */
 
+import type { AccountClient, ReadClient } from '@filoz/synapse-core'
 import { paginate } from '@filoz/synapse-core'
-import { asChain, type Chain as FilecoinChain } from '@filoz/synapse-core/chains'
+import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import { InvalidPieceCIDError } from '@filoz/synapse-core/errors'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
@@ -51,7 +52,7 @@ import {
   type ResolvedLocation,
   selectProviders,
 } from '@filoz/synapse-core/warm-storage'
-import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
+import type { Address, Hash, Hex } from 'viem'
 import { getBlockNumber } from 'viem/actions'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
@@ -109,7 +110,8 @@ export interface StorageContextOptions {
 }
 
 export class StorageContext {
-  private readonly _client: Client<Transport, Chain, Account>
+  private readonly _client: AccountClient
+  private readonly _readClient: ReadClient
   private readonly _chain: FilecoinChain
   private readonly _synapse: Synapse
   private readonly _provider: PDPProvider
@@ -196,7 +198,8 @@ export class StorageContext {
    */
   constructor(options: StorageContextOptions) {
     this._client = options.synapse.client
-    this._chain = asChain(this._client.chain)
+    this._readClient = options.synapse.readClient
+    this._chain = this._readClient.chain
     this._synapse = options.synapse
     this._provider = options.provider
     this._withCDN = options.options.withCDN ?? false
@@ -627,7 +630,7 @@ export class StorageContext {
     const { synapse, metadata, count, requireEndorsedPrimary } = options
     const clientAddress = synapse.client.account.address
 
-    const input = await fetchProviderSelectionInput(synapse.client, {
+    const input = await fetchProviderSelectionInput(synapse.readClient, {
       address: clientAddress,
     })
 
@@ -1059,7 +1062,7 @@ export class StorageContext {
     }
     const withCDN = options.withCDN ?? this._withCDN
     const pieceUrl = await Piece.resolvePieceUrl({
-      client: this._client,
+      client: this._readClient,
       address: this._client.account.address,
       pieceCid: parsedPieceCID,
       resolvers: [
@@ -1094,7 +1097,7 @@ export class StorageContext {
       return []
     }
 
-    return await PDPVerifier.getScheduledRemovals(this._client, { dataSetId: this._dataSetId })
+    return await PDPVerifier.getScheduledRemovals(this._readClient, { dataSetId: this._dataSetId })
   }
 
   /**
@@ -1111,7 +1114,7 @@ export class StorageContext {
     const dataSetId = this._dataSetId
     const batchSize = options.batchSize ?? 100n
     for await (const piece of paginate(({ cursor }) =>
-      PDPVerifier.getActivePiecesByCursor(this._client, {
+      PDPVerifier.getActivePiecesByCursor(this._readClient, {
         dataSetId,
         cursor,
         limit: batchSize,
@@ -1130,7 +1133,7 @@ export class StorageContext {
       throw createError('StorageContext', 'getPieceIdByCID', 'Invalid PieceCID provided')
     }
 
-    const page = await PDPVerifier.findPieceIdsByCid(this._client, {
+    const page = await PDPVerifier.findPieceIdsByCid(this._readClient, {
       dataSetId: this.dataSetId,
       pieceCid: parsedPieceCID,
     })
@@ -1211,14 +1214,14 @@ export class StorageContext {
 
     // Run multiple operations in parallel for better performance
     const [piecePage, nextChallengeEpoch, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
-      PDPVerifier.findPieceIdsByCid(this._client, {
+      PDPVerifier.findPieceIdsByCid(this._readClient, {
         dataSetId: this.dataSetId,
         pieceCid: parsedPieceCID,
       }),
-      PDPVerifier.getNextChallengeEpoch(this._client, {
+      PDPVerifier.getNextChallengeEpoch(this._readClient, {
         dataSetId: this.dataSetId,
       }),
-      getBlockNumber(this._client),
+      getBlockNumber(this._readClient),
       this._warmStorageService.getPDPConfig().catch((error) => {
         console.debug('Failed to get PDP config:', error)
         return null

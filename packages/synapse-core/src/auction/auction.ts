@@ -1,7 +1,6 @@
 import type { Address, Chain, Client, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import { PRB_ONE, prbDiv, prbExp2 } from './prb.ts'
 
 /**
@@ -20,13 +19,13 @@ export type AuctionInfo = {
  * This auction information can be passed to auctionPriceAt to calculate the current price
  * Auctions are dutch, so the acceptance price decreases over time
  * Each token has a separate auction
- * @param client used to read the FilecoinPay contract
- * @param token specifies which token's auction
+ * @param client - The client to use to get the auction info.
+ * @param token - The token whose auction to query.
  * @returns the auction startPrice and startTime
  */
 export async function auctionInfo(client: Client<Transport, Chain>, token: Address): Promise<AuctionInfo> {
   const chain = asChain(client.chain)
-  const [startPrice, startTime] = await readContract(toReadClient(client), {
+  const [startPrice, startTime] = await readContract(client, {
     address: chain.contracts.filecoinPay.address,
     abi: chain.contracts.filecoinPay.abi,
     functionName: 'auctionInfo',
@@ -43,13 +42,13 @@ export async function auctionInfo(client: Client<Transport, Chain>, token: Addre
  * Get the current funds available in the FilecoinPay auction
  * These auction funds accrue as payment rails settle
  * Each token has a separate auction
- * @param client used to read the FilecoinPay contract
- * @param token specifies which token's auction
+ * @param client - The client to use to get the auction funds.
+ * @param token - The token whose auction funds to query.
  * @returns how much of the token is available to purchasae in the auction
  */
 export async function auctionFunds(client: Client<Transport, Chain>, token: Address): Promise<bigint> {
   const chain = asChain(client.chain)
-  const [funds] = await readContract(toReadClient(client), {
+  const [funds] = await readContract(client, {
     address: chain.contracts.filecoinPay.address,
     abi: chain.contracts.filecoinPay.abi,
     functionName: 'accounts',

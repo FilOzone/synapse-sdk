@@ -12,7 +12,6 @@ import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../a
 import { asChain } from '../chains.ts'
 import { type Page, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getProvidersByProductType {
   export type OptionsType = PaginationOptions & {
@@ -87,7 +86,7 @@ export async function getProvidersByProductType(
 ): Promise<getProvidersByProductType.OutputType> {
   const { cursor, limit } = resolvePagination(options, 50n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     getProvidersByProductTypeCall({
       chain: client.chain,
       productType: options.productType,

@@ -12,7 +12,6 @@ import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { type PageWithTotal, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import type { RailInfo } from './types.ts'
 
 export namespace getRailsForPayeeAndToken {
@@ -86,7 +85,7 @@ export async function getRailsForPayeeAndToken(
 ): Promise<getRailsForPayeeAndToken.OutputType> {
   const { cursor, limit } = resolvePagination(options, 100n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     getRailsForPayeeAndTokenCall({
       chain: client.chain,
       payee: options.payee,

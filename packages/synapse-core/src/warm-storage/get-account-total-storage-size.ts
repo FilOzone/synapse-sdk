@@ -4,7 +4,6 @@ import { paginate } from '../pagination.ts'
 import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
 import { getDataSetLeafCountCall } from '../pdp-verifier/get-data-set-leaf-count.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import { getClientDataSets } from './get-client-data-sets.ts'
 
 export namespace getAccountTotalStorageSize {
@@ -49,7 +48,7 @@ export namespace getAccountTotalStorageSize {
  * })
  * ```
  *
- * @param client - The client to use.
+ * @param client - The client to use to get the account total storage size.
  * @param options - {@link getAccountTotalStorageSize.OptionsType}
  * @returns Total storage size and dataset count {@link getAccountTotalStorageSize.OutputType}
  * @throws Errors {@link getAccountTotalStorageSize.ErrorType}
@@ -76,7 +75,7 @@ export async function getAccountTotalStorageSize(
       }),
     ])
     if (calls.length > 0) {
-      const results = await multicall(toReadClient(client), { contracts: calls, allowFailure: false })
+      const results = await multicall(client, { contracts: calls, allowFailure: false })
       for (let index = 0; index < dataSets.length; index++) {
         const isLive = results[index * 2] as boolean
         const leafCount = results[index * 2 + 1] as bigint

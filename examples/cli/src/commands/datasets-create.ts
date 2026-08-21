@@ -31,7 +31,6 @@ export const datasetsCreate: Command = command(
   },
   async (argv) => {
     const { client, chain } = privateKeyClient(argv.flags.chain)
-
     try {
       const provider = argv._.providerId
         ? await getPDPProvider(client, {

@@ -31,7 +31,9 @@ export const uploadDataset: Command = command(
 
     const filePath = argv._.path
     const provider = argv._.providerId
-      ? await getPDPProvider(client, { providerId: BigInt(argv._.providerId) })
+      ? await getPDPProvider(client, {
+          providerId: BigInt(argv._.providerId),
+        })
       : await selectProvider(client, argv.flags)
 
     if (!provider) {

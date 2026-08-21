@@ -20,7 +20,6 @@ import { asChain } from '../chains.ts'
 import type { ValidationError } from '../errors/base.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { encodePDPCapabilities } from '../utils/pdp-capabilities.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import type { PDPOffering } from './types.ts'
 import {
   validateCapabilities,
@@ -113,7 +112,7 @@ export async function registerProvider(
 
   let registrationFee: bigint
   if (options.value === undefined) {
-    registrationFee = await readContract(toReadClient(client), {
+    registrationFee = await readContract(client, {
       abi: chain.contracts.serviceProviderRegistry.abi,
       address: contractAddress,
       functionName: 'REGISTRATION_FEE',

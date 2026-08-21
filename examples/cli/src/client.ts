@@ -1,18 +1,11 @@
 import { execSync } from 'node:child_process'
 import { basename, dirname } from 'node:path'
 import * as p from '@clack/prompts'
-import { type Chain, getChain } from '@filoz/synapse-core/chains'
-import {
-  createPublicClient,
-  createWalletClient,
-  type Hex,
-  type HttpTransport,
-  http,
-  type PrivateKeyAccount,
-  type PublicClient,
-  type WalletClient,
-} from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import type { AccountClient, ReadClient } from '@filoz/synapse-core'
+import { type FilecoinChain, getChain } from '@filoz/synapse-core/chains'
+import { getTransport } from '@filoz/synapse-core/client'
+import { createPublicClient, createWalletClient, type Hex } from 'viem'
+import { type Address, privateKeyToAccount } from 'viem/accounts'
 import config from './config.ts'
 
 function privateKeyFromConfig() {
@@ -47,8 +40,9 @@ function privateKeyFromConfig() {
 }
 
 export function privateKeyClient(chainId: number): {
-  client: WalletClient<HttpTransport, Chain, PrivateKeyAccount>
-  chain: Chain
+  client: AccountClient
+  chain: FilecoinChain
+  address: Address
 } {
   const chain = getChain(chainId)
 
@@ -58,21 +52,20 @@ export function privateKeyClient(chainId: number): {
   const client = createWalletClient({
     account,
     chain,
-    transport: http(),
+    transport: getTransport(chain),
   })
   return {
     client,
     chain,
+    address: account.address,
   }
 }
 
-export function publicClient(
-  chainId: number
-): PublicClient<HttpTransport, Chain> {
+export function publicClient(chainId: number): ReadClient {
   const chain = getChain(chainId)
   const publicClient = createPublicClient({
     chain,
-    transport: http(),
+    transport: getTransport(chain),
   })
   return publicClient
 }

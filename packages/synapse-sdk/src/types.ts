@@ -5,14 +5,14 @@
  * used throughout the SDK. Concrete classes are defined in their own files.
  */
 
-import type { Chain } from '@filoz/synapse-core/chains'
+import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { Permission, SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
 import type { pullPiecesApiRequest } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { getPriceList, getUploadCosts } from '@filoz/synapse-core/warm-storage'
-import type { Account, Address, Client, Hash, Hex, Transport } from 'viem'
+import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
 import type { Synapse } from './synapse.ts'
 import type { WarmStorageService } from './warm-storage/service.ts'
 
@@ -101,7 +101,7 @@ export interface SynapseOptions {
    * Filecoin chain
    *
    */
-  chain?: Chain
+  chain?: FilecoinChain
 
   /**
    * Viem account
@@ -147,6 +147,11 @@ export interface SynapseFromClientOptions {
    * @see https://viem.sh/docs/clients/wallet#optional-hoist-the-account
    */
   client: Client<Transport, Chain, Account>
+
+  /**
+   * Viem public client for read operations
+   */
+  readClient?: Client<Transport, Chain>
 
   // Advanced Configuration
   sessionClient?: Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>>

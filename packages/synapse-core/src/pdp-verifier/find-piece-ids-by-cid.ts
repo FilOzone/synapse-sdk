@@ -20,7 +20,6 @@ import {
 } from '../pagination.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace findPieceIdsByCid {
   export type OptionsType = PaginationOptions & {
@@ -93,7 +92,7 @@ export async function findPieceIdsByCid(
 ): Promise<findPieceIdsByCid.OutputType> {
   const { cursor, limit } = resolvePagination(options, 1n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     findPieceIdsByCidCall({
       chain: client.chain,
       dataSetId: options.dataSetId,

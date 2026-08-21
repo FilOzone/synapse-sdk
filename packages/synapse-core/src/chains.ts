@@ -9,14 +9,14 @@
  * @module chains
  */
 
-import type { Account, Address, ChainContract, Client, Transport, Chain as ViemChain } from 'viem'
+import type { Address, ChainContract, Chain as ViemChain } from 'viem'
 import * as Abis from './abis/index.ts'
 import { UnsupportedChainError } from './errors/chains.ts'
 
 /**
  * Viem compatible chain interface with all the FOC contracts addresses and ABIs
  */
-export interface Chain extends ViemChain {
+export interface FilecoinChain extends ViemChain {
   /**
    * The genesis timestamp of the chain in seconds (Unix timestamp)
    */
@@ -70,7 +70,7 @@ export interface Chain extends ViemChain {
  * Compatible with Viem
  *
  */
-export const mainnet: Chain = {
+export const mainnet: FilecoinChain = {
   id: 314,
   name: 'Filecoin - Mainnet',
   nativeCurrency: {
@@ -83,8 +83,19 @@ export const mainnet: Chain = {
       http: ['https://api.node.glif.io/rpc/v1'],
       webSocket: ['wss://wss.node.glif.io/apigw/lotus/rpc/v1'],
     },
+    ankr: {
+      http: ['https://rpc.ankr.com/filecoin'],
+    },
+    drpc: {
+      http: ['https://filecoin.drpc.org'],
+      webSocket: ['wss://filecoin.drpc.org'],
+    },
   },
   blockExplorers: {
+    default: {
+      name: 'Blockscout',
+      url: 'https://filecoin.blockscout.com',
+    },
     Beryx: {
       name: 'Beryx',
       url: 'https://beryx.io/fil/mainnet',
@@ -96,10 +107,6 @@ export const mainnet: Chain = {
     Glif: {
       name: 'Glif',
       url: 'https://www.glif.io/en',
-    },
-    default: {
-      name: 'Blockscout',
-      url: 'https://filecoin.blockscout.com',
     },
   },
   contracts: {
@@ -155,7 +162,7 @@ export const mainnet: Chain = {
  * Compatible with Viem
  *
  */
-export const calibration: Chain = {
+export const calibration: FilecoinChain = {
   id: 314_159,
   name: 'Filecoin - Calibration testnet',
   nativeCurrency: {
@@ -168,8 +175,19 @@ export const calibration: Chain = {
       http: ['https://api.calibration.node.glif.io/rpc/v1'],
       webSocket: ['wss://wss.calibration.node.glif.io/apigw/lotus/rpc/v1'],
     },
+    ankr: {
+      http: ['https://rpc.ankr.com/filecoin_testnet'],
+    },
+    drpc: {
+      http: ['https://filecoin-calibration.drpc.org'],
+      webSocket: ['wss://filecoin-calibration.drpc.org'],
+    },
   },
   blockExplorers: {
+    default: {
+      name: 'Blockscout',
+      url: 'https://filecoin-testnet.blockscout.com',
+    },
     Beryx: {
       name: 'Beryx',
       url: 'https://beryx.io/fil/calibration',
@@ -181,10 +199,6 @@ export const calibration: Chain = {
     Glif: {
       name: 'Glif',
       url: 'https://www.glif.io/en/calibrationnet',
-    },
-    default: {
-      name: 'Blockscout',
-      url: 'https://filecoin-testnet.blockscout.com',
     },
   },
   contracts: {
@@ -240,7 +254,7 @@ export const calibration: Chain = {
  *
  * Local development network. Contract addresses must be provided by the devnet deployment.
  */
-export const devnet: Chain = {
+export const devnet: FilecoinChain = {
   id: 31415926,
   name: 'Filecoin - Devnet',
   nativeCurrency: {
@@ -308,12 +322,17 @@ export const devnet: Chain = {
   genesisTimestamp: 0,
 }
 
+export namespace getChain {
+  export type ErrorType = UnsupportedChainError
+}
+
 /**
  * Get a chain by id
  *
  * @param [id] - The chain id. Defaults to mainnet.
+ * @throws Errors {@link getChain.ErrorType}
  */
-export function getChain(id?: number): Chain {
+export function getChain(id?: number): FilecoinChain {
   if (id == null) {
     return mainnet
   }
@@ -326,8 +345,12 @@ export function getChain(id?: number): Chain {
     case 31415926:
       return devnet
     default:
-      throw new Error(`Chain with id ${id} not found`)
+      throw new UnsupportedChainError(id)
   }
+}
+
+export namespace asChain {
+  export type ErrorType = UnsupportedChainError
 }
 
 /**
@@ -337,7 +360,7 @@ export function getChain(id?: number): Chain {
  * @returns The filecoin chain.
  * @throws Errors {@link asChain.ErrorType}
  */
-export function asChain(chain: ViemChain): Chain {
+export function asChain(chain: ViemChain): FilecoinChain {
   if (
     chain.contracts &&
     'filecoinPay' in chain.contracts &&
@@ -345,21 +368,7 @@ export function asChain(chain: ViemChain): Chain {
     'genesisTimestamp' in chain &&
     [mainnet.id, calibration.id, devnet.id].includes(chain.id)
   ) {
-    return chain as Chain
+    return chain as FilecoinChain
   }
   throw new UnsupportedChainError(chain.id)
-}
-
-export namespace asChain {
-  export type ErrorType = UnsupportedChainError
-}
-
-/**
- * Convert a viem client to a synapse client.
- * @param client - The viem client.
- * @returns The synapse client.
- */
-export function asClient(client: Client<Transport, ViemChain, Account>): Client<Transport, Chain, Account> {
-  asChain(client.chain)
-  return client as Client<Transport, Chain, Account>
 }

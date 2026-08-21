@@ -25,7 +25,7 @@ export namespace fetchProviderSelectionInput {
  * For users who need custom caching or only need a subset of this data,
  * assemble ProviderSelectionInput manually instead.
  *
- * @param client - Viem public client configured for the target chain
+ * @param client - The client to use to fetch provider selection input.
  * @param options - Client address for dataset lookup
  * @returns ProviderSelectionInput (caller provides metadata via selectProviders options)
  */

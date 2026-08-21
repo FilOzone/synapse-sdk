@@ -18,7 +18,6 @@ import {
   resolvePagination,
 } from '../pagination.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getApprovedProviderIds {
   export type OptionsType = PaginationOptions & {
@@ -82,7 +81,7 @@ export async function getApprovedProviderIds(
 ): Promise<getApprovedProviderIds.OutputType> {
   const { cursor, limit } = resolvePagination(options, 100n)
   const data = await readContract(
-    toReadClient(client),
+    client,
 
     getApprovedProviderIdsCall({
       chain: client.chain,

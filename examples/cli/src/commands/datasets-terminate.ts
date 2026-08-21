@@ -29,12 +29,11 @@ export const datasetsTerminate: Command = command(
     },
   },
   async (argv) => {
-    const { client, chain } = privateKeyClient(argv.flags.chain)
-
+    const { client, chain, address } = privateKeyClient(argv.flags.chain)
     try {
       const dataSetId = argv._.dataSetId
         ? BigInt(argv._.dataSetId)
-        : await selectDataSet(client, argv.flags)
+        : await selectDataSet(client, address, argv.flags)
       p.log.info(`Terminating data set ${dataSetId}...`)
 
       let endEpoch: bigint
