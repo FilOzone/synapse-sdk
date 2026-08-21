@@ -4,16 +4,20 @@ import { type Account, type Address, type Chain, type Client, type Hex, isHex, t
 import { asChain } from '../chains.ts'
 import { CreateDataSetError, LocationHeaderError } from '../errors/index.ts'
 import type {
+  AddPiecesBatchTooLargeError,
+  InvalidUploadSizeError,
   WaitForAddPiecesError,
   WaitForAddPiecesRejectedError,
   WaitForCreateDataSetError,
   WaitForCreateDataSetRejectedError,
 } from '../errors/pdp.ts'
+import type { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
-import { validateAddPiecesBatch, waitForAddPieces } from './add-pieces.ts'
+import { waitForAddPieces } from './add-pieces.ts'
+import { assertAddPiecesFit } from './add-pieces-fits.ts'
 import { waitForCreateDataSet } from './create-dataset.ts'
 
 export namespace createDataSetAndAddPiecesApiRequest {
@@ -129,7 +133,12 @@ export type CreateDataSetAndAddPiecesOptions = {
 export namespace createDataSetAndAddPieces {
   export type OptionsType = CreateDataSetAndAddPiecesOptions
   export type ReturnType = createDataSetAndAddPiecesApiRequest.OutputType
-  export type ErrorType = createDataSetAndAddPiecesApiRequest.ErrorType | signCreateDataSetAndAddPieces.ErrorType
+  export type ErrorType =
+    | createDataSetAndAddPiecesApiRequest.ErrorType
+    | signCreateDataSetAndAddPieces.ErrorType
+    | AtLeastOnePieceRequiredError
+    | AddPiecesBatchTooLargeError
+    | InvalidUploadSizeError
 }
 
 /**
@@ -144,7 +153,12 @@ export async function createDataSetAndAddPieces(
   client: Client<Transport, Chain, Account>,
   options: CreateDataSetAndAddPiecesOptions
 ): Promise<createDataSetAndAddPieces.ReturnType> {
-  validateAddPiecesBatch(options.pieces.length)
+  assertAddPiecesFit({
+    kind: 'createDataSetAndAddPieces',
+    metadata: options.metadata,
+    cdn: options.cdn,
+    pieces: options.pieces,
+  })
   const chain = asChain(client.chain)
   const extraData =
     options.extraData ??

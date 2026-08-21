@@ -11,8 +11,10 @@
 
 export { AbortError, NetworkError, TimeoutError } from 'iso-web/http'
 export * from './add-pieces.ts'
+export * from './add-pieces-fits.ts'
 export * from './create-dataset.ts'
 export * from './create-dataset-add-pieces.ts'
+export * from './create-piece-batcher.ts'
 export * from './find-piece.ts'
 export * from './get-data-set.ts'
 export * from './ping.ts'

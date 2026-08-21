@@ -1,10 +1,10 @@
 import type { AccountClient } from '@filoz/synapse-core'
 import { calibration } from '@filoz/synapse-core/chains'
-import { TooManyPiecesError } from '@filoz/synapse-core/errors'
+import { AddPiecesBatchTooLargeError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { calculate, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
-import { NetworkError } from '@filoz/synapse-core/sp'
+import { addPiecesFits, NetworkError } from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -1170,8 +1170,27 @@ describe('StorageService', () => {
     })
   })
 
-  describe('addPieces batch limit', () => {
-    const tooMany = SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE + 1
+  describe('addPieces message size', () => {
+    const maxMetadata = {
+      aaa: 'x'.repeat(96),
+      bbb: 'y'.repeat(96),
+      ccc: 'z'.repeat(96),
+    }
+
+    function oversizedPieces(pieceCid: Piece.PieceCID) {
+      const next = { pieceCid, pieceMetadata: maxMetadata }
+      const pieces = [next]
+      while (
+        addPiecesFits({
+          kind: 'addPieces',
+          pieces: [...pieces, { pieceCid, metadata: maxMetadata }],
+        })
+      ) {
+        pieces.push(next)
+      }
+      pieces.push(next)
+      return pieces
+    }
 
     async function makeContext() {
       server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }), Mocks.PING())
@@ -1180,39 +1199,42 @@ describe('StorageService', () => {
       return StorageContext.create({ synapse, warmStorageService })
     }
 
-    it('presignForCommit rejects batches above the limit', async () => {
+    it('presignForCommit rejects batches that exceed the message budget', async () => {
       const service = await makeContext()
       const pieceCid = await calculate(new Uint8Array(127).fill(1))
-      const pieces = Array.from({ length: tooMany }, () => ({ pieceCid }))
       try {
-        await service.presignForCommit(pieces)
+        await service.presignForCommit(oversizedPieces(pieceCid))
         assert.fail('Should have thrown')
       } catch (error) {
-        assert.instanceOf(error, TooManyPiecesError)
+        assert.instanceOf(error, AddPiecesBatchTooLargeError)
       }
     })
 
-    it('commit rejects batches above the limit', async () => {
+    it('commit rejects batches that exceed the message budget', async () => {
       const service = await makeContext()
       const pieceCid = await calculate(new Uint8Array(127).fill(1))
-      const pieces = Array.from({ length: tooMany }, () => ({ pieceCid }))
       try {
-        await service.commit({ pieces })
+        await service.commit({ pieces: oversizedPieces(pieceCid) })
         assert.fail('Should have thrown')
       } catch (error) {
-        assert.instanceOf(error, TooManyPiecesError)
+        assert.instanceOf(error, AddPiecesBatchTooLargeError)
       }
     })
 
-    it('pull rejects batches above the limit', async () => {
+    it('pull rejects batches that exceed the message budget', async () => {
       const service = await makeContext()
       const pieceCid = await calculate(new Uint8Array(127).fill(1))
-      const pieces = Array.from({ length: tooMany }, () => pieceCid)
+      const next = { pieceCid }
+      const limiterPieces = [next]
+      while (addPiecesFits({ kind: 'addPieces', pieces: [...limiterPieces, next] })) {
+        limiterPieces.push(next)
+      }
+      limiterPieces.push(next)
       try {
-        await service.pull({ pieces, from: 'https://pdp.example.com' })
+        await service.pull({ pieces: limiterPieces.map((p) => p.pieceCid), from: 'https://pdp.example.com' })
         assert.fail('Should have thrown')
       } catch (error) {
-        assert.instanceOf(error, TooManyPiecesError)
+        assert.instanceOf(error, AddPiecesBatchTooLargeError)
       }
     })
   })

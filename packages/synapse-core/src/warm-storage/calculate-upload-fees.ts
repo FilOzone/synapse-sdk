@@ -23,10 +23,13 @@ export namespace calculateUploadFees {
  * datasets only) and add-pieces. Schedule-removals, terminate, and delete are
  * post-upload lifecycle operations and are not part of an upload cost preview.
  *
- * The number of addPieces operations is derived from `pieceCount` and the
- * `MAX_ADD_PIECES_BATCH_SIZE` batch limit: a single addPieces call cannot
- * exceed the limit, so `pieceCount` pieces span `ceil(pieceCount / limit)`
- * calls, each charged the base fee.
+ * The number of addPieces operations is derived from `pieceCount` and a
+ * pieces-per-call heuristic (`MAX_ADD_PIECES_BATCH_SIZE`): each call is
+ * charged the base fee. Actual batches are limited by message size via
+ * `addPiecesFits`, so this is a fee preview, not an action cap.
+ *
+ * TODO: Review in a follow-up and update fee/pricing calculations to match
+ * message-size batching instead of this count heuristic.
  *
  * @param params - {@link calculateUploadFees.ParamsType}
  * @returns {@link calculateUploadFees.OutputType}

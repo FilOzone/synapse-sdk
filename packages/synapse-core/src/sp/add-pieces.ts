@@ -3,13 +3,15 @@ import type { ToString } from 'multiformats'
 import { type Account, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import * as z from 'zod'
 import { AddPiecesError, LocationHeaderError } from '../errors/index.ts'
+import type { AddPiecesBatchTooLargeError, InvalidUploadSizeError } from '../errors/pdp.ts'
 import { WaitForAddPiecesError, WaitForAddPiecesRejectedError } from '../errors/pdp.ts'
-import { AtLeastOnePieceRequiredError, TooManyPiecesError } from '../errors/warm-storage.ts'
+import type { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
-import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
+import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
+import { assertAddPiecesFit } from './add-pieces-fits.ts'
 
 export namespace addPiecesApiRequest {
   export type OptionsType = {
@@ -114,24 +116,12 @@ export namespace addPieces {
   }
 
   export type OutputType = addPiecesApiRequest.OutputType
-  export type ErrorType = addPiecesApiRequest.ErrorType | signAddPieces.ErrorType
-}
-
-/**
- * Validate the piece count for an addPieces (or createDataSetAndAddPieces) batch,
- * failing early instead of reverting on-chain.
- *
- * @param pieceCount - Number of pieces in the batch
- * @throws AtLeastOnePieceRequiredError when not a positive integer
- * @throws TooManyPiecesError when above {@link SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE}
- */
-export function validateAddPiecesBatch(pieceCount: number): void {
-  if (!Number.isInteger(pieceCount) || pieceCount < 1) {
-    throw new AtLeastOnePieceRequiredError()
-  }
-  if (pieceCount > SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE) {
-    throw new TooManyPiecesError(pieceCount, SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE)
-  }
+  export type ErrorType =
+    | addPiecesApiRequest.ErrorType
+    | signAddPieces.ErrorType
+    | AtLeastOnePieceRequiredError
+    | AddPiecesBatchTooLargeError
+    | InvalidUploadSizeError
 }
 
 /**
@@ -148,7 +138,7 @@ export async function addPieces(
   client: Client<Transport, Chain, Account>,
   options: addPieces.OptionsType
 ): Promise<addPieces.OutputType> {
-  validateAddPiecesBatch(options.pieces.length)
+  assertAddPiecesFit({ kind: 'addPieces', pieces: options.pieces })
   const extraData =
     options.extraData ??
     (await signAddPieces(client, {
