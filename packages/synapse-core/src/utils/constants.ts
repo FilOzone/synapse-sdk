@@ -92,12 +92,21 @@ export const SIZE_CONSTANTS = {
   DEFAULT_UPLOAD_BATCH_SIZE: 32,
 
   /**
-   * Maximum pieces per addPieces (or createDataSetAndAddPieces) call.
+   * Heuristic pieces-per-addPieces used only for upload-fee previews.
    *
-   * On-chain limitations fail batch sizes above 41; we constrain to 40 here to
-   * catch those failures early and surface informative errors.
+   * Action validation uses `MAX_ADD_PIECES_MESSAGE_SIZE` via `addPiecesFits`,
+   * not this count.
    */
   MAX_ADD_PIECES_BATCH_SIZE: 40,
+
+  /**
+   * Payload budget (bytes) for one addPieces / createAndAdd Filecoin message.
+   *
+   * Filecoin messages are capped at 64 KiB. 288 bytes are reserved for message
+   * overhead (from, to, nonce, gas, method, …), leaving this much for encoded
+   * params. Used by the default piece-batcher limiter.
+   */
+  MAX_ADD_PIECES_MESSAGE_SIZE: 64 * 1024 - 288,
 
   /**
    * Maximum pieces per schedulePieceDeletions call accepted by the Curio PDP API.

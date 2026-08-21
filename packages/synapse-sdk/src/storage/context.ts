@@ -144,6 +144,19 @@ export class StorageContext {
     return this._dataSetId
   }
 
+  private assertPiecesFitMessage(pieces: Array<{ pieceCid: PieceCID; metadata?: MetadataObject }>): void {
+    SP.assertAddPiecesFit(
+      this._dataSetId
+        ? { kind: 'addPieces', pieces }
+        : {
+            kind: 'createDataSetAndAddPieces',
+            metadata: this._dataSetMetadata,
+            cdn: this._withCDN,
+            pieces,
+          }
+    )
+  }
+
   /**
    * Get the client data set nonce ("clientDataSetId"), either from cache or by fetching from the chain
    * @returns The client data set nonce
@@ -790,7 +803,7 @@ export class StorageContext {
    * @returns Signed extraData hex to pass to pull() or commit()
    */
   async presignForCommit(pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>): Promise<Hex> {
-    SP.validateAddPiecesBatch(pieces.length)
+    this.assertPiecesFitMessage(pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata })))
     const signingPieces = pieces.map((p) => ({
       pieceCid: p.pieceCid,
       metadata: pieceMetadataObjectToEntry(p.pieceMetadata),
@@ -828,7 +841,7 @@ export class StorageContext {
 
     // The SP estimateGas-validates the eventual addPieces, so an oversized batch
     // fails there too; reject early for a clear error on non-presigned paths.
-    SP.validateAddPiecesBatch(pieces.length)
+    this.assertPiecesFitMessage(pieces.map((pieceCid) => ({ pieceCid })))
 
     const getSourceUrl = (pieceCid: PieceCID): string => {
       if (typeof from === 'string') {
@@ -912,8 +925,8 @@ export class StorageContext {
   async commit(options: CommitOptions): Promise<CommitResult> {
     const { pieces, extraData } = options
 
-    // Validate batch size and metadata early, before any chain reads or signing
-    SP.validateAddPiecesBatch(pieces.length)
+    // Validate message size and metadata early, before any chain reads or signing
+    this.assertPiecesFitMessage(pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata })))
     for (const piece of pieces) {
       if (piece.pieceMetadata) {
         pieceMetadataObjectToEntry(piece.pieceMetadata)
