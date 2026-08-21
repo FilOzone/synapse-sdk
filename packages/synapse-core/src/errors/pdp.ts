@@ -1,8 +1,10 @@
 import type { Hash } from 'viem'
+import type { PieceCID } from '../piece/piece-cid.ts'
 import type { AddPiecesRejected } from '../sp/add-pieces.ts'
 import type { CreateDataSetRejected } from '../sp/create-dataset.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { decodePDPError } from '../utils/decode-pdp-errors.ts'
+import type { MetadataObject } from '../utils/metadata.ts'
 import { isSynapseError, SynapseError } from './base.ts'
 
 export class LocationHeaderError extends SynapseError {
@@ -130,6 +132,44 @@ export class AddPiecesError extends SynapseError {
 
   static override is(value: unknown): value is AddPiecesError {
     return isSynapseError(value) && value.name === 'AddPiecesError'
+  }
+}
+
+export class AddPiecesBatchTooLargeError extends SynapseError {
+  override name: 'AddPiecesBatchTooLargeError' = 'AddPiecesBatchTooLargeError'
+  readonly pieceCount: number
+
+  constructor(pieceCount: number) {
+    super(`Piece batch of ${pieceCount} does not fit in a single Filecoin message. Split into smaller batches.`)
+    this.pieceCount = pieceCount
+  }
+
+  static override is(value: unknown): value is AddPiecesBatchTooLargeError {
+    return isSynapseError(value) && value.name === 'AddPiecesBatchTooLargeError'
+  }
+}
+
+export class AddPiecesFlushError extends SynapseError {
+  override name: 'AddPiecesFlushError' = 'AddPiecesFlushError'
+  readonly pieceCid: PieceCID
+  readonly metadata?: MetadataObject
+  /** The window that failed. Same extraData / same tx attempt. */
+  readonly pieces: Array<{ pieceCid: PieceCID; metadata?: MetadataObject }>
+
+  constructor(options: {
+    pieceCid: PieceCID
+    metadata?: MetadataObject
+    pieces: Array<{ pieceCid: PieceCID; metadata?: MetadataObject }>
+    cause: Error
+  }) {
+    super('Failed to add pieces.', { cause: options.cause })
+    this.pieceCid = options.pieceCid
+    this.metadata = options.metadata
+    this.pieces = options.pieces
+  }
+
+  static override is(value: unknown): value is AddPiecesFlushError {
+    return isSynapseError(value) && value.name === 'AddPiecesFlushError'
   }
 }
 
