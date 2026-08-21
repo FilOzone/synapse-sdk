@@ -21,8 +21,11 @@ describe('chains', () => {
       assert.strictEqual(getChain(31_415_926), devnet)
     })
 
-    it('should throw for unknown chain id', () => {
-      assert.throws(() => getChain(999), /Chain with id 999 not found/)
+    it('should throw UnsupportedChainError for unknown chain id', () => {
+      assert.throws(
+        () => getChain(999),
+        (err: unknown) => UnsupportedChainError.is(err)
+      )
     })
   })
 
