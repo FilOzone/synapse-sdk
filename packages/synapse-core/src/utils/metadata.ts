@@ -48,9 +48,13 @@ export function datasetMetadataObjectToEntry(
   metadataObject?: MetadataObject,
   metadataInternal?: MetadataDataSetInternal
 ): MetadataEntry[] {
+  // When the cdn flag is set, ensure the withCDN key is present. Preserve any value already on the
+  // incoming metadata (the CDN group id that FWSS keys the shared bandwidth rail by); only default
+  // to an empty value when the key is absent, so the group id is not clobbered.
+  const ensureWithCDN = metadataInternal?.cdn === true && (metadataObject == null || !('withCDN' in metadataObject))
   const obj = {
     ...(metadataObject ?? {}),
-    ...(metadataInternal?.cdn ? { withCDN: '' } : {}),
+    ...(ensureWithCDN ? { withCDN: '' } : {}),
   }
   const entries = Object.entries(obj)
     .sort((a, b) => a[0].localeCompare(b[0]))

@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue *)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -s \"https://api.github.com/repos/FilOzone/synapse-sdk/issues/695/comments\")",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(find /Users/julian/dev/filozofone/synapse-sdk/packages/synapse-core -name \"README.md\")",
+      "Bash(pnpm run *)",
+      "Bash(which corepack *)",
+      "Bash(corepack enable *)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm test *)",
+      "Bash(WIREIT_FAILURES=continue WIREIT_LOGGER=quiet npx playwright-test \"src/test/session-keys.test.ts\" --mode node)",
+      "Bash(npx playwright-test *)",
+      "Bash(git add *)",
+      "Bash(git push *)",
+      "Bash(gh --version)",
+      "Bash(env)",
+      "Read(//Users/julian/.config/gh/**)",
+      "Bash(brew list *)",
+      "Bash(find /opt/homebrew /usr/local -name \"gh\" -type f 2>/dev/null | head -5; ls /Applications/GitHub*.app 2>/dev/null | head -3)",
+      "Bash(/opt/homebrew/Cellar/gh/2.92.0/bin/gh auth *)",
+      "Bash(git checkout *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Read(//Users/julian/dev/filozone/**)",
+      "Read(//Users/julian/dev/**)",
+      "Bash(gh pr *)",
+      "Bash(gh api *)",
+      "Read(//tmp/**)",
+      "Bash(tar xzf *)",
+      "Bash(cd /tmp/isoweb3/package && echo \"=== exports/files ===\" && ls src/ && echo \"=== http.js line count ===\" && wc -l src/http.js)",
+      "Bash(xargs cat)",
+      "Bash(npm view *)",
+      "Bash(npm pack *)",
+      "Bash(echo \"=== publish times ===\" && npm view iso-web time --json 2>/dev/null | grep -E '\"3\\\\.\\(0|1\\)\\\\.' ; echo \"today: 2026-06-03\"; echo \"=== shouldRetry + status throw logic in 3.1.1 ===\" && grep -n 'shouldRetry\\\\|isRetryStatus\\\\|isNetworkError\\\\|statusCodes.includes\\\\|Boolean\\(result\\)\\\\|!rsp.ok' /tmp/iso2/package/src/http.js | head -30)"
+    ]
+  }
+}
