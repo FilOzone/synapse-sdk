@@ -41,7 +41,8 @@ export type PieceResult = FlushResult & {
  * When to flush a tumbling addPieces window (limiter overflow, `flush()`, and
  * `close()` always flush regardless).
  *
- * - `delay`: wait `ms` after the first piece in the window (`ms: 0` is one macrotask).
+ * - `delay`: wait `ms` once the window has a piece and no upload/pull is still
+ *   parking (`ms: 0` is one macrotask). New parking work restarts the delay.
  * - `limiter`: no timer; sit until the next piece does not fit, or `flush`/`close`.
  */
 export type PieceBatcherWait = { kind: 'delay'; ms: number } | { kind: 'limiter' }
@@ -152,6 +153,7 @@ export function createPieceBatcher(
   let dataSet = options.dataSet
   let closed = false
   let timer: ReturnType<typeof setTimeout> | undefined
+  let timerToken: object | undefined
   let windowSlots: Slot[] = []
   let mutex: Promise<void> = Promise.resolve()
   const inFlight = new Set<Promise<unknown>>()
@@ -190,9 +192,13 @@ export function createPieceBatcher(
   }
 
   function track<T>(promise: Promise<T>): Promise<T> {
+    cancelTimer()
     inFlight.add(promise)
     return promise.finally(() => {
       inFlight.delete(promise)
+      if (inFlight.size === 0) {
+        startTimer()
+      }
     })
   }
 
@@ -221,10 +227,7 @@ export function createPieceBatcher(
   }
 
   async function flushWindowInternal(): Promise<FlushResult | undefined> {
-    if (timer != null) {
-      clearTimeout(timer)
-      timer = undefined
-    }
+    cancelTimer()
     if (windowSlots.length === 0) {
       return undefined
     }
@@ -294,13 +297,32 @@ export function createPieceBatcher(
     return submitted
   }
 
+  function cancelTimer(): void {
+    timerToken = undefined
+    if (timer != null) {
+      clearTimeout(timer)
+      timer = undefined
+    }
+  }
+
   function startTimer(): void {
-    if (wait.kind === 'limiter' || timer != null) {
+    if (wait.kind === 'limiter' || timerToken != null || windowSlots.length === 0 || inFlight.size > 0) {
       return
     }
+    const token = {}
+    timerToken = token
     timer = setTimeout(() => {
+      if (timerToken !== token) {
+        return
+      }
       timer = undefined
-      void lock(() => flushWindowInternal())
+      void lock(async () => {
+        if (timerToken !== token || inFlight.size > 0) {
+          return
+        }
+        timerToken = undefined
+        await flushWindowInternal()
+      })
     }, wait.ms)
   }
 
@@ -318,9 +340,7 @@ export function createPieceBatcher(
           }
           const slot: Slot = { piece: incoming, resolve, reject }
           windowSlots.push(slot)
-          if (windowSlots.length === 1) {
-            startTimer()
-          }
+          startTimer()
         } catch (error) {
           reject(error)
         } finally {
