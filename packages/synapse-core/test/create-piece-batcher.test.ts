@@ -186,6 +186,55 @@ describe('createPieceBatcher', () => {
     assert.equal(a.txHash, b.txHash)
   })
 
+  it('should start the delay after all in-flight parking settles', async () => {
+    const bodies: addPiecesApiRequest.RequestBody[] = []
+    server.use(
+      ...parkHandlers(),
+      addPiecesCaptureHandler((body) => bodies.push(body))
+    )
+
+    let resolveFirstParked: () => void = () => undefined
+    const firstParked = new Promise<void>((resolve) => {
+      resolveFirstParked = resolve
+    })
+    let resolveSecondParked: () => void = () => undefined
+    const secondParked = new Promise<void>((resolve) => {
+      resolveSecondParked = resolve
+    })
+    let releaseSecond: () => void = () => undefined
+    const holdSecond = new Promise<void>((resolve) => {
+      releaseSecond = resolve
+    })
+
+    const batcher = createPieceBatcher(client, { dataSet: createDataSet() })
+    const first = batcher.upload({
+      data: new Uint8Array(127).fill(1),
+      pieceCid: pieceCidA,
+      onParked: resolveFirstParked,
+    })
+    const second = batcher.upload({
+      data: new Uint8Array(127).fill(2),
+      pieceCid: pieceCidB,
+      onParked: async () => {
+        resolveSecondParked()
+        await holdSecond
+      },
+    })
+
+    await Promise.all([firstParked, secondParked])
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    assert.equal(bodies.length, 0)
+    assert.equal(batcher.pending.length, 1)
+
+    releaseSecond()
+    const [firstResult, secondResult] = await Promise.all([first, second])
+    await batcher.close()
+
+    assert.equal(bodies.length, 1)
+    assert.equal(bodies[0]?.pieces.length, 2)
+    assert.equal(firstResult.txHash, secondResult.txHash)
+  })
+
   it('should not flush on a timer when wait is limiter', async () => {
     const bodies: addPiecesApiRequest.RequestBody[] = []
     server.use(addPiecesCaptureHandler((body) => bodies.push(body)))
