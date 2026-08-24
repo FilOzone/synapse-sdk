@@ -48,6 +48,7 @@ import {
 } from '@filoz/synapse-core/utils'
 import {
   fetchProviderSelectionInput,
+  getPdpDataSet,
   metadataMatches,
   type ResolvedLocation,
   selectProviders,
@@ -80,6 +81,7 @@ import type {
 import { createError, SIZE_CONSTANTS } from '../utils/index.ts'
 import { combineMetadata } from '../utils/metadata.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
+import { type BatchedUploadResult, getPieceBatchingService } from './piece-batching.ts'
 import { terminateServiceFlow } from './terminate.ts'
 
 const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
@@ -142,6 +144,25 @@ export class StorageContext {
   // Getter for data set ID
   get dataSetId(): bigint | undefined {
     return this._dataSetId
+  }
+
+  /** @internal Synchronize state after a shared piece batcher creates or resolves a data set. */
+  syncBatcherDataSet(dataSetId: bigint, clientDataSetId: bigint): void {
+    this._dataSetId = dataSetId
+    this._clientDataSetId = clientDataSetId
+  }
+
+  /** @internal Resolve the minimal data-set state required by a piece batcher. */
+  async getBatcherDataSet(): Promise<SP.PieceBatcher['dataSet']> {
+    if (this._dataSetId == null) {
+      return undefined
+    }
+    const dataSet = await getPdpDataSet(this._readClient, { dataSetId: this._dataSetId })
+    if (dataSet == null) {
+      throw createError('StorageContext', 'getBatcherDataSet', 'Data set not found')
+    }
+    this._clientDataSetId = dataSet.clientDataSetId
+    return dataSet
   }
 
   private assertPiecesFitMessage(pieces: Array<{ pieceCid: PieceCID; metadata?: MetadataObject }>): void {
@@ -1021,6 +1042,57 @@ export class StorageContext {
    * @returns Upload result with pieceCid, size, and a single-element copies array
    */
   async upload(data: UploadPieceStreamingData, options?: UploadOptions): Promise<UploadResult> {
+    const batching = getPieceBatchingService(this._synapse)
+    if (batching != null) {
+      let parked = false
+      const task = batching.upload(this, {
+        data,
+        pieceCid: options?.pieceCid,
+        metadata: options?.pieceMetadata,
+        signal: options?.signal,
+        onProgress: options?.onProgress,
+        onParked: (piece) => {
+          parked = true
+          options?.onStored?.(this._provider.id, piece.pieceCid)
+        },
+        onSubmitted: (submitted) =>
+          options?.onPiecesAdded?.(submitted.txHash, this._provider.id, [{ pieceCid: submitted.pieceCid }]),
+      })
+
+      let result: BatchedUploadResult
+      try {
+        result = await task.committed
+      } catch (error) {
+        throw createError(
+          'StorageContext',
+          parked ? 'commit' : 'store',
+          parked ? 'Failed to commit pieces on-chain' : 'Failed to store piece on service provider',
+          error
+        )
+      }
+
+      options?.onPiecesConfirmed?.(result.dataSetId, this._provider.id, [
+        { pieceId: result.pieceId, pieceCid: result.pieceCid },
+      ])
+      return {
+        pieceCid: result.pieceCid,
+        size: result.size,
+        requestedCopies: 1,
+        complete: true,
+        copies: [
+          {
+            providerId: this._provider.id,
+            dataSetId: result.dataSetId,
+            pieceId: result.pieceId,
+            role: 'primary',
+            retrievalUrl: this.getPieceUrl(result.pieceCid),
+            isNewDataSet: result.isNewDataSet,
+          },
+        ],
+        failedAttempts: [],
+      }
+    }
+
     // Store phase
     const storeResult = await this.store(data, {
       pieceCid: options?.pieceCid,

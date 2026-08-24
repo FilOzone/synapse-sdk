@@ -24,17 +24,28 @@ import { findPiece } from './find-piece.ts'
 import { waitForPullPieces } from './pull-pieces.ts'
 import { type UploadPieceStreamingData, uploadPieceStreaming } from './upload-streaming.ts'
 
-export type EnqueuePiece = LimiterPiece
+export type EnqueuePiece = LimiterPiece & {
+  /** Raw byte size when the piece was parked by `upload()`. */
+  size?: number
+}
 
 export type FlushResult = {
   txHash: Hex
+  confirmedTxHash?: Hex
   statusUrl: string
+  dataSetId: bigint
+  clientDataSetId: bigint
+  isNewDataSet: boolean
   pieces: EnqueuePiece[]
 }
 
 export type PieceResult = FlushResult & {
   pieceCid: PieceCID
   batchIndex: number
+}
+
+export type UploadResult = PieceResult & {
+  size: number
 }
 
 /**
@@ -56,7 +67,7 @@ export type PieceBatcherWait = { kind: 'delay'; ms: number } | { kind: 'limiter'
 export type OnParked = (piece: EnqueuePiece) => void | Promise<void>
 
 export type UploadInput = {
-  data: File | Uint8Array | ReadableStream<Uint8Array>
+  data: File | UploadPieceStreamingData
   /** Known length for a stream (`File` uses `.size`). */
   size?: number
   metadata?: MetadataObject
@@ -71,6 +82,8 @@ export type PullInput = {
   sourceUrl: string
   metadata?: MetadataObject
   onParked?: OnParked
+  onStatus?: (response: waitForPullPieces.ReturnType) => void
+  signal?: AbortSignal
 }
 
 type Slot = {
@@ -81,7 +94,7 @@ type Slot = {
 
 export type PieceBatcher = {
   /** Stream onto this SP, then join the addPieces window. */
-  upload: (input: UploadInput) => Promise<PieceResult>
+  upload: (input: UploadInput) => Promise<UploadResult>
   /** Pull onto this SP (own extraData), then join the addPieces window. */
   pull: (input: PullInput) => Promise<PieceResult>
   /** Already on this SP. Join the addPieces window only. */
@@ -236,19 +249,36 @@ export function createPieceBatcher(
     const pieces = batch.map((slot) => slot.piece)
 
     try {
-      const submitted =
-        dataSet == null
-          ? await flushCreate(pieces)
-          : await addPieces(client, {
-              serviceURL: serviceURL(),
-              dataSetId: dataSet.dataSetId,
-              clientDataSetId: dataSet.clientDataSetId,
-              pieces,
-            })
+      const isNewDataSet = dataSet == null
+      let submitted: {
+        txHash: Hex
+        confirmedTxHash?: Hex
+        statusUrl: string
+        dataSetId: bigint
+        clientDataSetId: bigint
+      }
+      if (dataSet == null) {
+        submitted = await flushCreate(pieces)
+      } else {
+        submitted = {
+          ...(await addPieces(client, {
+            serviceURL: serviceURL(),
+            dataSetId: dataSet.dataSetId,
+            clientDataSetId: dataSet.clientDataSetId,
+            pieces,
+          })),
+          dataSetId: dataSet.dataSetId,
+          clientDataSetId: dataSet.clientDataSetId,
+        }
+      }
 
       const result: FlushResult = {
         txHash: submitted.txHash,
+        ...(submitted.confirmedTxHash == null ? {} : { confirmedTxHash: submitted.confirmedTxHash }),
         statusUrl: submitted.statusUrl,
+        dataSetId: submitted.dataSetId,
+        clientDataSetId: submitted.clientDataSetId,
+        isNewDataSet,
         pieces,
       }
       for (const [batchIndex, slot] of batch.entries()) {
@@ -275,7 +305,13 @@ export function createPieceBatcher(
     }
   }
 
-  async function flushCreate(pieces: EnqueuePiece[]): Promise<{ txHash: Hex; statusUrl: string }> {
+  async function flushCreate(pieces: EnqueuePiece[]): Promise<{
+    txHash: Hex
+    confirmedTxHash?: Hex
+    statusUrl: string
+    dataSetId: bigint
+    clientDataSetId: bigint
+  }> {
     if (payee == null) {
       throw new ValidationError('`payee` is required when dataSet is undefined.')
     }
@@ -294,7 +330,16 @@ export function createPieceBatcher(
       throw new DataSetNotFoundError(created.dataSetId)
     }
     dataSet = resolved
-    return submitted
+    return {
+      txHash: submitted.txHash,
+      ...(created.confirmedTxHash == null ? {} : { confirmedTxHash: created.confirmedTxHash }),
+      statusUrl: new URL(
+        `/pdp/data-sets/${created.dataSetId}/pieces/added/${submitted.txHash}`,
+        serviceURL()
+      ).toString(),
+      dataSetId: created.dataSetId,
+      clientDataSetId: createClientDataSetId,
+    }
   }
 
   function cancelTimer(): void {
@@ -368,7 +413,7 @@ export function createPieceBatcher(
     return internalEnqueue(piece)
   }
 
-  async function upload(input: UploadInput): Promise<PieceResult> {
+  async function upload(input: UploadInput): Promise<UploadResult> {
     let data: UploadPieceStreamingData
     let size = input.size
     if (isUint8Array(input.data)) {
@@ -380,7 +425,8 @@ export function createPieceBatcher(
     } else {
       data = input.data
     }
-    return parkAndEnqueue(async () => {
+    let uploadedSize: number | undefined
+    const result = await parkAndEnqueue(async () => {
       if (input.pieceCid != null) {
         assertPieceCidSize(input.pieceCid)
       }
@@ -392,14 +438,19 @@ export function createPieceBatcher(
         onProgress: input.onProgress,
         signal: input.signal,
       })
+      uploadedSize = uploaded.size
       await findPiece({
         serviceURL: serviceURL(),
         pieceCid: uploaded.pieceCid,
         poll: true,
         signal: input.signal,
       })
-      return { pieceCid: uploaded.pieceCid, metadata: input.metadata }
+      return { pieceCid: uploaded.pieceCid, metadata: input.metadata, size: uploaded.size }
     }, input.onParked)
+    if (uploadedSize == null) {
+      throw new ValidationError('Piece upload completed without a size.')
+    }
+    return { ...result, size: uploadedSize }
   }
 
   async function pull(input: PullInput): Promise<PieceResult> {
@@ -430,6 +481,8 @@ export function createPieceBatcher(
               payer,
               cdn,
               metadata: datasetMetadata,
+              signal: input.signal,
+              onStatus: input.onStatus,
             })
           : await waitForPullPieces(client, {
               serviceURL: serviceURL(),
@@ -437,6 +490,8 @@ export function createPieceBatcher(
               extraData,
               dataSetId: dataSet.dataSetId,
               clientDataSetId: dataSet.clientDataSetId,
+              signal: input.signal,
+              onStatus: input.onStatus,
             })
       if (pullResult.status === 'failed') {
         throw new PullError('Pull failed.')
@@ -453,15 +508,15 @@ export function createPieceBatcher(
   }
 
   async function flush(): Promise<FlushResult | undefined> {
+    await Promise.allSettled([...inFlight])
+    await Promise.resolve()
+    await scheduledIdle
     return lock(() => flushWindowInternal())
   }
 
   async function close(): Promise<void> {
     closed = true
-    await Promise.allSettled([...inFlight])
-    await Promise.resolve()
-    await scheduledIdle
-    await lock(() => flushWindowInternal())
+    await flush()
   }
 
   return {

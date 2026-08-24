@@ -287,6 +287,28 @@ describe('createPieceBatcher', () => {
     assert.equal(b.txHash, mockTxHash2)
   })
 
+  it('should pass the active data set to a custom limiter', async () => {
+    server.use(addPiecesCaptureHandler(() => undefined))
+    let observedDataSet: PdpDataSet | undefined
+    const batcher = createPieceBatcher(client, {
+      dataSet: createDataSet(),
+      wait: { kind: 'limiter' },
+      limiter: (options) => {
+        if (options.kind !== 'addPieces') {
+          return false
+        }
+        observedDataSet = options.dataSet
+        return options.dataSet?.dataSetId === 1n
+      },
+    })
+
+    const pending = batcher.enqueue({ pieceCid: pieceCidA })
+    await batcher.close()
+    await pending
+
+    assert.equal(observedDataSet?.dataSetId, 1n)
+  })
+
   it('should mix upload and pull in one window', async () => {
     const addBodies: addPiecesApiRequest.RequestBody[] = []
     let pullExtraData: string | undefined
@@ -548,6 +570,7 @@ describe('createPieceBatcher', () => {
 
     assert.ok(batcher.dataSet)
     assert.equal(batcher.dataSet?.dataSetId, 1n)
+    assert.equal(batcher.dataSet?.provider.id, 1n)
     assert.equal(created.txHash, mockTxHash)
     assert.equal(added.txHash, mockTxHash2)
     assert.equal(addBodies.length, 1)
