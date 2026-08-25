@@ -26,6 +26,7 @@
     "@biomejs/biome": "catalog:",
     "knip": "6.32.2",
     "markdownlint-cli2": "0.23.2",
+    "pkg-pr-new": "^0.0.88",
     "typescript": "catalog:",
     "wireit": "0.14.13"
   },
