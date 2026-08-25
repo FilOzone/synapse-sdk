@@ -1,0 +1,120 @@
+---
+title: Preview Packages
+description: Install unreleased Synapse packages from pull requests, commits, and master using pkg.pr.new.
+sidebar:
+  order: 8
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+This repository publishes a preview of every package on each pull request, commit, and push to `master`. Previews are not published to npm. They are served from [pkg.pr.new](https://github.com/stackblitz-labs/pkg.pr.new) as npm-compatible tarball URLs, so you can try a fix or feature before it is released.
+
+## Setup
+
+Preview publishing follows the [pkg.pr.new setup](https://github.com/stackblitz-labs/pkg.pr.new#setup):
+
+1. The [pkg-pr-new GitHub App](https://github.com/apps/pkg-pr-new) is installed on [FilOzone/synapse-sdk](https://github.com/FilOzone/synapse-sdk).
+2. The [Pkg PR New workflow](https://github.com/FilOzone/synapse-sdk/blob/master/.github/workflows/pkg-pr-new.yml) builds the workspace, then publishes every package under `packages/*` with:
+
+   ```sh
+   pnpm exec pkg-pr-new publish --pnpm './packages/*'
+   ```
+
+The workflow runs on `push` and `pull_request`. On pull requests, the bot comments with install commands for that PR. Publishing only happens in GitHub Actions, not on your local machine.
+
+See the [pkg.pr.new setup guide](https://github.com/stackblitz-labs/pkg.pr.new#setup) for CLI flags, compact vs long-form URLs, and other options.
+
+## Install URLs
+
+Preview URLs use this compact form:
+
+```text
+https://pkg.pr.new/@filoz/<package>@<ref>
+```
+
+`<package>` is `synapse-sdk`, `synapse-core`, or `synapse-react`. `<ref>` is a pull request number, a commit SHA, or a branch name such as `master`.
+
+If a compact URL is unavailable, use the long form:
+
+```text
+https://pkg.pr.new/FilOzone/synapse-sdk/@filoz/<package>@<ref>
+```
+
+Peer dependencies such as `viem` are still required. Install them the same way you would for a published release.
+
+:::caution[Unreleased code]
+Preview packages track git, not npm versions. APIs can change, and a later npm release of the same version string can collide with a lockfile entry. Prefer a commit SHA when you need a reproducible install.
+:::
+
+### Pull request
+
+Use the pull request number. The pkg.pr.new bot also posts these commands on the PR.
+
+```sh
+npm i https://pkg.pr.new/@filoz/synapse-sdk@123
+```
+
+Replace `123` with the PR number, and swap the package name for `@filoz/synapse-core` or `@filoz/synapse-react` as needed.
+
+### Commit
+
+Use the abbreviated commit SHA (the same short hash shown in the bot comment, for example `a832a55`). This is the most precise ref: it always points at that exact build.
+
+```sh
+npm i https://pkg.pr.new/@filoz/synapse-sdk@a832a55
+```
+
+### master
+
+After the workflow has run on `master`, `@master` resolves to the latest published commit on that branch:
+
+```sh
+npm i https://pkg.pr.new/@filoz/synapse-sdk@master
+```
+
+The same pattern works for other in-repo branches once the workflow has published them (`@branch-name`).
+
+## Package managers
+
+<Tabs syncKey="pkg">
+  <TabItem label="npm" icon="seti:npm">
+    ```bash
+    npm i https://pkg.pr.new/@filoz/synapse-sdk@master
+    npm i https://pkg.pr.new/@filoz/synapse-core@master
+    npm i https://pkg.pr.new/@filoz/synapse-react@master
+    ```
+  </TabItem>
+  <TabItem label="pnpm" icon="pnpm">
+    ```bash
+    pnpm add https://pkg.pr.new/@filoz/synapse-sdk@master
+    pnpm add https://pkg.pr.new/@filoz/synapse-core@master
+    pnpm add https://pkg.pr.new/@filoz/synapse-react@master
+    ```
+  </TabItem>
+  <TabItem label="yarn" icon="seti:yarn">
+    ```bash
+    yarn add https://pkg.pr.new/@filoz/synapse-sdk@master
+    yarn add https://pkg.pr.new/@filoz/synapse-core@master
+    yarn add https://pkg.pr.new/@filoz/synapse-react@master
+    ```
+  </TabItem>
+  <TabItem label="bun" icon="bun">
+    ```bash
+    bun add https://pkg.pr.new/@filoz/synapse-sdk@master
+    bun add https://pkg.pr.new/@filoz/synapse-core@master
+    bun add https://pkg.pr.new/@filoz/synapse-react@master
+    ```
+  </TabItem>
+</Tabs>
+
+Replace `@master` with a PR number or commit SHA when you want a specific change instead of the latest `master` build.
+
+## Packages
+
+| Package | Compact URL |
+| --- | --- |
+| [@filoz/synapse-sdk](/developer-guides/synapse/) | `https://pkg.pr.new/@filoz/synapse-sdk@<ref>` |
+| [@filoz/synapse-core](/developer-guides/synapse-core/) | `https://pkg.pr.new/@filoz/synapse-core@<ref>` |
+| [@filoz/synapse-react](/developer-guides/synapse-react/) | `https://pkg.pr.new/@filoz/synapse-react@<ref>` |
+
+Published previews for this repository are listed at [pkg.pr.new/~/FilOzone/synapse-sdk](https://pkg.pr.new/~/FilOzone/synapse-sdk).
