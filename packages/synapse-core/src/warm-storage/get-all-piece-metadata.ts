@@ -37,6 +37,7 @@ export namespace getAllPieceMetadata {
 /**
  * Get all metadata for a piece formatted as a MetadataObject
  *
+ * @deprecated FWSS piece metadata getters are being removed. Read metadata from `PieceAdded` events or an indexer instead.
  * @param client - The client to use to get the piece metadata.
  * @param options - {@link getAllPieceMetadata.OptionsType}
  * @returns The metadata formatted as a MetadataObject {@link getAllPieceMetadata.OutputType}
@@ -90,6 +91,7 @@ export namespace getAllPieceMetadataCall {
  *
  * Use {@link parseAllPieceMetadata} to parse the output into a MetadataObject.
  *
+ * @deprecated FWSS piece metadata getters are being removed. Read metadata from `PieceAdded` events or an indexer instead.
  * @param options - {@link getAllPieceMetadataCall.OptionsType}
  * @returns The call to the getAllPieceMetadata function {@link getAllPieceMetadataCall.OutputType}
  * @throws Errors {@link getAllPieceMetadataCall.ErrorType}
@@ -132,6 +134,7 @@ export function getAllPieceMetadataCall(options: getAllPieceMetadataCall.Options
 /**
  * Parse the contract output into a MetadataObject
  *
+ * @deprecated The FWSS piece metadata getter is being removed. Read metadata from `PieceAdded` events or an indexer instead.
  * @param data - The contract output from the getAllPieceMetadata function {@link getAllPieceMetadata.ContractOutputType}
  * @returns The metadata formatted as a MetadataObject {@link getAllPieceMetadata.OutputType}
  */

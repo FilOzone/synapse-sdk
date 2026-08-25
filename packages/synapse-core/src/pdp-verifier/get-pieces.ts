@@ -155,6 +155,8 @@ export namespace getPiecesWithMetadata {
  * fewer or no visible items. Treat `nextCursor` as opaque and use
  * {@link paginate} to traverse every page.
  *
+ * @deprecated FWSS piece metadata getters are being removed. Use {@link getPieces} and read metadata from `PieceAdded` events or an indexer instead.
+ *
  * @example Read the first page
  * ```ts
  * import { getPiecesWithMetadata } from '@filoz/synapse-core/pdp-verifier'

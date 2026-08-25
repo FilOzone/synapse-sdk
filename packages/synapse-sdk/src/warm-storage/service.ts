@@ -342,6 +342,7 @@ export class WarmStorageService {
   /**
    * Get all metadata for a piece in a data set
    *
+   * @deprecated FWSS piece metadata getters are being removed. Read metadata from `PieceAdded` events or an indexer instead.
    * @param options - Options for the piece
    * @param options.dataSetId - The data set ID
    * @param options.pieceId - The piece ID
@@ -354,6 +355,7 @@ export class WarmStorageService {
   /**
    * Get specific metadata key for a piece in a data set
    *
+   * @deprecated FWSS piece metadata getters are being removed. Read metadata from `PieceAdded` events or an indexer instead.
    * @param options - Options for the piece
    * @param options.dataSetId - The data set ID
    * @param options.pieceId - The piece ID
