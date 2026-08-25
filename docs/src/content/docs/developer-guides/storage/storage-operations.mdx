@@ -240,6 +240,9 @@ console.log(`Found ${pieces.length} pieces`);
 ### Getting Piece Metadata
 
 Access custom metadata attached to individual pieces:
+:::caution[Deprecated]
+Piece metadata getters are deprecated and will be removed from Synapse SDK packages. Read metadata from `PieceAdded` events or an indexer instead. Passing piece metadata when uploading or committing remains supported so providers can include it in those events.
+:::
 
 ```ts twoslash
 // @lib: esnext,dom
