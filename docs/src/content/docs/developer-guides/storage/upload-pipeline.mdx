@@ -55,6 +55,43 @@ The result contains:
 - **`copies`** - array of successful copies, each with `providerId`, `dataSetId`, `pieceId`, `role` (`'primary'` or `'secondary'`), `retrievalUrl`, and `isNewDataSet`
 - **`failedAttempts`** - providers that were tried but did not produce a copy. The SDK retries failed secondaries with alternate providers, so a non-empty array often just means a provider was swapped out. These are diagnostic, check `complete` for the actual outcome.
 
+### Uploading Multiple Files
+
+Piece batching is enabled by default. Compatible uploads that run concurrently can share an on-chain transaction when they use the same provider and data set. Each provider maintains its own batch.
+
+Start the uploads together to give them an opportunity to join the same batch:
+
+```ts
+const results = await Promise.all(
+  files.map((file) => synapse.storage.upload(file))
+)
+```
+
+Sequential uploads cannot share a batch because each call waits for its own on-chain confirmation before the next call starts:
+
+```ts
+for (const file of files) {
+  await synapse.storage.upload(file)
+}
+```
+
+By default, the SDK submits a batch after a zero-delay window. You can instead hold compatible pieces until the transaction size limit is reached or you explicitly flush them:
+
+```ts
+const synapse = Synapse.create({
+  account: privateKeyToAccount("0x..."),
+  pieceBatching: { wait: { kind: "limiter" } },
+})
+
+const uploads = files.map((file) => synapse.storage.upload(file))
+await synapse.storage.flush()
+const results = await Promise.all(uploads)
+```
+
+`flush()` waits for accepted uploads and pulls to finish parking, then submits their pending batch windows. It does not report whether every upload was submitted or confirmed successfully; always await the individual upload promises for results and errors.
+
+Set `pieceBatching: false` when creating `Synapse` to disable batching. Use the [split operations](#split-operations) when you need manual control over provider selection, signing, or each store, pull, and commit phase.
+
 ### Upload with Metadata
 
 Attach metadata to organize uploads. The SDK reuses existing data sets when metadata matches, avoiding duplicate payment rails:

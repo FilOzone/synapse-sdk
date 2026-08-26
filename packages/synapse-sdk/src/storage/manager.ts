@@ -198,9 +198,14 @@ export class StorageManager {
    * to determine overall success. Don't use `failedAttempts.length` as a failure
    * signal as `failedAttempts` exists as a diagnostic for intermediate failures.
    *
+   * Batching is enabled by default. Compatible concurrent calls can share
+   * on-chain transactions, while sequentially awaiting each call prevents those
+   * uploads from joining the same batch.
+   *
    * For large files, prefer streaming to minimize memory usage.
    *
-   * For uploading multiple files, use the split operations API directly:
+   * For manual control over providers, signing, or individual phases, use the
+   * split operations API directly:
    * createContexts() -> store() -> presignForCommit() -> pull() -> commit()
    *
    * @param data - Raw bytes (Uint8Array) or ReadableStream to upload
@@ -392,7 +397,15 @@ export class StorageManager {
     }
   }
 
-  /** Flush all piece windows currently accepted by this Synapse instance. */
+  /**
+   * Submit all piece-batch windows currently accepted by this Synapse instance.
+   *
+   * Waits for in-progress uploads and pulls to finish parking before submitting
+   * their pending windows. Resolving does not mean every upload was submitted or
+   * confirmed successfully; failures are reported by the individual upload
+   * promises, which callers must also await. This is a no-op when batching is
+   * disabled.
+   */
   async flush(): Promise<void> {
     await getPieceBatchingService(this._synapse)?.flush()
   }

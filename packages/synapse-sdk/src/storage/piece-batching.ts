@@ -162,15 +162,15 @@ export class PieceBatchingService {
     const key = this.key(context)
     const existing = this.entries.get(key)
     if (existing != null) {
-      void existing.then((entry) => {
+      return existing.then((entry) => {
         const dataSet = entry.batcher.dataSet
         if (dataSet == null) {
           entry.contexts.add(context)
         } else {
           context.syncBatcherDataSet(dataSet.dataSetId, dataSet.clientDataSetId)
         }
+        return entry
       })
-      return existing
     }
 
     const created = this.createEntry(context)
