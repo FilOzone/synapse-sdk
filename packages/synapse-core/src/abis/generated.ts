@@ -3219,19 +3219,6 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'getAllPieceMetadata',
-    outputs: [
-      { name: 'keys', internalType: 'string[]', type: 'string[]' },
-      { name: 'values', internalType: 'string[]', type: 'string[]' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
       { name: 'offset', internalType: 'uint256', type: 'uint256' },
       { name: 'limit', internalType: 'uint256', type: 'uint256' },
     ],
@@ -3423,20 +3410,6 @@ export const filecoinWarmStorageServiceStateViewAbi = [
         internalType: 'uint256',
         type: 'uint256',
       },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
-      { name: 'key', internalType: 'string', type: 'string' },
-    ],
-    name: 'getPieceMetadata',
-    outputs: [
-      { name: 'exists', internalType: 'bool', type: 'bool' },
-      { name: 'value', internalType: 'string', type: 'string' },
     ],
     stateMutability: 'view',
   },

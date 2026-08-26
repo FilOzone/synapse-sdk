@@ -31,7 +31,7 @@ WarmStorage manages the complete storage marketplace:
 1. **Client Authentication**: Validates all client operations via EIP-712 signaturess.
 2. **Payment Coordination**: Automatically creates and manages payment rails between clients and service providers.
 3. **Cost Calculation**: Determines pricing based on size, duration, and CDN usage.
-4. **Metadata Management**: Stores data set and piece metadata for discovery.
+4. **Metadata Management**: Stores data set metadata and emits piece metadata for off-chain indexing.
 5. **Fault Handling**: Integrates PDP verification results with payment adjustments
 
 ## How FWSS works
@@ -85,7 +85,7 @@ When a new data set is created in `PDPVerifier`, this function is called to set 
 
 #### _`piecesAdded()`_
 
-When pieces are added to an existing data set, this function is called to store piece metadata and update payment rail configuration if needed.
+When pieces are added to an existing data set, this function validates and emits piece metadata and updates payment rail configuration if needed. Piece metadata is available through `PieceAdded` events or an indexer, not contract getters.
 
 **Key actions for first data set**:
 

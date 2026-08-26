@@ -1,13 +1,11 @@
 import * as p from '@clack/prompts'
 import { paginate } from '@filoz/synapse-core'
-import { calibration } from '@filoz/synapse-core/chains'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
-import { metadataArrayToObject } from '@filoz/synapse-core/utils'
 import { getPdpDataSets, type Piece } from '@filoz/synapse-core/warm-storage'
 import { Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import { type Hex, stringify } from 'viem'
-import { readContract, waitForTransactionReceipt } from 'viem/actions'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 
@@ -105,22 +103,7 @@ export const pieces: Command = command(
       if (group.action === 'info') {
         // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
-        const metadata = await readContract(client, {
-          address: calibration.contracts.fwssView.address,
-          abi: calibration.contracts.fwssView.abi,
-          functionName: 'getAllPieceMetadata',
-          args: [group.dataSetId, BigInt(piece.id)],
-        })
-        p.log.message(
-          stringify(
-            {
-              ...piece,
-              metadata: metadataArrayToObject(metadata),
-            },
-            undefined,
-            2
-          )
-        )
+        p.log.message(stringify(piece, undefined, 2))
       } else if (group.action === 'delete') {
         spinner.start('Deleting piece...')
         // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found

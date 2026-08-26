@@ -1,7 +1,7 @@
 import { defineConfig } from '@wagmi/cli'
 import { fetch as fetchPlugin } from '@wagmi/cli/plugins'
 import { request } from 'iso-web/http'
-import { zeroAddress } from 'viem'
+import { type Abi, zeroAddress } from 'viem'
 import * as z from 'zod'
 import { ZodValidationError } from './src/errors/base.ts'
 import { zAddress } from './src/utils/schemas.ts'
@@ -131,6 +131,13 @@ const config: ReturnType<typeof defineConfig> = defineConfig(async () => {
           contracts,
 
           cacheDuration: 100,
+          parse: async ({ response }) => {
+            const abi = (await response.json()) as Abi
+            return abi.filter(
+              (item) =>
+                item.type !== 'function' || (item.name !== 'getAllPieceMetadata' && item.name !== 'getPieceMetadata')
+            )
+          },
           request(contract) {
             return {
               url: `${BASE_URL}/${contract.name}.abi.json`,
