@@ -131,13 +131,6 @@ const config: ReturnType<typeof defineConfig> = defineConfig(async () => {
           contracts,
 
           cacheDuration: 100,
-          parse: async ({ response }) => {
-            const abi = (await response.json()) as Abi
-            return abi.filter(
-              (item) =>
-                item.type !== 'function' || (item.name !== 'getAllPieceMetadata' && item.name !== 'getPieceMetadata')
-            )
-          },
           request(contract) {
             return {
               url: `${BASE_URL}/${contract.name}.abi.json`,
