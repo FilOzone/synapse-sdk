@@ -55,11 +55,3 @@ export interface Piece {
   id: bigint
   url: string
 }
-
-/**
- * @deprecated FWSS piece metadata getters are being removed. Use {@link Piece} and read metadata from `PieceAdded` events or an indexer instead.
- */
-export interface PieceWithMetadata extends Piece {
-  /** @deprecated Read metadata from `PieceAdded` events or an indexer instead. */
-  metadata: MetadataObject
-}

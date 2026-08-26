@@ -59,42 +59,4 @@ describe('WarmStorageService Metadata', () => {
       assert.equal(Object.keys(metadata).length, 0)
     })
   })
-
-  describe('Piece Metadata', () => {
-    it('should get all piece metadata', async () => {
-      const metadata = await warmStorageService.getPieceMetadata({ dataSetId: 1n, pieceId: 0n })
-
-      assert.equal(Object.keys(metadata).length, 2)
-      assert.equal(metadata[METADATA_KEYS.WITH_IPFS_INDEXING], '')
-      assert.equal(metadata[METADATA_KEYS.IPFS_ROOT_CID], 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
-    })
-
-    it('should get specific piece metadata by key', async () => {
-      const indexingValue = await warmStorageService.getPieceMetadataByKey({
-        dataSetId: 1n,
-        pieceId: 0n,
-        key: METADATA_KEYS.WITH_IPFS_INDEXING,
-      })
-      assert.equal(indexingValue, '')
-
-      const cidValue = await warmStorageService.getPieceMetadataByKey({
-        dataSetId: 1n,
-        pieceId: 0n,
-        key: METADATA_KEYS.IPFS_ROOT_CID,
-      })
-      assert.equal(cidValue, 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
-
-      const nonExistent = await warmStorageService.getPieceMetadataByKey({
-        dataSetId: 1n,
-        pieceId: 0n,
-        key: 'nonexistent',
-      })
-      assert.isNull(nonExistent)
-    })
-
-    it('should return empty metadata for non-existent piece', async () => {
-      const metadata = await warmStorageService.getPieceMetadata({ dataSetId: 1n, pieceId: 999n })
-      assert.equal(Object.keys(metadata).length, 0)
-    })
-  })
 })

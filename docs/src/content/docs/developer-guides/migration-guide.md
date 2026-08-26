@@ -100,7 +100,7 @@ for await (const piece of paginate(({ cursor }) =>
 }
 ```
 
-`findPieceIdsByCid`, `getPieces`, and `getPiecesWithMetadata` also return pages and accept `cursor` rather than `startPieceId` or `offset` at the action level.
+`findPieceIdsByCid` and `getPieces` also return pages and accept `cursor` rather than `startPieceId` or `offset` at the action level.
 
 Raw `*Call` helpers in `@filoz/synapse-core` remain ABI-oriented: provide their required contract-facing `offset` or `startPieceId` and `limit` fields explicitly when constructing multicalls.
 
@@ -141,6 +141,16 @@ for await (const _piece of paginate(({ cursor }) =>
   activePieceCount++
 }
 ```
+
+### Action: Read piece metadata from events or an indexer
+
+Piece metadata is no longer persisted in FWSS contract state. The following getter APIs were removed:
+
+- `getAllPieceMetadata()`, `getAllPieceMetadataCall()`, and `parseAllPieceMetadata()` from `@filoz/synapse-core/warm-storage`
+- `getPiecesWithMetadata()` and the `PieceWithMetadata` type from `@filoz/synapse-core`
+- `WarmStorageService.getPieceMetadata()` and `getPieceMetadataByKey()` from `@filoz/synapse-sdk`
+
+The React `useDataSets()` hook now returns `Piece[]` without a `metadata` field. Read piece metadata from `PieceAdded` events or an indexer instead. Upload and commit options still accept piece metadata so it can be included in those events.
 
 ---
 

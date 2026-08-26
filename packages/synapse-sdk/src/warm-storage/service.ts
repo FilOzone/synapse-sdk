@@ -29,7 +29,6 @@ import {
   getAccountTotalStorageSize,
   getAllDataSetMetadata,
   getAllDataSetMetadataCall,
-  getAllPieceMetadata,
   getApprovedProviderIds,
   getClientDataSetIds,
   getClientDataSets,
@@ -335,39 +334,6 @@ export class WarmStorageService {
       abi: this._chain.contracts.fwssView.abi,
       functionName: 'getDataSetMetadata',
       args: [options.dataSetId, options.key],
-    })
-    return exists ? value : null
-  }
-
-  /**
-   * Get all metadata for a piece in a data set
-   *
-   * @deprecated FWSS piece metadata getters are being removed. Read metadata from `PieceAdded` events or an indexer instead.
-   * @param options - Options for the piece
-   * @param options.dataSetId - The data set ID
-   * @param options.pieceId - The piece ID
-   * @returns Object with metadata key-value pairs
-   */
-  async getPieceMetadata(options: { dataSetId: bigint; pieceId: bigint }): Promise<MetadataObject> {
-    return getAllPieceMetadata(this._readClient, options)
-  }
-
-  /**
-   * Get specific metadata key for a piece in a data set
-   *
-   * @deprecated FWSS piece metadata getters are being removed. Read metadata from `PieceAdded` events or an indexer instead.
-   * @param options - Options for the piece
-   * @param options.dataSetId - The data set ID
-   * @param options.pieceId - The piece ID
-   * @param options.key - The metadata key to retrieve
-   * @returns The metadata value if it exists, null otherwise
-   */
-  async getPieceMetadataByKey(options: { dataSetId: bigint; pieceId: bigint; key: string }): Promise<string | null> {
-    const [exists, value] = await readContract(this._readClient, {
-      address: this._chain.contracts.fwssView.address,
-      abi: this._chain.contracts.fwssView.abi,
-      functionName: 'getPieceMetadata',
-      args: [options.dataSetId, options.pieceId, options.key],
     })
     return exists ? value : null
   }

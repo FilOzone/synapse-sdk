@@ -4,7 +4,7 @@ import { createPublicClient, http, toHex } from 'viem'
 import { calibration } from '../src/chains.ts'
 import { ValidationError } from '../src/errors/base.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { getPieces, getPiecesWithMetadata } from '../src/pdp-verifier/get-pieces.ts'
+import { getPieces } from '../src/pdp-verifier/get-pieces.ts'
 import * as Piece from '../src/piece/index.ts'
 import type { PdpDataSet } from '../src/warm-storage/types.ts'
 
@@ -153,53 +153,6 @@ describe('getPieces', () => {
     await assert.rejects(
       () =>
         getPieces(client, {
-          dataSet: createDataSet(),
-          address: ADDRESSES.client1,
-          limit: -1n,
-        }),
-      ValidationError
-    )
-  })
-
-  it('should return an empty result from getPiecesWithMetadata without requesting metadata when there are no pieces', async () => {
-    server.use(
-      JSONRPC({
-        ...presets.basic,
-        pdpVerifier: {
-          ...presets.basic.pdpVerifier,
-          getActivePiecesByCursor: () => [[], [], false],
-        },
-        warmStorageView: {
-          ...presets.basic.warmStorageView,
-          getAllPieceMetadata: () => {
-            throw new Error('metadata lookup should not happen')
-          },
-        },
-      })
-    )
-
-    const client = createPublicClient({
-      chain: calibration,
-      transport: http(),
-    })
-
-    const result = await getPiecesWithMetadata(client, {
-      dataSet: createDataSet(),
-      address: ADDRESSES.client1,
-    })
-
-    assert.deepEqual(result, { items: [] })
-  })
-
-  it('should throw when getPiecesWithMetadata limit is negative', async () => {
-    const client = createPublicClient({
-      chain: calibration,
-      transport: http(),
-    })
-
-    await assert.rejects(
-      () =>
-        getPiecesWithMetadata(client, {
           dataSet: createDataSet(),
           address: ADDRESSES.client1,
           limit: -1n,

@@ -16,8 +16,6 @@ type getDataSet = ExtractAbiFunction<typeof Abis.fwssView, 'getDataSet'>
 type getApprovedProviders = ExtractAbiFunction<typeof Abis.fwssView, 'getApprovedProviders'>
 type getAllDataSetMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getAllDataSetMetadata'>
 type getDataSetMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getDataSetMetadata'>
-type getAllPieceMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getAllPieceMetadata'>
-type getPieceMetadata = ExtractAbiFunction<typeof Abis.fwssView, 'getPieceMetadata'>
 type clientNonces = ExtractAbiFunction<typeof Abis.fwssView, 'clientNonces'>
 type getPDPConfig = ExtractAbiFunction<typeof Abis.fwssView, 'getPDPConfig'>
 type getClientDataSetsLength = ExtractAbiFunction<typeof Abis.fwssView, 'getClientDataSetsLength'>
@@ -34,8 +32,6 @@ export interface WarmStorageViewOptions {
     args: AbiToType<getAllDataSetMetadata['inputs']>
   ) => AbiToType<getAllDataSetMetadata['outputs']>
   getDataSetMetadata?: (args: AbiToType<getDataSetMetadata['inputs']>) => AbiToType<getDataSetMetadata['outputs']>
-  getAllPieceMetadata?: (args: AbiToType<getAllPieceMetadata['inputs']>) => AbiToType<getAllPieceMetadata['outputs']>
-  getPieceMetadata?: (args: AbiToType<getPieceMetadata['inputs']>) => AbiToType<getPieceMetadata['outputs']>
   clientNonces?: (args: AbiToType<clientNonces['inputs']>) => AbiToType<clientNonces['outputs']>
   getPDPConfig?: (args: AbiToType<getPDPConfig['inputs']>) => AbiToType<getPDPConfig['outputs']>
   getClientDataSetsLength?: (
@@ -302,24 +298,6 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
       return encodeAbiParameters(
         Abis.fwssView.find((abi) => abi.type === 'function' && abi.name === 'getDataSetMetadata')!.outputs,
         options.warmStorageView.getDataSetMetadata(args)
-      )
-    }
-    case 'getAllPieceMetadata': {
-      if (!options.warmStorageView?.getAllPieceMetadata) {
-        throw new Error('Warm Storage View: getAllPieceMetadata is not defined')
-      }
-      return encodeAbiParameters(
-        Abis.fwssView.find((abi) => abi.type === 'function' && abi.name === 'getAllPieceMetadata')!.outputs,
-        options.warmStorageView.getAllPieceMetadata(args)
-      )
-    }
-    case 'getPieceMetadata': {
-      if (!options.warmStorageView?.getPieceMetadata) {
-        throw new Error('Warm Storage View: getPieceMetadata is not defined')
-      }
-      return encodeAbiParameters(
-        Abis.fwssView.find((abi) => abi.type === 'function' && abi.name === 'getPieceMetadata')!.outputs,
-        options.warmStorageView.getPieceMetadata(args)
       )
     }
     case 'clientNonces': {

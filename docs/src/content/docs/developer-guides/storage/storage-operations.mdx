@@ -237,27 +237,6 @@ for await (const piece of context.getPieces()) {
 console.log(`Found ${pieces.length} pieces`);
 ```
 
-### Getting Piece Metadata
-
-Access custom metadata attached to individual pieces:
-:::caution[Deprecated]
-Piece metadata getters are deprecated and will be removed from Synapse SDK packages. Read metadata from `PieceAdded` events or an indexer instead. Passing piece metadata when uploading or committing remains supported so providers can include it in those events.
-:::
-
-```ts twoslash
-// @lib: esnext,dom
-const dataSetId = 1n;
-const piece = null as unknown as { pieceCid: string; pieceId: bigint };
-// ---cut---
-import { WarmStorageService } from "@filoz/synapse-sdk/warm-storage";
-import { privateKeyToAccount } from 'viem/accounts'
-
-const warmStorage =  WarmStorageService.create({ account: privateKeyToAccount('0x...') });
-
-const metadata = await warmStorage.getPieceMetadata({ dataSetId, pieceId: piece.pieceId });
-console.log("Piece metadata:", metadata);
-```
-
 ### Getting Piece Size
 
 Extract the size directly from a PieceCID using Synapse Core:

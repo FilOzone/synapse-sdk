@@ -4,10 +4,8 @@ import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { type Page, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { metadataArrayToObject } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
-import { getAllPieceMetadataCall } from '../warm-storage/get-all-piece-metadata.ts'
-import type { PdpDataSet, Piece, PieceWithMetadata } from '../warm-storage/types.ts'
+import type { PdpDataSet, Piece } from '../warm-storage/types.ts'
 import { getActivePiecesByCursorCall, parseGetActivePiecesByCursor } from './get-active-pieces-by-cursor.ts'
 import { getScheduledRemovalsCall, parseScheduledRemovals } from './get-scheduled-removals.ts'
 
@@ -128,95 +126,5 @@ export async function getPieces(
       }
     }
     throw error
-  }
-}
-
-export namespace getPiecesWithMetadata {
-  export type OptionsType = Simplify<
-    PaginationOptions & {
-      /** The data set to get the pieces from. */
-      dataSet: PdpDataSet
-      /** The address of the user. */
-      address: Address
-      /** Optional PDPVerifier contract address override. */
-      contractAddress?: Address
-    }
-  >
-
-  export type OutputType = Page<PieceWithMetadata>
-
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType | resolvePagination.ErrorType
-}
-
-/**
- * Get one bounded page of visible pieces and their metadata.
- *
- * The source cursor is preserved when scheduled-removal filtering produces
- * fewer or no visible items. Treat `nextCursor` as opaque and use
- * {@link paginate} to traverse every page.
- *
- * @deprecated FWSS piece metadata getters are being removed. Use {@link getPieces} and read metadata from `PieceAdded` events or an indexer instead.
- *
- * @example Read the first page
- * ```ts
- * import { getPiecesWithMetadata } from '@filoz/synapse-core/pdp-verifier'
- * import { calibration } from '@filoz/synapse-core/chains'
- * import { createPublicClient, http } from 'viem'
- *
- * const client = createPublicClient({
- *   chain: calibration,
- *   transport: http(),
- * })
- *
- * const address = '0x0000000000000000000000000000000000000000'
- * const page = await getPiecesWithMetadata(client, { dataSet, address })
- * console.log(page.items, page.nextCursor)
- * ```
- *
- * @example Iterate over every page
- * ```ts
- * import { paginate } from '@filoz/synapse-core'
- * import { getPiecesWithMetadata } from '@filoz/synapse-core/pdp-verifier'
- *
- * for await (const piece of paginate(({ cursor }) =>
- *   getPiecesWithMetadata(client, { dataSet, address, cursor })
- * )) {
- *   console.log(piece.id, piece.metadata)
- * }
- * ```
- *
- * @param client - The client to use to get the pieces with metadata.
- * @param options - {@link getPiecesWithMetadata.OptionsType}
- * @returns The active pieces for the data set {@link getPiecesWithMetadata.OutputType}
- * @throws Errors {@link getPiecesWithMetadata.ErrorType}
- */
-export async function getPiecesWithMetadata(
-  client: Client<Transport, Chain>,
-  options: getPiecesWithMetadata.OptionsType
-): Promise<getPiecesWithMetadata.OutputType> {
-  const pieces = await getPieces(client, options)
-  if (pieces.items.length === 0) {
-    return {
-      items: [],
-      ...(pieces.nextCursor == null ? {} : { nextCursor: pieces.nextCursor }),
-    }
-  }
-  const metadata = await multicall(client, {
-    allowFailure: false,
-    contracts: pieces.items.map((piece) =>
-      getAllPieceMetadataCall({
-        chain: client.chain,
-        dataSetId: options.dataSet.dataSetId,
-        pieceId: piece.id,
-        contractAddress: options.contractAddress,
-      })
-    ),
-  })
-  return {
-    items: pieces.items.map((piece, index) => ({
-      ...piece,
-      metadata: metadataArrayToObject(metadata[index]),
-    })),
-    ...(pieces.nextCursor == null ? {} : { nextCursor: pieces.nextCursor }),
   }
 }

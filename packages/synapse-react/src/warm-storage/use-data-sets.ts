@@ -1,12 +1,12 @@
 import { paginate } from '@filoz/synapse-core'
-import { getPiecesWithMetadata } from '@filoz/synapse-core/pdp-verifier'
-import { getPdpDataSets, type PdpDataSet, type PieceWithMetadata } from '@filoz/synapse-core/warm-storage'
+import { getPieces } from '@filoz/synapse-core/pdp-verifier'
+import { getPdpDataSets, type PdpDataSet, type Piece } from '@filoz/synapse-core/warm-storage'
 import { skipToken, type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
 import { useConfig } from 'wagmi'
 
 export interface DataSetWithPieces extends PdpDataSet {
-  pieces: PieceWithMetadata[]
+  pieces: Piece[]
 }
 
 export type UseDataSetsResult = DataSetWithPieces[]
@@ -29,7 +29,7 @@ export function useDataSets(props: UseDataSetsProps) {
             dataSets.map(async (dataSet) => {
               const pieces = await Array.fromAsync(
                 paginate(({ cursor }) =>
-                  getPiecesWithMetadata(client, {
+                  getPieces(client, {
                     dataSet,
                     address,
                     cursor,

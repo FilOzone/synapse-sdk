@@ -18,6 +18,7 @@ export const errorsAbi = [
     ],
     name: 'AddressAlreadySet',
   },
+  { type: 'error', inputs: [], name: 'AuthorizerReentrancy' },
   {
     type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
@@ -237,6 +238,11 @@ export const errorsAbi = [
   },
   {
     type: 'error',
+    inputs: [{ name: 'authorizer', internalType: 'address', type: 'address' }],
+    name: 'InvalidDataSetAuthorizer',
+  },
+  {
+    type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
     name: 'InvalidDataSetId',
   },
@@ -326,6 +332,14 @@ export const errorsAbi = [
       { name: 'actual', internalType: 'address', type: 'address' },
     ],
     name: 'OldServiceProviderMismatch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyDataSetPayer',
   },
   {
     type: 'error',
@@ -432,6 +446,16 @@ export const errorsAbi = [
       { name: 'keysLength', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'TooManyMetadataKeys',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'operation', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'digest', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'signature', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'Unauthorized',
   },
   {
     type: 'error',
@@ -1775,27 +1799,6 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'function',
     inputs: [
-      {
-        name: 'plannedUpgrade',
-        internalType: 'struct FilecoinWarmStorageService.PlannedUpgrade',
-        type: 'tuple',
-        components: [
-          {
-            name: 'nextImplementation',
-            internalType: 'address',
-            type: 'address',
-          },
-          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
-        ],
-      },
-    ],
-    name: 'announcePlannedUpgrade',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
       { name: 'nextImplementation', internalType: 'address', type: 'address' },
       { name: 'delayEpochs', internalType: 'uint96', type: 'uint96' },
     ],
@@ -2125,6 +2128,16 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'function',
     inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'authorizer', internalType: 'address', type: 'address' },
+    ],
+    name: 'setDataSetAuthorizer',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
       { name: '_viewContract', internalType: 'address', type: 'address' },
     ],
     name: 'setViewContract',
@@ -2318,6 +2331,25 @@ export const filecoinWarmStorageServiceAbi = [
       },
     ],
     name: 'ContractUpgraded',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'authorizer',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'DataSetAuthorizerSet',
   },
   {
     type: 'event',
@@ -2829,6 +2861,11 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
+    inputs: [{ name: 'authorizer', internalType: 'address', type: 'address' }],
+    name: 'InvalidDataSetAuthorizer',
+  },
+  {
+    type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
     name: 'InvalidDataSetId',
   },
@@ -2891,6 +2928,14 @@ export const filecoinWarmStorageServiceAbi = [
     name: 'NoPDPPaymentRail',
   },
   { type: 'error', inputs: [], name: 'NotInitializing' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyDataSetPayer',
+  },
   {
     type: 'error',
     inputs: [
@@ -3219,19 +3264,6 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'getAllPieceMetadata',
-    outputs: [
-      { name: 'keys', internalType: 'string[]', type: 'string[]' },
-      { name: 'values', internalType: 'string[]', type: 'string[]' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
       { name: 'offset', internalType: 'uint256', type: 'uint256' },
       { name: 'limit', internalType: 'uint256', type: 'uint256' },
     ],
@@ -3379,6 +3411,13 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetAuthorizer',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'key', internalType: 'string', type: 'string' },
@@ -3423,20 +3462,6 @@ export const filecoinWarmStorageServiceStateViewAbi = [
         internalType: 'uint256',
         type: 'uint256',
       },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
-      { name: 'key', internalType: 'string', type: 'string' },
-    ],
-    name: 'getPieceMetadata',
-    outputs: [
-      { name: 'exists', internalType: 'bool', type: 'bool' },
-      { name: 'value', internalType: 'string', type: 'string' },
     ],
     stateMutability: 'view',
   },
@@ -4053,6 +4078,13 @@ export const pdpVerifierAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'legacyPieceStorageIdLimit',
+    outputs: [{ name: '', internalType: 'uint64', type: 'uint64' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
     name: 'migrate',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -4104,6 +4136,16 @@ export const pdpVerifierAbi = [
     name: 'pieceLive',
     outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
     stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'removalCount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'processPieceDeletions',
+    outputs: [],
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -4380,6 +4422,35 @@ export const pdpVerifierAbi = [
         indexed: true,
       },
       {
+        name: 'firstPieceId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'pieceCids',
+        internalType: 'struct Cids.PackedCid[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'header', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'root', internalType: 'bytes32', type: 'bytes32' },
+        ],
+        indexed: false,
+      },
+    ],
+    name: 'PiecesAddedV2',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
         name: 'pieceIds',
         internalType: 'uint256[]',
         type: 'uint256[]',
@@ -4508,6 +4579,7 @@ export const pdpVerifierAbi = [
     inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
     name: 'AddressEmptyCode',
   },
+  { type: 'error', inputs: [], name: 'CidTooShort' },
   { type: 'error', inputs: [], name: 'CleanupDepositRequired' },
   { type: 'error', inputs: [], name: 'DataSetAlreadyInCleanup' },
   { type: 'error', inputs: [], name: 'DataSetNotFound' },
@@ -4522,6 +4594,7 @@ export const pdpVerifierAbi = [
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
+  { type: 'error', inputs: [], name: 'EmptyRemovalBatch' },
   {
     type: 'error',
     inputs: [
@@ -4547,6 +4620,9 @@ export const pdpVerifierAbi = [
     ],
     name: 'InsufficientChallengeDelay',
   },
+  { type: 'error', inputs: [], name: 'InvalidCommPv2DigestLength' },
+  { type: 'error', inputs: [], name: 'InvalidCommPv2MultihashLength' },
+  { type: 'error', inputs: [], name: 'InvalidCommPv2Prefix' },
   {
     type: 'error',
     inputs: [
@@ -4555,10 +4631,12 @@ export const pdpVerifierAbi = [
     name: 'InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'InvalidInitialization' },
+  { type: 'error', inputs: [], name: 'InvalidPieceDeletionBatch' },
   { type: 'error', inputs: [], name: 'MaxPiecesMustBePositive' },
+  { type: 'error', inputs: [], name: 'NoPiecesToProve' },
+  { type: 'error', inputs: [], name: 'NonMinimalUvarint' },
   { type: 'error', inputs: [], name: 'NotInitializing' },
-  { type: 'error', inputs: [], name: 'OnlyStorageProviderCanCleanupPieces' },
-  { type: 'error', inputs: [], name: 'OnlyStorageProviderCanDelete' },
+  { type: 'error', inputs: [], name: 'OnlyStorageProvider' },
   {
     type: 'error',
     inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
@@ -4569,6 +4647,12 @@ export const pdpVerifierAbi = [
     inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
     name: 'OwnableUnauthorizedAccount',
   },
+  {
+    type: 'error',
+    inputs: [{ name: 'count', internalType: 'uint256', type: 'uint256' }],
+    name: 'PendingPieceDeletions',
+  },
+  { type: 'error', inputs: [], name: 'PieceMetadataOverflow' },
   { type: 'error', inputs: [], name: 'TransferFailed' },
   { type: 'error', inputs: [], name: 'UUPSUnauthorizedCallContext' },
   {
@@ -4576,6 +4660,8 @@ export const pdpVerifierAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
+  { type: 'error', inputs: [], name: 'UnterminatedUvarint' },
+  { type: 'error', inputs: [], name: 'UvarintOverflow' },
 ] as const
 
 /**
