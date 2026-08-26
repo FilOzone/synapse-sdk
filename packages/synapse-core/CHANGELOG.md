@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.8.0...synapse-core-v0.8.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* deprecate piece metadata getters ([#938](https://github.com/FilOzone/synapse-sdk/issues/938)) ([4d15951](https://github.com/FilOzone/synapse-sdk/commit/4d15951b6a2e2f80f9d2bb5eb211236fc908c374))
+
 ## [0.8.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.7.1...synapse-core-v0.8.0) (2026-08-21)
 
 
