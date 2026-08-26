@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v1.2.0...synapse-sdk-v1.2.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* deprecate piece metadata getters ([#938](https://github.com/FilOzone/synapse-sdk/issues/938)) ([4d15951](https://github.com/FilOzone/synapse-sdk/commit/4d15951b6a2e2f80f9d2bb5eb211236fc908c374))
+
 ## [1.2.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v1.1.1...synapse-sdk-v1.2.0) (2026-08-25)
 
 
