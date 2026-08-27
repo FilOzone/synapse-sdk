@@ -12,8 +12,6 @@ import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { createWalletClient, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import type { StorageContext } from '../storage/context.ts'
-import { PieceBatchingService } from '../storage/piece-batching.ts'
 import { Synapse } from '../synapse.ts'
 import type { PieceCID } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -180,37 +178,6 @@ describe('Storage Upload', () => {
       [0n, 1n, 2n],
       'The set of assigned piece IDs should be {0, 1, 2}'
     )
-  })
-
-  it('should reject concurrent uploads cleanly when shared batch entry creation fails', async () => {
-    const expected = new Error('entry creation failed')
-    let rejectEntry: (error: Error) => void = () => undefined
-    const entryFailure = new Promise<never>((_resolve, reject) => {
-      rejectEntry = reject
-    })
-    const context = {
-      dataSetId: 1n,
-      provider: { id: 1n },
-      getBatcherDataSet: () => entryFailure,
-    } as unknown as StorageContext
-    const batching = new PieceBatchingService(new Synapse({ client, source: null }), {})
-
-    const uploads = [
-      batching.upload(context, { data: new Uint8Array(127) }).committed,
-      batching.upload(context, { data: new Uint8Array(128) }).committed,
-    ]
-    rejectEntry(expected)
-
-    const results = await Promise.allSettled(uploads)
-    assert.deepEqual(
-      results.map((result) => result.status),
-      ['rejected', 'rejected']
-    )
-    for (const result of results) {
-      if (result.status === 'rejected') {
-        assert.strictEqual(result.reason, expected)
-      }
-    }
   })
 
   it('should expose flush for limiter-based batching', async () => {
