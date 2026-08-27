@@ -1,6 +1,7 @@
 /* globals describe it */
 
 import assert from 'assert'
+import { leafCountToRawSize, rawSizeToLeafCount } from '../src/utils/pdp-size.ts'
 import { calculateAdditionalLockupRequired } from '../src/warm-storage/calculate-additional-lockup-required.ts'
 import { calculateEffectiveRate } from '../src/warm-storage/calculate-effective-rate.ts'
 import type { getPriceList } from '../src/warm-storage/price-list.ts'
@@ -9,20 +10,20 @@ const priceList = {
   token: '0x0000000000000000000000000000000000000001',
   rates: {
     storagePerTibPerMonth: 2_500_000_000_000_000_000n,
-    datasetFeePerMonth: 24_000_000_000_000_000n,
+    datasetFeePerMonth: 120_000_000_000_000_000n,
     cdnEgressPerTib: 0n,
     cacheMissEgressPerTib: 0n,
   },
   fees: {
     createDataSetFee: 25_000_000_000_000_000n,
-    addPiecesBaseFee: 500_000_000_000_000n,
-    addPiecesPerPieceFee: 300_000_000_000_000n,
-    schedulePieceRemovalsFee: 2_000_000_000_000_000n,
-    terminateFee: 1_120_000_000_000_000n,
+    addPiecesBaseFee: 8_000_000_000_000_000n,
+    addPiecesPerPieceFee: 3_000_000_000_000_000n,
+    schedulePieceRemovalsFee: 7_000_000_000_000_000n,
+    terminateFee: 6_000_000_000_000_000n,
   },
   lockups: {
-    lifecycleReserveTarget: 100_000_000_000_000_000n,
-    replenishThreshold: 5_000_000_000_000_000n,
+    lifecycleReserveTarget: 500_000_000_000_000_000n,
+    replenishThreshold: 25_000_000_000_000_000n,
     defaultLockupPeriod: 86_400n,
     cdnLockupAmount: 700_000_000_000_000_000n,
     cacheMissLockupAmount: 300_000_000_000_000_000n,
@@ -35,8 +36,8 @@ const lockupEpochs = 86400n // 30 days
 describe('calculateAdditionalLockupRequired', () => {
   it('new dataset without CDN: includes lifecycle lockup only', () => {
     const result = calculateAdditionalLockupRequired({
-      dataSize: 1000n,
-      currentDataSetSize: 0n,
+      pieceSizes: [1000n],
+      dataSetLeafCount: 0n,
       priceList,
       lockupEpochs,
       isNewDataSet: true,
@@ -46,7 +47,7 @@ describe('calculateAdditionalLockupRequired', () => {
     // Additive model: rate delta for a new dataset is the storage rate for the
     // added bytes plus the proving service rate.
     const expectedRatePerEpoch = calculateEffectiveRate({
-      sizeInBytes: 1000n,
+      sizeInBytes: leafCountToRawSize(rawSizeToLeafCount(1000n)),
       storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
       datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
       epochsPerMonth: 86400n,
@@ -61,8 +62,8 @@ describe('calculateAdditionalLockupRequired', () => {
 
   it('new dataset with CDN: includes CDN and cache-miss lockups', () => {
     const result = calculateAdditionalLockupRequired({
-      dataSize: 1000n,
-      currentDataSetSize: 0n,
+      pieceSizes: [1000n],
+      dataSetLeafCount: 0n,
       priceList,
       lockupEpochs,
       isNewDataSet: true,
@@ -78,10 +79,10 @@ describe('calculateAdditionalLockupRequired', () => {
     )
   })
 
-  it('existing dataset keeps the proving rate and only locks up storage delta', () => {
+  it('locks the recurring-rate increase for an existing data set', () => {
     const result = calculateAdditionalLockupRequired({
-      dataSize: 100n,
-      currentDataSetSize: 100n,
+      pieceSizes: [100n],
+      dataSetLeafCount: rawSizeToLeafCount(100n),
       priceList,
       lockupEpochs,
       isNewDataSet: false,
@@ -96,8 +97,8 @@ describe('calculateAdditionalLockupRequired', () => {
       epochsPerMonth: 86400n,
     }
     const expectedDelta =
-      calculateEffectiveRate({ ...rateParams, sizeInBytes: 200n }).ratePerEpoch -
-      calculateEffectiveRate({ ...rateParams, sizeInBytes: 100n }).ratePerEpoch
+      calculateEffectiveRate({ ...rateParams, sizeInBytes: 254n }).ratePerEpoch -
+      calculateEffectiveRate({ ...rateParams, sizeInBytes: 127n }).ratePerEpoch
     assert.ok(expectedDelta > 0n)
     assert.equal(result.rateDeltaPerEpoch, expectedDelta)
     assert.equal(result.streamingLockup, expectedDelta * lockupEpochs)
@@ -111,8 +112,8 @@ describe('calculateAdditionalLockupRequired', () => {
     const TiB = 1n << 40n
     // Non-zero existing dataset size so the existing-dataset delta path runs.
     const result = calculateAdditionalLockupRequired({
-      dataSize: TiB,
-      currentDataSetSize: 1n,
+      pieceSizes: [TiB],
+      dataSetLeafCount: 1n,
       priceList,
       lockupEpochs,
       isNewDataSet: false,
@@ -135,8 +136,8 @@ describe('calculateAdditionalLockupRequired', () => {
     }
 
     const result = calculateAdditionalLockupRequired({
-      dataSize: 1000n,
-      currentDataSetSize: 0n,
+      pieceSizes: [1000n],
+      dataSetLeafCount: 0n,
       priceList: customPriceList,
       isNewDataSet: true,
       withCDN: false,

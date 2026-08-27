@@ -1,32 +1,29 @@
 /* globals describe it */
 
 import assert from 'assert'
-import { maxUint256 } from 'viem'
-import {
-  calculateBufferAmount,
-  calculateDepositNeeded,
-  calculateRunwayAmount,
-} from '../src/warm-storage/calculate-deposit-needed.ts'
+import { maxUint256, parseUnits } from 'viem'
+import { calculateBufferAmountFromState, calculateRunwayAmountFromState } from '../src/utils/calculate-upload-costs.ts'
+import { calculateDepositNeeded } from '../src/warm-storage/calculate-deposit-needed.ts'
 import type { getPriceList } from '../src/warm-storage/price-list.ts'
 
 const priceList = {
   token: '0x0000000000000000000000000000000000000001',
   rates: {
     storagePerTibPerMonth: 2_500_000_000_000_000_000n,
-    datasetFeePerMonth: 24_000_000_000_000_000n,
+    datasetFeePerMonth: 120_000_000_000_000_000n,
     cdnEgressPerTib: 0n,
     cacheMissEgressPerTib: 0n,
   },
   fees: {
     createDataSetFee: 25_000_000_000_000_000n,
-    addPiecesBaseFee: 500_000_000_000_000n,
-    addPiecesPerPieceFee: 300_000_000_000_000n,
-    schedulePieceRemovalsFee: 2_000_000_000_000_000n,
-    terminateFee: 1_120_000_000_000_000n,
+    addPiecesBaseFee: 8_000_000_000_000_000n,
+    addPiecesPerPieceFee: 3_000_000_000_000_000n,
+    schedulePieceRemovalsFee: 7_000_000_000_000_000n,
+    terminateFee: 6_000_000_000_000_000n,
   },
   lockups: {
-    lifecycleReserveTarget: 100_000_000_000_000_000n,
-    replenishThreshold: 5_000_000_000_000_000n,
+    lifecycleReserveTarget: 500_000_000_000_000_000n,
+    replenishThreshold: 25_000_000_000_000_000n,
     defaultLockupPeriod: 86_400n,
     cdnLockupAmount: 700_000_000_000_000_000n,
     cacheMissLockupAmount: 300_000_000_000_000_000n,
@@ -34,9 +31,9 @@ const priceList = {
   },
 } satisfies getPriceList.OutputType
 
-describe('calculateRunwayAmount', () => {
+describe('calculateRunwayAmountFromState', () => {
   it('computes netRateAfterUpload * extraRunwayEpochs', () => {
-    const result = calculateRunwayAmount({
+    const result = calculateRunwayAmountFromState({
       netRateAfterUpload: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
       extraRunwayEpochs: 100n,
     })
@@ -46,9 +43,9 @@ describe('calculateRunwayAmount', () => {
   })
 })
 
-describe('calculateBufferAmount', () => {
+describe('calculateBufferAmountFromState', () => {
   it('rawDepositNeeded > 0: returns netRateAfterUpload * bufferEpochs', () => {
-    const result = calculateBufferAmount({
+    const result = calculateBufferAmountFromState({
       rawDepositNeeded: 100n,
       netRateAfterUpload: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
       runwayInEpochs: 400n,
@@ -62,7 +59,7 @@ describe('calculateBufferAmount', () => {
   })
 
   it('rawDepositNeeded > 0, zero delta: returns netRateAfterUpload * bufferEpochs', () => {
-    const result = calculateBufferAmount({
+    const result = calculateBufferAmountFromState({
       rawDepositNeeded: 100n,
       netRateAfterUpload: 10n, // no delta, just currentLockupRate
       runwayInEpochs: 400n,
@@ -76,7 +73,7 @@ describe('calculateBufferAmount', () => {
 
   it('rawDepositNeeded <= 0, runway within buffer window: returns max(0, netRateAfterUpload*buffer - available)', () => {
     // runwayInEpochs (10) <= bufferEpochs (20), within buffer window
-    const result = calculateBufferAmount({
+    const result = calculateBufferAmountFromState({
       rawDepositNeeded: -50n,
       netRateAfterUpload: 15n, // e.g. currentLockupRate(10) + rateDelta(5)
       runwayInEpochs: 10n,
@@ -90,7 +87,7 @@ describe('calculateBufferAmount', () => {
 
   it('rawDepositNeeded <= 0, runway beyond buffer window: returns 0', () => {
     // runwayInEpochs (400) > bufferEpochs (20), beyond buffer window
-    const result = calculateBufferAmount({
+    const result = calculateBufferAmountFromState({
       rawDepositNeeded: -50n,
       netRateAfterUpload: 15n,
       runwayInEpochs: 400n,
@@ -103,7 +100,7 @@ describe('calculateBufferAmount', () => {
 
   it('rawDepositNeeded <= 0, infinite runway (lockupRate 0n): returns 0', () => {
     // runwayInEpochs is maxUint256 when nothing is draining
-    const result = calculateBufferAmount({
+    const result = calculateBufferAmountFromState({
       rawDepositNeeded: -50n,
       netRateAfterUpload: 0n,
       runwayInEpochs: maxUint256,
@@ -118,8 +115,8 @@ describe('calculateBufferAmount', () => {
 describe('calculateDepositNeeded', () => {
   it('healthy account, no debt, sufficient funds: returns 0', () => {
     const result = calculateDepositNeeded({
-      dataSize: 1000n,
-      currentDataSetSize: 0n,
+      pieceSizes: [1000n],
+      dataSetLeafCount: 0n,
       priceList,
       lockupEpochs: 86400n,
       isNewDataSet: true,
@@ -137,8 +134,8 @@ describe('calculateDepositNeeded', () => {
 
   it('new dataset + no existing rails: buffer skipped', () => {
     const base = {
-      dataSize: 1000n,
-      currentDataSetSize: 0n,
+      pieceSizes: [1000n],
+      dataSetLeafCount: 0n,
       priceList,
       lockupEpochs: 86400n,
       isNewDataSet: true,
@@ -156,12 +153,14 @@ describe('calculateDepositNeeded', () => {
     // No existing rails (currentLockupRate=0) + new dataset, buffer skipped
     assert.equal(withBuffer.depositNeeded, withoutBuffer.depositNeeded)
     assert.ok(withBuffer.depositNeeded > 0n) // still requires the lockup deposit
+    assert.equal(withBuffer.lockup.reserveReplenishment, 0n)
+    assert.equal(withBuffer.depositNeeded, withBuffer.lockup.total)
   })
 
   it('new dataset + existing rails: buffer still applies', () => {
     const base = {
-      dataSize: 1000n,
-      currentDataSetSize: 0n,
+      pieceSizes: [1000n],
+      dataSetLeafCount: 0n,
       priceList,
       lockupEpochs: 86400n,
       isNewDataSet: true,
@@ -183,8 +182,8 @@ describe('calculateDepositNeeded', () => {
   it('underfunded account with debt: includes debt in deposit', () => {
     const debt = 5_000_000_000_000_000_000n // 5 USDFC debt
     const result = calculateDepositNeeded({
-      dataSize: 1000n,
-      currentDataSetSize: 0n,
+      pieceSizes: [1000n],
+      dataSetLeafCount: 0n,
       priceList,
       lockupEpochs: 86400n,
       isNewDataSet: true,
@@ -197,8 +196,31 @@ describe('calculateDepositNeeded', () => {
       bufferEpochs: 10n,
     })
 
-    // Result should include the debt, and the deposit covers debt + fees + lockup.
+    // Fees are paid from the lifecycle reserve, so the required deposit is debt plus lockups.
     assert.ok(result.fees.total > 0n)
-    assert.ok(result.depositNeeded >= debt + result.fees.total + result.lockup.total)
+    assert.ok(result.depositNeeded >= debt + result.lockup.total)
+    assert.ok(result.depositNeeded < debt + result.fees.total + result.lockup.total)
+  })
+
+  it('includes reserve replenishment for an existing data set near the threshold', () => {
+    const result = calculateDepositNeeded({
+      pieceSizes: [1000n],
+      dataSetLeafCount: 32n,
+      priceList,
+      lockupEpochs: 86_400n,
+      isNewDataSet: false,
+      withCDN: false,
+      currentLifecycleReserveBalance: parseUnits('0.03', 18),
+      pendingOneTimePayments: 0n,
+      currentLockupRate: 0n,
+      extraRunwayEpochs: 0n,
+      debt: 0n,
+      availableFunds: 0n,
+      runwayInEpochs: maxUint256,
+      bufferEpochs: 0n,
+    })
+
+    assert.equal(result.lockup.reserveReplenishment, parseUnits('0.481', 18))
+    assert.equal(result.depositNeeded, result.lockup.total)
   })
 })

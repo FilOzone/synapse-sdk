@@ -46,7 +46,7 @@ Two recurring rates apply per data set:
 | Component | Cost | Notes |
 | -------------- | -------------------- | ------------------------------------------------------- |
 | **Storage** | $2.50/TiB/month per copy | Charged only while pieces exist. Empty data sets have no recurring cost |
-| **Proving Service** | $0.024/data set/month | Flat per-data-set fee, added on top of the storage rate |
+| **Proving Service** | $0.12/data set/month | Flat per-data-set fee, added on top of the storage rate |
 | **CDN egress** | up to $14/TiB (≈ $0.014/GiB) downloaded | Optional, via Filecoin Beam. About half this when served from cache |
 
 :::note
@@ -58,15 +58,15 @@ Each on-chain operation also pays a small one-time fee to the storage provider, 
 | Operation | Fee |
 | -------------- | -------------------- |
 | **Create data set** | $0.025 |
-| **Add pieces** | $0.0005 + $0.0003 per piece |
-| **Schedule piece removals** | $0.002 per call |
-| **Terminate service** | $0.00112 (user-initiated only) |
+| **Add pieces** | $0.008 + $0.003 per piece |
+| **Schedule piece removals** | $0.007 per call |
+| **Terminate service** | $0.006 for client-authorized, provider-relayed termination; no fee for direct payer or provider termination |
 
-These are fractions of a cent. They are drawn from a ~$0.10 lockup reserve held while the data set is active, not billed separately on each call. See [Storage Costs: How the fees and lockup work](/developer-guides/storage/storage-costs/#how-the-fees-and-lockup-work) for the mechanics.
+These are paid from a refundable ~$0.50 lifecycle reserve held while the data set is active, not added separately to the required deposit on each call. See [Storage Costs: How the fees and lockup work](/developer-guides/storage/storage-costs/#how-the-fees-and-lockup-work) for the mechanics.
 
 ### Proving Fee
 
-The monthly cost of an active data set is `(bytes / TiB) × $2.50 + $0.024`. There is no minimum floor: a data set with no pieces has no recurring cost, and the rate activates when the first piece is added. The proving fee is a flat addition per data set, on top of the per-size storage rate.
+The monthly cost of an active data set is `(unpadded bytes / TiB) × $2.50 + $0.12`. There is no minimum floor: a data set with no pieces has no recurring cost, and the rate activates when the first piece is added. The proving fee is a flat addition per data set, on top of the per-size storage rate. The SDK converts PDP's padded leaf counts to unpadded bytes using the Filecoin `127 / 128` ratio.
 
 ### Data Set Creation Costs
 
@@ -74,8 +74,8 @@ Creating a data set locks a small lifecycle reserve. The storage rate starts at 
 
 | Scenario | Minimum Funds Required |
 | -------- | ---------------------- |
-| No CDN | ~0.10 USDFC (lifecycle reserve lockup) |
-| With CDN | ~1.10 USDFC (0.10 reserve + 0.70 CDN egress + 0.30 cache-miss) |
+| No CDN | ~0.50 USDFC (lifecycle reserve lockup) |
+| With CDN | ~1.50 USDFC (0.50 reserve + 0.70 CDN egress + 0.30 cache-miss) |
 
 One-time fees such as the $0.025 creation fee are drawn from the lifecycle reserve, not added on top of these amounts.
 
@@ -89,7 +89,7 @@ For each data set, FWSS creates payment channels called **rails** that stream fu
 | **CDN rail** | Fixed | 0.7 USDFC lockup for CDN egress credits |
 | **Cache miss** | Fixed | 0.3 USDFC lockup for cache miss credits |
 
-Every data set gets a PDP rail, which also holds the ~$0.10 lifecycle reserve that one-time fees draw from. CDN and cache miss rails are added only when CDN is enabled, which must happen at data set creation. CDN cannot currently be added to an existing data set. Follow [FilOzone/filecoin-services#529](https://github.com/FilOzone/filecoin-services/issues/529) to share your use case or track changes.
+Every data set gets a PDP rail, which also holds the ~$0.50 lifecycle reserve that one-time fees draw from. FWSS replenishes it when the balance is below pending fees plus the $0.025 threshold. CDN and cache miss rails are added only when CDN is enabled, which must happen at data set creation. CDN cannot currently be added to an existing data set. Follow [FilOzone/filecoin-services#529](https://github.com/FilOzone/filecoin-services/issues/529) to share your use case or track changes.
 
 FWSS enforces a **30-day lockup period**: your account must always have enough funds to cover at least 30 days of storage at the current rate. Think of it as a security deposit. The funds aren't spent upfront, but they're reserved so providers are guaranteed payment even if you stop topping up.
 

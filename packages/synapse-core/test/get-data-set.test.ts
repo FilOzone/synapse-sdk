@@ -87,7 +87,7 @@ describe('getDataSet', () => {
       })
     })
 
-    it('should fail to fetch data set that does not exist', async () => {
+    it('should return null for a data set that does not exist', async () => {
       server.use(JSONRPC(presets.basic))
 
       const client = createPublicClient({
@@ -99,7 +99,7 @@ describe('getDataSet', () => {
         dataSetId: 999n,
       })
 
-      assert.equal(dataSet, undefined)
+      assert.strictEqual(dataSet, null)
     })
   })
 })

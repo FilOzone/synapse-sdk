@@ -1,12 +1,12 @@
-import { SIZE_CONSTANTS } from '../utils/constants.ts'
+import { validatePieceSizes } from '../utils/pdp-size.ts'
 import type { getPriceList } from './price-list.ts'
 
 export namespace calculateUploadFees {
   export type ParamsType = {
     priceList: getPriceList.OutputType
     isNewDataSet: boolean
-    /** Number of pieces added by this upload. Defaults to 1. */
-    pieceCount?: bigint
+    /** Exact raw payload size of every piece added by this operation, in bytes. */
+    pieceSizes: readonly bigint[]
   }
 
   export type OutputType = {
@@ -23,25 +23,19 @@ export namespace calculateUploadFees {
  * datasets only) and add-pieces. Schedule-removals, terminate, and delete are
  * post-upload lifecycle operations and are not part of an upload cost preview.
  *
- * The number of addPieces operations is derived from `pieceCount` and a
- * pieces-per-call heuristic (`MAX_ADD_PIECES_BATCH_SIZE`): each call is
- * charged the base fee. Actual batches are limited by message size via
- * `addPiecesFits`, so this is a fee preview, not an action cap.
- *
- * TODO: Review in a follow-up and update fee/pricing calculations to match
- * message-size batching instead of this count heuristic.
+ * The length of `pieceSizes` determines the per-piece fee and the calculation
+ * includes one add-pieces base fee. Execution batch limits are intentionally
+ * not enforced here because they are independent of fee calculation.
  *
  * @param params - {@link calculateUploadFees.ParamsType}
  * @returns {@link calculateUploadFees.OutputType}
+ * @throws {@link ValidationError} when `pieceSizes` is invalid
  */
 export function calculateUploadFees(params: calculateUploadFees.ParamsType): calculateUploadFees.OutputType {
-  const pieceCount = params.pieceCount ?? 1n
-  const maxBatch = BigInt(SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE)
-  const addPiecesOperationCount = (pieceCount + maxBatch - 1n) / maxBatch
+  validatePieceSizes(params.pieceSizes)
+  const pieceCount = BigInt(params.pieceSizes.length)
   const createDataSetFee = params.isNewDataSet ? params.priceList.fees.createDataSetFee : 0n
-  const addPiecesFee =
-    params.priceList.fees.addPiecesBaseFee * addPiecesOperationCount +
-    params.priceList.fees.addPiecesPerPieceFee * pieceCount
+  const addPiecesFee = params.priceList.fees.addPiecesBaseFee + params.priceList.fees.addPiecesPerPieceFee * pieceCount
 
   return {
     createDataSetFee,

@@ -5,6 +5,7 @@ import { setup } from 'iso-web/msw'
 import { createPublicClient, http, maxUint256, parseUnits } from 'viem'
 import { calibration } from '../src/chains.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
+import { leafCountToRawSize, rawSizeToLeafCount } from '../src/utils/pdp-size.ts'
 import { getUploadCosts } from '../src/warm-storage/get-upload-costs.ts'
 
 describe('getUploadCosts', () => {
@@ -32,7 +33,7 @@ describe('getUploadCosts', () => {
 
     const result = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
     })
 
     assert.equal(typeof result.rates.perEpoch, 'bigint')
@@ -55,7 +56,7 @@ describe('getUploadCosts', () => {
 
     const result = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
     })
 
     assert.equal(result.needsFwssMaxApproval, true)
@@ -81,7 +82,7 @@ describe('getUploadCosts', () => {
     // Account has 500 USDFC with no lockup, tiny file → deposit should be 0
     const result = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
     })
 
     assert.equal(result.needsFwssMaxApproval, false)
@@ -109,7 +110,7 @@ describe('getUploadCosts', () => {
 
     const result = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n, // tiny file but no funds → needs deposit
+      pieceSizes: [1n], // tiny file but no funds → needs deposit
     })
 
     assert.ok(result.depositNeeded > 0n, `depositNeeded should be positive, got ${result.depositNeeded}`)
@@ -135,15 +136,16 @@ describe('getUploadCosts', () => {
 
     const result = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
     })
 
     // Additive: 1-byte dataset pays a tiny storage rate on top of proving.
-    const storagePerMonth1Byte = parseUnits('2.5', 18) / (1n << 40n)
-    assert.equal(result.rates.perMonth, parseUnits('0.024', 18) + storagePerMonth1Byte)
+    const pricedSize = leafCountToRawSize(rawSizeToLeafCount(1n))
+    const storagePerMonth = (parseUnits('2.5', 18) * pricedSize) / (1n << 40n)
+    assert.equal(result.rates.perMonth, parseUnits('0.12', 18) + storagePerMonth)
     assert.equal(result.fees.createDataSetFee, parseUnits('0.025', 18))
-    assert.equal(result.fees.addPiecesFee, parseUnits('0.0008', 18))
-    assert.equal(result.lockups.lifecycleLockup, parseUnits('0.10', 18))
+    assert.equal(result.fees.addPiecesFee, parseUnits('0.011', 18))
+    assert.equal(result.lockups.lifecycleLockup, parseUnits('0.5', 18))
   })
 
   it('should use storage plus proving rate for large files', async () => {
@@ -165,12 +167,13 @@ describe('getUploadCosts', () => {
     const onetiB = 1n << 40n
     const result = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: onetiB,
+      pieceSizes: [onetiB],
     })
 
-    // 1 TiB storage plus proving service rate.
+    // FWSS prices the aggregate leaves, which can exceed exact raw size by up to 31 bytes per piece.
     const pricePerTiBPerMonth = parseUnits('2.5', 18)
-    assert.equal(result.rates.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
+    const pricedSize = leafCountToRawSize(rawSizeToLeafCount(onetiB))
+    assert.equal(result.rates.perMonth, (pricePerTiBPerMonth * pricedSize) / onetiB + parseUnits('0.12', 18))
   })
 
   it('should include debt in deposit for account in debt', async () => {
@@ -202,7 +205,7 @@ describe('getUploadCosts', () => {
 
     const result = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
     })
 
     // debt = (5e18 + 1e14 * 108321) - 10e18 = 5,832,100,000,000,000,000
@@ -234,13 +237,13 @@ describe('getUploadCosts', () => {
 
     const baseline = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
       extraRunwayEpochs: 0n,
     })
 
     const withRunway = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
       extraRunwayEpochs: 10_000n,
     })
 
@@ -250,9 +253,9 @@ describe('getUploadCosts', () => {
     )
 
     // runway = (currentLockupRate + rateDeltaPerEpoch) * extraRunwayEpochs
-    // currentLockupRate = 0; rateDeltaPerEpoch = storage(1 byte) + proving, per epoch
-    const ratePerEpoch1Byte = parseUnits('2.5', 18) / ((1n << 40n) * 86400n) + parseUnits('0.024', 18) / 86400n
-    const expectedRunway = ratePerEpoch1Byte * 10_000n
+    const pricedSize = leafCountToRawSize(rawSizeToLeafCount(1n))
+    const ratePerEpoch = (parseUnits('2.5', 18) * pricedSize) / ((1n << 40n) * 86400n) + parseUnits('0.12', 18) / 86400n
+    const expectedRunway = ratePerEpoch * 10_000n
     assert.equal(
       withRunway.depositNeeded - baseline.depositNeeded,
       expectedRunway,
@@ -286,13 +289,13 @@ describe('getUploadCosts', () => {
 
     const smallBuffer = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
       bufferEpochs: 0n,
     })
 
     const largeBuffer = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
       bufferEpochs: 100n,
     })
 
@@ -302,8 +305,9 @@ describe('getUploadCosts', () => {
     )
 
     // Buffer delta = netRate * bufferEpochs = (currentLockupRate + rateDelta) * 100
-    const ratePerEpoch1Byte = parseUnits('2.5', 18) / ((1n << 40n) * 86400n) + parseUnits('0.024', 18) / 86400n
-    const netRate = 100_000_000_000_000n + ratePerEpoch1Byte
+    const pricedSize = leafCountToRawSize(rawSizeToLeafCount(1n))
+    const ratePerEpoch = (parseUnits('2.5', 18) * pricedSize) / ((1n << 40n) * 86400n) + parseUnits('0.12', 18) / 86400n
+    const netRate = 100_000_000_000_000n + ratePerEpoch
     const expectedBufferDelta = netRate * 100n
     assert.equal(
       largeBuffer.depositNeeded - smallBuffer.depositNeeded,
@@ -333,23 +337,50 @@ describe('getUploadCosts', () => {
     // Existing dataset: 0.5 TiB current + 0.5 TiB new → 1 TiB total rate
     const existing = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: halfTiB,
+      pieceSizes: [halfTiB],
       isNewDataSet: false,
-      currentDataSetSize: halfTiB,
+      dataSetLeafCount: rawSizeToLeafCount(halfTiB),
+      currentLifecycleReserveBalance: parseUnits('0.5', 18),
     })
 
     // New dataset: 0.5 TiB → 0.5 TiB rate
     const newDs = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: halfTiB,
+      pieceSizes: [halfTiB],
       isNewDataSet: true,
     })
 
-    // Existing dataset pays storage for 1 TiB plus one proving service rate.
-    assert.equal(existing.rates.perMonth, parseUnits('2.524', 18))
+    const finalPricedSize = leafCountToRawSize(rawSizeToLeafCount(halfTiB) * 2n)
+    const expectedExistingRate = (parseUnits('2.5', 18) * finalPricedSize) / (1n << 40n) + parseUnits('0.12', 18)
+    assert.equal(existing.rates.perMonth, expectedExistingRate)
     assert.ok(
       existing.rates.perMonth > newDs.rates.perMonth,
       `existing dataset rate (${existing.rates.perMonth}) should exceed new dataset rate (${newDs.rates.perMonth})`
+    )
+  })
+
+  it('should reject incomplete existing data-set state', async () => {
+    server.use(JSONRPC(presets.basic))
+
+    const client = createPublicClient({ chain: calibration, transport: http() })
+
+    await assert.rejects(
+      getUploadCosts(client, {
+        clientAddress: ADDRESSES.client1,
+        pieceSizes: [1n],
+        isNewDataSet: false,
+        currentLifecycleReserveBalance: parseUnits('0.5', 18),
+      }),
+      /dataSetLeafCount is required/
+    )
+    await assert.rejects(
+      getUploadCosts(client, {
+        clientAddress: ADDRESSES.client1,
+        pieceSizes: [1n],
+        isNewDataSet: false,
+        dataSetLeafCount: 0n,
+      }),
+      /currentLifecycleReserveBalance is required/
     )
   })
 
@@ -373,13 +404,13 @@ describe('getUploadCosts', () => {
 
     const withoutCDN = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
       withCDN: false,
     })
 
     const withCDN = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
       withCDN: true,
     })
 
@@ -391,10 +422,9 @@ describe('getUploadCosts', () => {
     )
   })
 
-  it('includes operation fees in the deposit for a new dataset', async () => {
+  it('uses the lifecycle lockups as the required deposit for a fresh account', async () => {
     // Fresh account (no funds, no existing rails) creating a new dataset: with
-    // default runway/buffer this isolates the deposit to lockups + fees, so it
-    // proves operation fees are actually counted in depositNeeded.
+    // default runway/buffer this isolates the deposit to the required lockups.
     server.use(
       JSONRPC({
         ...presets.basic,
@@ -413,26 +443,11 @@ describe('getUploadCosts', () => {
 
     const result = await getUploadCosts(client, {
       clientAddress: ADDRESSES.client1,
-      dataSize: 1n,
+      pieceSizes: [1n],
     })
 
     assert.ok(result.fees.total > 0n)
-    assert.equal(result.depositNeeded, result.lockups.total + result.fees.total)
-  })
-
-  it('derives an extra addPieces operation fee when pieceCount exceeds the batch limit', async () => {
-    server.use(JSONRPC(presets.basic))
-
-    const client = createPublicClient({ chain: calibration, transport: http() })
-
-    const within = await getUploadCosts(client, { clientAddress: ADDRESSES.client1, dataSize: 1n, pieceCount: 40n })
-    const spill = await getUploadCosts(client, { clientAddress: ADDRESSES.client1, dataSize: 1n, pieceCount: 41n })
-
-    // 41 pieces span two addPieces ops (ceil(41/40) = 2), so the 41-piece cost
-    // adds exactly one extra base fee plus one extra per-piece fee over 40.
-    assert.equal(
-      spill.fees.addPiecesFee - within.fees.addPiecesFee,
-      parseUnits('0.0005', 18) + parseUnits('0.0003', 18)
-    )
+    assert.equal(result.lockups.reserveReplenishment, 0n)
+    assert.equal(result.depositNeeded, result.lockups.total)
   })
 })

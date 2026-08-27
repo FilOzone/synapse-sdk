@@ -25,7 +25,7 @@ export namespace getDataSet {
 
   export type ContractOutputType = ContractFunctionReturnType<typeof storageViewAbi, 'pure' | 'view', 'getDataSet'>
 
-  /** Data set info or undefined if the data set does not exist. */
+  /** Data set info or null if the data set does not exist. */
   export type OutputType = DataSetInfo | null
 
   export type ErrorType = asChain.ErrorType | ReadContractErrorType
@@ -38,7 +38,7 @@ export namespace getDataSet {
  *
  * @param client - The client to use to get the data set.
  * @param options - {@link getDataSet.OptionsType}
- * @returns Data set info or undefined if the data set does not exist {@link getDataSet.OutputType}
+ * @returns Data set info or null if the data set does not exist {@link getDataSet.OutputType}
  * @throws Errors {@link getDataSet.ErrorType}
  *
  * @example
@@ -75,10 +75,17 @@ export async function getDataSet(
       contractAddress: options.contractAddress,
     })
   )
-  if (data.pdpRailId === 0n) {
-    return null
-  }
-  return data
+  return parseGetDataSet(data)
+}
+
+/**
+ * Parse the FWSS `getDataSet` contract result.
+ *
+ * @param data - Raw `getDataSet` contract output
+ * @returns Data-set information, or null when the contract returns its missing-data-set sentinel
+ */
+export function parseGetDataSet(data: getDataSet.ContractOutputType): getDataSet.OutputType {
+  return data.pdpRailId === 0n ? null : data
 }
 
 export namespace getDataSetCall {

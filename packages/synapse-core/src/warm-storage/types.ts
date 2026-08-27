@@ -29,6 +29,10 @@ export type DataSetInfo = {
   pdpEndEpoch: bigint
   /** Provider ID for the data set. */
   providerId: bigint
+  /** One-time operation fees waiting to be flushed from the lifecycle reserve. */
+  pendingOneTimePayments: bigint
+  /** Current fixed lifecycle reserve balance mirrored from the PDP payment rail. */
+  lifecycleReserveBalance: bigint
   /** Data set ID. */
   dataSetId: bigint
 }

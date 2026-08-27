@@ -1,13 +1,11 @@
 import type { Address, Chain, Client, Transport } from 'viem'
 import { getBlockNumber } from 'viem/actions'
+import { ValidationError } from '../errors/base.ts'
 import { calculateAccountDebt } from '../pay/account-debt.ts'
 import { accounts } from '../pay/accounts.ts'
 import { isFwssMaxApproved } from '../pay/is-fwss-max-approved.ts'
 import { resolveAccountState } from '../pay/resolve-account-state.ts'
-import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS, TIME_CONSTANTS } from '../utils/constants.ts'
-import { calculateDepositNeeded } from './calculate-deposit-needed.ts'
-import { calculateEffectiveRate } from './calculate-effective-rate.ts'
-import type { calculateUploadFees } from './calculate-upload-fees.ts'
+import { calculateUploadCosts } from '../utils/calculate-upload-costs.ts'
 import { getPriceList } from './price-list.ts'
 
 export namespace getUploadCosts {
@@ -19,13 +17,15 @@ export namespace getUploadCosts {
     isNewDataSet?: boolean
     /** Whether CDN is enabled. Default: false */
     withCDN?: boolean
-    /** Current total data size in the existing dataset, in bytes. */
-    currentDataSetSize?: bigint
+    /** Aggregate leaf count reported by PDP Verifier. Required for an existing data set. */
+    dataSetLeafCount?: bigint
+    /** Current lifecycle reserve balance. Required for an existing data set. */
+    currentLifecycleReserveBalance?: bigint
+    /** One-time operation fees already pending on an existing data set. Defaults to 0. */
+    pendingOneTimePayments?: bigint
 
-    /** Size of new data to upload, in bytes. */
-    dataSize: bigint
-    /** Number of pieces added by this operation. Default: 1 */
-    pieceCount?: bigint
+    /** Exact raw payload size of every piece added by this operation, in bytes. */
+    pieceSizes: readonly bigint[]
 
     /** Extra runway in epochs beyond the required lockup. */
     extraRunwayEpochs?: bigint
@@ -33,40 +33,24 @@ export namespace getUploadCosts {
     bufferEpochs?: bigint
   }
 
-  export type OutputType = {
-    /** Effective rate for the dataset after adding dataSize bytes. */
-    rates: {
-      /** Rate per epoch — matches on-chain PDP rail rate. */
-      perEpoch: bigint
-      /** Rate per month — full precision for display. */
-      perMonth: bigint
-    }
-    fees: calculateUploadFees.OutputType
-    lockups: {
-      lifecycleLockup: bigint
-      streamingLockup: bigint
-      cdnLockup: bigint
-      cacheMissLockup: bigint
-      total: bigint
-    }
-    /** Total USDFC to deposit. 0n if sufficient funds available. */
-    depositNeeded: bigint
-    /** Whether FWSS needs to be approved (or re-approved with maxUint256). */
-    needsFwssMaxApproval: boolean
-    /** True when depositNeeded == 0n and needsFwssMaxApproval == false. */
-    ready: boolean
-  }
+  /** Upload costs calculated from the resolved single-context state. */
+  export type OutputType = calculateUploadCosts.OutputType
 }
 
 /**
- * Read-only function that computes upload costs, deposit needed, and approval state.
+ * Read-only function that computes upload costs, reserve-aware deposit needed,
+ * and approval state.
  *
  * Fetches account state, pricing, and approval via read-only contract calls,
- * then feeds results into pure calculation functions.
+ * then delegates all cost arithmetic to the shared pure
+ * `calculateUploadCosts` utility. Existing-data-set calls must provide
+ * `dataSetLeafCount` and `currentLifecycleReserveBalance`; pass
+ * `pendingOneTimePayments` when the data set has unflushed lifecycle fees.
  *
  * @param client - The client to use to compute upload costs.
  * @param options - {@link getUploadCosts.OptionsType}
  * @returns {@link getUploadCosts.OutputType}
+ * @throws {@link ValidationError} when existing-data-set state, leaf count, or piece sizes are invalid
  */
 export async function getUploadCosts(
   client: Client<Transport, Chain>,
@@ -74,10 +58,23 @@ export async function getUploadCosts(
 ): Promise<getUploadCosts.OutputType> {
   const isNewDataSet = options.isNewDataSet ?? true
   const withCDN = options.withCDN ?? false
-  const currentDataSetSize = options.currentDataSetSize ?? 0n
-  const pieceCount = options.pieceCount ?? 1n
-  const extraRunwayEpochs = options.extraRunwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
-  const bufferEpochs = options.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
+
+  let dataSet: calculateUploadCosts.ExistingDataSetType | null = null
+  if (!isNewDataSet) {
+    const leafCount = options.dataSetLeafCount
+    const lifecycleReserveBalance = options.currentLifecycleReserveBalance
+    if (leafCount == null) {
+      throw new ValidationError('dataSetLeafCount is required for an existing data set')
+    }
+    if (lifecycleReserveBalance == null) {
+      throw new ValidationError('currentLifecycleReserveBalance is required for an existing data set')
+    }
+    dataSet = {
+      leafCount,
+      lifecycleReserveBalance,
+      pendingOneTimePayments: options.pendingOneTimePayments ?? 0n,
+    }
+  }
 
   // Fetch all needed data in parallel
   const [accountInfo, priceList, currentEpoch] = await Promise.all([
@@ -93,15 +90,6 @@ export async function getUploadCosts(
     requiredMaxLockupPeriod: priceList.lockups.defaultLockupPeriod,
   })
 
-  // Calculate effective rate for the new total dataset size
-  const totalSize = currentDataSetSize + options.dataSize
-  const rate = calculateEffectiveRate({
-    sizeInBytes: totalSize,
-    storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
-    datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
-    epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
-  })
-
   const accountParams = {
     funds: accountInfo.funds,
     lockupCurrent: accountInfo.lockupCurrent,
@@ -112,41 +100,17 @@ export async function getUploadCosts(
   const debt = calculateAccountDebt(accountParams)
   const { availableFunds, runwayInEpochs } = resolveAccountState(accountParams)
 
-  // Deposit, plus the lockup and fee breakdowns it was computed from.
-  const { depositNeeded, lockup, fees } = calculateDepositNeeded({
-    dataSize: options.dataSize,
-    currentDataSetSize,
+  return calculateUploadCosts({
+    contexts: [{ pieceSizes: options.pieceSizes, withCDN, dataSet }],
     priceList,
-    epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
-    isNewDataSet,
-    withCDN,
-    pieceCount,
-    currentLockupRate: accountInfo.lockupRate,
-    extraRunwayEpochs,
-    debt,
-    availableFunds,
-    runwayInEpochs,
-    bufferEpochs,
-  })
-
-  const needsFwssMaxApproval = !approved
-  const rates = {
-    perEpoch: rate.ratePerEpoch,
-    perMonth: rate.ratePerMonth,
-  }
-
-  return {
-    rates,
-    fees,
-    lockups: {
-      lifecycleLockup: lockup.lifecycleLockup,
-      streamingLockup: lockup.streamingLockup,
-      cdnLockup: lockup.cdnLockup,
-      cacheMissLockup: lockup.cacheMissLockup,
-      total: lockup.total,
+    account: {
+      currentLockupRate: accountInfo.lockupRate,
+      debt,
+      availableFunds,
+      runwayInEpochs,
+      fwssMaxApproved: approved,
     },
-    depositNeeded,
-    needsFwssMaxApproval,
-    ready: depositNeeded === 0n && !needsFwssMaxApproval,
-  }
+    extraRunwayEpochs: options.extraRunwayEpochs,
+    bufferEpochs: options.bufferEpochs,
+  })
 }

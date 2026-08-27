@@ -3,7 +3,7 @@ import { multicall } from 'viem/actions'
 import { paginate } from '../pagination.ts'
 import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
 import { getDataSetLeafCountCall } from '../pdp-verifier/get-data-set-leaf-count.ts'
-import { SIZE_CONSTANTS } from '../utils/constants.ts'
+import { leafCountToRawSize } from '../utils/pdp-size.ts'
 import { getClientDataSets } from './get-client-data-sets.ts'
 
 export namespace getAccountTotalStorageSize {
@@ -17,7 +17,7 @@ export namespace getAccountTotalStorageSize {
   }
 
   export type OutputType = {
-    /** Total storage size in bytes across all live datasets. */
+    /** Sum of the FWSS-priced approximate byte sizes of all live data sets. */
     totalSizeBytes: bigint
     /** Number of live datasets. */
     datasetCount: number
@@ -27,10 +27,12 @@ export namespace getAccountTotalStorageSize {
 }
 
 /**
- * Get the total storage size across all live datasets for an account.
+ * Get the total FWSS-priced approximate storage size for an account.
  *
  * Fetches all datasets for the given address from FWSS, checks liveness via
- * PDP Verifier, and sums the sizes of live datasets.
+ * PDP Verifier, converts each aggregate data-set leaf count using the same
+ * approximation as FWSS pricing, and sums the results. This is not the exact
+ * sum of raw piece payload sizes.
  *
  * @example
  * ```ts
@@ -80,7 +82,7 @@ export async function getAccountTotalStorageSize(
         const isLive = results[index * 2] as boolean
         const leafCount = results[index * 2 + 1] as bigint
         if (isLive) {
-          totalSizeBytes += leafCount * SIZE_CONSTANTS.BYTES_PER_LEAF
+          totalSizeBytes += leafCountToRawSize(leafCount)
           datasetCount++
         }
       }

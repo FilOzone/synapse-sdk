@@ -89,7 +89,7 @@ const file = new TextEncoder().encode(
   requirement of 127 bytes per upload.`
 );
 const prep = await synapse.storage.prepare({
-  dataSize: BigInt(file.byteLength),
+  pieceSizes: [BigInt(file.byteLength)],
 })
 if (prep.transaction) {
   const { hash } = await prep.transaction.execute()
@@ -169,7 +169,7 @@ Now let's break down each step...
 
    // Prepare account
    const prep = await synapse.storage.prepare({
-     dataSize: 1073741824n, // 1 GiB
+     pieceSizes: [1073741824n], // one 1 GiB piece
    });
 
    console.log("Deposit needed:", prep.costs.depositNeeded);

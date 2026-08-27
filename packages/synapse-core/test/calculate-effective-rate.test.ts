@@ -5,7 +5,7 @@ import { calculateEffectiveRate } from '../src/warm-storage/calculate-effective-
 
 const TiB = 1n << 40n
 const storagePerTibPerMonth = 2_500_000_000_000_000_000n // 2.5 USDFC
-const datasetFeePerMonth = 24_000_000_000_000_000n // 0.024 USDFC
+const datasetFeePerMonth = 120_000_000_000_000_000n // 0.12 USDFC
 const epochsPerMonth = 86400n
 
 describe('calculateEffectiveRate', () => {

@@ -56,6 +56,8 @@ function createDataSet(): PdpDataSet {
     commissionBps: 100n,
     clientDataSetId: 0n,
     pdpEndEpoch: 0n,
+    pendingOneTimePayments: 0n,
+    lifecycleReserveBalance: 0n,
     providerId: 1n,
     dataSetId: 1n,
     live: true,

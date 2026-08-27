@@ -25,6 +25,8 @@ describe('getPieces', () => {
       clientDataSetId: 0n,
       pdpEndEpoch: 0n,
       providerId: 1n,
+      pendingOneTimePayments: 0n,
+      lifecycleReserveBalance: 0n,
       dataSetId: 1n,
       live: true,
       managed: true,
