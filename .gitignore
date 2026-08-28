@@ -1,9 +1,5 @@
 node_modules/
 dist/
-package-lock.json
-yarn.lock
-bun.lock
-pnpm-lock.yaml
 .zed
 FilOzone-*/
 filecoin-project-*/

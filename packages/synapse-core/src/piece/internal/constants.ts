@@ -7,7 +7,7 @@
 
 const BITS_PER_BYTE = 8
 
-export const FRS_PER_QUAD = 4
+const FRS_PER_QUAD = 4
 export const LEAFS_PER_QUAD = BigInt(FRS_PER_QUAD)
 
 /** Bits in an Fr element before FR32 expansion. */
@@ -23,7 +23,6 @@ export const OUT_BYTES_PER_QUAD = (FRS_PER_QUAD * OUT_BITS_FR) / BITS_PER_BYTE
 export const PADDED_BYTES_PER_QUAD = BigInt(IN_BYTES_PER_QUAD)
 export const EXPANDED_BYTES_PER_QUAD = BigInt(OUT_BYTES_PER_QUAD)
 
-export const BYTES_PER_FR = OUT_BYTES_PER_QUAD / FRS_PER_QUAD
 export const FR_RATIO = IN_BITS_FR / OUT_BITS_FR
 
 /** Merkle tree node size in bytes. */
