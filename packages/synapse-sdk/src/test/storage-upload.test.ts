@@ -58,13 +58,11 @@ describe('Storage Upload', () => {
       http.get<{ id: string; txHash: string }>(
         `https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`,
         ({ params }) => {
-          // Extract the piece ID from the last character of the txHash
-          const pieceId = Number.parseInt(params.txHash.slice(-1), 10)
           const response = {
             addMessageOk: true,
-            confirmedPieceIds: [pieceId],
+            confirmedPieceIds: [0, 1, 2],
             dataSetId: parseInt(params.id, 10),
-            pieceCount: 1,
+            pieceCount: 3,
             piecesAdded: true,
             txHash: params.txHash,
             txStatus: 'confirmed',
@@ -153,7 +151,7 @@ describe('Storage Upload', () => {
         }
       )
     )
-    const synapse = new Synapse({ client, source: null })
+    const synapse = new Synapse({ client, source: null, pieceBatching: false })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -179,6 +177,98 @@ describe('Storage Upload', () => {
       [...resultPieceIds].sort((a, b) => Number(a - b)),
       [0n, 1n, 2n],
       'The set of assigned piece IDs should be {0, 1, 2}'
+    )
+  })
+
+  it('should expose flush for limiter-based batching', async () => {
+    let addPiecesCalls = 0
+    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    server.use(
+      Mocks.JSONRPC({
+        ...Mocks.presets.basic,
+        debug: false,
+        warmStorageView: {
+          ...Mocks.presets.basic.warmStorageView,
+          getDataSet: ([dataSetId]) => [
+            dataSetId === 123n
+              ? {
+                  cacheMissRailId: 0n,
+                  cdnRailId: 0n,
+                  clientDataSetId: 0n,
+                  commissionBps: 100n,
+                  dataSetId,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
+                  pdpEndEpoch: 0n,
+                  pdpRailId: 1n,
+                  providerId: 1n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                }
+              : {
+                  cacheMissRailId: 0n,
+                  cdnRailId: 0n,
+                  clientDataSetId: 0n,
+                  commissionBps: 0n,
+                  dataSetId,
+                  payee: Mocks.ADDRESSES.zero,
+                  payer: Mocks.ADDRESSES.zero,
+                  pdpEndEpoch: 0n,
+                  pdpRailId: 0n,
+                  providerId: 0n,
+                  pendingOneTimePayments: 0n,
+                  lifecycleReserveBalance: 0n,
+                  serviceProvider: Mocks.ADDRESSES.zero,
+                },
+          ],
+        },
+      }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(),
+      Mocks.pdp.findAnyPieceHandler(true),
+      http.post(`https://pdp.example.com/pdp/data-sets/create-and-add`, () => {
+        addPiecesCalls++
+        return new HttpResponse(null, {
+          status: 201,
+          headers: {
+            Location: `/pdp/data-sets/created/${txHash}`,
+          },
+        })
+      }),
+      Mocks.pdp.dataSetCreationStatusHandler(txHash, {
+        createMessageHash: txHash,
+        dataSetCreated: true,
+        service: 'test-service',
+        txStatus: 'confirmed',
+        ok: true,
+        dataSetId: 123,
+      }),
+      Mocks.pdp.pieceAdditionStatusHandler(123, txHash, {
+        addMessageOk: true,
+        confirmedPieceIds: [10, 11],
+        dataSetId: 123,
+        pieceCount: 2,
+        piecesAdded: true,
+        txHash,
+        txStatus: 'confirmed',
+      })
+    )
+    const synapse = new Synapse({
+      client,
+      source: null,
+      pieceBatching: { wait: { kind: 'limiter' } },
+    })
+    const context = await synapse.storage.createContext({ withCDN: true })
+
+    const uploads = [context.upload(new Uint8Array(127).fill(1)), context.upload(new Uint8Array(128).fill(2))]
+    await synapse.storage.flush()
+    const results = await Promise.all(uploads)
+
+    assert.strictEqual(addPiecesCalls, 1, 'flush should submit both parked pieces in one batch')
+    assert.deepEqual(
+      results.map((result) => result.copies[0].pieceId),
+      [10n, 11n]
     )
   })
 

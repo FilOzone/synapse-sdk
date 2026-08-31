@@ -45,6 +45,7 @@ describe('Synapse', () => {
     })
 
     it('should create dataset with session key', async () => {
+      let createdClientDataSetId = 0n
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -52,6 +53,39 @@ describe('Synapse', () => {
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
             getApprovedProviders: () => [[1n]],
+            getDataSet: ([dataSetId]) => [
+              dataSetId === 123n
+                ? {
+                    cacheMissRailId: 0n,
+                    cdnRailId: 0n,
+                    clientDataSetId: createdClientDataSetId,
+                    commissionBps: 100n,
+                    dataSetId,
+                    payee: Mocks.ADDRESSES.serviceProvider1,
+                    payer: Mocks.ADDRESSES.client1,
+                    pdpEndEpoch: 0n,
+                    pdpRailId: 1n,
+                    providerId: 1n,
+                    pendingOneTimePayments: 0n,
+                    lifecycleReserveBalance: 0n,
+                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                  }
+                : {
+                    cacheMissRailId: 0n,
+                    cdnRailId: 0n,
+                    clientDataSetId: 0n,
+                    commissionBps: 0n,
+                    dataSetId,
+                    payee: Mocks.ADDRESSES.zero,
+                    payer: Mocks.ADDRESSES.zero,
+                    pdpEndEpoch: 0n,
+                    pdpRailId: 0n,
+                    providerId: 0n,
+                    pendingOneTimePayments: 0n,
+                    lifecycleReserveBalance: 0n,
+                    serviceProvider: Mocks.ADDRESSES.zero,
+                  },
+            ],
           },
         }),
         ...Mocks.pdp.streamingUploadHandlers(),
@@ -80,6 +114,7 @@ describe('Synapse', () => {
 
           const actualPayer = createDataSetDecoded[0]
           const clientDataSetId = createDataSetDecoded[1]
+          createdClientDataSetId = clientDataSetId
           const signature = createDataSetDecoded[4]
 
           const actualSigner = await recoverTypedDataAddress({
@@ -199,7 +234,7 @@ describe('Synapse', () => {
         privateKey: Mocks.PRIVATE_KEYS.key2,
         root: client.account,
       })
-      const synapse = new Synapse({ client, source: null, sessionClient: sessionKey.client })
+      const synapse = new Synapse({ client, source: null, sessionClient: sessionKey.client, pieceBatching: false })
       const firstData = new Uint8Array(127).fill(1) // 127 bytes
       const context = await synapse.storage.getDefaultContext()
       const result = await context.upload(firstData)

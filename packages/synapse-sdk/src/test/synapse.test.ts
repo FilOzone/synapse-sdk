@@ -816,6 +816,51 @@ describe('Synapse', () => {
       const FAKE_TX_HASH = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
       const DATA_SET_ID = 7
       beforeEach(async () => {
+        server.use(
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
+            serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
+            endorsements: {
+              getProviderIds: () => [endorsedProviderIds],
+            },
+            warmStorageView: {
+              ...Mocks.presets.basic.warmStorageView,
+              getDataSet: ([dataSetId]) => [
+                dataSetId === BigInt(DATA_SET_ID)
+                  ? {
+                      cacheMissRailId: 0n,
+                      cdnRailId: 0n,
+                      clientDataSetId: 0n,
+                      commissionBps: 100n,
+                      dataSetId,
+                      payee: Mocks.ADDRESSES.serviceProvider1,
+                      payer: Mocks.ADDRESSES.client1,
+                      pdpEndEpoch: 0n,
+                      pdpRailId: 1n,
+                      providerId: 1n,
+                      pendingOneTimePayments: 0n,
+                      lifecycleReserveBalance: 0n,
+                      serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                    }
+                  : {
+                      cacheMissRailId: 0n,
+                      cdnRailId: 0n,
+                      clientDataSetId: 0n,
+                      commissionBps: 0n,
+                      dataSetId,
+                      payee: Mocks.ADDRESSES.zero,
+                      payer: Mocks.ADDRESSES.zero,
+                      pdpEndEpoch: 0n,
+                      pdpRailId: 0n,
+                      providerId: 0n,
+                      pendingOneTimePayments: 0n,
+                      lifecycleReserveBalance: 0n,
+                      serviceProvider: Mocks.ADDRESSES.zero,
+                    },
+              ],
+            },
+          })
+        )
         contexts = await synapse.storage.createContexts({
           providerIds: [1n, 2n],
         })
