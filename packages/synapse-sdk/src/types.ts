@@ -8,7 +8,7 @@
 import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { Permission, SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
-import type { pullPiecesApiRequest } from '@filoz/synapse-core/sp'
+import type { PieceBatcherWait, pullPiecesApiRequest } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { getPriceList, getUploadCosts } from '@filoz/synapse-core/warm-storage'
@@ -17,7 +17,7 @@ import type { Synapse } from './synapse.ts'
 import type { WarmStorageService } from './warm-storage/service.ts'
 
 // Re-export PieceCID, PDPProvider, and PullStatus types
-export type { PDPProvider, PieceCID }
+export type { PDPProvider, PieceBatcherWait, PieceCID }
 export type PullStatus = pullPiecesApiRequest.PullStatus
 export type PrivateKey = string
 export type TokenAmount = bigint
@@ -81,6 +81,12 @@ export interface PrepareResult {
  */
 export type FilecoinNetworkType = 'mainnet' | 'calibration' | 'devnet'
 
+/** Configuration for automatic addPieces batching. */
+export interface PieceBatchingOptions {
+  /** Defaults to `{ kind: 'delay', ms: 0 }`. */
+  wait?: PieceBatcherWait
+}
+
 /**
  * Token identifier for balance queries
  */
@@ -132,6 +138,9 @@ export interface SynapseOptions {
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
 
+  /** Automatic addPieces batching. Enabled by default; pass `false` to disable. */
+  pieceBatching?: false | PieceBatchingOptions
+
   /**
    * Application identifier for namespace isolation. When set to a non-empty string, datasets
    * are tagged with this value and only datasets with a matching source are reused. Set to
@@ -158,6 +167,9 @@ export interface SynapseFromClientOptions {
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
+
+  /** Automatic addPieces batching. Enabled by default; pass `false` to disable. */
+  pieceBatching?: false | PieceBatchingOptions
 
   /**
    * Application identifier for namespace isolation. When set to a non-empty string, datasets

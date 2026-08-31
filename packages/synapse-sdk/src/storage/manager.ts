@@ -70,6 +70,12 @@ import type {
 import { combineMetadata, createError, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/index.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
+import {
+  type BatchedCommitResult,
+  type BatchingHold,
+  getPieceBatchingService,
+  type PieceBatchingService,
+} from './piece-batching.ts'
 import { terminateServiceFlow } from './terminate.ts'
 
 // Multi-copy upload constants
@@ -192,9 +198,14 @@ export class StorageManager {
    * to determine overall success. Don't use `failedAttempts.length` as a failure
    * signal as `failedAttempts` exists as a diagnostic for intermediate failures.
    *
+   * Batching is enabled by default. Compatible concurrent calls can share
+   * on-chain transactions, while sequentially awaiting each call prevents those
+   * uploads from joining the same batch.
+   *
    * For large files, prefer streaming to minimize memory usage.
    *
-   * For uploading multiple files, use the split operations API directly:
+   * For manual control over providers, signing, or individual phases, use the
+   * split operations API directly:
    * createContexts() -> store() -> presignForCommit() -> pull() -> commit()
    *
    * @param data - Raw bytes (Uint8Array) or ReadableStream to upload
@@ -204,6 +215,11 @@ export class StorageManager {
    * @throws CommitError if all commit attempts fail (data stored but not on-chain)
    */
   async upload(data: UploadPieceStreamingData, options?: StorageManagerUploadOptions): Promise<UploadResult> {
+    const batching = getPieceBatchingService(this._synapse)
+    if (batching != null) {
+      return this._uploadBatched(data, options, batching, batching.hold())
+    }
+
     const { contexts, explicitProviders } = await this._resolveUploadContexts(options)
     const [primary, ...secondaries] = contexts
 
@@ -379,6 +395,259 @@ export class StorageManager {
       copies,
       failedAttempts,
     }
+  }
+
+  /**
+   * Submit all piece-batch windows currently accepted by this Synapse instance.
+   *
+   * Waits for in-progress uploads and pulls to finish parking before submitting
+   * their pending windows. Resolving does not mean every upload was submitted or
+   * confirmed successfully; failures are reported by the individual upload
+   * promises, which callers must also await. This is a no-op when batching is
+   * disabled.
+   */
+  async flush(): Promise<void> {
+    await getPieceBatchingService(this._synapse)?.flush()
+  }
+
+  private async _uploadBatched(
+    data: UploadPieceStreamingData,
+    options: StorageManagerUploadOptions | undefined,
+    batching: PieceBatchingService,
+    hold: BatchingHold
+  ): Promise<UploadResult> {
+    let resolved: { contexts: StorageContext[]; explicitProviders: boolean }
+    try {
+      resolved = await this._resolveUploadContexts(options)
+    } catch (error) {
+      hold.release()
+      throw error
+    }
+    const { contexts, explicitProviders } = resolved
+    const [primary, ...secondaries] = contexts
+    const usedProviderIds = new Set(contexts.map((context) => context.provider.id))
+    const failedAttempts: FailedAttempt[] = []
+    const secondaryOperations: Array<{ context: StorageContext; committed: Promise<BatchedCommitResult> }> = []
+    let primaryParked = false
+    let storedPieceCid: PieceCID | undefined
+    let storedSize: number | undefined
+
+    const primaryTask = batching.upload(primary, {
+      data,
+      pieceCid: options?.pieceCid,
+      metadata: options?.pieceMetadata,
+      signal: options?.signal,
+      onProgress: options?.callbacks?.onProgress,
+      onSubmitted: (submitted) =>
+        safeInvoke(options?.callbacks?.onPiecesAdded, submitted.txHash, primary.provider.id, [
+          { pieceCid: submitted.pieceCid },
+        ]),
+      onParked: async (piece) => {
+        primaryParked = true
+        storedPieceCid = piece.pieceCid
+        storedSize = piece.size
+        safeInvoke(options?.callbacks?.onStored, primary.provider.id, piece.pieceCid)
+
+        for (const secondary of secondaries) {
+          const outcome = await this._parkBatchedSecondary(primary, secondary, piece.pieceCid, {
+            batching,
+            explicitProviders,
+            usedProviderIds,
+            failedAttempts,
+            signal: options?.signal,
+            withCDN: options?.withCDN,
+            metadata: options?.metadata,
+            pieceMetadata: options?.pieceMetadata,
+            callbacks: options?.callbacks,
+          })
+          if (outcome != null) {
+            secondaryOperations.push(outcome)
+          }
+        }
+      },
+    })
+    hold.release()
+
+    let primaryResult: BatchedCommitResult | undefined
+    let primaryError: Error | undefined
+    try {
+      primaryResult = await primaryTask.committed
+    } catch (error) {
+      if (error instanceof UserRejectedRequestError) {
+        throw error
+      }
+      if (!primaryParked) {
+        throw new StoreError(
+          `Failed to store piece on service provider ${primary.provider.id} (${primary.provider.pdp.serviceURL})`,
+          {
+            cause: error instanceof Error ? error : undefined,
+            providerId: primary.provider.id,
+            endpoint: primary.provider.pdp.serviceURL,
+          }
+        )
+      }
+      primaryError = error instanceof Error ? error : new Error(String(error))
+    }
+
+    const secondarySettled = await Promise.allSettled(
+      secondaryOperations.map(async (operation) => ({
+        context: operation.context,
+        result: await operation.committed,
+      }))
+    )
+
+    const copies: CopyResult[] = []
+    if (primaryResult == null) {
+      failedAttempts.push({
+        providerId: primary.provider.id,
+        role: 'primary',
+        error: 'Commit failed',
+        explicit: explicitProviders,
+      })
+    } else {
+      copies.push({
+        providerId: primary.provider.id,
+        dataSetId: primaryResult.dataSetId,
+        pieceId: primaryResult.pieceId,
+        role: 'primary',
+        retrievalUrl: primary.getPieceUrl(primaryResult.pieceCid),
+        isNewDataSet: primaryResult.isNewDataSet,
+      })
+      safeInvoke(options?.callbacks?.onPiecesConfirmed, primaryResult.dataSetId, primary.provider.id, [
+        { pieceId: primaryResult.pieceId, pieceCid: primaryResult.pieceCid },
+      ])
+    }
+
+    for (const [index, settled] of secondarySettled.entries()) {
+      const operation = secondaryOperations[index]
+      if (settled.status === 'fulfilled') {
+        const { context, result } = settled.value
+        copies.push({
+          providerId: context.provider.id,
+          dataSetId: result.dataSetId,
+          pieceId: result.pieceId,
+          role: 'secondary',
+          retrievalUrl: context.getPieceUrl(result.pieceCid),
+          isNewDataSet: result.isNewDataSet,
+        })
+        safeInvoke(options?.callbacks?.onPiecesConfirmed, result.dataSetId, context.provider.id, [
+          { pieceId: result.pieceId, pieceCid: result.pieceCid },
+        ])
+      } else {
+        failedAttempts.push({
+          providerId: operation.context.provider.id,
+          role: 'secondary',
+          error: 'Commit failed',
+          explicit: explicitProviders,
+        })
+      }
+    }
+
+    if (copies.length === 0) {
+      throw new CommitError(
+        `Failed to commit on primary provider ${primary.provider.id} (${primary.provider.pdp.serviceURL}) - data is stored but not on-chain`,
+        {
+          cause: primaryError,
+          providerId: primary.provider.id,
+          endpoint: primary.provider.pdp.serviceURL,
+        }
+      )
+    }
+    if (storedPieceCid == null || storedSize == null) {
+      throw createError('StorageManager', 'upload', 'Primary upload completed without parked piece information')
+    }
+
+    return {
+      pieceCid: storedPieceCid,
+      size: storedSize,
+      requestedCopies: contexts.length,
+      complete: copies.length >= contexts.length,
+      copies,
+      failedAttempts,
+    }
+  }
+
+  private async _parkBatchedSecondary(
+    primary: StorageContext,
+    initialSecondary: StorageContext,
+    pieceCid: PieceCID,
+    options: {
+      batching: PieceBatchingService
+      explicitProviders: boolean
+      usedProviderIds: Set<bigint>
+      failedAttempts: FailedAttempt[]
+      signal?: AbortSignal
+      withCDN?: boolean
+      metadata?: Record<string, string>
+      pieceMetadata?: Record<string, string>
+      callbacks?: Partial<CombinedCallbacks>
+    }
+  ): Promise<{ context: StorageContext; committed: Promise<BatchedCommitResult> } | undefined> {
+    let context = initialSecondary
+    let attempts = 0
+
+    while (attempts < MAX_SECONDARY_ATTEMPTS) {
+      const providerId = context.provider.id
+      const task = options.batching.pull(context, {
+        pieceCid,
+        sourceUrl: primary.getPieceUrl(pieceCid),
+        metadata: options.pieceMetadata,
+        signal: options.signal,
+        onStatus: (response) => {
+          const status = response.pieces.find((piece) => piece.pieceCid === pieceCid.toString())?.status
+          if (status != null) {
+            safeInvoke(options.callbacks?.onPullProgress, providerId, pieceCid, status)
+          }
+        },
+        onParked: () => safeInvoke(options.callbacks?.onCopyComplete, providerId, pieceCid),
+        onSubmitted: (submitted) =>
+          safeInvoke(options.callbacks?.onPiecesAdded, submitted.txHash, providerId, [
+            { pieceCid: submitted.pieceCid },
+          ]),
+      })
+
+      try {
+        await task.parked
+        return { context, committed: task.committed }
+      } catch (error) {
+        void task.committed.catch(() => undefined)
+        if (error instanceof UserRejectedRequestError) {
+          throw error
+        }
+        const message = error instanceof Error ? error.message : String(error)
+        options.failedAttempts.push({
+          providerId,
+          role: 'secondary',
+          error: message,
+          explicit: options.explicitProviders,
+        })
+        safeInvoke(
+          options.callbacks?.onCopyFailed,
+          providerId,
+          pieceCid,
+          error instanceof Error ? error : new Error(message)
+        )
+      }
+
+      attempts++
+      if (options.explicitProviders || attempts >= MAX_SECONDARY_ATTEMPTS) {
+        break
+      }
+      try {
+        const [replacement] = await this.createContexts({
+          withCDN: options.withCDN,
+          copies: 1,
+          metadata: options.metadata,
+          callbacks: options.callbacks,
+          excludeProviderIds: [...options.usedProviderIds],
+        })
+        context = replacement
+        options.usedProviderIds.add(replacement.provider.id)
+      } catch {
+        break
+      }
+    }
+    return undefined
   }
 
   /**

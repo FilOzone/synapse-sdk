@@ -16,6 +16,7 @@ import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
 import { StorageManager } from './storage/manager.ts'
+import { PieceBatchingService, registerPieceBatchingService } from './storage/piece-batching.ts'
 import type { PDPProvider, SynapseFromClientOptions, SynapseOptions } from './types.ts'
 import { DEFAULT_CHAIN } from './utils/constants.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
@@ -84,6 +85,7 @@ export class Synapse {
       withCDN: options.withCDN,
       source: options.source,
       sessionClient: options.sessionKey?.client,
+      pieceBatching: options.pieceBatching,
     })
   }
 
@@ -100,6 +102,10 @@ export class Synapse {
     this._filbeamService = new FilBeamService(this._chain)
     this._warmStorageService = new WarmStorageService({ client: this._client, readClient: this._readClient })
     this._payments = new PaymentsService({ client: this._client })
+
+    if (options.pieceBatching !== false) {
+      registerPieceBatchingService(this, new PieceBatchingService(this, options.pieceBatching ?? {}))
+    }
 
     // Initialize StorageManager
     this._storageManager = new StorageManager({
