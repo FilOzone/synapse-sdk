@@ -86,6 +86,18 @@ describe('calculateUploadCosts', () => {
     assert.equal(double.depositNeeded, single.depositNeeded + single.lockups.total)
   })
 
+  it('aggregates conservative per-piece operation fees', () => {
+    const result = calculateUploadCosts({
+      contexts: [{ ...newContext, pieceSizes: [1_000n, 2_000n] }],
+      priceList,
+      account,
+      extraRunwayEpochs: 0n,
+      bufferEpochs: 0n,
+    })
+
+    assert.equal(result.fees.addPiecesFee, (priceList.fees.addPiecesBaseFee + priceList.fees.addPiecesPerPieceFee) * 2n)
+  })
+
   it('is independent of context order', () => {
     const existingContext = {
       pieceSizes: [2_000n, 3_000n],

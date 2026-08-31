@@ -920,6 +920,7 @@ export class StorageManager {
    * - Sums lockup across all contexts
    * - Computes debt, runway, and buffer once at the account level
    * - Prices the known `pieceSizes` committed to each context
+   * - Conservatively treats every piece as a separate add-pieces operation
    *
    * @param options - {@link PrepareOptions}
    * @returns {@link PrepareResult} with costs and an optional transaction
@@ -970,7 +971,8 @@ export class StorageManager {
    *
    * Dataset leaf counts, pending one-time fees, and lifecycle reserve balances are
    * fetched from chain for existing datasets so rates and reserve
-   * replenishments are accurate.
+   * replenishments are accurate. Multi-piece fee and reserve estimates are
+   * conservative because actual batch boundaries depend on runtime timing and metadata.
    *
    * @param contexts - Storage contexts to aggregate costs for
    * @param options - Upload options (pieceSizes, extraRunwayEpochs, bufferEpochs)

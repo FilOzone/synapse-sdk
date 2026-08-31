@@ -7,7 +7,7 @@ import type { getPriceList } from './price-list.ts'
 export namespace calculateDepositNeeded {
   export type ParamsType = {
     // Upload parameters (passed to calculateAdditionalLockupRequired)
-    /** Exact raw payload size of every piece added by this operation, in bytes. */
+    /** Exact raw payload size of every piece planned for upload, in bytes. */
     pieceSizes: readonly bigint[]
     /** Aggregate leaf count reported by PDP Verifier. 0n for new data sets. */
     dataSetLeafCount: bigint
@@ -46,7 +46,7 @@ export namespace calculateDepositNeeded {
       /** Additional fixed lockup needed to replenish an existing or newly drained lifecycle reserve. */
       reserveReplenishment: bigint
     }
-    /** Operation fees paid from the lifecycle reserve and reported as upload costs. */
+    /** Conservative operation fees paid from the lifecycle reserve and reported as upload costs. */
     fees: calculateUploadFees.OutputType
   }
 }

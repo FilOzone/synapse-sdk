@@ -47,7 +47,7 @@ export type FundOptions = import('@filoz/synapse-core/pay').fund.OptionsType
 export interface PrepareOptions {
   /** StorageContext(s) to prepare for upload. */
   context?: import('./storage/context.ts').StorageContext | import('./storage/context.ts').StorageContext[]
-  /** Exact raw payload size of every piece committed per storage context, in bytes. */
+  /** Exact raw payload size of every piece planned per context; multi-piece fee estimates are conservative. */
   pieceSizes: readonly bigint[]
   /** Extra runway in epochs beyond the required lockup. */
   extraRunwayEpochs?: bigint

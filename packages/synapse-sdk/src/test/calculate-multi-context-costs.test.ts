@@ -531,7 +531,7 @@ describe('calculateMultiContextCosts', () => {
     const onePiece = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [2n] })
     const twoPieces = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [1n, 1n] })
 
-    assert.equal(twoPieces.fees.addPiecesFee - onePiece.fees.addPiecesFee, parseUnits('0.003', 18))
+    assert.equal(twoPieces.fees.addPiecesFee - onePiece.fees.addPiecesFee, parseUnits('0.011', 18))
   })
 
   it('should include reserve replenishment for an existing data set below threshold', async () => {

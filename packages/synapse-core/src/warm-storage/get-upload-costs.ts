@@ -24,7 +24,7 @@ export namespace getUploadCosts {
     /** One-time operation fees already pending on an existing data set. Defaults to 0. */
     pendingOneTimePayments?: bigint
 
-    /** Exact raw payload size of every piece added by this operation, in bytes. */
+    /** Exact raw payload size of every piece planned for upload, in bytes. */
     pieceSizes: readonly bigint[]
 
     /** Extra runway in epochs beyond the required lockup. */
@@ -46,6 +46,8 @@ export namespace getUploadCosts {
  * `calculateUploadCosts` utility. Existing-data-set calls must provide
  * `dataSetLeafCount` and `currentLifecycleReserveBalance`; pass
  * `pendingOneTimePayments` when the data set has unflushed lifecycle fees.
+ * Multi-piece fee and reserve estimates conservatively treat each piece as a
+ * separate add-pieces operation because actual batching is runtime-dependent.
  *
  * @param client - The client to use to compute upload costs.
  * @param options - {@link getUploadCosts.OptionsType}

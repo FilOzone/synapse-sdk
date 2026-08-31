@@ -44,6 +44,18 @@ describe('calculateLifecycleReserveFunding', () => {
     assert.equal(result.finalReserveBalance, parseUnits('0.464', 18))
   })
 
+  it('charges the create fee only on the first conservative piece flush', () => {
+    const result = calculateLifecycleReserveFunding({
+      priceList,
+      isNewDataSet: true,
+      pieceSizes: [1n, 1n],
+    })
+
+    assert.equal(result.initialLockup, parseUnits('0.5', 18))
+    assert.equal(result.replenishmentLockup, 0n)
+    assert.equal(result.finalReserveBalance, parseUnits('0.453', 18))
+  })
+
   it('does not replenish when the reserve equals the pending fees plus threshold', () => {
     const result = calculateLifecycleReserveFunding({
       priceList,
@@ -79,6 +91,18 @@ describe('calculateLifecycleReserveFunding', () => {
     })
 
     assert.equal(result.replenishmentLockup, parseUnits('0.478', 18))
+    assert.equal(result.finalReserveBalance, parseUnits('0.5', 18))
+  })
+
+  it('replenishes when a later conservative piece flush crosses the threshold', () => {
+    const result = calculateLifecycleReserveFunding({
+      priceList,
+      isNewDataSet: false,
+      pieceSizes: [1n, 1n],
+      currentReserveBalance: parseUnits('0.04', 18),
+    })
+
+    assert.equal(result.replenishmentLockup, parseUnits('0.482', 18))
     assert.equal(result.finalReserveBalance, parseUnits('0.5', 18))
   })
 

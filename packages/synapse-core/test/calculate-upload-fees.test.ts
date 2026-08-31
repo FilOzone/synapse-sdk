@@ -48,10 +48,10 @@ describe('calculateUploadFees', () => {
     assert.equal(fresh.createDataSetFee, priceList.fees.createDataSetFee)
   })
 
-  it('charges one add-pieces base fee plus the fee for each piece', () => {
+  it('conservatively charges one add-pieces operation per piece', () => {
     const pieceSizes = [1n, 2n, 3n]
     const result = calculateUploadFees({ priceList, isNewDataSet: false, pieceSizes })
-    assert.equal(result.addPiecesFee, priceList.fees.addPiecesBaseFee + priceList.fees.addPiecesPerPieceFee * 3n)
+    assert.equal(result.addPiecesFee, (priceList.fees.addPiecesBaseFee + priceList.fees.addPiecesPerPieceFee) * 3n)
     assert.equal(result.total, result.addPiecesFee)
   })
 })

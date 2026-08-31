@@ -64,7 +64,7 @@ export namespace calculateUploadCosts {
 
   /** One storage context affected by the planned upload. */
   export type ContextType = {
-    /** Exact raw payload size of every piece committed to this context, in bytes. */
+    /** Exact raw payload size of every piece planned for this context, in bytes. */
     pieceSizes: readonly bigint[]
     /** Whether CDN is enabled for this context's data set. */
     withCDN: boolean
@@ -111,7 +111,7 @@ export namespace calculateUploadCosts {
       /** Aggregate higher-precision rate per month for display. */
       perMonth: bigint
     }
-    /** Sum of upload operation fees across all contexts. */
+    /** Conservative sum of upload operation fees across all contexts. */
     fees: calculateUploadFees.OutputType
     /** Sum of additional lockups required across all contexts. */
     lockups: {
@@ -139,6 +139,10 @@ export namespace calculateUploadCosts {
  * summed. Account debt, available funds, runway, and the execution buffer are
  * then applied exactly once to the aggregate, making this function suitable
  * for both single-copy and multi-copy uploads.
+ *
+ * Multi-piece operation fees and lifecycle-reserve replenishments are upper
+ * bounds: each supplied piece is treated as a separate add-pieces operation
+ * because runtime batch boundaries cannot be inferred from raw sizes alone.
  *
  * This function performs no network requests and does not mutate its inputs.
  * Callers must resolve existing data-set and payer state at a consistent chain

@@ -8,7 +8,7 @@ export namespace calculateLifecycleReserveFunding {
     priceList: getPriceList.OutputType
     /** Whether this upload creates a new data set and its initial reserve. */
     isNewDataSet: boolean
-    /** Exact raw payload size of every piece added by this operation, in bytes. */
+    /** Exact raw payload size of every piece planned for upload, in bytes. */
     pieceSizes: readonly bigint[]
     /** Current lifecycle reserve balance. Required for an existing data set. */
     currentReserveBalance?: bigint
@@ -32,9 +32,10 @@ export namespace calculateLifecycleReserveFunding {
  * Calculate lifecycle-reserve funding for an upload.
  *
  * FWSS pays operation fees from the PDP rail's fixed lifecycle reserve. Before
- * the fee flush it replenishes an active reserve when the remaining balance
- * would fall below `replenishThreshold`. `pieceSizes` represents one
- * add-pieces operation and therefore one fee flush.
+ * each fee flush it replenishes an active reserve when the remaining balance
+ * would fall below `replenishThreshold`. Because runtime batch boundaries
+ * cannot be inferred from raw sizes alone, each supplied piece is
+ * conservatively simulated as its own add-pieces operation and fee flush.
  *
  * Operation fees remain real charges, but they must not also be added directly
  * to the deposit: paying a fee reduces account funds and fixed lockup by the
@@ -49,7 +50,6 @@ export function calculateLifecycleReserveFunding(
   params: calculateLifecycleReserveFunding.ParamsType
 ): calculateLifecycleReserveFunding.OutputType {
   validatePieceSizes(params.pieceSizes)
-  const pieceCount = BigInt(params.pieceSizes.length)
 
   const pendingAtStart = params.pendingOneTimePayments ?? 0n
   if (pendingAtStart < 0n) {
@@ -73,15 +73,19 @@ export function calculateLifecycleReserveFunding(
   }
 
   let pending = pendingAtStart + (params.isNewDataSet ? params.priceList.fees.createDataSetFee : 0n)
-  pending += params.priceList.fees.addPiecesBaseFee + params.priceList.fees.addPiecesPerPieceFee * pieceCount
-
   let replenishmentLockup = 0n
-  if (reserveBalance < pending + threshold) {
-    const replenishedBalance = target + pending
-    replenishmentLockup = replenishedBalance - reserveBalance
-    reserveBalance = replenishedBalance
+  const singlePieceFee = params.priceList.fees.addPiecesBaseFee + params.priceList.fees.addPiecesPerPieceFee
+
+  for (let pieceIndex = 0; pieceIndex < params.pieceSizes.length; pieceIndex++) {
+    pending += singlePieceFee
+    if (reserveBalance < pending + threshold) {
+      const replenishedBalance = target + pending
+      replenishmentLockup += replenishedBalance - reserveBalance
+      reserveBalance = replenishedBalance
+    }
+    reserveBalance -= pending
+    pending = 0n
   }
-  reserveBalance -= pending
 
   return {
     initialLockup,
