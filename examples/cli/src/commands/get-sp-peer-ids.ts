@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts'
+import { paginate } from '@filoz/synapse-core'
 import { getPDPProviders } from '@filoz/synapse-core/sp-registry'
 import { type Command, command } from 'cleye'
 import { publicClient } from '../client.ts'
@@ -53,8 +54,10 @@ export const getSpPeerIds: Command = command(
 )
 
 async function fetchProviderPeerIds(client: ReturnType<typeof publicClient>) {
-  const result = await getPDPProviders(client)
-  return result.providers.map((provider) => ({
+  const providers = await Array.fromAsync(
+    paginate(({ cursor }) => getPDPProviders(client, { cursor }))
+  )
+  return providers.map((provider) => ({
     providerId: provider.id,
     name: provider.name,
     ipniPeerId: provider.pdp.ipniPeerId,

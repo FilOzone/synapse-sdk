@@ -14,7 +14,6 @@ import { multicall, readContract } from 'viem/actions'
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import { DefaultFwssPermissions, type Expirations, type Permission } from './permissions.ts'
 
 export namespace authorizationExpiry {
@@ -77,7 +76,7 @@ export async function authorizationExpiry(
   options: authorizationExpiry.OptionsType
 ): Promise<authorizationExpiry.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     authorizationExpiryCall({
       chain: client.chain,
       address: options.address,
@@ -153,7 +152,7 @@ export namespace isExpired {
 /**
  * Check if the session key is expired.
  *
- * @param client - The client to use.
+ * @param client - The client to use to check if the session key is expired.
  * @param options - The options to use.
  * @returns Whether the session key is expired.
  * @throws - {@link isExpired.ErrorType} if the read contract fails.
@@ -178,7 +177,7 @@ export namespace getExpirations {
 /**
  * Get the expirations for all FWSS permissions.
  *
- * @param client - The client to use.
+ * @param client - The client to use to get the session key expirations.
  * @param options - {@link getExpirations.OptionsType}
  * @returns Expirations {@link getExpirations.OutputType}
  * @throws Errors {@link getExpirations.ErrorType}
@@ -205,10 +204,8 @@ export async function getExpirations(client: Client<Transport, Chain>, options: 
   const permissions = options.permissions ?? DefaultFwssPermissions
   const expirations: Expirations = Object.fromEntries(permissions.map((permission) => [permission, 0n]))
 
-  const readClient = toReadClient(client)
-
   try {
-    const result = await multicall(readClient, {
+    const result = await multicall(client, {
       allowFailure: false,
       contracts: permissions.map((permission) =>
         authorizationExpiryCall({

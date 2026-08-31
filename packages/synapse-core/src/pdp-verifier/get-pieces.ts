@@ -2,39 +2,39 @@ import type { Simplify } from 'type-fest'
 import type { Address, Chain, Client, ReadContractErrorType, Transport } from 'viem'
 import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
-import { LimitMustBeGreaterThanZeroError } from '../errors/pdp-verifier.ts'
-import { from as pieceFrom } from '../piece/parse.ts'
+import { type Page, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { metadataArrayToObject } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
-import { toReadClient } from '../utils/read-client.ts'
-import { getAllPieceMetadataCall } from '../warm-storage/get-all-piece-metadata.ts'
-import type { PdpDataSet, Piece, PieceWithMetadata } from '../warm-storage/types.ts'
-import { type getActivePieces, getActivePiecesCall } from './get-active-pieces.ts'
+import type { PdpDataSet, Piece } from '../warm-storage/types.ts'
+import { getActivePiecesByCursorCall, parseGetActivePiecesByCursor } from './get-active-pieces-by-cursor.ts'
 import { getScheduledRemovalsCall, parseScheduledRemovals } from './get-scheduled-removals.ts'
 
 export namespace getPieces {
   export type OptionsType = Simplify<
-    Omit<getActivePieces.OptionsType, 'dataSetId'> & {
+    PaginationOptions & {
       /** The data set to get the pieces from. */
       dataSet: PdpDataSet
       /** The address of the user. */
       address: Address
+      /** Optional PDPVerifier contract address override. */
+      contractAddress?: Address
     }
   >
 
-  export type OutputType = {
-    pieces: Piece[]
-    hasMore: boolean
-  }
+  export type OutputType = Page<Piece>
 
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType | resolvePagination.ErrorType
 }
 
 /**
- * Get pieces for a data set with pagination
+ * Get one bounded page of visible pieces for a data set.
  *
- * @example
+ * Pieces scheduled for removal are filtered from `items`, while `nextCursor`
+ * continues to describe the unfiltered source page. A page can therefore be
+ * empty and still have a continuation. Treat it as opaque and use
+ * {@link paginate} to traverse every page.
+ *
+ * @example Read the first page
  * ```ts
  * import { getPieces } from '@filoz/synapse-core/pdp-verifier'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -45,12 +45,24 @@ export namespace getPieces {
  *   transport: http(),
  * })
  *
- * const [piecesData, pieceIds, hasMore] = await getPieces(client, {
- *   dataSetId: 1n,
- * })
+ * const address = '0x0000000000000000000000000000000000000000'
+ * const page = await getPieces(client, { dataSet, address })
+ * console.log(page.items, page.nextCursor)
  * ```
  *
- * @param client - The client to use to get the active pieces.
+ * @example Iterate over every page
+ * ```ts
+ * import { paginate } from '@filoz/synapse-core'
+ * import { getPieces } from '@filoz/synapse-core/pdp-verifier'
+ *
+ * for await (const piece of paginate(({ cursor }) =>
+ *   getPieces(client, { dataSet, address, cursor })
+ * )) {
+ *   console.log(piece.id, piece.cid, piece.url)
+ * }
+ * ```
+ *
+ * @param client - The client to use to get the pieces.
  * @param options - {@link getPieces.OptionsType}
  * @returns The active pieces for the data set {@link getPieces.OutputType}
  * @throws Errors {@link getPieces.ErrorType}
@@ -61,20 +73,18 @@ export async function getPieces(
 ): Promise<getPieces.OutputType> {
   const chain = asChain(client.chain)
 
-  if (options.limit != null && options.limit <= 0n) {
-    throw new LimitMustBeGreaterThanZeroError()
-  }
+  const { cursor, limit } = resolvePagination(options, 100n)
 
   const address = options.address
   const serviceURL = options.dataSet.provider.pdp.serviceURL
   try {
-    const [activePiecesResult, removalsResult] = await multicall(toReadClient(client), {
+    const [activePiecesResult, removalsResult] = await multicall(client, {
       contracts: [
-        getActivePiecesCall({
+        getActivePiecesByCursorCall({
           chain: client.chain,
           dataSetId: options.dataSet.dataSetId,
-          offset: options.offset,
-          limit: options.limit,
+          startPieceId: cursor,
+          limit,
           contractAddress: options.contractAddress,
         }),
         getScheduledRemovalsCall({
@@ -89,14 +99,14 @@ export async function getPieces(
     // deduplicate the removals
     const removals = parseScheduledRemovals(removalsResult)
 
+    const page = parseGetActivePiecesByCursor(activePiecesResult)
     return {
-      hasMore: activePiecesResult[2],
-      pieces: activePiecesResult[0]
-        .map((piece, index) => {
-          const cid = pieceFrom(piece.data)
+      items: page.items
+        .map((piece) => {
+          const cid = piece.cid
           return {
             cid,
-            id: activePiecesResult[1][index],
+            id: piece.id,
             url: createPieceUrl({
               cid: cid.toString(),
               cdn: options.dataSet.cdn,
@@ -107,92 +117,14 @@ export async function getPieces(
           }
         })
         .filter((piece) => !removals.includes(piece.id)),
+      ...(page.nextCursor == null ? {} : { nextCursor: page.nextCursor }),
     }
   } catch (error) {
     if (stringErrorEquals(error, STRING_ERRORS.PDP_VERIFIER_DATA_SET_NOT_LIVE)) {
       return {
-        pieces: [],
-        hasMore: false,
+        items: [],
       }
     }
     throw error
-  }
-}
-
-export namespace getPiecesWithMetadata {
-  export type OptionsType = Simplify<
-    Omit<getActivePieces.OptionsType, 'dataSetId'> & {
-      /** The data set to get the pieces from. */
-      dataSet: PdpDataSet
-      /** The address of the user. */
-      address: Address
-    }
-  >
-
-  export type OutputType = {
-    pieces: PieceWithMetadata[]
-    hasMore: boolean
-  }
-
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
-}
-
-/**
- * Get pieces with metadata for a data set with pagination
- *
- * @example
- * ```ts
- * import { getPiecesWithMetadata } from '@filoz/synapse-core/pdp-verifier'
- * import { calibration } from '@filoz/synapse-core/chains'
- * import { createPublicClient, http } from 'viem'
- *
- * const client = createPublicClient({
- *   chain: calibration,
- *   transport: http(),
- * })
- *
- * const [piecesData, pieceIds, hasMore] = await getPiecesWithMetadata(client, {
- *   dataSetId: 1n,
- * })
- * ```
- *
- * @param client - The client to use to get the active pieces.
- * @param options - {@link getPiecesWithMetadata.OptionsType}
- * @returns The active pieces for the data set {@link getPiecesWithMetadata.OutputType}
- * @throws Errors {@link getPiecesWithMetadata.ErrorType}
- */
-export async function getPiecesWithMetadata(
-  client: Client<Transport, Chain>,
-  options: getPiecesWithMetadata.OptionsType
-): Promise<getPiecesWithMetadata.OutputType> {
-  if (options.limit != null && options.limit <= 0n) {
-    throw new LimitMustBeGreaterThanZeroError()
-  }
-
-  const readClient = toReadClient(client)
-  const pieces = await getPieces(readClient, options)
-  if (pieces.pieces.length === 0) {
-    return {
-      pieces: [],
-      hasMore: pieces.hasMore,
-    }
-  }
-  const metadata = await multicall(readClient, {
-    allowFailure: false,
-    contracts: pieces.pieces.map((piece) =>
-      getAllPieceMetadataCall({
-        chain: client.chain,
-        dataSetId: options.dataSet.dataSetId,
-        pieceId: piece.id,
-        contractAddress: options.contractAddress,
-      })
-    ),
-  })
-  return {
-    pieces: pieces.pieces.map((piece, index) => ({
-      ...piece,
-      metadata: metadataArrayToObject(metadata[index]),
-    })),
-    hasMore: pieces.hasMore,
   }
 }

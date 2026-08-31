@@ -1,4 +1,3 @@
-import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -12,9 +11,9 @@ import type {
 import { multicall, readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
-import { getApprovedProviderIdsCall } from '../warm-storage/get-approved-provider-ids.ts'
+import { type Page, type PaginationOptions, paginate, resolvePagination } from '../pagination.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
+import { getApprovedProviderIds } from '../warm-storage/get-approved-provider-ids.ts'
 import { getPDPProviderCall, hasActivePDPProduct, parsePDPProvider } from './get-pdp-provider.ts'
 import type { getProvidersByProductType } from './get-providers-by-product-type.ts'
 import { type PDPProvider, PRODUCTS, type ProviderWithProduct } from './types.ts'
@@ -29,20 +28,23 @@ export namespace getPDPProviders {
   >
 
   /** The paginated providers result */
-  export type OutputType = { providers: PDPProvider[]; hasMore: boolean }
+  export type OutputType = Page<PDPProvider>
 
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType | resolvePagination.ErrorType
 }
 
 /**
- * Get PDP providers with pagination
+ * Get one bounded page of PDP providers.
+ *
+ * Pass the returned `nextCursor` back as `cursor`; treat it as opaque. Use
+ * {@link paginate} to traverse every page.
  *
  * @param client - The client to use to get the providers.
  * @param options - {@link getPDPProviders.OptionsType}
  * @returns The paginated providers result {@link getPDPProviders.OutputType}
  * @throws Errors {@link getPDPProviders.ErrorType}
  *
- * @example
+ * @example Read the first page
  * ```ts
  * import { getPDPProviders } from '@filoz/synapse-core/sp-registry'
  * import { createPublicClient, http } from 'viem'
@@ -53,33 +55,42 @@ export namespace getPDPProviders {
  *   transport: http(),
  * })
  *
- * const result = await getPDPProviders(client, {
- *   onlyActive: true,
- * })
+ * const page = await getPDPProviders(client, { onlyActive: true })
+ * console.log(page.items, page.nextCursor)
+ * ```
  *
- * console.log(result.providers)
- * console.log(result.hasMore)
+ * @example Iterate over every page
+ * ```ts
+ * import { paginate } from '@filoz/synapse-core'
+ * import { getPDPProviders } from '@filoz/synapse-core/sp-registry'
+ *
+ * for await (const provider of paginate(({ cursor }) =>
+ *   getPDPProviders(client, { onlyActive: true, cursor })
+ * )) {
+ *   console.log(provider.id)
+ * }
  * ```
  */
 export async function getPDPProviders(
   client: Client<Transport, Chain>,
   options: getPDPProviders.OptionsType = {}
 ): Promise<getPDPProviders.OutputType> {
+  const { cursor, limit } = resolvePagination(options, 50n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     getPDPProvidersCall({
       chain: client.chain,
       onlyActive: options.onlyActive,
-      offset: options.offset,
-      limit: options.limit,
+      offset: cursor,
+      limit,
       contractAddress: options.contractAddress,
     })
   )
-  return parsePDPProviders(data)
+  return parsePDPProviders(data, cursor)
 }
 
 export namespace getPDPProvidersCall {
-  export type OptionsType = Simplify<getPDPProviders.OptionsType & ActionCallChain>
+  export type OptionsType = PaginatedActionCallOptions<getPDPProviders.OptionsType, 'offset'>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof serviceProviderRegistryAbi,
@@ -89,9 +100,13 @@ export namespace getPDPProvidersCall {
 }
 
 /**
- * Create a call to the getPDPProviders function
+ * Create a call to the `getProvidersByProductType` contract function,
+ * specialized for PDP providers.
  *
- * This function is used to create a call to the getPDPProviders function for use with the multicall or readContract function.
+ * This is a literal contract adapter: `offset` and `limit` are required, use
+ * their contract-facing names, and are passed through unchanged. Use
+ * {@link parsePDPProviders} with the same offset to convert the raw contract
+ * output into a normalized page.
  *
  * @param options - {@link getPDPProvidersCall.OptionsType}
  * @returns The call to the getPDPProviders function {@link getPDPProvidersCall.OutputType}
@@ -114,6 +129,8 @@ export namespace getPDPProvidersCall {
  *     getPDPProvidersCall({
  *       chain: calibration,
  *       onlyActive: true,
+ *       offset: 0n,
+ *       limit: 50n,
  *     }),
  *   ],
  * })
@@ -127,32 +144,38 @@ export function getPDPProvidersCall(options: getPDPProvidersCall.OptionsType) {
     abi: chain.contracts.serviceProviderRegistry.abi,
     address: options.contractAddress ?? chain.contracts.serviceProviderRegistry.address,
     functionName: 'getProvidersByProductType',
-    args: [PRODUCTS.PDP, options.onlyActive ?? true, options.offset ?? 0n, options.limit ?? 50n],
+    args: [PRODUCTS.PDP, options.onlyActive ?? true, options.offset, options.limit],
   } satisfies getPDPProvidersCall.OutputType
 }
 
 /**
- * Parse the contract output into a PDPProvider array
+ * Parse raw PDP-provider contract output into a normalized page.
  *
- * @param data - The contract output from the getPDPProviders function {@link getPDPProviders.ContractOutputType}
- * @returns The PDPProvider array {@link getPDPProviders.OutputType}
+ * Provider records are decoded into {@link PDPProvider} objects. When the
+ * contract reports more results, `nextCursor` is derived from `cursor` and the
+ * number of source providers returned. Pass the same offset used by
+ * {@link getPDPProvidersCall}; it defaults to `0n`.
+ *
+ * @param data - Raw contract output {@link getPDPProviders.ContractOutputType}
+ * @param cursor - Offset used for the contract read. Defaults to `0n`.
+ * @returns A normalized page of PDP providers {@link getPDPProviders.OutputType}
  */
-export function parsePDPProviders(data: getPDPProviders.ContractOutputType): getPDPProviders.OutputType {
+export function parsePDPProviders(data: getPDPProviders.ContractOutputType, cursor = 0n): getPDPProviders.OutputType {
   return {
-    providers: data.providers.map(parsePDPProvider),
-    hasMore: data.hasMore,
+    items: data.providers.map(parsePDPProvider),
+    ...(data.hasMore ? { nextCursor: cursor + BigInt(data.providers.length) } : {}),
   }
 }
 
 export namespace getApprovedPDPProviders {
-  export type OptionsType = Omit<getPDPProviders.OptionsType, 'onlyActive' | 'offset' | 'limit'>
+  export type OptionsType = Omit<getPDPProviders.OptionsType, 'onlyActive' | keyof PaginationOptions>
 
   export type OutputType = PDPProvider[]
 
   export type ErrorType =
     | asChain.ErrorType
     | MulticallErrorType
-    | getApprovedProviderIdsCall.ErrorType
+    | getApprovedProviderIds.ErrorType
     | getPDPProvidersCall.ErrorType
 }
 
@@ -184,32 +207,15 @@ export async function getApprovedPDPProviders(
   client: Client<Transport, Chain>,
   options: getApprovedPDPProviders.OptionsType = {}
 ): Promise<getApprovedPDPProviders.OutputType> {
-  const [pdpProviders, approvedProviders] = await multicall(toReadClient(client), {
-    allowFailure: false,
-    contracts: [
-      getPDPProvidersCall({
-        chain: client.chain,
-        onlyActive: true,
-        offset: 0n,
-        limit: 100n,
-        contractAddress: options.contractAddress,
-      }),
-      getApprovedProviderIdsCall({
-        chain: client.chain,
-      }),
-    ],
-  })
-
-  const providers = [] as ProviderWithProduct[]
-  for (const provider of pdpProviders.providers) {
-    if (approvedProviders.includes(provider.providerId)) {
-      providers.push(provider)
-    }
-  }
-  return parsePDPProviders({
-    providers,
-    hasMore: false,
-  }).providers
+  const [pdpProviders, approvedProviders] = await Promise.all([
+    Array.fromAsync(
+      paginate(({ cursor }) =>
+        getPDPProviders(client, { onlyActive: true, cursor, contractAddress: options.contractAddress })
+      )
+    ),
+    Array.fromAsync(paginate(({ cursor }) => getApprovedProviderIds(client, { cursor }))),
+  ])
+  return pdpProviders.filter((provider) => approvedProviders.includes(provider.id))
 }
 
 export namespace getPDPProvidersByIds {
@@ -224,7 +230,7 @@ export namespace getPDPProvidersByIds {
   export type ErrorType =
     | asChain.ErrorType
     | MulticallErrorType
-    | getApprovedProviderIdsCall.ErrorType
+    | getApprovedProviderIds.ErrorType
     | getPDPProvidersCall.ErrorType
 }
 
@@ -258,7 +264,7 @@ export async function getPDPProvidersByIds(
   client: Client<Transport, Chain>,
   options: getPDPProvidersByIds.OptionsType
 ): Promise<getPDPProvidersByIds.OutputType> {
-  const result = await multicall(toReadClient(client), {
+  const result = await multicall(client, {
     allowFailure: true,
     contracts: options.providerIds.map((providerId) =>
       getPDPProviderCall({
@@ -276,5 +282,5 @@ export async function getPDPProvidersByIds(
     }
   }
 
-  return parsePDPProviders({ providers, hasMore: false }).providers
+  return providers.map(parsePDPProvider)
 }

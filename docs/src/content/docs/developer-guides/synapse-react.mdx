@@ -41,6 +41,10 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 - Connected Web3 wallet
 - Supported networks: Filecoin Mainnet, Filecoin Calibration
 
+:::tip[Trying an unreleased version?]
+Install a preview build from a pull request, commit, or `master`. See [Preview Packages](/developer-guides/preview-packages/).
+:::
+
 **Wagmi config:**
 
 ```tsx twoslash
@@ -172,7 +176,6 @@ const StorageExample = () => {
             <div key={p.id.toString()}>
               <p>Piece {p.id.toString()}: {p.cid.toString()}</p>
               <p>URL: {p.url}</p>
-              <p>Metadata: {JSON.stringify(p.metadata)}</p>
             </div>
           ))}
         </div>
@@ -181,5 +184,9 @@ const StorageExample = () => {
   );
 };
 ```
+
+:::caution[Deprecated]
+The `metadata` field returned for each piece by `useDataSets()` depends on deprecated FWSS piece metadata getters and will be removed. Read piece metadata from `PieceAdded` events or an indexer instead.
+:::
 
 Check out the [Synapse React Reference](/reference/filoz/synapse-react/toc/) for all available query and mutation hooks.

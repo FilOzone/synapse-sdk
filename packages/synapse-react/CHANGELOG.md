@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.3.0...synapse-react-v0.3.1) (2026-08-25)
+
+
+### Features
+
+* support custom client for reads ([#909](https://github.com/FilOzone/synapse-sdk/issues/909)) ([1b8b54e](https://github.com/FilOzone/synapse-sdk/commit/1b8b54e873bf28002fa045bf56940adbe10d44d3))
+
 ## [0.3.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.2.3...synapse-react-v0.3.0) (2026-06-12)
 
 

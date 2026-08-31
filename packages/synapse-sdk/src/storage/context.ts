@@ -27,7 +27,9 @@
  * ```
  */
 
-import { asChain, type Chain as FilecoinChain } from '@filoz/synapse-core/chains'
+import type { AccountClient, ReadClient } from '@filoz/synapse-core'
+import { paginate } from '@filoz/synapse-core'
+import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import { InvalidPieceCIDError } from '@filoz/synapse-core/errors'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
@@ -50,7 +52,7 @@ import {
   type ResolvedLocation,
   selectProviders,
 } from '@filoz/synapse-core/warm-storage'
-import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
+import type { Address, Hash, Hex } from 'viem'
 import { getBlockNumber } from 'viem/actions'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
@@ -108,7 +110,8 @@ export interface StorageContextOptions {
 }
 
 export class StorageContext {
-  private readonly _client: Client<Transport, Chain, Account>
+  private readonly _client: AccountClient
+  private readonly _readClient: ReadClient
   private readonly _chain: FilecoinChain
   private readonly _synapse: Synapse
   private readonly _provider: PDPProvider
@@ -195,7 +198,8 @@ export class StorageContext {
    */
   constructor(options: StorageContextOptions) {
     this._client = options.synapse.client
-    this._chain = asChain(this._client.chain)
+    this._readClient = options.synapse.readClient
+    this._chain = this._readClient.chain
     this._synapse = options.synapse
     this._provider = options.provider
     this._withCDN = options.options.withCDN ?? false
@@ -481,7 +485,9 @@ export class StorageContext {
   ): Promise<ProviderSelectionResult> {
     const [provider, dataSets] = await Promise.all([
       spRegistry.getProvider({ providerId }),
-      warmStorageService.getClientDataSets({ address: clientAddress }),
+      Array.fromAsync(
+        paginate(({ cursor }) => warmStorageService.getClientDataSets({ address: clientAddress, cursor }))
+      ),
     ])
 
     if (provider == null) {
@@ -511,7 +517,7 @@ export class StorageContext {
     // of order: `bestNonEmptyIndex` is the oldest non-empty metadata match and
     // `firstMatchIndex` the oldest metadata match (the fallback). Metadata is read
     // first and hasActivePieces only on a metadata match, so non-matching
-    // datasets skip the piece-count read.
+    // datasets skip the leaf-count read.
     const evaluated: (EvaluatedDataSet | null)[] = new Array(sortedDataSets.length).fill(null)
     let firstMatchIndex = Number.POSITIVE_INFINITY
     let bestNonEmptyIndex = Number.POSITIVE_INFINITY
@@ -624,7 +630,7 @@ export class StorageContext {
     const { synapse, metadata, count, requireEndorsedPrimary } = options
     const clientAddress = synapse.client.account.address
 
-    const input = await fetchProviderSelectionInput(synapse.client, {
+    const input = await fetchProviderSelectionInput(synapse.readClient, {
       address: clientAddress,
     })
 
@@ -938,6 +944,7 @@ export class StorageContext {
 
         return {
           txHash: addPiecesResult.txHash as Hex,
+          ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash }),
           pieceIds: confirmedPieceIds,
           dataSetId: this._dataSetId,
           isNewDataSet: false,
@@ -962,6 +969,7 @@ export class StorageContext {
 
       return {
         txHash: result.txHash as Hex,
+        ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash as Hex }),
         pieceIds: confirmation.piecesIds,
         dataSetId: this._dataSetId,
         isNewDataSet: true,
@@ -1054,7 +1062,7 @@ export class StorageContext {
     }
     const withCDN = options.withCDN ?? this._withCDN
     const pieceUrl = await Piece.resolvePieceUrl({
-      client: this._client,
+      client: this._readClient,
       address: this._client.account.address,
       pieceCid: parsedPieceCID,
       resolvers: [
@@ -1089,7 +1097,7 @@ export class StorageContext {
       return []
     }
 
-    return await PDPVerifier.getScheduledRemovals(this._client, { dataSetId: this._dataSetId })
+    return await PDPVerifier.getScheduledRemovals(this._readClient, { dataSetId: this._dataSetId })
   }
 
   /**
@@ -1103,26 +1111,16 @@ export class StorageContext {
       return
     }
 
-    const batchSize = options?.batchSize ?? 100n
-    let offset = 0n
-    let hasMore = true
-
-    while (hasMore) {
-      const result = await PDPVerifier.getActivePieces(this._client, {
-        dataSetId: this._dataSetId,
-        offset,
+    const dataSetId = this._dataSetId
+    const batchSize = options.batchSize ?? 100n
+    for await (const piece of paginate(({ cursor }) =>
+      PDPVerifier.getActivePiecesByCursor(this._readClient, {
+        dataSetId,
+        cursor,
         limit: batchSize,
       })
-
-      for (let i = 0; i < result.pieces.length; i++) {
-        yield {
-          pieceCid: result.pieces[i].cid,
-          pieceId: result.pieces[i].id,
-        }
-      }
-
-      hasMore = result.hasMore
-      offset += batchSize
+    )) {
+      yield { pieceCid: piece.cid, pieceId: piece.id }
     }
   }
 
@@ -1135,16 +1133,15 @@ export class StorageContext {
       throw createError('StorageContext', 'getPieceIdByCID', 'Invalid PieceCID provided')
     }
 
-    const pieceIds = await PDPVerifier.findPieceIdsByCid(this._client, {
+    const page = await PDPVerifier.findPieceIdsByCid(this._readClient, {
       dataSetId: this.dataSetId,
       pieceCid: parsedPieceCID,
-      startPieceId: 0n,
-      limit: 1n,
     })
-    if (pieceIds.length === 0) {
+    const pieceId = page.items[0]
+    if (pieceId == null) {
       throw createError('StorageContext', 'getPieceIdByCID', 'Piece not found in data set')
     }
-    return pieceIds[0]
+    return pieceId
   }
 
   /**
@@ -1216,17 +1213,15 @@ export class StorageContext {
     }
 
     // Run multiple operations in parallel for better performance
-    const [pieceIds, nextChallengeEpoch, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
-      PDPVerifier.findPieceIdsByCid(this._client, {
+    const [piecePage, nextChallengeEpoch, currentEpoch, pdpConfig, providerInfo] = await Promise.all([
+      PDPVerifier.findPieceIdsByCid(this._readClient, {
         dataSetId: this.dataSetId,
         pieceCid: parsedPieceCID,
-        startPieceId: 0n,
-        limit: 1n,
       }),
-      PDPVerifier.getNextChallengeEpoch(this._client, {
+      PDPVerifier.getNextChallengeEpoch(this._readClient, {
         dataSetId: this.dataSetId,
       }),
-      getBlockNumber(this._client),
+      getBlockNumber(this._readClient),
       this._warmStorageService.getPDPConfig().catch((error) => {
         console.debug('Failed to get PDP config:', error)
         return null
@@ -1234,10 +1229,10 @@ export class StorageContext {
       this.getProviderInfo().catch(() => null),
     ])
 
-    if (pieceIds.length === 0) {
+    const pieceId = piecePage.items[0]
+    if (pieceId == null) {
       return null
     }
-    const pieceId = pieceIds[0]
 
     // Initialize return values
     let retrievalUrl: string | null = null

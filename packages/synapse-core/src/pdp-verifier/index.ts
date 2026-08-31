@@ -9,12 +9,11 @@ import {
 } from 'viem'
 import type { pdp as pdpAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export * from './data-set-live.ts'
 export * from './find-piece-ids-by-cid.ts'
 export * from './get-active-piece-count.ts'
-export * from './get-active-pieces.ts'
+export * from './get-active-pieces-by-cursor.ts'
 export * from './get-data-set-leaf-count.ts'
 export * from './get-data-set-listener.ts'
 export * from './get-data-set-storage-provider.ts'
@@ -67,7 +66,7 @@ export function getContract(options: getContract.OptionsType): getContract.Outpu
     abi: chain.contracts.pdp.abi,
   } as const
   const contract = viemGetContract({ ...parameters, client: options.client })
-  const readOnlyContract = viemGetContract({ ...parameters, client: toReadClient(options.client) })
+  const readOnlyContract = viemGetContract({ ...parameters, client: options.client })
 
   return { ...contract, read: readOnlyContract.read }
 }

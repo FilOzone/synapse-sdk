@@ -5,14 +5,14 @@
  * used throughout the SDK. Concrete classes are defined in their own files.
  */
 
-import type { Chain } from '@filoz/synapse-core/chains'
+import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { Permission, SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
 import type { pullPiecesApiRequest } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { getPriceList, getUploadCosts } from '@filoz/synapse-core/warm-storage'
-import type { Account, Address, Client, Hash, Hex, Transport } from 'viem'
+import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
 import type { Synapse } from './synapse.ts'
 import type { WarmStorageService } from './warm-storage/service.ts'
 
@@ -101,7 +101,7 @@ export interface SynapseOptions {
    * Filecoin chain
    *
    */
-  chain?: Chain
+  chain?: FilecoinChain
 
   /**
    * Viem account
@@ -147,6 +147,11 @@ export interface SynapseFromClientOptions {
    * @see https://viem.sh/docs/clients/wallet#optional-hoist-the-account
    */
   client: Client<Transport, Chain, Account>
+
+  /**
+   * Viem public client for read operations
+   */
+  readClient?: Client<Transport, Chain>
 
   // Advanced Configuration
   sessionClient?: Client<Transport, Chain, SessionKeyAccount<'Secp256k1'>>
@@ -256,8 +261,8 @@ export interface DataSetInfo {
 export interface EnhancedDataSetInfo extends DataSetInfo {
   /** PDPVerifier global data set ID */
   pdpVerifierDataSetId: bigint
-  /** Number of active pieces in the data set (excludes removed pieces) */
-  activePieceCount: bigint
+  /** Whether the data set contains at least one active piece (non-zero leaf count). */
+  hasActivePieces: boolean
   /** Whether the data set is live on-chain */
   isLive: boolean
   /** Whether this data set is managed by the current Warm Storage contract */
@@ -619,7 +624,12 @@ export interface CommitOptions {
   pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>
   /** Pre-built signed extraData (avoids re-signing) */
   extraData?: Hex
-  /** Called when the commit transaction is submitted (before on-chain confirmation) */
+  /**
+   * Called when the commit transaction is submitted (before on-chain confirmation).
+   * The hash is Curio's Location wait key and is not guaranteed to be the final
+   * included on-chain hash if Curio replaces the send by fee. Prefer
+   * {@link CommitResult.confirmedTxHash} after confirmation.
+   */
   onSubmitted?: (txHash: Hex) => void
 }
 
@@ -627,8 +637,19 @@ export interface CommitOptions {
  * Result of a commit operation
  */
 export interface CommitResult {
-  /** Transaction hash */
+  /**
+   * Original Location / wait-key transaction hash from Curio.
+   * Not necessarily the included on-chain hash after replace-by-fee.
+   * Keep using this for Curio status polling / resume URLs.
+   */
   txHash: Hex
+  /**
+   * Hash included on chain once confirmed. Differs from {@link txHash} when
+   * Curio replaced the original send by fee. Omitted when the SP does not
+   * report it (older Curio).
+   * For explorers and receipt lookups use `confirmedTxHash ?? txHash`.
+   */
+  confirmedTxHash?: Hex
   /** Piece IDs assigned by the contract */
   pieceIds: bigint[]
   /** Data set ID (may be newly created) */
@@ -649,7 +670,12 @@ export interface TerminateServiceOptions {
    * cooperation, but the service runs to the end of the lockup period.
    */
   skipProvider?: boolean
-  /** Called when the termination transaction is submitted (before on-chain confirmation) */
+  /**
+   * Called when the termination transaction is submitted (before on-chain confirmation).
+   * For provider-relayed termination this is Curio's wait-key hash and may differ
+   * from the included on-chain hash after replace-by-fee. Prefer
+   * {@link TerminateServiceResult.confirmedTxHash} after confirmation.
+   */
   onSubmitted?: (txHash: Hex) => void
 }
 
@@ -657,8 +683,20 @@ export interface TerminateServiceOptions {
  * Result of a data set service termination
  */
 export interface TerminateServiceResult {
-  /** Transaction hash. Undefined when the service was already terminated without a provider transaction. */
+  /**
+   * Original wait-key transaction hash. Undefined when the service was already
+   * terminated without a provider transaction. May differ from the included
+   * on-chain hash after replace-by-fee.
+   * Keep using this for Curio status polling / resume URLs.
+   */
   txHash?: Hex
+  /**
+   * Hash included on chain once confirmed. Differs from {@link txHash} when
+   * Curio replaced the original send by fee. Omitted when the SP does not
+   * report it (older Curio) or when no termination tx was sent.
+   * For explorers and receipt lookups use `confirmedTxHash ?? txHash`.
+   */
+  confirmedTxHash?: Hex
   /** The data set ID */
   dataSetId: bigint
   /**

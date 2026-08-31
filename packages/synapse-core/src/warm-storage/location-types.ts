@@ -2,12 +2,12 @@ import type { PDPProvider } from '../sp-registry/types.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 
 /**
- * Dataset with piece count, for provider selection.
+ * Dataset with piece-presence information used for provider selection.
  *
  * Picks the fields that selectProviders() and findMatchingDataSets()
- * need, plus activePieceCount which is fetched separately via multicall.
+ * need, plus whether the data set contains at least one active piece.
  *
- * Core callers can spread a PdpDataSet directly: `{ ...ds, activePieceCount }`.
+ * Core callers can spread a PdpDataSet directly.
  * SDK callers map from EnhancedDataSetInfo (different field names).
  */
 export interface SelectionDataSet {
@@ -17,8 +17,8 @@ export interface SelectionDataSet {
   providerId: bigint
   /** Data set metadata (key-value pairs) */
   metadata: MetadataObject
-  /** Number of active pieces in the dataset (0 = empty) */
-  activePieceCount: bigint
+  /** Whether the data set contains at least one active piece */
+  hasActivePieces: boolean
   /** End epoch for PDP service (0 = active) */
   pdpEndEpoch: bigint
   /** Whether the data set is live in the PDP Verifier */
@@ -44,7 +44,7 @@ export interface ProviderSelectionInput {
   /** Array of endorsed provider IDs (from endorsements.getProviderIds).
    *  Non-empty = restrict to endorsed only. Empty = use all providers. */
   endorsedIds: bigint[]
-  /** Client's existing datasets with metadata and piece counts */
+  /** Client's existing datasets with metadata and piece-presence information */
   clientDataSets: SelectionDataSet[]
 }
 

@@ -1,9 +1,9 @@
 import type { Address, Chain, Client, MulticallErrorType, Transport } from 'viem'
 import { multicall } from 'viem/actions'
+import { paginate } from '../pagination.ts'
 import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
 import { getDataSetLeafCountCall } from '../pdp-verifier/get-data-set-leaf-count.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import { toReadClient } from '../utils/read-client.ts'
 import { getClientDataSets } from './get-client-data-sets.ts'
 
 export namespace getAccountTotalStorageSize {
@@ -48,7 +48,7 @@ export namespace getAccountTotalStorageSize {
  * })
  * ```
  *
- * @param client - The client to use.
+ * @param client - The client to use to get the account total storage size.
  * @param options - {@link getAccountTotalStorageSize.OptionsType}
  * @returns Total storage size and dataset count {@link getAccountTotalStorageSize.OutputType}
  * @throws Errors {@link getAccountTotalStorageSize.ErrorType}
@@ -57,45 +57,51 @@ export async function getAccountTotalStorageSize(
   client: Client<Transport, Chain>,
   options: getAccountTotalStorageSize.OptionsType
 ): Promise<getAccountTotalStorageSize.OutputType> {
-  const dataSets = await getClientDataSets(client, {
-    address: options.address,
-    contractAddress: options.contractAddress,
-  })
-
-  if (dataSets.length === 0) {
-    return { totalSizeBytes: 0n, datasetCount: 0 }
-  }
-
-  const calls = dataSets.flatMap((ds) => [
-    dataSetLiveCall({
-      chain: client.chain,
-      dataSetId: ds.dataSetId,
-      contractAddress: options.pdpContractAddress,
-    }),
-    getDataSetLeafCountCall({
-      chain: client.chain,
-      dataSetId: ds.dataSetId,
-      contractAddress: options.pdpContractAddress,
-    }),
-  ])
-
-  const results = await multicall(toReadClient(client), {
-    contracts: calls,
-    allowFailure: false,
-  })
-
   let totalSizeBytes = 0n
   let datasetCount = 0
+  let dataSets: Array<getClientDataSets.OutputType['items'][number]> = []
 
-  for (let i = 0; i < dataSets.length; i++) {
-    const isLive = results[i * 2] as boolean
-    const leafCount = results[i * 2 + 1] as bigint
+  const processPage = async () => {
+    const calls = dataSets.flatMap((dataSet) => [
+      dataSetLiveCall({
+        chain: client.chain,
+        dataSetId: dataSet.dataSetId,
+        contractAddress: options.pdpContractAddress,
+      }),
+      getDataSetLeafCountCall({
+        chain: client.chain,
+        dataSetId: dataSet.dataSetId,
+        contractAddress: options.pdpContractAddress,
+      }),
+    ])
+    if (calls.length > 0) {
+      const results = await multicall(client, { contracts: calls, allowFailure: false })
+      for (let index = 0; index < dataSets.length; index++) {
+        const isLive = results[index * 2] as boolean
+        const leafCount = results[index * 2 + 1] as bigint
+        if (isLive) {
+          totalSizeBytes += leafCount * SIZE_CONSTANTS.BYTES_PER_LEAF
+          datasetCount++
+        }
+      }
+    }
+    dataSets = []
+  }
 
-    if (isLive) {
-      totalSizeBytes += leafCount * SIZE_CONSTANTS.BYTES_PER_LEAF
-      datasetCount++
+  for await (const dataSet of paginate(({ cursor }) =>
+    getClientDataSets(client, {
+      address: options.address,
+      cursor,
+      limit: 100n,
+      contractAddress: options.contractAddress,
+    })
+  )) {
+    dataSets.push(dataSet)
+    if (dataSets.length === 100) {
+      await processPage()
     }
   }
+  await processPage()
 
   return { totalSizeBytes, datasetCount }
 }

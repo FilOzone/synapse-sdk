@@ -9,7 +9,7 @@ type getNextPieceId = ExtractAbiFunction<typeof Abis.pdp, 'getNextPieceId'>
 type getActivePieceCount = ExtractAbiFunction<typeof Abis.pdp, 'getActivePieceCount'>
 type dataSetLive = ExtractAbiFunction<typeof Abis.pdp, 'dataSetLive'>
 type getDataSetListener = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetListener'>
-type getActivePieces = ExtractAbiFunction<typeof Abis.pdp, 'getActivePieces'>
+type getActivePiecesByCursor = ExtractAbiFunction<typeof Abis.pdp, 'getActivePiecesByCursor'>
 type getDataSetStorageProvider = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetStorageProvider'>
 type getDataSetLeafCount = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetLeafCount'>
 type getScheduledRemovals = ExtractAbiFunction<typeof Abis.pdp, 'getScheduledRemovals'>
@@ -21,7 +21,9 @@ export interface PDPVerifierOptions {
   getDataSetListener?: (args: AbiToType<getDataSetListener['inputs']>) => AbiToType<getDataSetListener['outputs']>
   getNextPieceId?: (args: AbiToType<getNextPieceId['inputs']>) => AbiToType<getNextPieceId['outputs']>
   getActivePieceCount?: (args: AbiToType<getActivePieceCount['inputs']>) => AbiToType<getActivePieceCount['outputs']>
-  getActivePieces?: (args: AbiToType<getActivePieces['inputs']>) => AbiToType<getActivePieces['outputs']>
+  getActivePiecesByCursor?: (
+    args: AbiToType<getActivePiecesByCursor['inputs']>
+  ) => AbiToType<getActivePiecesByCursor['outputs']>
   getDataSetStorageProvider?: (
     args: AbiToType<getDataSetStorageProvider['inputs']>
   ) => AbiToType<getDataSetStorageProvider['outputs']>
@@ -81,13 +83,13 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getActivePieceCount')!.outputs,
         options.pdpVerifier.getActivePieceCount(args)
       )
-    case 'getActivePieces': {
-      if (!options.pdpVerifier?.getActivePieces) {
-        throw new Error('PDP Verifier: getActivePieces is not defined')
+    case 'getActivePiecesByCursor': {
+      if (!options.pdpVerifier?.getActivePiecesByCursor) {
+        throw new Error('PDP Verifier: getActivePiecesByCursor is not defined')
       }
       return encodeAbiParameters(
-        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getActivePieces')!.outputs,
-        options.pdpVerifier.getActivePieces(args)
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getActivePiecesByCursor')!.outputs,
+        options.pdpVerifier.getActivePiecesByCursor(args)
       )
     }
     case 'getDataSetStorageProvider': {

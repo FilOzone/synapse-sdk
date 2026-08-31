@@ -1,4 +1,3 @@
-import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -11,17 +10,19 @@ import type {
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import {
+  type Page,
+  type PaginationOptions,
+  pageFromLookahead,
+  type paginate,
+  resolvePagination,
+} from '../pagination.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
 
 export namespace getClientDataSetIds {
-  export type OptionsType = {
+  export type OptionsType = PaginationOptions & {
     /** Client address to fetch data set IDs for. */
     address: Address
-    /** Starting index (0-based). Use 0 to start from beginning. Defaults to 0. */
-    offset?: bigint
-    /** Maximum number of dataset IDs to return. Use 0 to get all remaining IDs. Defaults to 0. */
-    limit?: bigint
     /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
     contractAddress?: Address
   }
@@ -33,24 +34,24 @@ export namespace getClientDataSetIds {
     [Address, bigint, bigint]
   >
 
-  /** Array of client data set IDs */
-  export type OutputType = bigint[]
+  /** A page of client data set IDs. */
+  export type OutputType = Page<bigint>
 
-  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType | resolvePagination.ErrorType
 }
 
 /**
- * Get client data set IDs with optional pagination
+ * Get one bounded page of a client's data-set IDs.
  *
- * For large lists, use pagination to avoid gas limit issues. If limit=0,
- * returns all remaining IDs starting from offset.
+ * Pass the returned `nextCursor` back as `cursor`; treat it as opaque. Use
+ * {@link paginate} to traverse every page. `limit` must be greater than zero.
  *
- * @param client - The client to use to get data set IDs.
+ * @param client - The client to use to get the client data set IDs.
  * @param options - {@link getClientDataSetIds.OptionsType}
- * @returns Array of data set IDs {@link getClientDataSetIds.OutputType}
+ * @returns A page of data set IDs {@link getClientDataSetIds.OutputType}
  * @throws Errors {@link getClientDataSetIds.ErrorType}
  *
- * @example
+ * @example Read the first page
  * ```ts
  * import { getClientDataSetIds } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
@@ -61,35 +62,43 @@ export namespace getClientDataSetIds {
  *   transport: http(),
  * })
  *
- * // Get first 100 dataset IDs
- * const ids = await getClientDataSetIds(client, {
- *   address: '0x0000000000000000000000000000000000000000',
- *   offset: 0n,
- *   limit: 100n,
- * })
+ * const address = '0x0000000000000000000000000000000000000000'
+ * const page = await getClientDataSetIds(client, { address })
+ * console.log(page.items, page.nextCursor)
+ * ```
  *
- * console.log(ids)
+ * @example Iterate over every page
+ * ```ts
+ * import { paginate } from '@filoz/synapse-core'
+ * import { getClientDataSetIds } from '@filoz/synapse-core/warm-storage'
+ *
+ * for await (const dataSetId of paginate(({ cursor }) =>
+ *   getClientDataSetIds(client, { address, cursor })
+ * )) {
+ *   console.log(dataSetId)
+ * }
  * ```
  */
 export async function getClientDataSetIds(
   client: Client<Transport, Chain>,
   options: getClientDataSetIds.OptionsType
 ): Promise<getClientDataSetIds.OutputType> {
+  const { cursor, limit } = resolvePagination(options, 100n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     getClientDataSetIdsCall({
       chain: client.chain,
       address: options.address,
-      offset: options.offset,
-      limit: options.limit,
+      offset: cursor,
+      limit: limit + 1n,
       contractAddress: options.contractAddress,
     })
   )
-  return data as getClientDataSetIds.OutputType
+  return pageFromLookahead(data, limit, () => cursor + limit)
 }
 
 export namespace getClientDataSetIdsCall {
-  export type OptionsType = Simplify<getClientDataSetIds.OptionsType & ActionCallChain>
+  export type OptionsType = PaginatedActionCallOptions<getClientDataSetIds.OptionsType, 'offset'>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof storageViewAbi,
@@ -135,6 +144,6 @@ export function getClientDataSetIdsCall(options: getClientDataSetIdsCall.Options
     abi: chain.contracts.fwssView.abi,
     address: options.contractAddress ?? chain.contracts.fwssView.address,
     functionName: 'clientDataSets',
-    args: [options.address, options.offset ?? 0n, options.limit ?? 0n],
+    args: [options.address, options.offset, options.limit],
   } satisfies getClientDataSetIdsCall.OutputType
 }

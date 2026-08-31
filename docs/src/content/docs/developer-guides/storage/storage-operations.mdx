@@ -196,7 +196,7 @@ These APIs are useful when you want to inspect existing data sets, query stored 
 
 ### Getting All Data Sets
 
-Retrieve all data sets owned by your account to inspect piece counts, CDN status, and metadata:
+Retrieve all data sets owned by your account to inspect piece presence, CDN status, and metadata:
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -210,7 +210,7 @@ for (const ds of dataSets) {
   console.log(`Dataset ${ds.pdpVerifierDataSetId}:`, {
     live: ds.isLive,
     cdn: ds.withCDN,
-    pieces: ds.activePieceCount,
+    hasActivePieces: ds.hasActivePieces,
     metadata: ds.metadata
   });
 }
@@ -235,24 +235,6 @@ for await (const piece of context.getPieces()) {
   pieces.push(piece);
 }
 console.log(`Found ${pieces.length} pieces`);
-```
-
-### Getting Piece Metadata
-
-Access custom metadata attached to individual pieces:
-
-```ts twoslash
-// @lib: esnext,dom
-const dataSetId = 1n;
-const piece = null as unknown as { pieceCid: string; pieceId: bigint };
-// ---cut---
-import { WarmStorageService } from "@filoz/synapse-sdk/warm-storage";
-import { privateKeyToAccount } from 'viem/accounts'
-
-const warmStorage =  WarmStorageService.create({ account: privateKeyToAccount('0x...') });
-
-const metadata = await warmStorage.getPieceMetadata({ dataSetId, pieceId: piece.pieceId });
-console.log("Piece metadata:", metadata);
 ```
 
 ### Getting Piece Size

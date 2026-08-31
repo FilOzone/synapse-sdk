@@ -9,6 +9,7 @@ import {
   type TransportConfig,
   type WebSocketTransport,
 } from 'viem'
+
 /**
  * Create a Viem public client from a transport configuration
  */

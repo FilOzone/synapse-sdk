@@ -41,7 +41,7 @@ export function metadataMatches(dataSetMetadata: MetadataObject, requestedMetada
  * Only active datasets are considered (live, managed, pdpEndEpoch === 0n).
  *
  * Sort order:
- *   1. Datasets with pieces (activePieceCount > 0) before empty datasets
+ *   1. Datasets with pieces before empty datasets
  *   2. Within each group, older datasets (lower ID) first
  *
  * @param dataSets - Datasets to search (typically filtered to a single provider)
@@ -54,10 +54,8 @@ export function findMatchingDataSets(dataSets: SelectionDataSet[], metadata: Met
   )
 
   return matching.sort((a, b) => {
-    // Datasets with pieces sort before empty ones
-    if (a.activePieceCount > 0n && b.activePieceCount === 0n) return -1
-    if (b.activePieceCount > 0n && a.activePieceCount === 0n) return 1
-    // Within same group, oldest dataset first (lower ID)
+    if (a.hasActivePieces && !b.hasActivePieces) return -1
+    if (b.hasActivePieces && !a.hasActivePieces) return 1
     return Number(a.dataSetId - b.dataSetId)
   })
 }

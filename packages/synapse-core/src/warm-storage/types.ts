@@ -44,8 +44,8 @@ export type PdpDataSetInfo = {
   metadata: MetadataObject
   /** PDP provider associated with the data set. */
   provider: PDPProvider
-  /** Number of active (non-zero) pieces in the data set. */
-  activePieceCount: bigint
+  /** Whether the data set contains at least one active piece (non-zero leaf count). */
+  hasActivePieces: boolean
 }
 
 export interface PdpDataSet extends DataSetInfo, PdpDataSetInfo {}
@@ -54,8 +54,4 @@ export interface Piece {
   cid: PieceCID
   id: bigint
   url: string
-}
-
-export interface PieceWithMetadata extends Piece {
-  metadata: MetadataObject
 }

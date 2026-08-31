@@ -8,7 +8,7 @@
  * @see {@link https://docs.filbeam.com | FilBeam Documentation} - Official FilBeam documentation
  */
 
-import { asChain, type Chain } from '@filoz/synapse-core/chains'
+import type { Chain } from 'viem'
 import { createError } from '../utils/errors.ts'
 
 /**
@@ -53,7 +53,7 @@ export class FilBeamService {
   private readonly _fetch: typeof fetch
 
   constructor(chain: Chain, fetchImpl: typeof fetch = globalThis.fetch) {
-    this._chain = asChain(chain)
+    this._chain = chain
     this._fetch = fetchImpl
   }
 

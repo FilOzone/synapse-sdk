@@ -1,7 +1,6 @@
 import type { Address, Chain, Client, MulticallErrorType, Transport } from 'viem'
 import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace readAddresses {
   export type OptionsType = {
@@ -34,7 +33,7 @@ export async function readAddresses(
 ): Promise<readAddresses.OutputType> {
   const chain = asChain(client.chain)
   const contractAddress = options.contractAddress ?? chain.contracts.fwss.address
-  const addresses = await multicall(toReadClient(client), {
+  const addresses = await multicall(client, {
     allowFailure: false,
     contracts: [
       {

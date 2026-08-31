@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts'
+import { paginate } from '@filoz/synapse-core'
 import * as sp from '@filoz/synapse-core/sp'
 import {
   getPDPProvider,
@@ -30,7 +31,6 @@ export const datasetsCreate: Command = command(
   },
   async (argv) => {
     const { client, chain } = privateKeyClient(argv.flags.chain)
-
     try {
       const provider = argv._.providerId
         ? await getPDPProvider(client, {
@@ -78,12 +78,14 @@ async function selectProvider(
   spinner.start(`Fetching providers...`)
 
   try {
-    const result = await getPDPProviders(client)
+    const providers = await Array.fromAsync(
+      paginate(({ cursor }) => getPDPProviders(client, { cursor }))
+    )
     spinner.stop(`Fetching providers complete`)
 
     const provider = await p.select({
       message: 'Pick a provider to create a data set.',
-      options: result.providers.map((provider) => ({
+      options: providers.map((provider) => ({
         value: provider,
         label: `#${provider.id} - ${provider.serviceProvider} ${provider.pdp.serviceURL}`,
       })),

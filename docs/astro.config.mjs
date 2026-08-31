@@ -23,6 +23,7 @@ export default defineConfig({
     '/developer-guides/devnet/': '/resources/devnet/',
     '/developer-guides/session-keys/': '/developer-guides/access-control/session-keys/',
     '/developer-guides/programmable-acls/': '/developer-guides/access-control/programmable-acls/',
+    '/getting-started/preview-packages/': '/developer-guides/preview-packages/',
   },
   markdown: {
     // rehype-external-links attaches to the unified processor Starlight runs.

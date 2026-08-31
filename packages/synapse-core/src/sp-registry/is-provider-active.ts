@@ -13,7 +13,6 @@ import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../a
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
 import { isProviderExistsRevert } from '../utils/contract-errors.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace isProviderActive {
   export type OptionsType = {
@@ -72,7 +71,7 @@ export async function isProviderActive(
 ): Promise<isProviderActive.OutputType> {
   try {
     return await readContract(
-      toReadClient(client),
+      client,
       isProviderActiveCall({
         chain: client.chain,
         providerId: options.providerId,

@@ -33,7 +33,7 @@ function makeDataSet(
 ): SelectionDataSet {
   return {
     metadata: {},
-    activePieceCount: 0n,
+    hasActivePieces: false,
     pdpEndEpoch: 0n,
     live: true,
     managed: true,
@@ -133,13 +133,11 @@ describe('selectProviders', () => {
             dataSetId: 10n,
             providerId: 1n,
             metadata: { source: 'app' },
-            activePieceCount: 5n,
           }),
           makeDataSet({
             dataSetId: 20n,
             providerId: 2n,
             metadata: { source: 'app' },
-            activePieceCount: 3n,
           }),
         ],
         metadata: { source: 'app' },
@@ -160,7 +158,6 @@ describe('selectProviders', () => {
             dataSetId: 20n,
             providerId: 2n,
             metadata: { source: 'app' },
-            activePieceCount: 3n,
           }),
         ],
         metadata: { source: 'app' },
@@ -190,7 +187,6 @@ describe('selectProviders', () => {
             dataSetId: 20n,
             providerId: 2n,
             metadata: { source: 'app' },
-            activePieceCount: 10n,
           }),
         ],
         metadata: { source: 'app' },
@@ -209,7 +205,6 @@ describe('selectProviders', () => {
             dataSetId: 20n,
             providerId: 2n,
             metadata: { source: 'app' },
-            activePieceCount: 3n,
           }),
         ],
         metadata: { source: 'app' },
@@ -254,13 +249,11 @@ describe('selectProviders', () => {
             dataSetId: 10n,
             providerId: 1n,
             metadata: { source: 'app' },
-            activePieceCount: 5n,
           }),
           makeDataSet({
             dataSetId: 20n,
             providerId: 2n,
             metadata: { source: 'app' },
-            activePieceCount: 3n,
           }),
         ],
         metadata: { source: 'app' },
@@ -282,7 +275,6 @@ describe('selectProviders', () => {
             dataSetId: 10n,
             providerId: 1n,
             metadata: { source: 'app' },
-            activePieceCount: 5n,
           }),
         ],
         metadata: { source: 'app' },
@@ -300,7 +292,7 @@ describe('selectProviders', () => {
   })
 
   describe('dataset preference', () => {
-    it('prefers dataset with pieces over empty dataset on same provider', () => {
+    it('prefers dataset with pieces over an older empty dataset on the same provider', () => {
       const result = selectProviders({
         providers: [provider1],
         endorsedIds: [],
@@ -309,13 +301,12 @@ describe('selectProviders', () => {
             dataSetId: 5n,
             providerId: 1n,
             metadata: { source: 'app' },
-            activePieceCount: 0n,
           }),
           makeDataSet({
             dataSetId: 10n,
             providerId: 1n,
             metadata: { source: 'app' },
-            activePieceCount: 3n,
+            hasActivePieces: true,
           }),
         ],
         metadata: { source: 'app' },
@@ -323,7 +314,7 @@ describe('selectProviders', () => {
       assert.equal(result[0].dataSetId, 10n)
     })
 
-    it('prefers older dataset when both have pieces', () => {
+    it('prefers the oldest matching dataset when both have pieces', () => {
       const result = selectProviders({
         providers: [provider1],
         endorsedIds: [],
@@ -332,13 +323,13 @@ describe('selectProviders', () => {
             dataSetId: 10n,
             providerId: 1n,
             metadata: { source: 'app' },
-            activePieceCount: 3n,
+            hasActivePieces: true,
           }),
           makeDataSet({
             dataSetId: 5n,
             providerId: 1n,
             metadata: { source: 'app' },
-            activePieceCount: 3n,
+            hasActivePieces: true,
           }),
         ],
         metadata: { source: 'app' },
@@ -357,13 +348,11 @@ describe('selectProviders', () => {
             dataSetId: 10n,
             providerId: 1n,
             metadata: { env: 'prod' },
-            activePieceCount: 5n,
           }),
           makeDataSet({
             dataSetId: 20n,
             providerId: 2n,
             metadata: { env: 'test' },
-            activePieceCount: 5n,
           }),
         ],
         metadata: { env: 'test' },

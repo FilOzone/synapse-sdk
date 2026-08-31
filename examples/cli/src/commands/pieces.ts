@@ -1,19 +1,13 @@
 import * as p from '@clack/prompts'
-import { calibration } from '@filoz/synapse-core/chains'
+import { paginate } from '@filoz/synapse-core'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
-import { metadataArrayToObject } from '@filoz/synapse-core/utils'
 import { getPdpDataSets, type Piece } from '@filoz/synapse-core/warm-storage'
 import { Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
-import { createPublicClient, type Hex, http, stringify } from 'viem'
-import { readContract, waitForTransactionReceipt } from 'viem/actions'
+import { type Hex, stringify } from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
-
-const publicClient = createPublicClient({
-  chain: calibration,
-  transport: http(),
-})
 
 export const pieces: Command = command(
   {
@@ -29,15 +23,19 @@ export const pieces: Command = command(
     },
   },
   async (argv) => {
-    const { client } = privateKeyClient(argv.flags.chain)
-
+    const { client, address } = privateKeyClient(argv.flags.chain)
     const spinner = p.spinner()
 
     spinner.start('Fetching data sets...')
     try {
-      const dataSets = await getPdpDataSets(client, {
-        address: client.account.address,
-      })
+      const dataSets = await Array.fromAsync(
+        paginate(({ cursor }) =>
+          getPdpDataSets(client, {
+            address,
+            cursor,
+          })
+        )
+      )
       spinner.stop('Fetching data sets complete')
       let pieces: Piece[] = []
       const group = await p.group(
@@ -55,21 +53,25 @@ export const pieces: Command = command(
           },
           pieceId: async ({ results }) => {
             const dataSetId = results.dataSetId
-            const rsp = await getPieces(client, {
-              // biome-ignore lint/style/noNonNullAssertion: dataSetId is guaranteed to be found
-              dataSet: dataSets.find(
-                (dataSet) => dataSet.dataSetId === dataSetId
-              )!,
-              address: client.account.address,
-            })
-            pieces = rsp.pieces
-            if (rsp.pieces.length === 0) {
+            pieces = await Array.fromAsync(
+              paginate(({ cursor }) =>
+                getPieces(client, {
+                  // biome-ignore lint/style/noNonNullAssertion: dataSetId is guaranteed to be found
+                  dataSet: dataSets.find(
+                    (dataSet) => dataSet.dataSetId === dataSetId
+                  )!,
+                  address,
+                  cursor,
+                })
+              )
+            )
+            if (pieces.length === 0) {
               p.outro('No pieces found')
               return
             }
             return await p.select({
               message: 'Pick a piece.',
-              options: rsp.pieces.map((piece) => ({
+              options: pieces.map((piece) => ({
                 value: piece.id,
                 label: `#${piece.id} ${piece.cid}`,
               })),
@@ -101,22 +103,7 @@ export const pieces: Command = command(
       if (group.action === 'info') {
         // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
-        const metadata = await readContract(publicClient, {
-          address: calibration.contracts.fwssView.address,
-          abi: calibration.contracts.fwssView.abi,
-          functionName: 'getAllPieceMetadata',
-          args: [group.dataSetId, BigInt(piece.id)],
-        })
-        p.log.message(
-          stringify(
-            {
-              ...piece,
-              metadata: metadataArrayToObject(metadata),
-            },
-            undefined,
-            2
-          )
-        )
+        p.log.message(stringify(piece, undefined, 2))
       } else if (group.action === 'delete') {
         spinner.start('Deleting piece...')
         // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
@@ -130,7 +117,7 @@ export const pieces: Command = command(
         })
         const txHash = await context.deletePiece({ piece: piece.cid })
         spinner.message('Waiting for transaction to be mined...')
-        await waitForTransactionReceipt(publicClient, { hash: txHash as Hex })
+        await waitForTransactionReceipt(client, { hash: txHash as Hex })
         spinner.stop('Piece deleted')
       } else {
         return

@@ -176,6 +176,8 @@ export const AddPiecesPendingSchema = z.object({
   pieceCount: z.number(),
   addMessageOk: z.null(),
   piecesAdded: z.literal(false),
+  /** Present once confirmed; equals txHash unless Curio replaced-by-fee. */
+  confirmedTxHash: zHex.optional(),
 })
 
 export const AddPiecesRejectedSchema = z.object({
@@ -185,6 +187,7 @@ export const AddPiecesRejectedSchema = z.object({
   pieceCount: z.number(),
   addMessageOk: z.null(),
   piecesAdded: z.literal(false),
+  confirmedTxHash: zHex.optional(),
 })
 
 export const AddPiecesSuccessSchema = z.object({
@@ -195,6 +198,8 @@ export const AddPiecesSuccessSchema = z.object({
   addMessageOk: z.literal(true),
   piecesAdded: z.literal(true),
   confirmedPieceIds: z.array(zNumberToBigInt),
+  /** Hash included on chain. Equals txHash unless Curio replaced-by-fee. Use `confirmedTxHash ?? txHash` for explorers/receipts. */
+  confirmedTxHash: zHex.optional(),
 })
 
 export type AddPiecesPending = z.infer<typeof AddPiecesPendingSchema>

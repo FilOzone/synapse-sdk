@@ -17,16 +17,18 @@
  * ```
  */
 
-import { asChain, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
+import type { AccountClient, ReadClient } from '@filoz/synapse-core'
+import { type PaginationOptions, paginate } from '@filoz/synapse-core'
+import type { FilecoinChain } from '@filoz/synapse-core/chains'
+import { asClient, getTransport, toReadClient } from '@filoz/synapse-core/client'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import { dataSetLiveCall, getDataSetListenerCall } from '@filoz/synapse-core/pdp-verifier'
-import { type MetadataObject, metadataArrayToObject, toReadClient } from '@filoz/synapse-core/utils'
+import { type MetadataObject, metadataArrayToObject } from '@filoz/synapse-core/utils'
 import {
   addApprovedProvider,
   getAccountTotalStorageSize,
   getAllDataSetMetadata,
   getAllDataSetMetadataCall,
-  getAllPieceMetadata,
   getApprovedProviderIds,
   getClientDataSetIds,
   getClientDataSets,
@@ -43,7 +45,6 @@ import {
   type Client,
   createClient,
   type Hash,
-  http,
   isAddressEqual,
   type Transport,
 } from 'viem'
@@ -52,9 +53,9 @@ import type { EnhancedDataSetInfo } from '../types.ts'
 import { DEFAULT_CHAIN, METADATA_KEYS } from '../utils/constants.ts'
 
 export class WarmStorageService {
-  private readonly _client: Client<Transport, Chain, Account>
-  private readonly _readClient: Client<Transport, Chain, undefined>
-  private readonly _chain: SynapseChain
+  private readonly _client: AccountClient
+  private readonly _readClient: ReadClient
+  private readonly _chain: FilecoinChain
 
   /**
    * Create a new WarmStorageService instance
@@ -63,10 +64,10 @@ export class WarmStorageService {
    * @param options.client - Wallet client
    * @returns A new WarmStorageService instance
    */
-  constructor(options: { client: Client<Transport, Chain, Account> }) {
-    this._client = options.client
-    this._readClient = toReadClient(options.client)
-    this._chain = asChain(options.client.chain)
+  constructor(options: { client: Client<Transport, Chain, Account>; readClient?: Client<Transport, Chain> }) {
+    this._client = asClient(options.client)
+    this._readClient = options.readClient ? asClient(options.readClient) : toReadClient(options.client)
+    this._chain = this._readClient.chain
   }
 
   /**
@@ -79,17 +80,15 @@ export class WarmStorageService {
    * @returns A new {@link WarmStorageService} instance
    */
   static create(options: { transport?: Transport; chain?: Chain; account: Account }): WarmStorageService {
+    const chain = options.chain ?? DEFAULT_CHAIN
     const client = createClient({
-      chain: options.chain ?? DEFAULT_CHAIN,
-      transport: options.transport ?? http(),
+      chain,
+      transport: options.transport ?? getTransport(chain),
       account: options.account,
       name: 'WarmStorageService',
       key: 'warm-storage-service',
     })
 
-    if (client.account.type === 'json-rpc' && client.transport.type !== 'custom') {
-      throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
-    }
     return new WarmStorageService({ client })
   }
 
@@ -103,28 +102,20 @@ export class WarmStorageService {
    * @throws Errors {@link getDataSet.ErrorType}
    */
   async getDataSet(options: { dataSetId: bigint }): Promise<getDataSet.OutputType> {
-    return getDataSet(this._client, options)
+    return getDataSet(this._readClient, options)
   }
 
   /**
-   * Get all data sets for a specific client
+   * Get one bounded page of data sets for a specific client
    * @param options - Options for the client data sets
    * @param options.address - The client address
-   * @param options.offset - Starting index (0-based). Use `0n` to start from beginning.
-   * @param options.limit - Maximum number of data sets to return. Use `0n` to get all remaining.
-   * @returns Array of data set information {@link getClientDataSets.OutputType}
+   * @param options.cursor - Opaque cursor returned by the preceding page
+   * @param options.limit - Maximum number of data sets to return
+   * @returns A page of data set information {@link getClientDataSets.OutputType}
    * @throws Errors {@link getClientDataSets.ErrorType}
    */
-  async getClientDataSets(options: {
-    address: Address
-    offset?: bigint
-    limit?: bigint
-  }): Promise<getClientDataSets.OutputType> {
-    return getClientDataSets(this._client, {
-      address: options.address,
-      offset: options.offset,
-      limit: options.limit,
-    })
+  async getClientDataSets(options: PaginationOptions & { address: Address }): Promise<getClientDataSets.OutputType> {
+    return getClientDataSets(this._readClient, options)
   }
 
   /**
@@ -134,28 +125,29 @@ export class WarmStorageService {
    * @returns Total count of data sets
    */
   async getClientDataSetsLength(options: { address: Address }): Promise<getClientDataSetsLength.OutputType> {
-    return getClientDataSetsLength(this._client, options)
+    return getClientDataSetsLength(this._readClient, options)
   }
 
   /**
    * Get data set IDs for a specific client with optional pagination
    * @param options - Options for the client data set IDs
    * @param options.address - The client address
-   * @param options.offset - Starting index (0-based). Use `0n` to start from beginning.
-   * @param options.limit - Maximum number of IDs to return. Use `0n` to get all remaining.
-   * @returns Array of data set IDs {@link getClientDataSetIds.OutputType}
+   * @param options.cursor - Opaque cursor returned by the preceding page
+   * @param options.limit - Maximum number of IDs to return
+   * @returns A page of data set IDs {@link getClientDataSetIds.OutputType}
    */
-  async getClientDataSetIds(options: {
-    address: Address
-    offset?: bigint
-    limit?: bigint
-  }): Promise<getClientDataSetIds.OutputType> {
-    return getClientDataSetIds(this._client, options)
+  async getClientDataSetIds(
+    options: PaginationOptions & { address: Address }
+  ): Promise<getClientDataSetIds.OutputType> {
+    return getClientDataSetIds(this._readClient, options)
   }
 
   /**
    * Get all data sets for a client with enhanced details
-   * This includes live status and management information
+   * This includes live status and management information.
+   *
+   * Piece presence uses a non-zero PDP leaf count rather than an exact active
+   * piece count. Prefer {@link getActivePieceCount} when an exact count is needed.
    * @param options - Options for the client data sets
    * @param options.address - The client address. Defaults to the client account address.
    * @param options.onlyManaged - If true, only return data sets managed by this Warm Storage contract. Defaults to false.
@@ -167,7 +159,9 @@ export class WarmStorageService {
   }): Promise<EnhancedDataSetInfo[]> {
     const { address = this._client.account.address, onlyManaged = false } = options
 
-    const dataSets = await getClientDataSets(this._client, { address })
+    const dataSets = await Array.fromAsync(
+      paginate(({ cursor }) => getClientDataSets(this._readClient, { address, cursor }))
+    )
 
     // Enhance all in parallel using dataset IDs
     const enhancedDataSetsPromises = dataSets.map(async (dataSet) => {
@@ -198,15 +192,13 @@ export class WarmStorageService {
           return null // Will be filtered out
         }
 
-        // Get active piece count only if the data set is live
-        const activePieceCount = isLive
-          ? await PDPVerifier.getActivePieceCount(this._client, { dataSetId: dataSet.dataSetId })
-          : 0n
+        // Get piece presence only if the data set is live
+        const hasActivePieces = isLive ? await this.hasActivePieces({ dataSetId: dataSet.dataSetId }) : false
 
         return {
           ...dataSet,
           pdpVerifierDataSetId: dataSet.dataSetId,
-          activePieceCount,
+          hasActivePieces,
           isLive,
           isManaged,
           withCDN: dataSet.cdnRailId > 0 && metadata[0].includes(METADATA_KEYS.WITH_CDN),
@@ -237,7 +229,7 @@ export class WarmStorageService {
   async getAccountTotalStorageSize(
     options: { address?: Address } = {}
   ): Promise<getAccountTotalStorageSize.OutputType> {
-    return getAccountTotalStorageSize(this._client, {
+    return getAccountTotalStorageSize(this._readClient, {
       address: options.address ?? this._client.account.address,
     })
   }
@@ -286,30 +278,33 @@ export class WarmStorageService {
 
   /**
    * Get the count of active pieces in a dataset (excludes removed pieces)
+   *
+   * Paginates `getActivePiecesByCursor` rather than calling the contract's
+   * linear-scan getter, which can run out of gas for large data sets.
+   * Prefer {@link hasActivePieces} when only presence is needed.
    * @param options - Options for the data set
    * @param options.dataSetId - The PDPVerifier data set ID
    * @returns The number of active pieces
    */
   async getActivePieceCount(options: { dataSetId: bigint }): Promise<bigint> {
-    return PDPVerifier.getActivePieceCount(this._client, { dataSetId: options.dataSetId })
+    const pieces = await Array.fromAsync(
+      paginate(({ cursor }) => PDPVerifier.getActivePiecesByCursor(this._readClient, { ...options, cursor }))
+    )
+    return BigInt(pieces.length)
   }
 
   /**
    * Report whether a data set has at least one active piece.
    *
-   * Reads a single piece (`limit: 1`) rather than the full active-piece count, so
-   * the cost is independent of how many pieces the data set holds.
+   * Uses a non-zero PDP leaf count as a proxy rather than scanning piece IDs or
+   * calculating the exact active piece count, both of which can run out of gas
+   * for large data sets.
    * @param options - Options for the data set
    * @param options.dataSetId - The PDPVerifier data set ID
    * @returns True when the data set has at least one active piece
    */
   async hasActivePieces(options: { dataSetId: bigint }): Promise<boolean> {
-    const { pieces } = await PDPVerifier.getActivePieces(this._client, {
-      dataSetId: options.dataSetId,
-      offset: 0n,
-      limit: 1n,
-    })
-    return pieces.length > 0
+    return (await PDPVerifier.getDataSetLeafCount(this._readClient, options)) > 0n
   }
 
   // ========== Metadata Operations ==========
@@ -322,7 +317,7 @@ export class WarmStorageService {
    * @returns Object with metadata key-value pairs
    */
   async getDataSetMetadata(options: { dataSetId: bigint }): Promise<MetadataObject> {
-    return getAllDataSetMetadata(this._client, { dataSetId: options.dataSetId })
+    return getAllDataSetMetadata(this._readClient, { dataSetId: options.dataSetId })
   }
 
   /**
@@ -343,37 +338,6 @@ export class WarmStorageService {
     return exists ? value : null
   }
 
-  /**
-   * Get all metadata for a piece in a data set
-   *
-   * @param options - Options for the piece
-   * @param options.dataSetId - The data set ID
-   * @param options.pieceId - The piece ID
-   * @returns Object with metadata key-value pairs
-   */
-  async getPieceMetadata(options: { dataSetId: bigint; pieceId: bigint }): Promise<MetadataObject> {
-    return getAllPieceMetadata(this._client, options)
-  }
-
-  /**
-   * Get specific metadata key for a piece in a data set
-   *
-   * @param options - Options for the piece
-   * @param options.dataSetId - The data set ID
-   * @param options.pieceId - The piece ID
-   * @param options.key - The metadata key to retrieve
-   * @returns The metadata value if it exists, null otherwise
-   */
-  async getPieceMetadataByKey(options: { dataSetId: bigint; pieceId: bigint; key: string }): Promise<string | null> {
-    const [exists, value] = await readContract(this._readClient, {
-      address: this._chain.contracts.fwssView.address,
-      abi: this._chain.contracts.fwssView.abi,
-      functionName: 'getPieceMetadata',
-      args: [options.dataSetId, options.pieceId, options.key],
-    })
-    return exists ? value : null
-  }
-
   // ========== Storage Cost Operations ==========
 
   /**
@@ -381,7 +345,7 @@ export class WarmStorageService {
    * @returns Recurring rates, operation fees, and lockups.
    */
   async getPriceList(): Promise<getPriceList.OutputType> {
-    return getPriceList(this._client)
+    return getPriceList(this._readClient)
   }
 
   // ========== Data Set Operations ==========
@@ -418,7 +382,7 @@ export class WarmStorageService {
    */
   async removeApprovedProvider(options: { providerId: bigint }): Promise<removeApprovedProvider.OutputType> {
     // First, we need to find the index of this provider in the array
-    const approvedIds = await getApprovedProviderIds(this._client)
+    const approvedIds = await this.getApprovedProviderIds()
     const index = approvedIds.indexOf(options.providerId)
 
     if (index === -1) {
@@ -432,8 +396,8 @@ export class WarmStorageService {
    * Get list of approved provider IDs
    * @returns Array of approved provider IDs
    */
-  async getApprovedProviderIds(): Promise<getApprovedProviderIds.OutputType> {
-    return getApprovedProviderIds(this._client)
+  async getApprovedProviderIds(): Promise<bigint[]> {
+    return await Array.fromAsync(paginate(({ cursor }) => getApprovedProviderIds(this._readClient, { cursor })))
   }
 
   /**

@@ -41,7 +41,7 @@ POST /pdp/data-sets/{id}/terminate
 GET /pdp/data-sets/{id}/terminate (the status URL; valid immediately after the 202)
   queued    {terminationTxHash: "", fwssTerminated: null}
   sent      {terminationTxHash: "0x...", fwssTerminated: null}
-  done      {terminationTxHash: "0x..." or "", fwssTerminated: true, serviceTerminationEpoch: 4567}
+  done      {terminationTxHash: "0x..." or "", confirmedTxHash?: "0x...", fwssTerminated: true, serviceTerminationEpoch: 4567}
   reverted  if we get a hash and then get a 404, the tx was rejected
   404       failed relays are discarded so the client can re-POST; also the
             response for SP-initiated terminations (only client-requested ones
@@ -54,6 +54,8 @@ GET /pdp/data-sets/{id}/terminate (the status URL; valid immediately after the 2
   competing terminate landed first; the goal state holds). When no terminate
   tx ever lands, ours or anyone's (e.g. the SP is unable to send), there is no
   terminal signal: the status stays queued and the poller runs to its timeout.
+  confirmedTxHash is the included on-chain hash when present; it differs from
+  terminationTxHash only if Curio replaced the original send by fee.
 */
 
 /**
@@ -250,6 +252,7 @@ export const TerminateServiceStatusPendingSchema = z.object({
   terminationTxHash: z.union([zHex, z.literal('')]),
   fwssTerminated: z.null(),
   serviceTerminationEpoch: z.null(),
+  confirmedTxHash: zHex.optional(),
 })
 
 /**
@@ -260,6 +263,8 @@ export const TerminateServiceStatusSuccessSchema = z.object({
   terminationTxHash: z.union([zHex, z.literal('')]),
   fwssTerminated: z.literal(true),
   serviceTerminationEpoch: zNumberToBigInt,
+  /** Hash included on chain. Equals terminationTxHash unless Curio replaced-by-fee. Use `confirmedTxHash ?? terminationTxHash` for explorers/receipts. */
+  confirmedTxHash: zHex.optional(),
 })
 
 export type TerminateServiceStatusPending = z.infer<typeof TerminateServiceStatusPendingSchema>

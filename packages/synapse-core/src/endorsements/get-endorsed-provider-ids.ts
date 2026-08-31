@@ -12,7 +12,6 @@ import { readContract } from 'viem/actions'
 import type { providerIdSetAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getEndorsedProviderIds {
   export type OptionsType = {
@@ -61,7 +60,7 @@ export async function getEndorsedProviderIds(
   options: getEndorsedProviderIds.OptionsType = {}
 ): Promise<getEndorsedProviderIds.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     getEndorsedProviderIdsCall({
       chain: client.chain,
       contractAddress: options.contractAddress,

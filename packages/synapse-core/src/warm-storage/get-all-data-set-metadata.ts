@@ -13,7 +13,6 @@ import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain } from '../types.ts'
 import { type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace getAllDataSetMetadata {
   export type OptionsType = {
@@ -64,7 +63,7 @@ export async function getAllDataSetMetadata(
   options: getAllDataSetMetadata.OptionsType
 ): Promise<getAllDataSetMetadata.OutputType> {
   const data = await readContract(
-    toReadClient(client),
+    client,
     getAllDataSetMetadataCall({
       chain: client.chain,
       dataSetId: options.dataSetId,
@@ -94,7 +93,7 @@ export namespace getAllDataSetMetadataCall {
  *
  * @example
  * ```ts
- * import { getAllDataSetMetadataCall } from '@filoz/synapse-core/warm-storage'
+ * import { getAllDataSetMetadataCall, parseAllDataSetMetadata } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -105,6 +104,7 @@ export namespace getAllDataSetMetadataCall {
  * })
  *
  * const results = await multicall(client, {
+ *   allowFailure: false,
  *   contracts: [
  *     getAllDataSetMetadataCall({ chain: calibration, dataSetId: 1n }),
  *     getAllDataSetMetadataCall({ chain: calibration, dataSetId: 2n }),

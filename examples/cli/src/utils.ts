@@ -1,5 +1,7 @@
 import * as p from '@clack/prompts'
-import type { Chain } from '@filoz/synapse-core/chains'
+import type { ReadClient } from '@filoz/synapse-core'
+import { paginate } from '@filoz/synapse-core'
+import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
 import { getApprovedPDPProviders } from '@filoz/synapse-core/sp-registry'
 import {
@@ -7,9 +9,9 @@ import {
   type PdpDataSet,
 } from '@filoz/synapse-core/warm-storage'
 import terminalLink from 'terminal-link'
-import type { Account, Client, Transport } from 'viem'
+import type { Address } from 'viem'
 
-export function hashLink(hash: string, chain: Chain) {
+export function hashLink(hash: string, chain: FilecoinChain) {
   const link = terminalLink(
     hash,
     `${chain.blockExplorers?.default?.url}/tx/${hash}`
@@ -18,16 +20,17 @@ export function hashLink(hash: string, chain: Chain) {
 }
 
 export async function selectDataSet(
-  client: Client<Transport, Chain, Account>,
+  client: ReadClient,
+  address: Address,
   options: { debug?: boolean }
 ) {
   const spinner = p.spinner()
   spinner.start(`Fetching data sets...`)
 
   try {
-    const dataSets = await getPdpDataSets(client, {
-      address: client.account.address,
-    })
+    const dataSets = await Array.fromAsync(
+      paginate(({ cursor }) => getPdpDataSets(client, { address, cursor }))
+    )
     spinner.stop(`Data sets fetched.`)
 
     if (dataSets.length === 0) {
@@ -60,7 +63,8 @@ export async function selectDataSet(
 }
 
 export async function selectPiece(
-  client: Client<Transport, Chain, Account>,
+  client: ReadClient,
+  address: Address,
   dataSet: PdpDataSet,
   options: { debug?: boolean }
 ) {
@@ -68,20 +72,25 @@ export async function selectPiece(
   spinner.start(`Fetching pieces...`)
 
   try {
-    const pieces = await getPieces(client, {
-      dataSet,
-      address: client.account.address,
-    })
+    const pieces = await Array.fromAsync(
+      paginate(({ cursor }) =>
+        getPieces(client, {
+          dataSet,
+          address,
+          cursor,
+        })
+      )
+    )
     spinner.stop(`Pieces fetched.`)
 
-    if (pieces.pieces.length === 0) {
+    if (pieces.length === 0) {
       p.cancel('No pieces found.')
       process.exit(1)
     }
 
     const pieceId = await p.select({
       message: 'Select a piece:',
-      options: pieces.pieces.map((piece) => ({
+      options: pieces.map((piece) => ({
         value: piece.id,
         label: `#${piece.id} ${piece.cid}`,
       })),
@@ -104,7 +113,7 @@ export async function selectPiece(
 }
 
 export async function selectProvider(
-  client: Client<Transport, Chain, Account>,
+  client: ReadClient,
   options: { debug?: boolean }
 ) {
   const spinner = p.spinner()

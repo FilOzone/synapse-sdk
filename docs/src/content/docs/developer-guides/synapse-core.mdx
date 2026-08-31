@@ -41,20 +41,25 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Synapse Core requires [viem](https://viem.sh) 2.x as a peer dependency.
 
+:::tip[Trying an unreleased version?]
+Install a preview build from a pull request, commit, or `master`. See [Preview Packages](/developer-guides/preview-packages/).
+:::
+
 **Client setup:**
 
 All Synapse Core functions accept a viem `Client` as their first argument. Create one using viem's standard client factories:
 
 ```ts twoslash
 // @lib: esnext,dom
-import { createPublicClient, createWalletClient, http } from "viem"
+import { createPublicClient, createWalletClient } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
-import { calibration, mainnet } from "@filoz/synapse-core/chains"
+import { calibration } from "@filoz/synapse-core/chains"
+import { getTransport } from "@filoz/synapse-core/client"
 
 // Read-only client for queries
 const publicClient = createPublicClient({
   chain: calibration, // or mainnet
-  transport: http(),
+  transport: getTransport(calibration),
 })
 
 // Wallet client for transactions
@@ -62,11 +67,86 @@ const account = privateKeyToAccount("0x...")
 const walletClient = createWalletClient({
   account,
   chain: calibration, // or mainnet
-  transport: http(),
+  transport: getTransport(calibration),
 })
 ```
 
-The `@filoz/synapse-core/chains` subpath exports chain definitions with all contract addresses pre-configured for Filecoin Mainnet (`mainnet`) and Filecoin testnet (`calibration`) networks.
+The `@filoz/synapse-core/chains` subpath exports chain definitions with all contract addresses pre-configured for Filecoin Mainnet (`mainnet`) and Filecoin testnet (`calibration`) networks. Import the FOC chain type as `FilecoinChain` when you need it in TypeScript.
+
+The `@filoz/synapse-core/client` subpath exports `getTransport` (ranked Filecoin RPC fallbacks), `asClient`, and `toReadClient`. Prefer `getTransport(chain)` over a bare `http()` endpoint when talking to mainnet or Calibration.
+
+## Pagination
+
+Collection actions in Synapse Core return one bounded page at a time. They share the same options and result shapes:
+
+```ts
+type PaginationOptions = {
+  cursor?: bigint
+  limit?: bigint
+}
+
+type Page<T> = {
+  items: T[]
+  nextCursor?: bigint
+}
+```
+
+Some actions also return a `total` alongside the page. A cursor is an opaque continuation value: pass the returned `nextCursor` back as `cursor` without calculating or incrementing it yourself. An omitted `limit` uses the action's bounded default, while an explicit limit must be greater than `0n`.
+
+To read one page, call the action directly:
+
+```ts twoslash
+// @lib: esnext,dom
+import { createPublicClient, http } from "viem"
+import { calibration } from "@filoz/synapse-core/chains"
+const publicClient = createPublicClient({ chain: calibration, transport: http() })
+const address = "0x0000000000000000000000000000000000000000"
+// ---cut---
+import { getClientDataSets } from "@filoz/synapse-core/warm-storage"
+
+const page = await getClientDataSets(publicClient, {
+  address,
+  limit: 25n,
+})
+
+console.log(page.items)
+
+if (page.nextCursor !== undefined) {
+  const nextPage = await getClientDataSets(publicClient, {
+    address,
+    cursor: page.nextCursor,
+    limit: 25n,
+  })
+  console.log(nextPage.items)
+}
+```
+
+Use `paginate()` when you want to traverse every page. It follows `nextCursor`, yields individual items, and rejects a repeated or non-advancing cursor. A normal `break` exits the `for await` loop, closes the generator, and prevents any further page requests.
+
+```ts twoslash
+// @lib: esnext,dom
+import { createPublicClient, http } from "viem"
+import { calibration } from "@filoz/synapse-core/chains"
+const publicClient = createPublicClient({ chain: calibration, transport: http() })
+const address = "0x0000000000000000000000000000000000000000"
+// ---cut---
+import { paginate } from "@filoz/synapse-core"
+import { getClientDataSetIds } from "@filoz/synapse-core/warm-storage"
+
+for await (const dataSetId of paginate(({ cursor }) =>
+  getClientDataSetIds(publicClient, { address, cursor })
+)) {
+  console.log(dataSetId)
+}
+
+const allDataSetIds = await Array.fromAsync(
+  paginate(({ cursor }) =>
+    getClientDataSetIds(publicClient, { address, cursor })
+  )
+)
+```
+
+The exported `*Call` helpers remain literal ABI adapters for multicalls. They use contract-facing fields such as `offset` or `startPieceId` and require an explicit `limit`; cursor translation and default limits are handled by the corresponding action.
 
 ## Payments
 
@@ -128,9 +208,9 @@ const publicClient = createPublicClient({ chain: calibration, transport: http() 
 // ---cut---
 import * as warmStorage from "@filoz/synapse-core/warm-storage"
 
-// List approved providers
-const providers = await warmStorage.getApprovedProviderIds(publicClient)
-console.log(providers) // bigint[] — approved provider IDs
+// Read one bounded page of approved provider IDs
+const page = await warmStorage.getApprovedProviderIds(publicClient)
+console.log(page.items, page.nextCursor)
 ```
 
 ---

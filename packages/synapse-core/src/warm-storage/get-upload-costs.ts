@@ -64,7 +64,7 @@ export namespace getUploadCosts {
  * Fetches account state, pricing, and approval via read-only contract calls,
  * then feeds results into pure calculation functions.
  *
- * @param client - Read-only viem client
+ * @param client - The client to use to compute upload costs.
  * @param options - {@link getUploadCosts.OptionsType}
  * @returns {@link getUploadCosts.OutputType}
  */

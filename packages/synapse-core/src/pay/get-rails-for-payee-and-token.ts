@@ -1,4 +1,3 @@
-import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -11,20 +10,16 @@ import type {
 import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import type { ActionCallChain } from '../types.ts'
-import { toReadClient } from '../utils/read-client.ts'
+import { type PageWithTotal, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
+import type { PaginatedActionCallOptions } from '../types.ts'
 import type { RailInfo } from './types.ts'
 
 export namespace getRailsForPayeeAndToken {
-  export type OptionsType = {
+  export type OptionsType = PaginationOptions & {
     /** The address of the payee to query */
     payee: Address
     /** The address of the ERC20 token to filter by. If not provided, the USDFC token address will be used. */
     token?: Address
-    /** Starting index for pagination (0-based). Defaults to 0. */
-    offset?: bigint
-    /** Maximum number of rails to return. Use 0 to get all remaining rails. Defaults to 0. */
-    limit?: bigint
     /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
     contractAddress?: Address
   }
@@ -38,30 +33,25 @@ export namespace getRailsForPayeeAndToken {
   /**
    * Paginated rail results for a payee and token.
    */
-  export type OutputType = {
-    /** Array of rail information */
-    results: RailInfo[]
-    /** Next offset for pagination (equals offset + results.length if more results available) */
-    nextOffset: bigint
-    /** Total number of rails for this payee and token */
-    total: bigint
-  }
+  /** A rail page. `total` is the contract's underlying rail-slot count, including skipped or finalized slots. */
+  export type OutputType = PageWithTotal<RailInfo>
 
-  export type ErrorType = getRailsForPayeeAndTokenCall.ErrorType | ReadContractErrorType
+  export type ErrorType = getRailsForPayeeAndTokenCall.ErrorType | ReadContractErrorType | resolvePagination.ErrorType
 }
 
 /**
- * Get rails for a payee and token with pagination
+ * Get one bounded page of rails for a payee and token.
  *
- * Returns paginated list of rails where the specified address is the payee for the given token.
- * Use pagination (offset and limit) to handle large result sets efficiently.
+ * Pass the returned `nextCursor` back as `cursor`; treat it as opaque. Use
+ * {@link paginate} to traverse every page. `total` is the contract's underlying
+ * rail-slot count, including slots skipped because their rails were finalized.
  *
  * @param client - The client to use to get the rails.
  * @param options - {@link getRailsForPayeeAndToken.OptionsType}
  * @returns Paginated rail results {@link getRailsForPayeeAndToken.OutputType}
  * @throws Errors {@link getRailsForPayeeAndToken.ErrorType}
  *
- * @example
+ * @example Read the first page
  * ```ts
  * import { getRailsForPayeeAndToken } from '@filoz/synapse-core/pay'
  * import { createPublicClient, http } from 'viem'
@@ -72,17 +62,20 @@ export namespace getRailsForPayeeAndToken {
  *   transport: http(),
  * })
  *
- * // Get first 10 rails
- * const result = await getRailsForPayeeAndToken(client, {
- *   payee: '0x1234567890123456789012345678901234567890',
- *   offset: 0n,
- *   limit: 10n,
- * })
+ * const payee = '0x1234567890123456789012345678901234567890'
+ * const page = await getRailsForPayeeAndToken(client, { payee })
+ * console.log(page.items, page.nextCursor, page.total)
+ * ```
  *
- * console.log(`Found ${result.total} total rails`)
- * console.log(`Returned ${result.results.length} rails`)
- * for (const rail of result.results) {
- *   console.log(`Rail ${rail.railId}: ${rail.isTerminated ? 'Terminated' : 'Active'}`)
+ * @example Iterate over every page
+ * ```ts
+ * import { paginate } from '@filoz/synapse-core'
+ * import { getRailsForPayeeAndToken } from '@filoz/synapse-core/pay'
+ *
+ * for await (const rail of paginate(({ cursor }) =>
+ *   getRailsForPayeeAndToken(client, { payee, cursor })
+ * )) {
+ *   console.log(rail.railId)
  * }
  * ```
  */
@@ -90,14 +83,15 @@ export async function getRailsForPayeeAndToken(
   client: Client<Transport, Chain>,
   options: getRailsForPayeeAndToken.OptionsType
 ): Promise<getRailsForPayeeAndToken.OutputType> {
+  const { cursor, limit } = resolvePagination(options, 100n)
   const data = await readContract(
-    toReadClient(client),
+    client,
     getRailsForPayeeAndTokenCall({
       chain: client.chain,
       payee: options.payee,
       token: options.token,
-      offset: options.offset,
-      limit: options.limit,
+      offset: cursor,
+      limit,
       contractAddress: options.contractAddress,
     })
   )
@@ -106,7 +100,7 @@ export async function getRailsForPayeeAndToken(
 }
 
 export namespace getRailsForPayeeAndTokenCall {
-  export type OptionsType = Simplify<getRailsForPayeeAndToken.OptionsType & ActionCallChain>
+  export type OptionsType = PaginatedActionCallOptions<getRailsForPayeeAndToken.OptionsType, 'offset'>
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof paymentsAbi, 'pure' | 'view', 'getRailsForPayeeAndToken'>
@@ -116,6 +110,8 @@ export namespace getRailsForPayeeAndTokenCall {
  * Create a call to the getRailsForPayeeAndToken function
  *
  * This function is used to create a call to the getRailsForPayeeAndToken function for use with the multicall or readContract function.
+ *
+ * To get the same output type as the action, use {@link parseGetRailsForPayeeAndToken} to transform the contract output.
  *
  * @param options - {@link getRailsForPayeeAndTokenCall.OptionsType}
  * @returns The call to the getRailsForPayeeAndToken function {@link getRailsForPayeeAndTokenCall.OutputType}
@@ -155,26 +151,30 @@ export function getRailsForPayeeAndTokenCall(options: getRailsForPayeeAndTokenCa
     abi: chain.contracts.filecoinPay.abi,
     address: options.contractAddress ?? chain.contracts.filecoinPay.address,
     functionName: 'getRailsForPayeeAndToken',
-    args: [options.payee, token, options.offset ?? 0n, options.limit ?? 0n],
+    args: [options.payee, token, options.offset, options.limit],
   } satisfies getRailsForPayeeAndTokenCall.OutputType
 }
 
 /**
- * Parse the contract output into the getRailsForPayeeAndToken output type
+ * Parse raw payee-rail contract output into a normalized page with a total.
  *
- * @param data - The contract output from the getRailsForPayeeAndToken function
- * @returns The parsed paginated rail results {@link getRailsForPayeeAndToken.OutputType}
+ * The contract's `results` tuple is mapped to `items`, including finalized and
+ * skipped rail slots. `nextOffset` becomes `nextCursor` only when it is less
+ * than `total`; `total` is the underlying rail-slot count.
+ *
+ * @param data - Raw contract output {@link getRailsForPayeeAndToken.ContractOutputType}
+ * @returns A normalized rail page {@link getRailsForPayeeAndToken.OutputType}
  */
 export function parseGetRailsForPayeeAndToken(
   data: getRailsForPayeeAndToken.ContractOutputType
 ): getRailsForPayeeAndToken.OutputType {
   return {
-    results: data[0].map((rail) => ({
+    items: data[0].map((rail) => ({
       railId: rail.railId,
       isTerminated: rail.isTerminated,
       endEpoch: rail.endEpoch,
     })),
-    nextOffset: data[1],
+    ...(data[1] < data[2] ? { nextCursor: data[1] } : {}),
     total: data[2],
   }
 }

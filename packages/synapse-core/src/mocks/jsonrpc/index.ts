@@ -503,23 +503,6 @@ export const presets = {
         if (dataSetId === 1n && key === 'environment') return [true, 'test']
         return [false, ''] // key not found
       },
-      getAllPieceMetadata: (args) => {
-        const [dataSetId, pieceId] = args
-        if (dataSetId === 1n && pieceId === 0n) {
-          return [
-            ['withIPFSIndexing', 'ipfsRootCID'], // keys
-            ['', 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'], // values
-          ]
-        }
-        return [[], []] // empty metadata for other pieces
-      },
-      getPieceMetadata: (args) => {
-        const [dataSetId, pieceId, key] = args
-        if (dataSetId === 1n && pieceId === 0n && key === 'withIPFSIndexing') return [true, '']
-        if (dataSetId === 1n && pieceId === 0n && key === 'ipfsRootCID')
-          return [true, 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi']
-        return [false, ''] // key not found
-      },
       clientNonces: () => {
         return [BigInt(0)]
       },
@@ -561,7 +544,7 @@ export const presets = {
       getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
       getNextPieceId: () => [2n],
       getActivePieceCount: () => [2n],
-      getActivePieces: () => [
+      getActivePiecesByCursor: () => [
         [
           { data: toHex(Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy').bytes) },
           { data: toHex(Piece.from('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace').bytes) },
@@ -570,7 +553,7 @@ export const presets = {
         false,
       ],
       getDataSetStorageProvider: () => [ADDRESSES.serviceProvider1, ADDRESSES.zero],
-      getDataSetLeafCount: () => [0n],
+      getDataSetLeafCount: () => [2n],
       getScheduledRemovals: () => [[]],
       getNextChallengeEpoch: () => [5000n],
       findPieceIdsByCid: () => [[0n]],
@@ -646,7 +629,6 @@ export const presets = {
           },
         ]
       },
-      getAllActiveProviders: () => [[1n, 2n], false],
       getProviderCount: () => [2n],
       activeProviderCount: () => [2n],
       isProviderActive: (data) => {

@@ -38,7 +38,12 @@ export async function terminateServiceFlow(
       onHash: onSubmitted,
     })
     const event = extractPDPPaymentTerminatedEvent(receipt.logs)
-    return { txHash: receipt.transactionHash, dataSetId, endEpoch: event.args.endEpoch }
+    return {
+      txHash: receipt.transactionHash,
+      confirmedTxHash: receipt.transactionHash,
+      dataSetId,
+      endEpoch: event.args.endEpoch,
+    }
   }
 
   // Resolve (and, on the manager path, validate) the target first so a bad
@@ -50,8 +55,8 @@ export async function terminateServiceFlow(
   // accruing until the provider's tx lands, so a marginal account can still
   // revert SP-side (surfacing as the rejected/404 path).
   const payerAddress = synapse.client.account.address
-  const currentEpoch = await getBlockNumber(synapse.client)
-  const accountInfo = await payAccounts(synapse.client, { address: payerAddress })
+  const currentEpoch = await getBlockNumber(synapse.readClient)
+  const accountInfo = await payAccounts(synapse.readClient, { address: payerAddress })
   const debt = calculateAccountDebt({
     funds: accountInfo.funds,
     lockupCurrent: accountInfo.lockupCurrent,
@@ -86,6 +91,7 @@ export async function terminateServiceFlow(
         })
         return {
           txHash: status.terminationTxHash === '' ? undefined : status.terminationTxHash,
+          ...(status.confirmedTxHash === undefined ? {} : { confirmedTxHash: status.confirmedTxHash }),
           dataSetId,
           endEpoch: status.serviceTerminationEpoch,
         }
@@ -102,6 +108,7 @@ export async function terminateServiceFlow(
   const status = await waitForTerminateService({ statusUrl, onHash: onSubmitted })
   return {
     txHash: status.terminationTxHash === '' ? undefined : status.terminationTxHash,
+    ...(status.confirmedTxHash === undefined ? {} : { confirmedTxHash: status.confirmedTxHash }),
     dataSetId,
     endEpoch: status.serviceTerminationEpoch,
   }

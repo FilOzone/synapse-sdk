@@ -13,7 +13,6 @@ import { type Address, type Chain, type Client, erc20Abi, type MulticallErrorTyp
 import { multicall } from 'viem/actions'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import { toReadClient } from '../utils/read-client.ts'
 
 export namespace balance {
   export type OptionsType = {
@@ -46,7 +45,7 @@ export namespace balance {
 /**
  * Get the balance, decimals, symbol, and allowance of an ERC20 token.
  *
- * @param client - The client to use.
+ * @param client - The client to use to get the ERC20 balance.
  * @param options - {@link balance.OptionsType}
  * @returns The balance, decimals, symbol, and allowance. {@link balance.OutputType}
  * @throws Errors {@link balance.ErrorType}
@@ -58,7 +57,7 @@ export async function balance(
   const chain = asChain(client.chain)
   const token = options.token ?? chain.contracts.usdfc.address
 
-  const result = await multicall(toReadClient(client), {
+  const result = await multicall(client, {
     allowFailure: false,
     contracts: [
       {
@@ -120,7 +119,7 @@ export namespace balanceForPermit {
 /**
  * Get the balance, name, nonce, and version of an ERC20 token.
  *
- * @param client - The client to use.
+ * @param client - The client to use to get the ERC20 balance for permit.
  * @param options - {@link balanceForPermit.OptionsType}
  * @returns The balance, name, nonce, and version. {@link balanceForPermit.OutputType}
  * @throws Errors {@link balanceForPermit.ErrorType}
@@ -132,7 +131,7 @@ export async function balanceForPermit(
   const chain = asChain(client.chain)
   const token = options.token ?? chain.contracts.usdfc.address
 
-  const result = await multicall(toReadClient(client), {
+  const result = await multicall(client, {
     allowFailure: false,
     contracts: [
       {
