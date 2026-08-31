@@ -73,6 +73,9 @@ describe('getAccountTotalStorageSize', () => {
           },
           getDataSetLeafCount: (args) => {
             const dataSetId = args[0]
+            if (dataSetId === 2n) {
+              throw new Error('Data set not live')
+            }
             return [leafCounts.get(dataSetId) ?? 0n]
           },
         },

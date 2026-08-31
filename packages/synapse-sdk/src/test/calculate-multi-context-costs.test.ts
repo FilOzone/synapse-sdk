@@ -2,6 +2,7 @@
 
 import type { AccountClient } from '@filoz/synapse-core'
 import { calibration } from '@filoz/synapse-core/chains'
+import { DataSetNotFoundError, ServiceAlreadyTerminatedError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { leafCountToRawSize, rawSizeToLeafCount, SIZE_CONSTANTS } from '@filoz/synapse-core/utils'
 import { assert } from 'chai'
@@ -65,7 +66,7 @@ describe('calculateMultiContextCosts', () => {
   const fullyApproved = () => [true, maxUint256, maxUint256, 0n, 0n, maxUint256] as const
 
   /** Active FWSS data-set state used by existing-context cost tests. */
-  const activeDataSet = (dataSetId: bigint, lifecycleReserveBalance = parseUnits('0.5', 18)) =>
+  const activeDataSet = (dataSetId: bigint, lifecycleReserveBalance = parseUnits('0.5', 18), pdpEndEpoch = 0n) =>
     [
       {
         cacheMissRailId: 0n,
@@ -75,7 +76,7 @@ describe('calculateMultiContextCosts', () => {
         dataSetId,
         payee: Mocks.ADDRESSES.payee1,
         payer: Mocks.ADDRESSES.client1,
-        pdpEndEpoch: 0n,
+        pdpEndEpoch,
         pdpRailId: 1n,
         providerId: 1n,
         pendingOneTimePayments: 0n,
@@ -225,6 +226,56 @@ describe('calculateMultiContextCosts', () => {
     const existingStorageRate = (pricePerTiBPerMonth * existingFinalPricedSize) / oneTiB
     assert.equal(resultNew.rates.perMonth, (pricePerTiBPerMonth * newPricedSize) / oneTiB + parseUnits('0.12', 18))
     assert.equal(resultExisting.rates.perMonth, existingStorageRate + parseUnits('0.12', 18))
+  })
+
+  it('should reject a missing existing data set with DataSetNotFoundError', async () => {
+    server.use(
+      Mocks.JSONRPC({
+        ...Mocks.presets.basic,
+        payments: {
+          ...Mocks.presets.basic.payments,
+          operatorApprovals: fullyApproved,
+        },
+      })
+    )
+
+    const context = makeContext(synapse, warmStorageService, { dataSetId: 999n })
+    let thrown: unknown
+    try {
+      await manager.calculateMultiContextCosts([context], { pieceSizes: [1n] })
+    } catch (error) {
+      thrown = error
+    }
+
+    assert.instanceOf(thrown, DataSetNotFoundError)
+  })
+
+  it('should reject an existing data set with terminated payment', async () => {
+    const endEpoch = 1_234_567n
+    server.use(
+      Mocks.JSONRPC({
+        ...Mocks.presets.basic,
+        payments: {
+          ...Mocks.presets.basic.payments,
+          operatorApprovals: fullyApproved,
+        },
+        warmStorageView: {
+          ...Mocks.presets.basic.warmStorageView,
+          getDataSet: (args) => activeDataSet(args[0], parseUnits('0.5', 18), endEpoch),
+        },
+      })
+    )
+
+    const context = makeContext(synapse, warmStorageService, { dataSetId: 1n })
+    let thrown: unknown
+    try {
+      await manager.calculateMultiContextCosts([context], { pieceSizes: [1n] })
+    } catch (error) {
+      thrown = error
+    }
+
+    assert.instanceOf(thrown, ServiceAlreadyTerminatedError)
+    assert.equal((thrown as ServiceAlreadyTerminatedError).endEpoch, endEpoch)
   })
 
   it('should handle mixed new + existing contexts', async () => {

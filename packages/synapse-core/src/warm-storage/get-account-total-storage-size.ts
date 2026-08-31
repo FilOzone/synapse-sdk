@@ -64,27 +64,35 @@ export async function getAccountTotalStorageSize(
   let dataSets: Array<getClientDataSets.OutputType['items'][number]> = []
 
   const processPage = async () => {
-    const calls = dataSets.flatMap((dataSet) => [
-      dataSetLiveCall({
-        chain: client.chain,
-        dataSetId: dataSet.dataSetId,
-        contractAddress: options.pdpContractAddress,
-      }),
-      getDataSetLeafCountCall({
-        chain: client.chain,
-        dataSetId: dataSet.dataSetId,
-        contractAddress: options.pdpContractAddress,
-      }),
-    ])
-    if (calls.length > 0) {
-      const results = await multicall(client, { contracts: calls, allowFailure: false })
-      for (let index = 0; index < dataSets.length; index++) {
-        const isLive = results[index * 2] as boolean
-        const leafCount = results[index * 2 + 1] as bigint
-        if (isLive) {
-          totalSizeBytes += leafCountToRawSize(leafCount)
-          datasetCount++
-        }
+    if (dataSets.length === 0) return
+
+    const liveResults = await multicall(client, {
+      contracts: dataSets.map((dataSet) =>
+        dataSetLiveCall({
+          chain: client.chain,
+          dataSetId: dataSet.dataSetId,
+          contractAddress: options.pdpContractAddress,
+        })
+      ),
+      allowFailure: false,
+    })
+    const liveDataSets = dataSets.filter((_, index) => liveResults[index])
+
+    if (liveDataSets.length > 0) {
+      const leafCounts = await multicall(client, {
+        contracts: liveDataSets.map((dataSet) =>
+          getDataSetLeafCountCall({
+            chain: client.chain,
+            dataSetId: dataSet.dataSetId,
+            contractAddress: options.pdpContractAddress,
+          })
+        ),
+        allowFailure: false,
+      })
+
+      for (const leafCount of leafCounts) {
+        totalSizeBytes += leafCountToRawSize(leafCount)
+        datasetCount++
       }
     }
     dataSets = []

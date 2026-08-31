@@ -53,7 +53,11 @@ export interface PrepareOptions {
   extraRunwayEpochs?: bigint
   /** Safety margin in epochs. Default: 5n */
   bufferEpochs?: bigint
-  /** Pre-computed costs — skips internal getUploadCosts() call. */
+  /**
+   * Aggregate costs precomputed for the exact contexts and piece sizes being prepared.
+   * Use `calculateMultiContextCosts()` when preparing multiple contexts; `getUploadCosts()`
+   * only calculates one context. Supplying this value skips internal cost calculation.
+   */
   costs?: UploadCosts
 }
 

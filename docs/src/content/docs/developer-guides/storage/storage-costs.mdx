@@ -78,7 +78,7 @@ const costFor24Months = costPerMonth * 24; // ≈ 2.883 USDFC
 | 1 month | ≈ 0.120 USDFC |
 | 24 months | ≈ 2.88 USDFC |
 
-The default 2-copy configuration roughly doubles the recurring cost. One-time fees apply once: $0.025 to create the data set plus the per-batch add-pieces fee.
+The default 2-copy configuration roughly doubles the recurring cost. Each copy uses its own data set, so one-time fees apply per copy: every new data set incurs the $0.025 creation fee, and each copy's `addPieces` operations incur their own base and per-piece fees.
 
 ---
 
@@ -265,7 +265,7 @@ const { costs, transaction } = await synapse.storage.prepare({
 })
 
 const { rates, depositNeeded, ready } = costs
-console.log("Monthly rate (per copy):", formatUnits(rates.perMonth), "USDFC")
+console.log("Total monthly rate:", formatUnits(rates.perMonth), "USDFC")
 console.log("Total deposit needed:", formatUnits(depositNeeded), "USDFC")
 console.log("Account ready:", ready)
 

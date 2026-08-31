@@ -20,6 +20,7 @@
  * ```
  */
 
+import { DataSetNotFoundError, ServiceAlreadyTerminatedError } from '@filoz/synapse-core/errors'
 import {
   calculateAccountDebt,
   isFwssMaxApproved,
@@ -910,9 +911,11 @@ export class StorageManager {
   /**
    * Prepare the account for upload by computing costs and returning a transaction to execute.
    *
-   * Can accept pre-computed costs (from a prior `getUploadCosts()` call) to skip redundant RPC,
-   * or computes them internally. When no context is provided, creates default contexts
-   * (mirroring the upload() flow).
+   * Can accept costs precomputed for the exact upload contexts and piece sizes to skip
+   * redundant RPC, or computes them internally. Use {@link calculateMultiContextCosts}
+   * when precomputing costs for multiple contexts; {@link getUploadCosts} covers one context.
+   * When neither costs nor a context are provided, creates default contexts, mirroring
+   * the upload flow.
    *
    * Aggregates per-context lockup correctly for any number of contexts:
    * - Fetches each existing dataset's aggregate PDP leaf count from chain
@@ -1023,7 +1026,10 @@ export class StorageManager {
 
       const dataSetState = dataSetsById.get(context.dataSetId)
       if (dataSetState == null) {
-        throw new Error(`Data set ${context.dataSetId} does not exist`)
+        throw new DataSetNotFoundError(context.dataSetId)
+      }
+      if (dataSetState.pdpEndEpoch !== 0n) {
+        throw new ServiceAlreadyTerminatedError(dataSetState.pdpEndEpoch)
       }
 
       return {
