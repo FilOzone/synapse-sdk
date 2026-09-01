@@ -20,7 +20,7 @@
  * ```
  */
 
-import { DataSetNotFoundError, ServiceAlreadyTerminatedError } from '@filoz/synapse-core/errors'
+import { DataSetNotFoundError } from '@filoz/synapse-core/errors'
 import {
   calculateAccountDebt,
   isFwssMaxApproved,
@@ -1028,10 +1028,6 @@ export class StorageManager {
       if (dataSetState == null) {
         throw new DataSetNotFoundError(context.dataSetId)
       }
-      if (dataSetState.pdpEndEpoch !== 0n) {
-        throw new ServiceAlreadyTerminatedError(dataSetState.pdpEndEpoch)
-      }
-
       return {
         pieceSizes: options.pieceSizes,
         withCDN: context.withCDN,
@@ -1039,6 +1035,7 @@ export class StorageManager {
           leafCount: leafCounts.get(context.dataSetId) ?? 0n,
           lifecycleReserveBalance: dataSetState.lifecycleReserveBalance,
           pendingOneTimePayments: dataSetState.pendingOneTimePayments,
+          pdpEndEpoch: dataSetState.pdpEndEpoch,
         },
       }
     })

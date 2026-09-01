@@ -1,6 +1,6 @@
-import { ValidationError } from '../errors/base.ts'
 import { calculateUploadCosts } from '../utils/calculate-upload-costs.ts'
-import { calculateAdditionalLockupRequired } from './calculate-additional-lockup-required.ts'
+import { resolveUploadDataSet } from '../utils/resolve-upload-data-set.ts'
+import type { calculateAdditionalLockupRequired } from './calculate-additional-lockup-required.ts'
 import type { calculateUploadFees } from './calculate-upload-fees.ts'
 import type { getPriceList } from './price-list.ts'
 
@@ -22,6 +22,8 @@ export namespace calculateDepositNeeded {
     currentLifecycleReserveBalance?: bigint
     /** One-time fees already pending on an existing data set. Defaults to 0. */
     pendingOneTimePayments?: bigint
+    /** Epoch at which the PDP payment rail ends. Required for an existing data set; must be 0n. */
+    pdpEndEpoch?: bigint
 
     // Runway parameters
     currentLockupRate: bigint
@@ -67,30 +69,16 @@ export namespace calculateDepositNeeded {
  *
  * @param params - {@link calculateDepositNeeded.ParamsType}
  * @returns {@link calculateDepositNeeded.OutputType}
- * @throws {@link ValidationError} when lifecycle reserve state, leaf count, or piece sizes are invalid
+ * @throws When existing-data-set state or piece sizes are invalid, or the data-set service is terminated
  */
 export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType): calculateDepositNeeded.OutputType {
-  const additionalLockup = calculateAdditionalLockupRequired({
-    pieceSizes: params.pieceSizes,
-    dataSetLeafCount: params.dataSetLeafCount,
-    priceList: params.priceList,
-    epochsPerMonth: params.epochsPerMonth,
-    lockupEpochs: params.lockupEpochs,
+  const dataSet = resolveUploadDataSet({
     isNewDataSet: params.isNewDataSet,
-    withCDN: params.withCDN,
+    dataSetLeafCount: params.dataSetLeafCount,
+    currentLifecycleReserveBalance: params.currentLifecycleReserveBalance,
+    pendingOneTimePayments: params.pendingOneTimePayments,
+    pdpEndEpoch: params.pdpEndEpoch,
   })
-  let dataSet: calculateUploadCosts.ExistingDataSetType | null = null
-  if (!params.isNewDataSet) {
-    const lifecycleReserveBalance = params.currentLifecycleReserveBalance
-    if (lifecycleReserveBalance == null) {
-      throw new ValidationError('currentLifecycleReserveBalance is required for an existing data set')
-    }
-    dataSet = {
-      leafCount: params.dataSetLeafCount,
-      lifecycleReserveBalance,
-      pendingOneTimePayments: params.pendingOneTimePayments ?? 0n,
-    }
-  }
   const costs = calculateUploadCosts({
     contexts: [{ pieceSizes: params.pieceSizes, withCDN: params.withCDN, dataSet }],
     priceList: params.priceList,
@@ -110,8 +98,12 @@ export function calculateDepositNeeded(params: calculateDepositNeeded.ParamsType
   return {
     depositNeeded: costs.depositNeeded,
     lockup: {
-      ...additionalLockup,
+      rateDeltaPerEpoch: costs.lockups.rateDeltaPerEpoch,
+      lifecycleLockup: costs.lockups.lifecycleLockup,
       reserveReplenishment: costs.lockups.reserveReplenishment,
+      streamingLockup: costs.lockups.streamingLockup,
+      cdnLockup: costs.lockups.cdnLockup,
+      cacheMissLockup: costs.lockups.cacheMissLockup,
       total: costs.lockups.total,
     },
     fees: costs.fees,

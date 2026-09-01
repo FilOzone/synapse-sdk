@@ -1,11 +1,11 @@
 import type { Address, Chain, Client, Transport } from 'viem'
 import { getBlockNumber } from 'viem/actions'
-import { ValidationError } from '../errors/base.ts'
 import { calculateAccountDebt } from '../pay/account-debt.ts'
 import { accounts } from '../pay/accounts.ts'
 import { isFwssMaxApproved } from '../pay/is-fwss-max-approved.ts'
 import { resolveAccountState } from '../pay/resolve-account-state.ts'
 import { calculateUploadCosts } from '../utils/calculate-upload-costs.ts'
+import { resolveUploadDataSet } from '../utils/resolve-upload-data-set.ts'
 import { getPriceList } from './price-list.ts'
 
 export namespace getUploadCosts {
@@ -23,6 +23,8 @@ export namespace getUploadCosts {
     currentLifecycleReserveBalance?: bigint
     /** One-time operation fees already pending on an existing data set. Defaults to 0. */
     pendingOneTimePayments?: bigint
+    /** Epoch at which the PDP payment rail ends. Required for an existing data set; must be 0n. */
+    pdpEndEpoch?: bigint
 
     /** Exact raw payload size of every piece planned for upload, in bytes. */
     pieceSizes: readonly bigint[]
@@ -44,7 +46,7 @@ export namespace getUploadCosts {
  * Fetches account state, pricing, and approval via read-only contract calls,
  * then delegates all cost arithmetic to the shared pure
  * `calculateUploadCosts` utility. Existing-data-set calls must provide
- * `dataSetLeafCount` and `currentLifecycleReserveBalance`; pass
+ * `dataSetLeafCount`, `currentLifecycleReserveBalance`, and `pdpEndEpoch`; pass
  * `pendingOneTimePayments` when the data set has unflushed lifecycle fees.
  * Multi-piece fee and reserve estimates conservatively treat each piece as a
  * separate add-pieces operation because actual batching is runtime-dependent.
@@ -52,7 +54,7 @@ export namespace getUploadCosts {
  * @param client - The client to use to compute upload costs.
  * @param options - {@link getUploadCosts.OptionsType}
  * @returns {@link getUploadCosts.OutputType}
- * @throws {@link ValidationError} when existing-data-set state, leaf count, or piece sizes are invalid
+ * @throws When existing-data-set state or piece sizes are invalid, or the data-set service is terminated
  */
 export async function getUploadCosts(
   client: Client<Transport, Chain>,
@@ -61,22 +63,13 @@ export async function getUploadCosts(
   const isNewDataSet = options.isNewDataSet ?? true
   const withCDN = options.withCDN ?? false
 
-  let dataSet: calculateUploadCosts.ExistingDataSetType | null = null
-  if (!isNewDataSet) {
-    const leafCount = options.dataSetLeafCount
-    const lifecycleReserveBalance = options.currentLifecycleReserveBalance
-    if (leafCount == null) {
-      throw new ValidationError('dataSetLeafCount is required for an existing data set')
-    }
-    if (lifecycleReserveBalance == null) {
-      throw new ValidationError('currentLifecycleReserveBalance is required for an existing data set')
-    }
-    dataSet = {
-      leafCount,
-      lifecycleReserveBalance,
-      pendingOneTimePayments: options.pendingOneTimePayments ?? 0n,
-    }
-  }
+  const dataSet = resolveUploadDataSet({
+    isNewDataSet,
+    dataSetLeafCount: options.dataSetLeafCount,
+    currentLifecycleReserveBalance: options.currentLifecycleReserveBalance,
+    pendingOneTimePayments: options.pendingOneTimePayments,
+    pdpEndEpoch: options.pdpEndEpoch,
+  })
 
   // Fetch all needed data in parallel
   const [accountInfo, priceList, currentEpoch] = await Promise.all([

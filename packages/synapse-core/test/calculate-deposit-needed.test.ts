@@ -2,6 +2,7 @@
 
 import assert from 'assert'
 import { maxUint256, parseUnits } from 'viem'
+import { ServiceAlreadyTerminatedError } from '../src/errors/pdp.ts'
 import { calculateBufferAmountFromState, calculateRunwayAmountFromState } from '../src/utils/calculate-upload-costs.ts'
 import { calculateDepositNeeded } from '../src/warm-storage/calculate-deposit-needed.ts'
 import type { getPriceList } from '../src/warm-storage/price-list.ts'
@@ -212,6 +213,7 @@ describe('calculateDepositNeeded', () => {
       withCDN: false,
       currentLifecycleReserveBalance: parseUnits('0.03', 18),
       pendingOneTimePayments: 0n,
+      pdpEndEpoch: 0n,
       currentLockupRate: 0n,
       extraRunwayEpochs: 0n,
       debt: 0n,
@@ -222,5 +224,43 @@ describe('calculateDepositNeeded', () => {
 
     assert.equal(result.lockup.reserveReplenishment, parseUnits('0.481', 18))
     assert.equal(result.depositNeeded, result.lockup.total)
+  })
+
+  it('rejects a terminated existing data set', () => {
+    assert.throws(
+      () =>
+        calculateDepositNeeded({
+          pieceSizes: [1000n],
+          dataSetLeafCount: 32n,
+          priceList,
+          isNewDataSet: false,
+          withCDN: false,
+          currentLifecycleReserveBalance: parseUnits('0.5', 18),
+          pdpEndEpoch: 42n,
+          currentLockupRate: 0n,
+          debt: 0n,
+          availableFunds: 0n,
+          runwayInEpochs: maxUint256,
+        }),
+      ServiceAlreadyTerminatedError
+    )
+  })
+
+  it('returns the rate delta calculated by the shared upload-cost utility', () => {
+    const result = calculateDepositNeeded({
+      pieceSizes: [1000n],
+      dataSetLeafCount: 0n,
+      priceList,
+      isNewDataSet: true,
+      withCDN: false,
+      currentLockupRate: 0n,
+      debt: 0n,
+      availableFunds: 0n,
+      runwayInEpochs: maxUint256,
+      bufferEpochs: 0n,
+    })
+
+    assert.ok(result.lockup.rateDeltaPerEpoch > 0n)
+    assert.equal(result.lockup.streamingLockup, result.lockup.rateDeltaPerEpoch * priceList.lockups.defaultLockupPeriod)
   })
 })

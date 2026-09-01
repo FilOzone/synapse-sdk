@@ -169,6 +169,7 @@ const { rates, fees, depositNeeded } = await synapse.storage.getUploadCosts({
   dataSetLeafCount,
   currentLifecycleReserveBalance: dataSet.lifecycleReserveBalance,
   pendingOneTimePayments: dataSet.pendingOneTimePayments,
+  pdpEndEpoch: dataSet.pdpEndEpoch,
   pieceSizes: [100n * SIZE_CONSTANTS.MiB],
 })
 // fees.addPiecesFee is the one-time fee for this upload

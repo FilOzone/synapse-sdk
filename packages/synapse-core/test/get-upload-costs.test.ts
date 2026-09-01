@@ -4,6 +4,7 @@ import assert from 'assert'
 import { setup } from 'iso-web/msw'
 import { createPublicClient, http, maxUint256, parseUnits } from 'viem'
 import { calibration } from '../src/chains.ts'
+import { ServiceAlreadyTerminatedError } from '../src/errors/pdp.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { leafCountToRawSize, rawSizeToLeafCount } from '../src/utils/pdp-size.ts'
 import { getUploadCosts } from '../src/warm-storage/get-upload-costs.ts'
@@ -341,6 +342,7 @@ describe('getUploadCosts', () => {
       isNewDataSet: false,
       dataSetLeafCount: rawSizeToLeafCount(halfTiB),
       currentLifecycleReserveBalance: parseUnits('0.5', 18),
+      pdpEndEpoch: 0n,
     })
 
     // New dataset: 0.5 TiB → 0.5 TiB rate
@@ -381,6 +383,32 @@ describe('getUploadCosts', () => {
         dataSetLeafCount: 0n,
       }),
       /currentLifecycleReserveBalance is required/
+    )
+    await assert.rejects(
+      getUploadCosts(client, {
+        clientAddress: ADDRESSES.client1,
+        pieceSizes: [1n],
+        isNewDataSet: false,
+        dataSetLeafCount: 0n,
+        currentLifecycleReserveBalance: parseUnits('0.5', 18),
+      }),
+      /pdpEndEpoch is required/
+    )
+  })
+
+  it('should reject a terminated existing data set before reading account state', async () => {
+    const client = createPublicClient({ chain: calibration, transport: http() })
+
+    await assert.rejects(
+      getUploadCosts(client, {
+        clientAddress: ADDRESSES.client1,
+        pieceSizes: [1n],
+        isNewDataSet: false,
+        dataSetLeafCount: 0n,
+        currentLifecycleReserveBalance: parseUnits('0.5', 18),
+        pdpEndEpoch: 42n,
+      }),
+      ServiceAlreadyTerminatedError
     )
   })
 

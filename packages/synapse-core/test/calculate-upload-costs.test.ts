@@ -2,6 +2,7 @@
 
 import assert from 'assert'
 import { maxUint256, parseUnits } from 'viem'
+import { ServiceAlreadyTerminatedError } from '../src/errors/pdp.ts'
 import { calculateUploadCosts } from '../src/utils/calculate-upload-costs.ts'
 import type { getPriceList } from '../src/warm-storage/price-list.ts'
 
@@ -106,6 +107,7 @@ describe('calculateUploadCosts', () => {
         leafCount: 100n,
         lifecycleReserveBalance: priceList.lockups.lifecycleReserveTarget,
         pendingOneTimePayments: 0n,
+        pdpEndEpoch: 0n,
       },
     } satisfies calculateUploadCosts.ContextType
 
@@ -131,6 +133,23 @@ describe('calculateUploadCosts', () => {
     assert.throws(
       () => calculateUploadCosts({ contexts: [], priceList, account }),
       /contexts must contain at least one storage context/
+    )
+  })
+
+  it('rejects a terminated existing data set', () => {
+    const terminatedContext = {
+      ...newContext,
+      dataSet: {
+        leafCount: 100n,
+        lifecycleReserveBalance: priceList.lockups.lifecycleReserveTarget,
+        pendingOneTimePayments: 0n,
+        pdpEndEpoch: 42n,
+      },
+    } satisfies calculateUploadCosts.ContextType
+
+    assert.throws(
+      () => calculateUploadCosts({ contexts: [terminatedContext], priceList, account }),
+      ServiceAlreadyTerminatedError
     )
   })
 })

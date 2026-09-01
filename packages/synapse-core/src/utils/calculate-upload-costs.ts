@@ -6,6 +6,7 @@ import { calculateUploadFees } from '../warm-storage/calculate-upload-fees.ts'
 import type { getPriceList } from '../warm-storage/price-list.ts'
 import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS, TIME_CONSTANTS } from './constants.ts'
 import { leafCountToRawSize, pieceSizesToLeafCount } from './pdp-size.ts'
+import { assertUploadDataSetIsActive, type UploadDataSetState } from './resolve-upload-data-set.ts'
 
 export type CalculateRunwayAmountFromStateOptions = {
   netRateAfterUpload: bigint
@@ -52,16 +53,6 @@ export function calculateBufferAmountFromState(options: CalculateBufferAmountFro
 }
 
 export namespace calculateUploadCosts {
-  /** Resolved on-chain state for an existing data set. */
-  export type ExistingDataSetType = {
-    /** Aggregate leaf count reported by PDP Verifier. */
-    leafCount: bigint
-    /** Current fixed lifecycle reserve balance mirrored from the PDP payment rail. */
-    lifecycleReserveBalance: bigint
-    /** One-time operation fees waiting to be flushed from the lifecycle reserve. */
-    pendingOneTimePayments: bigint
-  }
-
   /** One storage context affected by the planned upload. */
   export type ContextType = {
     /** Exact raw payload size of every piece planned for this context, in bytes. */
@@ -69,7 +60,7 @@ export namespace calculateUploadCosts {
     /** Whether CDN is enabled for this context's data set. */
     withCDN: boolean
     /** Existing state, or null when the upload creates a new data set. */
-    dataSet: ExistingDataSetType | null
+    dataSet: UploadDataSetState | null
   }
 
   /** Resolved payer state shared by all upload contexts. */
@@ -115,6 +106,8 @@ export namespace calculateUploadCosts {
     fees: calculateUploadFees.OutputType
     /** Sum of additional lockups required across all contexts. */
     lockups: {
+      /** Aggregate recurring-rate increase used to calculate streaming lockup. */
+      rateDeltaPerEpoch: bigint
       lifecycleLockup: bigint
       /** Additional fixed lockup needed to replenish lifecycle reserves. */
       reserveReplenishment: bigint
@@ -202,6 +195,8 @@ export function calculateUploadCosts(options: calculateUploadCosts.OptionsType):
   let totalAddPiecesFee = 0n
 
   for (const context of options.contexts) {
+    if (context.dataSet != null) assertUploadDataSetIsActive(context.dataSet)
+
     const isNewDataSet = context.dataSet == null
     const dataSetLeafCount = context.dataSet?.leafCount ?? 0n
     const addedLeafCount = pieceSizesToLeafCount(context.pieceSizes)
@@ -278,6 +273,7 @@ export function calculateUploadCosts(options: calculateUploadCosts.OptionsType):
       total: createDataSetFee + addPiecesFee,
     },
     lockups: {
+      rateDeltaPerEpoch: totalRateDeltaPerEpoch,
       lifecycleLockup: totalLifecycleLockup,
       reserveReplenishment: totalReserveReplenishment,
       streamingLockup: totalStreamingLockup,
