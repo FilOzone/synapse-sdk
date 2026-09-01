@@ -89,7 +89,8 @@ const config: ReturnType<typeof defineConfig> = defineConfig(async () => {
     {
       name: 'FilecoinWarmStorageServiceStateView',
       address: {
-        314: mainnetAddresses.FWSS_VIEW_ADDRESS,
+        // Temporary override for testing updated pricing after the Mainnet upgrade; remove once deployments are published.
+        314: '0xcf184Ab1FD8D1a563054d30Aa1fFb08136998172',
         314159: calibrationAddresses.FWSS_VIEW_ADDRESS,
       },
     },
