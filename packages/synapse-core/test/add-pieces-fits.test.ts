@@ -1,7 +1,10 @@
 import assert from 'assert'
+import { encodeAbiParameters, encodeFunctionData, size, toHex, zeroAddress } from 'viem'
+import { pdpVerifierAbi } from '../src/abis/generated.ts'
 import { ADDRESSES } from '../src/mocks/jsonrpc/constants.ts'
 import * as Piece from '../src/piece/index.ts'
 import { addPiecesFits, estimateAddPiecesCalldataSize } from '../src/sp/add-pieces-fits.ts'
+import { signAddPiecesAbiParameters } from '../src/typed-data/sign-add-pieces.ts'
 import type { PdpDataSet } from '../src/warm-storage/types.ts'
 
 const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
@@ -74,6 +77,18 @@ describe('addPiecesFits', () => {
   it('should accept more than the old 40-piece count cap when pieces are small', () => {
     const pieces = Array.from({ length: 41 }, () => ({ pieceCid }))
     assert.equal(addPiecesFits({ kind: 'addPieces', pieces }), true)
+  })
+
+  it('should use compact metadata when every piece has none', () => {
+    const emptyPieces = Array.from({ length: 2 }, () => ({ pieceCid }))
+    const extraData = encodeAbiParameters(signAddPiecesAbiParameters, [0n, [], [], `0x${'00'.repeat(65)}`])
+    const expectedCalldata = encodeFunctionData({
+      abi: pdpVerifierAbi,
+      functionName: 'addPieces',
+      args: [0n, zeroAddress, emptyPieces.map((piece) => ({ data: toHex(piece.pieceCid.bytes) })), extraData],
+    })
+
+    assert.equal(estimateAddPiecesCalldataSize({ kind: 'addPieces', pieces: emptyPieces }), size(expectedCalldata))
   })
 
   it('should treat createDataSetAndAddPieces as larger than addPieces', () => {

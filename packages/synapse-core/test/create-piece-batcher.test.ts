@@ -313,7 +313,7 @@ describe('createPieceBatcher', () => {
 
     assert.ok(pullExtraData)
     const pullDecoded = decodeAbiParameters(TypedData.signAddPiecesAbiParameters, pullExtraData as `0x${string}`)
-    assert.equal(pullDecoded[1].length, 1)
+    assert.equal(pullDecoded[1].length, 0)
 
     assert.equal(addBodies.length, 1)
     assert.equal(addBodies[0]?.pieces.length, 2)
@@ -321,7 +321,7 @@ describe('createPieceBatcher', () => {
       TypedData.signAddPiecesAbiParameters,
       addBodies[0]?.extraData as `0x${string}`
     )
-    assert.equal(flushDecoded[1].length, 2)
+    assert.equal(flushDecoded[1].length, 0)
     assert.equal(uploaded.txHash, pulled.txHash)
   })
 
