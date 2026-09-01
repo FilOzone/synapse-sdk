@@ -13,6 +13,7 @@ import {
 import { signTypedData } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
+import { compactPieceMetadata } from '../utils/compact-piece-metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 import { EIP712Types, getStorageDomain, type MetadataEntry } from './type-definitions.ts'
 
@@ -49,6 +50,7 @@ export async function signAddPieces(
   const chain = asChain(client.chain)
   const { clientDataSetId, nonce: _nonce, pieces, verifyingContract } = options
   const nonce = _nonce ?? randU256()
+  const pieceMetadata = compactPieceMetadata(Array.from(pieces, (piece) => piece.metadata ?? []) as MetadataEntry[][])
 
   const signature = await signTypedData(client, {
     account: client.account,
@@ -64,16 +66,15 @@ export async function signAddPieces(
         }
       }),
 
-      pieceMetadata: pieces.map((piece, index) => ({
+      pieceMetadata: pieceMetadata.map((metadata, index) => ({
         pieceIndex: BigInt(index),
-        metadata: piece.metadata ?? [],
+        metadata,
       })),
     },
   })
 
-  const metadataKV = Array.from(pieces, (piece) => piece.metadata ?? []) as MetadataEntry[][]
-  const keys = metadataKV.map((item) => item.map((item) => item.key))
-  const values = metadataKV.map((item) => item.map((item) => item.value))
+  const keys = pieceMetadata.map((item) => item.map((item) => item.key))
+  const values = pieceMetadata.map((item) => item.map((item) => item.value))
 
   const extraData = encodeAbiParameters(signAddPiecesAbiParameters, [nonce, keys, values, signature])
   return extraData

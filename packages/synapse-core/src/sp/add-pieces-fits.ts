@@ -6,6 +6,7 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPiecesAbiParameters } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSetAbiParameters } from '../typed-data/sign-create-dataset.ts'
 import { signcreateDataSetAndAddPiecesAbiParameters } from '../typed-data/sign-create-dataset-add-pieces.ts'
+import { compactPieceMetadata } from '../utils/compact-piece-metadata.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
@@ -132,7 +133,7 @@ function dummyExtraData(options: LimiterOptions): Hex {
 }
 
 function dummyAddPiecesExtraData(pieces: LimiterPiece[]): Hex {
-  const metadataKV = pieces.map((piece) => pieceMetadataObjectToEntry(piece.metadata))
+  const metadataKV = compactPieceMetadata(pieces.map((piece) => pieceMetadataObjectToEntry(piece.metadata)))
   const keys = metadataKV.map((entries) => entries.map((entry) => entry.key))
   const values = metadataKV.map((entries) => entries.map((entry) => entry.value))
   return encodeAbiParameters(signAddPiecesAbiParameters, [0n, keys, values, DUMMY_SIGNATURE])
