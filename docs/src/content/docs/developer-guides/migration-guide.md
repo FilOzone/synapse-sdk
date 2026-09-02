@@ -13,6 +13,12 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 This release changes upload cost inputs, enables automatic piece batching, and removes the piece metadata getters deprecated in 1.2.1. If you use core actions directly, also follow [synapse-core 0.9.0](#synapse-core-090).
 
+### Action: Use new data sets for compact storage
+
+PDPVerifier 3.5.0 introduces compact piece storage for data sets created after the network's migration. Existing data sets keep their legacy format permanently, including newly appended pieces; neither the contract upgrade nor the SDK migrates them automatically.
+
+Read [Larger, Cheaper Storage Batches](/developer-guides/storage/storage-upgrade/) for gas savings, batching, and how to explicitly direct future uploads to new data sets. Reuse the new data sets after switching; changing application metadata is optional.
+
 ### Action: Pass exact piece sizes to upload cost APIs
 
 Replace `dataSize` with `pieceSizes` in `storage.prepare()`, `storage.calculateMultiContextCosts()`, and `storage.getUploadCosts()`. Remove `pieceCount` from `getUploadCosts()` calls: the number of pieces is now the array length.
@@ -105,7 +111,9 @@ Batched secondary pulls sign their per-piece authorization separately from the e
 
 ### Action: Replace SDK piece metadata reads
 
-`WarmStorageService.getPieceMetadata()` and `getPieceMetadataByKey()` were deprecated in 1.2.1 and are removed in 2.0.0. Read piece metadata from FWSS `PieceAdded` events or an indexer. Upload and commit options still accept piece metadata for inclusion in those events.
+Newly added piece metadata is no longer stored in FWSS contract state, including additions to existing data sets. Upload and commit options still accept metadata, which is validated, signed, and emitted in `PieceAdded` events.
+
+`WarmStorageService.getPieceMetadata()` and `getPieceMetadataByKey()` were deprecated in 1.2.1 and are removed in 2.0.0. Read piece metadata from FWSS `PieceAdded` events or an indexer.
 
 For React integrations using the updated core, each data set returned by `useDataSets()` now has a `pieces: Piece[]` array whose items have no `metadata` field. Update components that read `piece.metadata` to use event or indexer data. See the [core metadata migration](#action-replace-core-piece-metadata-reads) for the removed actions and replacement types.
 

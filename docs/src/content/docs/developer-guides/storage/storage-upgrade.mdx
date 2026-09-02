@@ -1,0 +1,113 @@
+---
+title: Larger, Cheaper Storage Batches
+description: How the storage upgrade fits more pieces into each operation, reduces costs, and benefits new data sets.
+sidebar:
+  order: 3
+  label: Storage Upgrade
+---
+
+The August 2026 storage upgrade makes it cheaper to manage many files together. Three changes work together: **smaller on-chain piece records, smaller addition events, and less metadata overhead**. More pieces can fit into one operation, and batching spreads the transaction's fixed costs across more files.
+
+**For the full benefit, create new data sets after your network's upgrade, then reuse them.** Existing data sets remain supported, but their piece records keep the old storage format permanently. Neither the contract upgrade nor the SDK moves existing content automatically.
+
+## What changed?
+
+| Change | Benefit for your application |
+| --- | --- |
+| **Compact piece storage:** each piece uses two storage slots instead of five. | Less on-chain state to write and read, reducing gas for additions, proofs, and removal. Available only in new data sets. |
+| **Smaller, split addition events:** large additions can emit several compact events. | Removes the old 41-piece event ceiling, allowing more pieces in one transaction. Applies to old and new data sets after upgrade. |
+| **Lighter piece metadata:** application metadata is signed and emitted in events, but no longer written to contract storage. Batches without metadata also use a smaller request encoding. | Fewer storage writes; omitting piece metadata saves another 128 bytes per piece in the request, leaving room for more pieces. Applies to new additions in old and new data sets. |
+
+Your files still have their own PieceCIDs and remain individually retrievable. Batching combines their on-chain registration, not their contents. If your application reads piece metadata, retrieve it from FWSS `PieceAdded` events or an indexer; the old metadata getters have been removed.
+
+Sources: [compact storage](https://github.com/FilOzone/pdp/pull/292), [addition events](https://github.com/FilOzone/pdp/pull/300), [event-based metadata](https://github.com/FilOzone/filecoin-services/pull/577), [smaller metadata-free requests](https://github.com/FilOzone/filecoin-services/pull/582).
+
+## More pieces per operation
+
+Previously, the addition event limited transactions to 41 pieces, and the SDK/provider path used a conservative limit of 40. The upgraded contract splits addition events into groups of 100; **100 is an event size, not a transaction limit**. A transaction can contain several such events. [Event limits](https://github.com/FilOzone/pdp/pull/300)
+
+The SDK now checks the encoded request size against a 65,248-byte budget instead of using a fixed piece count. The less metadata you attach, the more pieces fit:
+
+| Metadata on each piece | Append to a data set | Create a data set and add pieces |
+| --- | ---: | ---: |
+| None | Up to 404 | Up to 401 |
+| One short pair, such as `name: 'a'` | Up to 134 | Up to 133 |
+| Three pairs with maximum-length keys and values | Up to 61 | Up to 60 |
+
+These are **encoded-size estimates, not guaranteed upload limits**, calculated with the [SDK encoder at `26bccbbf`](https://github.com/FilOzone/synapse-sdk/blob/26bccbbf/packages/synapse-core/src/sp/add-pieces-fits.ts). They assume a standard 65-byte signature, PieceCIDs occupying two ABI words, and no data-set metadata or CDN setting for creation. SDK-added `source` metadata, other creation options, transaction gas, and provider limits can reduce the actual batch size. If any piece has metadata, the batch must retain per-piece metadata arrays.
+
+:::caution[Provider support is still catching up]
+As checked on 2 September 2026, [Curio still caps append and create-and-add requests at 40 pieces](https://github.com/filecoin-project/curio/blob/b8467c315a18af4981991550d8ecfb3ac0388f07/pdp/handlers.go#L59-L61). The larger capacities above require provider support. Until then, keep groups of concurrent SDK uploads at 40 or fewer and await each group before starting another, including uploads sharing the same `Synapse` instance. The SDK's size check does not discover this provider limit.
+:::
+
+The SDK [batches compatible concurrent uploads automatically](/developer-guides/storage/upload-pipeline/#uploading-multiple-files). Each provider has its own batch, so storing two copies requires separate on-chain operations for the two providers.
+
+## Lower cost per piece
+
+There are two benefits: providers spend less gas processing pieces, and users pay fewer fixed operation fees when pieces share a transaction.
+
+### Less gas for providers
+
+The compact-storage benchmark measured **14–19% less gas for a single-piece addition** and **about 85% less gas per piece in a 41-piece addition**, compared with the legacy implementation. A separate proving benchmark measured **34% less gas per daily proving cycle** for compact data sets. [Storage benchmarks](https://github.com/FilOzone/pdp/pull/292), [proving benchmark](https://github.com/FilOzone/filecoin-services/pull/592)
+
+The event change also demonstrated larger batches: 135 pieces with one metadata pair and 225 without metadata in its benchmark configuration. Those batches reduced gas per piece by a further 16% and 34–35% relative to that benchmark's smaller batches. Subsequent metadata changes remove more storage and request overhead. These measurements use different intermediate builds and workloads; they are not a single combined savings percentage or current provider limits. [Larger-batch benchmarks](https://github.com/FilOzone/pdp/pull/300)
+
+### Fewer operation fees for users
+
+At the FWSS 1.4.0 schedule, adding pieces costs **0.008 USDFC per operation plus 0.003 USDFC per piece**. For 40 pieces added to one existing data set:
+
+| Submission | Add-pieces fees per copy |
+| --- | ---: |
+| 40 separate operations | `40 × (0.008 + 0.003)` = **0.440 USDFC** |
+| One operation containing 40 pieces | `0.008 + 40 × 0.003` = **0.128 USDFC** |
+
+That is **about 71% less in add-pieces fees** for the same files. Larger supported batches spread the base fee further. This excludes creation fees, recurring storage, and other charges; each replica pays separately.
+
+Gas savings are not a matching discount on the entire storage bill. Providers pay gas in FIL, while users pay the USDFC service schedule. The release also recalibrates prices for both old and new data sets. Read current prices and use `prepare()` to calculate funding. [Storage costs](/developer-guides/storage/storage-costs/), [release pricing changes](https://github.com/FilOzone/filecoin-services/blob/997da817328eb72bfae1e998924bf1d47d7090c2/CHANGELOG.md)
+
+## Get the full benefit with new data sets
+
+### Wait for your network's cutover
+
+The new format applies to data sets created after the PDPVerifier 3.5.0 migration. As of 2 September 2026, Calibration has completed the PDPVerifier 3.5.0 and FWSS 1.4.0 upgrades; Mainnet execution is still pending. Creating a Mainnet data set before the cutover still uses the old format. Check the [PDPVerifier rollout](https://github.com/FilOzone/pdp/issues/304) and [FWSS release status](https://github.com/FilOzone/filecoin-services/releases/tag/v1.4.0).
+
+You can check the format of a data set by reading `legacyPieceStorageIdLimit()` from the network's PDPVerifier proxy. An existing data set at or above a nonzero boundary uses compact storage; IDs below it remain legacy. Zero means the cutover has not happened, and older implementations do not expose the getter. The contract's `migrate()` sets this boundary; it does not migrate user content. [Cutover rules](https://github.com/FilOzone/pdp/pull/292)
+
+### Choose new data sets once, then reuse them
+
+The SDK matches data sets by metadata and may keep reusing an old one after you upgrade. Choose a **stable metadata value unused by your old data sets** to direct future uploads into new ones. Keep that value on subsequent uploads; changing it for every file creates unnecessary data sets and fees. It is an application label, not a storage-format setting.
+
+After confirming the network cutover:
+
+```ts twoslash
+import { Synapse } from '@filoz/synapse-sdk'
+declare const synapse: Synapse
+// ---cut---
+// Preserve your app's other metadata. Keep this generation value for future uploads.
+const metadata = { app: 'my-app', storageGeneration: 'compact-2026-08' }
+const contexts = await synapse.storage.createContexts({ copies: 2, metadata })
+
+const data = new TextEncoder().encode('Hello, compact storage!'.repeat(8))
+const prep = await synapse.storage.prepare({
+  context: contexts,
+  pieceSizes: [BigInt(data.byteLength)],
+})
+if (prep.transaction) await prep.transaction.execute()
+
+const result = await synapse.storage.upload(data, { contexts })
+if (result.complete === false) throw new Error('Not all requested copies were committed')
+
+for (const copy of result.copies) {
+  console.log(copy.providerId, copy.dataSetId, copy.pieceId)
+}
+```
+
+New data sets are created at the first commit. Save the returned data-set IDs, or keep using the same metadata, `source`, and CDN setting to reuse them. Stop passing old `dataSetIds` or old contexts. Creating replacement data sets incurs creation fees and new reserves, so reuse the replacements rather than creating one per upload. [Data-set matching](/developer-guides/storage/storage-operations/#data-set-matching)
+
+### Move existing content only when useful
+
+You can leave existing content where it is and use compact data sets only for future uploads. Adding more pieces to an old data set does not change its format.
+
+To move existing content, upload the same bytes or [pull and commit](/developer-guides/storage/upload-pipeline/#split-operations) into the new data sets. Confirm all required copies and retrieval before removing old pieces or terminating the old service. PieceCIDs stay the same for unchanged content; record the new data-set and piece IDs and preserve application metadata. Old and new copies both incur charges while active, and old lockups follow the normal [service lifecycle](/developer-guides/storage/storage-operations/#lifecycle-management).
+
+For applications consuming contract events directly, support PDPVerifier `PiecesAddedV2` as well as historical `PiecesAdded` logs. FWSS `PieceAdded`, which carries application metadata, is a separate event. See the [migration guide](/developer-guides/migration-guide/) for SDK API changes.
