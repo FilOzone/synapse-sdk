@@ -10,18 +10,18 @@ import { IN_BITS_FR, MULTIHASH_CODE, MULTIHASH_NAME, OUT_BITS_FR } from './const
 import { expandedFromHeight } from './size.ts'
 
 export const code = MULTIHASH_CODE
-export const name = MULTIHASH_NAME
+const name = MULTIHASH_NAME
 
 /** Varint max for the tree-height byte. */
 const MAX_PADDING_SIZE = 9
 export const HEIGHT_SIZE = 1
 export const ROOT_SIZE = SHA256.size
 
-export const MAX_DIGEST_SIZE = MAX_PADDING_SIZE + HEIGHT_SIZE + SHA256.size
+const MAX_DIGEST_SIZE = MAX_PADDING_SIZE + HEIGHT_SIZE + SHA256.size
 export const TAG_SIZE = varint.encodingLength(code)
 export const MAX_SIZE = TAG_SIZE + varint.encodingLength(MAX_DIGEST_SIZE) + MAX_DIGEST_SIZE
 
-export const MAX_HEIGHT = 255
+const MAX_HEIGHT = 255
 
 /**
  * Max payload size derivable from the maximum-height tree.

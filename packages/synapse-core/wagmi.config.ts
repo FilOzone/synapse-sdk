@@ -1,7 +1,7 @@
 import { defineConfig } from '@wagmi/cli'
 import { fetch as fetchPlugin } from '@wagmi/cli/plugins'
 import { request } from 'iso-web/http'
-import { type Abi, zeroAddress } from 'viem'
+import { zeroAddress } from 'viem'
 import * as z from 'zod'
 import { ZodValidationError } from './src/errors/base.ts'
 import { zAddress } from './src/utils/schemas.ts'

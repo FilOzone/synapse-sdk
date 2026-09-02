@@ -47,26 +47,26 @@
     "@filoz/synapse-sdk": "workspace:*",
     "@tanstack/react-query": "5.101.4",
     "starlight-auto-sidebar": "0.4.0",
-    "starlight-changelogs": "0.5.1",
+    "starlight-changelogs": "0.6.0",
     "starlight-links-validator": "0.25.3",
     "viem": "catalog:",
     "wagmi": "catalog:"
   },
   "devDependencies": {
-    "@astrojs/markdown-remark": "7.2.2",
+    "@astrojs/markdown-remark": "7.2.4",
     "@astrojs/starlight": "0.41.7",
     "@hugomrdias/docs": "0.2.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "astro": "7.2.1",
+    "astro": "7.2.4",
     "astro-mermaid": "2.1.0",
     "expressive-code-twoslash": "0.6.1",
-    "mermaid": "11.16.1",
+    "mermaid": "11.17.0",
     "rehype-external-links": "3.0.0",
     "sharp": "0.35.3",
     "typedoc": "0.28.20",
     "typedoc-plugin-mdn-links": "5.1.1",
     "typedoc-plugin-missing-exports": "4.1.4",
-    "wrangler": "4.122.0"
+    "wrangler": "4.125.0"
   }
 }

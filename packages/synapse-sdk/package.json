@@ -145,18 +145,18 @@
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",
-    "multiformats": "^14.0.0"
+    "multiformats": "14.0.5"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@types/chai": "^5.2.3",
+    "@types/chai": "5.2.3",
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
-    "chai": "^6.2.1",
+    "chai": "6.2.2",
     "iso-web": "catalog:",
     "mocha": "catalog:",
     "msw": "catalog:",
-    "p-defer": "^4.0.1",
+    "p-defer": "4.0.1",
     "playwright-test": "^14.1.12",
     "typescript": "catalog:",
     "viem": "catalog:"
