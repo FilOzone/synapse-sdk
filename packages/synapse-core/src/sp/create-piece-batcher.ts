@@ -4,8 +4,7 @@ import { AddPiecesFlushError } from '../errors/pdp.ts'
 import { PullError } from '../errors/pull.ts'
 import { DataSetNotFoundError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
-import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
+import type { MetadataObject } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 import { isUint8Array } from '../utils/streams.ts'
 import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
@@ -129,8 +128,8 @@ export namespace createPieceBatcher {
  * `upload` and `pull` run per-piece I/O right away (`upload` uses the
  * streaming CommP-last protocol for bytes and streams). The tumbling window
  * only batches the on-chain addPieces (or createDataSetAndAddPieces) call.
- * Pull authorization uses `signAddPieces` for that one piece; flush signs a
- * new extraData for the whole window.
+ * Pull authorization matches the eventual operation for that one piece;
+ * flush signs new extraData for the whole window.
  *
  * @param client - Wallet client used to sign and submit.
  * @param options - {@link createPieceBatcher.OptionsType}
@@ -456,16 +455,6 @@ export function createPieceBatcher(
   async function pull(input: PullInput): Promise<PieceResult> {
     return parkAndEnqueue(async () => {
       assertPieceCidSize(input.pieceCid)
-      const signingPieces = [
-        {
-          pieceCid: input.pieceCid,
-          metadata: pieceMetadataObjectToEntry(input.metadata),
-        },
-      ]
-      const extraData = await signAddPieces(client, {
-        clientDataSetId: dataSet == null ? createClientDataSetId : dataSet.clientDataSetId,
-        pieces: signingPieces,
-      })
       const pullPiece = {
         pieceCid: input.pieceCid,
         sourceUrl: input.sourceUrl,
@@ -476,7 +465,7 @@ export function createPieceBatcher(
           ? await waitForPullPieces(client, {
               serviceURL: serviceURL(),
               pieces: [pullPiece],
-              extraData,
+              clientDataSetId: createClientDataSetId,
               payee: requirePayee(),
               payer,
               cdn,
@@ -487,7 +476,6 @@ export function createPieceBatcher(
           : await waitForPullPieces(client, {
               serviceURL: serviceURL(),
               pieces: [pullPiece],
-              extraData,
               dataSetId: dataSet.dataSetId,
               clientDataSetId: dataSet.clientDataSetId,
               signal: input.signal,

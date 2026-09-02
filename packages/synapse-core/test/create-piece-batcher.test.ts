@@ -325,6 +325,57 @@ describe('createPieceBatcher', () => {
     assert.equal(uploaded.txHash, pulled.txHash)
   })
 
+  it('should use create-and-add authorization when pulling into a new data set', async () => {
+    let pullExtraData: string | undefined
+    let pullDataSetId: number | undefined
+    server.use(
+      JSONRPC(presets.basic),
+      pullPiecesWithCaptureHandler(
+        createPullResponse('complete', [{ pieceCid: pieceCidB.toString() }]),
+        (request) => {
+          pullExtraData = request.extraData
+          pullDataSetId = request.dataSetId
+        },
+        { baseUrl: pdpBase }
+      ),
+      createAndAddPiecesHandler(mockTxHash, { baseUrl: pdpBase }),
+      dataSetCreationStatusHandler(
+        mockTxHash,
+        {
+          createMessageHash: mockTxHash,
+          dataSetCreated: true,
+          service: 'warm',
+          txStatus: 'confirmed',
+          ok: true,
+          dataSetId: 1,
+        },
+        { baseUrl: pdpBase }
+      )
+    )
+
+    const batcher = createPieceBatcher(client, {
+      dataSet: undefined,
+      serviceURL: pdpBase,
+      payee: ADDRESSES.payee1,
+      wait: { kind: 'limiter' },
+    })
+    const pulledP = batcher.pull({
+      pieceCid: pieceCidB,
+      sourceUrl: `${pdpBase}/piece/${pieceCidB.toString()}`,
+    })
+    await batcher.close()
+    await pulledP
+
+    assert.equal(pullDataSetId, undefined)
+    assert.ok(pullExtraData)
+    const [createExtraData, addExtraData] = decodeAbiParameters(
+      TypedData.signcreateDataSetAndAddPiecesAbiParameters,
+      pullExtraData as `0x${string}`
+    )
+    decodeAbiParameters(TypedData.signCreateDataSetAbiParameters, createExtraData)
+    decodeAbiParameters(TypedData.signAddPiecesAbiParameters, addExtraData)
+  })
+
   it('should call onParked after park and before addPieces', async () => {
     const parked: string[] = []
     const bodies: addPiecesApiRequest.RequestBody[] = []
