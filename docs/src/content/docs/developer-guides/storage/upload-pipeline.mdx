@@ -131,7 +131,7 @@ import { privateKeyToAccount } from "viem/accounts"
 
 const synapse = Synapse.create({ account: privateKeyToAccount("0x...") })
 
-const prep = await synapse.storage.prepare({ dataSize: 1073741824n }) // 1 GiB
+const prep = await synapse.storage.prepare({ pieceSizes: [1073741824n] }) // one 1 GiB piece
 if (prep.transaction) {
   await prep.transaction.execute()
 }

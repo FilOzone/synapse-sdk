@@ -47,13 +47,17 @@ export type FundOptions = import('@filoz/synapse-core/pay').fund.OptionsType
 export interface PrepareOptions {
   /** StorageContext(s) to prepare for upload. */
   context?: import('./storage/context.ts').StorageContext | import('./storage/context.ts').StorageContext[]
-  /** Size of new data to upload, in bytes. */
-  dataSize: bigint
+  /** Exact raw payload size of every piece planned per context; multi-piece fee estimates are conservative. */
+  pieceSizes: readonly bigint[]
   /** Extra runway in epochs beyond the required lockup. */
   extraRunwayEpochs?: bigint
   /** Safety margin in epochs. Default: 5n */
   bufferEpochs?: bigint
-  /** Pre-computed costs — skips internal getUploadCosts() call. */
+  /**
+   * Aggregate costs precomputed for the exact contexts and piece sizes being prepared.
+   * Use `calculateMultiContextCosts()` when preparing multiple contexts; `getUploadCosts()`
+   * only calculates one context. Supplying this value skips internal cost calculation.
+   */
   costs?: UploadCosts
 }
 
@@ -261,6 +265,10 @@ export interface DataSetInfo {
   pdpEndEpoch: bigint
   /** Provider ID from the ServiceProviderRegistry */
   providerId: bigint
+  /** One-time operation fees waiting to be flushed from the lifecycle reserve. */
+  pendingOneTimePayments: bigint
+  /** Current fixed lifecycle reserve balance mirrored from the PDP payment rail. */
+  lifecycleReserveBalance: bigint
   // Legacy alias for backward compatibility
   paymentEndEpoch?: bigint
   /** PDP Data Set ID */

@@ -2,7 +2,7 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 
 export namespace calculateEffectiveRate {
   export type ParamsType = {
-    /** Total data size in the dataset (existing + new), in bytes. */
+    /** Aggregate byte size produced by PDP's `leafCountToRawSize`, after combining all data-set leaves. */
     sizeInBytes: bigint
     /** Storage price per TiB per month. */
     storagePerTibPerMonth: bigint
@@ -47,14 +47,16 @@ export namespace calculateEffectiveRate {
 }
 
 /**
- * Calculate the expected FWSS recurring rate for a dataset size.
+ * Calculate the expected FWSS recurring rate for a contract-priced data-set size.
  *
  * Returns two rates for different use cases:
  * - `ratePerEpoch` — matches the on-chain rail rate (use for lockup math)
  * - `ratePerMonth` — higher precision, linearly scalable (use for display)
  *
- * Empty datasets have no recurring rate. Non-empty datasets pay the
- * size-based storage rate plus the per-dataset proving service fee.
+ * Callers matching on-chain behavior must first combine all PDP leaf counts,
+ * then convert that aggregate count with `leafCountToRawSize`. Empty data sets
+ * have no recurring rate. Non-empty data sets pay the size-based storage rate
+ * plus the per-data-set proving service fee.
  *
  * @param params - {@link calculateEffectiveRate.ParamsType}
  * @returns {@link calculateEffectiveRate.OutputType}

@@ -3,7 +3,7 @@ import { setup } from 'iso-web/msw'
 import { createPublicClient, http } from 'viem'
 import { calibration } from '../src/chains.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
+import { leafCountToRawSize } from '../src/utils/pdp-size.ts'
 import { getAccountTotalStorageSize } from '../src/warm-storage/get-account-total-storage-size.ts'
 
 describe('getAccountTotalStorageSize', () => {
@@ -73,6 +73,9 @@ describe('getAccountTotalStorageSize', () => {
           },
           getDataSetLeafCount: (args) => {
             const dataSetId = args[0]
+            if (dataSetId === 2n) {
+              throw new Error('Data set not live')
+            }
             return [leafCounts.get(dataSetId) ?? 0n]
           },
         },
@@ -88,8 +91,8 @@ describe('getAccountTotalStorageSize', () => {
       address: ADDRESSES.client1,
     })
 
-    // Only datasets 1 and 3 are live: (100 + 300) * 32
-    assert.equal(result.totalSizeBytes, (100n + 300n) * SIZE_CONSTANTS.BYTES_PER_LEAF)
+    // Only datasets 1 and 3 are live, converted from padded leaves to raw bytes.
+    assert.equal(result.totalSizeBytes, leafCountToRawSize(100n) + leafCountToRawSize(300n))
     assert.equal(result.datasetCount, 2)
   })
 
@@ -127,7 +130,7 @@ describe('getAccountTotalStorageSize', () => {
       address: ADDRESSES.client1,
     })
 
-    assert.equal(result.totalSizeBytes, (500n + 1000n + 250n) * SIZE_CONSTANTS.BYTES_PER_LEAF)
+    assert.equal(result.totalSizeBytes, leafCountToRawSize(500n) + leafCountToRawSize(1000n) + leafCountToRawSize(250n))
     assert.equal(result.datasetCount, 3)
   })
 })

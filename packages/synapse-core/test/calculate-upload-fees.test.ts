@@ -1,7 +1,6 @@
 /* globals describe it */
 
 import assert from 'assert'
-import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
 import { calculateUploadFees } from '../src/warm-storage/calculate-upload-fees.ts'
 
 const priceList = {
@@ -29,30 +28,30 @@ const priceList = {
   },
 }
 
-const maxBatch = BigInt(SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE)
-
 describe('calculateUploadFees', () => {
+  it('rejects empty and non-positive piece sizes', () => {
+    assert.throws(
+      () => calculateUploadFees({ priceList, isNewDataSet: false, pieceSizes: [] }),
+      /pieceSizes must contain at least one piece/
+    )
+    assert.throws(
+      () => calculateUploadFees({ priceList, isNewDataSet: false, pieceSizes: [-1n] }),
+      /pieceSizes must contain only positive byte sizes/
+    )
+  })
+
   it('charges the create fee only for new datasets', () => {
-    const existing = calculateUploadFees({ priceList, isNewDataSet: false })
-    const fresh = calculateUploadFees({ priceList, isNewDataSet: true })
+    const existing = calculateUploadFees({ priceList, isNewDataSet: false, pieceSizes: [1n] })
+    const fresh = calculateUploadFees({ priceList, isNewDataSet: true, pieceSizes: [1n] })
 
     assert.equal(existing.createDataSetFee, 0n)
     assert.equal(fresh.createDataSetFee, priceList.fees.createDataSetFee)
   })
 
-  it('derives addPieces operation count from the batch limit when not provided', () => {
-    // One full batch is a single addPieces operation.
-    const oneBatch = calculateUploadFees({ priceList, isNewDataSet: false, pieceCount: maxBatch })
-    assert.equal(
-      oneBatch.addPiecesFee,
-      priceList.fees.addPiecesBaseFee + priceList.fees.addPiecesPerPieceFee * maxBatch
-    )
-
-    // One piece over the limit spills into a second operation.
-    const spill = calculateUploadFees({ priceList, isNewDataSet: false, pieceCount: maxBatch + 1n })
-    assert.equal(
-      spill.addPiecesFee,
-      priceList.fees.addPiecesBaseFee * 2n + priceList.fees.addPiecesPerPieceFee * (maxBatch + 1n)
-    )
+  it('conservatively charges one add-pieces operation per piece', () => {
+    const pieceSizes = [1n, 2n, 3n]
+    const result = calculateUploadFees({ priceList, isNewDataSet: false, pieceSizes })
+    assert.equal(result.addPiecesFee, (priceList.fees.addPiecesBaseFee + priceList.fees.addPiecesPerPieceFee) * 3n)
+    assert.equal(result.total, result.addPiecesFee)
   })
 })

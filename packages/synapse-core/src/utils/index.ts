@@ -1,3 +1,12 @@
+export type {
+  CalculateBufferAmountFromStateOptions,
+  CalculateRunwayAmountFromStateOptions,
+} from './calculate-upload-costs.ts'
+export {
+  calculateBufferAmountFromState,
+  calculateRunwayAmountFromState,
+  calculateUploadCosts,
+} from './calculate-upload-costs.ts'
 export * from './calibration.ts'
 export * from './capabilities.ts'
 export * from './constants.ts'
@@ -7,6 +16,7 @@ export * from './epoch.ts'
 export * from './format.ts'
 export * from './metadata.ts'
 export * from './pdp-capabilities.ts'
+export * from './pdp-size.ts'
 export * from './piece-url.ts'
 export * from './rand.ts'
 export * from './schemas.ts'

@@ -20,24 +20,21 @@
  * ```
  */
 
+import { DataSetNotFoundError } from '@filoz/synapse-core/errors'
 import {
   calculateAccountDebt,
   isFwssMaxApproved,
   accounts as payAccounts,
   resolveAccountState,
 } from '@filoz/synapse-core/pay'
-import { getDataSetSizes } from '@filoz/synapse-core/pdp-verifier'
+import { getDataSetLeafCounts } from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
 import type { UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { getPDPProviderByAddress } from '@filoz/synapse-core/sp-registry'
-import { DEFAULT_BUFFER_EPOCHS, DEFAULT_RUNWAY_EPOCHS } from '@filoz/synapse-core/utils'
+import { calculateUploadCosts } from '@filoz/synapse-core/utils'
 import {
-  calculateAdditionalLockupRequired,
-  calculateBufferAmount,
-  calculateEffectiveRate,
-  calculateRunwayAmount,
-  calculateUploadFees,
   getUploadCosts as coreGetUploadCosts,
+  getDataSetsById,
   getPriceList,
   metadataMatches,
 } from '@filoz/synapse-core/warm-storage'
@@ -897,7 +894,9 @@ export class StorageManager {
    * Get upload costs including rate, deposit needed, and approval state.
    *
    * Wraps the synapse-core `getUploadCosts()` function, automatically injecting
-   * the client address. No StorageContext needed — works with primitive values.
+   * the client address. No StorageContext is needed. For an existing data set,
+   * pass its current PDP leaf count, lifecycle reserve balance, and any pending one-time
+   * payments. {@link prepare} reads that state automatically from its contexts.
    *
    * @param options - Upload cost options (clientAddress auto-injected)
    * @returns Upload costs including rate, deposit needed, and readiness
@@ -912,17 +911,23 @@ export class StorageManager {
   /**
    * Prepare the account for upload by computing costs and returning a transaction to execute.
    *
-   * Can accept pre-computed costs (from a prior `getUploadCosts()` call) to skip redundant RPC,
-   * or computes them internally. When no context is provided, creates default contexts
-   * (mirroring the upload() flow).
+   * Can accept costs precomputed for the exact upload contexts and piece sizes to skip
+   * redundant RPC, or computes them internally. Use {@link calculateMultiContextCosts}
+   * when precomputing costs for multiple contexts; {@link getUploadCosts} covers one context.
+   * When neither costs nor a context are provided, creates default contexts, mirroring
+   * the upload flow.
    *
    * Aggregates per-context lockup correctly for any number of contexts:
-   * - Fetches each existing dataset's size from chain
+   * - Fetches each existing dataset's aggregate PDP leaf count from chain
+   * - Fetches each existing dataset's lifecycle reserve and pending fees
    * - Sums lockup across all contexts
    * - Computes debt, runway, and buffer once at the account level
+   * - Prices the known `pieceSizes` committed to each context
+   * - Conservatively treats every piece as a separate add-pieces operation
    *
    * @param options - {@link PrepareOptions}
    * @returns {@link PrepareResult} with costs and an optional transaction
+   * @throws When `pieceSizes` is empty or contains a non-positive size
    */
   async prepare(options: PrepareOptions): Promise<PrepareResult> {
     let costs: UploadCosts
@@ -963,35 +968,38 @@ export class StorageManager {
    * Calculate upload costs aggregated across multiple storage contexts.
    *
    * Each context creates its own PDP payment rail with its own lockup. This method
-   * correctly sums per-context lockup while computing account-level debt, runway,
-   * and buffer only once (they are shared across all contexts from the same payer).
+   * resolves the on-chain state for every context, then delegates to the shared
+   * pure cost utility. The utility sums per-context costs while applying account-level
+   * debt, runway, available funds, and buffer only once.
    *
-   * Dataset sizes are fetched from chain for existing datasets to get accurate
-   * rate deltas.
+   * Dataset leaf counts, pending one-time fees, and lifecycle reserve balances are
+   * fetched from chain for existing datasets so rates and reserve
+   * replenishments are accurate. Multi-piece fee and reserve estimates are
+   * conservative because actual batch boundaries depend on runtime timing and metadata.
    *
    * @param contexts - Storage contexts to aggregate costs for
-   * @param options - Upload options (dataSize, extraRunwayEpochs, bufferEpochs)
+   * @param options - Upload options (pieceSizes, extraRunwayEpochs, bufferEpochs)
    * @returns Aggregated upload costs with summed rates and single deposit/approval
+   * @throws When `pieceSizes` is empty or contains a non-positive size
    */
   async calculateMultiContextCosts(
     contexts: StorageContext[],
-    options: Pick<PrepareOptions, 'dataSize' | 'extraRunwayEpochs' | 'bufferEpochs'>
+    options: Pick<PrepareOptions, 'pieceSizes' | 'extraRunwayEpochs' | 'bufferEpochs'>
   ): Promise<UploadCosts> {
     const client = this._synapse.client
     const readClient = this._synapse.readClient
     const clientAddress = client.account.address
-    const extraRunwayEpochs = options.extraRunwayEpochs ?? DEFAULT_RUNWAY_EPOCHS
-    const bufferEpochs = options.bufferEpochs ?? DEFAULT_BUFFER_EPOCHS
 
-    // Identify existing datasets that need size lookups
+    // Identify existing data sets that need leaf-count lookups.
     const existingDataSetIds = contexts.filter((ctx) => ctx.dataSetId != null).map((ctx) => ctx.dataSetId as bigint)
 
     // Fetch all needed data in parallel
-    const [accountInfo, priceList, currentEpoch, sizes] = await Promise.all([
+    const [accountInfo, priceList, currentEpoch, leafCounts, dataSetsById] = await Promise.all([
       payAccounts(readClient, { address: clientAddress }),
       getPriceList(readClient),
       getBlockNumber(readClient, { cacheTime: 0 }),
-      existingDataSetIds.length > 0 ? getDataSetSizes(readClient, { dataSetIds: existingDataSetIds }) : [],
+      getDataSetLeafCounts(readClient, { dataSetIds: existingDataSetIds }),
+      getDataSetsById(readClient, { dataSetIds: existingDataSetIds }),
     ])
 
     // Reuse the fetched price list's lockup period so the approval check
@@ -1001,66 +1009,6 @@ export class StorageManager {
       requiredMaxLockupPeriod: priceList.lockups.defaultLockupPeriod,
     })
 
-    // Build dataset size map: dataSetId → size
-    const dataSetSizes = new Map<bigint, bigint>()
-    for (let i = 0; i < existingDataSetIds.length; i++) {
-      dataSetSizes.set(existingDataSetIds[i], sizes[i])
-    }
-
-    // Per-context loop: calculate lockup for each context
-    let totalRateDeltaPerEpoch = 0n
-    let totalLockup = 0n
-    let totalLifecycleLockup = 0n
-    let totalStreamingLockup = 0n
-    let totalCdnLockup = 0n
-    let totalCacheMissLockup = 0n
-    let totalRatePerEpoch = 0n
-    let totalRatePerMonth = 0n
-    let totalCreateDataSetFee = 0n
-    let totalAddPiecesFee = 0n
-
-    for (let i = 0; i < contexts.length; i++) {
-      const ctx = contexts[i]
-      const isNewDataSet = ctx.dataSetId == null
-      const currentDataSetSize = ctx.dataSetId == null ? 0n : (dataSetSizes.get(ctx.dataSetId) ?? 0n)
-
-      const lockup = calculateAdditionalLockupRequired({
-        dataSize: options.dataSize,
-        currentDataSetSize,
-        priceList,
-        epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
-        isNewDataSet,
-        withCDN: ctx.withCDN,
-      })
-      // Multi-context preview assumes one piece / one addPieces op per context;
-      // batched multi-piece uploads should price via getUploadCosts with explicit counts.
-      const fees = calculateUploadFees({
-        priceList,
-        isNewDataSet,
-      })
-
-      totalRateDeltaPerEpoch += lockup.rateDeltaPerEpoch
-      totalLockup += lockup.total
-      totalLifecycleLockup += lockup.lifecycleLockup
-      totalStreamingLockup += lockup.streamingLockup
-      totalCdnLockup += lockup.cdnLockup
-      totalCacheMissLockup += lockup.cacheMissLockup
-      totalCreateDataSetFee += fees.createDataSetFee
-      totalAddPiecesFee += fees.addPiecesFee
-
-      // Calculate per-context effective rate for the rate output
-      const totalSize = currentDataSetSize + options.dataSize
-      const rate = calculateEffectiveRate({
-        sizeInBytes: totalSize,
-        storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
-        datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
-        epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
-      })
-      totalRatePerEpoch += rate.ratePerEpoch
-      totalRatePerMonth += rate.ratePerMonth
-    }
-
-    // Account-level calculation (once, with aggregated values)
     const accountParams = {
       funds: accountInfo.funds,
       lockupCurrent: accountInfo.lockupCurrent,
@@ -1071,59 +1019,40 @@ export class StorageManager {
     const debt = calculateAccountDebt(accountParams)
     const { availableFunds, runwayInEpochs } = resolveAccountState(accountParams)
 
-    const netRateAfterUpload = accountInfo.lockupRate + totalRateDeltaPerEpoch
+    const resolvedContexts = contexts.map((context): calculateUploadCosts.ContextType => {
+      if (context.dataSetId == null) {
+        return { pieceSizes: options.pieceSizes, withCDN: context.withCDN, dataSet: null }
+      }
 
-    const runway = calculateRunwayAmount({
-      netRateAfterUpload,
-      extraRunwayEpochs,
+      const dataSetState = dataSetsById.get(context.dataSetId)
+      if (dataSetState == null) {
+        throw new DataSetNotFoundError(context.dataSetId)
+      }
+      return {
+        pieceSizes: options.pieceSizes,
+        withCDN: context.withCDN,
+        dataSet: {
+          leafCount: leafCounts.get(context.dataSetId) ?? 0n,
+          lifecycleReserveBalance: dataSetState.lifecycleReserveBalance,
+          pendingOneTimePayments: dataSetState.pendingOneTimePayments,
+          pdpEndEpoch: dataSetState.pdpEndEpoch,
+        },
+      }
     })
 
-    const totalFees = totalCreateDataSetFee + totalAddPiecesFee
-    const rawDepositNeeded = totalLockup + totalFees + runway + debt - availableFunds
-
-    // Skip buffer when no existing rails are draining and all contexts are new datasets.
-    // The deposit lands before any rail is created, so nothing consumes funds
-    // between balance check and tx execution.
-    const allNewDatasets = contexts.every((ctx) => ctx.dataSetId == null)
-    const skipBuffer = accountInfo.lockupRate === 0n && allNewDatasets
-
-    const buffer = skipBuffer
-      ? 0n
-      : calculateBufferAmount({
-          rawDepositNeeded,
-          netRateAfterUpload,
-          runwayInEpochs,
-          availableFunds,
-          bufferEpochs,
-        })
-
-    const clamped = rawDepositNeeded > 0n ? rawDepositNeeded : 0n
-    const depositNeeded = clamped + buffer
-    const needsFwssMaxApproval = !approved
-
-    const rates = {
-      perEpoch: totalRatePerEpoch,
-      perMonth: totalRatePerMonth,
-    }
-
-    return {
-      rates,
-      fees: {
-        createDataSetFee: totalCreateDataSetFee,
-        addPiecesFee: totalAddPiecesFee,
-        total: totalFees,
+    return calculateUploadCosts({
+      contexts: resolvedContexts,
+      priceList,
+      account: {
+        currentLockupRate: accountInfo.lockupRate,
+        debt,
+        availableFunds,
+        runwayInEpochs,
+        fwssMaxApproved: approved,
       },
-      lockups: {
-        lifecycleLockup: totalLifecycleLockup,
-        streamingLockup: totalStreamingLockup,
-        cdnLockup: totalCdnLockup,
-        cacheMissLockup: totalCacheMissLockup,
-        total: totalLockup,
-      },
-      depositNeeded,
-      needsFwssMaxApproval,
-      ready: depositNeeded === 0n && !needsFwssMaxApproval,
-    }
+      extraRunwayEpochs: options.extraRunwayEpochs,
+      bufferEpochs: options.bufferEpochs,
+    })
   }
 
   /**

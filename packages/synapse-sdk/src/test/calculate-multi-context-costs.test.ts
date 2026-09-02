@@ -2,8 +2,9 @@
 
 import type { AccountClient } from '@filoz/synapse-core'
 import { calibration } from '@filoz/synapse-core/chains'
+import { DataSetNotFoundError, ServiceAlreadyTerminatedError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
-import { SIZE_CONSTANTS } from '@filoz/synapse-core/utils'
+import { leafCountToRawSize, rawSizeToLeafCount, SIZE_CONSTANTS } from '@filoz/synapse-core/utils'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { createWalletClient, maxUint256, parseUnits, http as viemHttp } from 'viem'
@@ -64,6 +65,26 @@ describe('calculateMultiContextCosts', () => {
   /** Full-approval mock override (maxUint256 allowances) */
   const fullyApproved = () => [true, maxUint256, maxUint256, 0n, 0n, maxUint256] as const
 
+  /** Active FWSS data-set state used by existing-context cost tests. */
+  const activeDataSet = (dataSetId: bigint, lifecycleReserveBalance = parseUnits('0.5', 18), pdpEndEpoch = 0n) =>
+    [
+      {
+        cacheMissRailId: 0n,
+        cdnRailId: 0n,
+        clientDataSetId: 0n,
+        commissionBps: 100n,
+        dataSetId,
+        payee: Mocks.ADDRESSES.payee1,
+        payer: Mocks.ADDRESSES.client1,
+        pdpEndEpoch,
+        pdpRailId: 1n,
+        providerId: 1n,
+        pendingOneTimePayments: 0n,
+        lifecycleReserveBalance,
+        serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+      },
+    ] as const
+
   let client: AccountClient
   let synapse: Synapse
   let warmStorageService: WarmStorageService
@@ -106,7 +127,7 @@ describe('calculateMultiContextCosts', () => {
     )
 
     const ctx = makeContext(synapse, warmStorageService, {})
-    const result = await manager.calculateMultiContextCosts([ctx], { dataSize: 1n })
+    const result = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [1n] })
 
     assert.equal(typeof result.rates.perEpoch, 'bigint')
     assert.equal(typeof result.rates.perMonth, 'bigint')
@@ -129,15 +150,15 @@ describe('calculateMultiContextCosts', () => {
     )
 
     const ctx = makeContext(synapse, warmStorageService, {})
-    const result = await manager.calculateMultiContextCosts([ctx], { dataSize: 1n })
+    const result = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [1n] })
 
     assert.equal(result.depositNeeded, 0n)
     assert.equal(result.needsFwssMaxApproval, false)
     assert.equal(result.ready, true)
 
-    // Additive: 1-byte dataset pays a tiny storage rate on top of proving.
-    const storagePerMonth1Byte = parseUnits('2.5', 18) / (1n << 40n)
-    assert.equal(result.rates.perMonth, parseUnits('0.024', 18) + storagePerMonth1Byte)
+    const pricedSize = leafCountToRawSize(rawSizeToLeafCount(1n))
+    const storagePerMonth = (parseUnits('2.5', 18) * pricedSize) / (1n << 40n)
+    assert.equal(result.rates.perMonth, parseUnits('0.12', 18) + storagePerMonth)
   })
 
   it('should aggregate rates across two new contexts', async () => {
@@ -153,19 +174,19 @@ describe('calculateMultiContextCosts', () => {
 
     // Single context baseline
     const ctx1 = makeContext(synapse, warmStorageService, {})
-    const single = await manager.calculateMultiContextCosts([ctx1], { dataSize: 1n })
+    const single = await manager.calculateMultiContextCosts([ctx1], { pieceSizes: [1n] })
 
     // Two contexts
     const ctxA = makeContext(synapse, warmStorageService, {})
     const ctxB = makeContext(synapse, warmStorageService, { provider: mockProvider2 })
-    const double = await manager.calculateMultiContextCosts([ctxA, ctxB], { dataSize: 1n })
+    const double = await manager.calculateMultiContextCosts([ctxA, ctxB], { pieceSizes: [1n] })
 
     // Rates should be exactly 2x single context
     assert.equal(double.rates.perEpoch, single.rates.perEpoch * 2n)
     assert.equal(double.rates.perMonth, single.rates.perMonth * 2n)
   })
 
-  it('should fetch dataset size for existing contexts', async () => {
+  it('should fetch the data set leaf count for existing contexts', async () => {
     // Mock getDataSetLeafCount to return 1 TiB worth of leaves for dataset 5
     const oneTiB = 1n << 40n
     const leafCount = oneTiB / SIZE_CONSTANTS.BYTES_PER_LEAF
@@ -182,22 +203,79 @@ describe('calculateMultiContextCosts', () => {
           ...Mocks.presets.basic.pdpVerifier,
           getDataSetLeafCount: () => [leafCount],
         },
+        warmStorageView: {
+          ...Mocks.presets.basic.warmStorageView,
+          getDataSet: (args) => activeDataSet(args[0]),
+        },
       })
     )
 
-    // Existing dataset with 1 TiB, adding 1 TiB more → total 2 TiB
+    // Existing dataset plus 1 TiB of new raw data.
     const existing = makeContext(synapse, warmStorageService, { dataSetId: 5n })
-    const resultExisting = await manager.calculateMultiContextCosts([existing], { dataSize: oneTiB })
+    const resultExisting = await manager.calculateMultiContextCosts([existing], { pieceSizes: [oneTiB] })
 
     // New dataset with 1 TiB → total 1 TiB
     const newCtx = makeContext(synapse, warmStorageService, {})
-    const resultNew = await manager.calculateMultiContextCosts([newCtx], { dataSize: oneTiB })
+    const resultNew = await manager.calculateMultiContextCosts([newCtx], { pieceSizes: [oneTiB] })
 
-    // Existing 1 TiB + 1 TiB = 2 TiB rate, new 1 TiB = 1 TiB rate
     // pricePerTiBPerMonth = 2.5 USDFC
     const pricePerTiBPerMonth = parseUnits('2.5', 18)
-    assert.equal(resultNew.rates.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
-    assert.equal(resultExisting.rates.perMonth, pricePerTiBPerMonth * 2n + parseUnits('0.024', 18))
+    const addedLeafCount = rawSizeToLeafCount(oneTiB)
+    const newPricedSize = leafCountToRawSize(addedLeafCount)
+    const existingFinalPricedSize = leafCountToRawSize(leafCount + addedLeafCount)
+    const existingStorageRate = (pricePerTiBPerMonth * existingFinalPricedSize) / oneTiB
+    assert.equal(resultNew.rates.perMonth, (pricePerTiBPerMonth * newPricedSize) / oneTiB + parseUnits('0.12', 18))
+    assert.equal(resultExisting.rates.perMonth, existingStorageRate + parseUnits('0.12', 18))
+  })
+
+  it('should reject a missing existing data set with DataSetNotFoundError', async () => {
+    server.use(
+      Mocks.JSONRPC({
+        ...Mocks.presets.basic,
+        payments: {
+          ...Mocks.presets.basic.payments,
+          operatorApprovals: fullyApproved,
+        },
+      })
+    )
+
+    const context = makeContext(synapse, warmStorageService, { dataSetId: 999n })
+    let thrown: unknown
+    try {
+      await manager.calculateMultiContextCosts([context], { pieceSizes: [1n] })
+    } catch (error) {
+      thrown = error
+    }
+
+    assert.instanceOf(thrown, DataSetNotFoundError)
+  })
+
+  it('should reject an existing data set with terminated payment', async () => {
+    const endEpoch = 1_234_567n
+    server.use(
+      Mocks.JSONRPC({
+        ...Mocks.presets.basic,
+        payments: {
+          ...Mocks.presets.basic.payments,
+          operatorApprovals: fullyApproved,
+        },
+        warmStorageView: {
+          ...Mocks.presets.basic.warmStorageView,
+          getDataSet: (args) => activeDataSet(args[0], parseUnits('0.5', 18), endEpoch),
+        },
+      })
+    )
+
+    const context = makeContext(synapse, warmStorageService, { dataSetId: 1n })
+    let thrown: unknown
+    try {
+      await manager.calculateMultiContextCosts([context], { pieceSizes: [1n] })
+    } catch (error) {
+      thrown = error
+    }
+
+    assert.instanceOf(thrown, ServiceAlreadyTerminatedError)
+    assert.equal((thrown as ServiceAlreadyTerminatedError).endEpoch, endEpoch)
   })
 
   it('should handle mixed new + existing contexts', async () => {
@@ -216,24 +294,31 @@ describe('calculateMultiContextCosts', () => {
           ...Mocks.presets.basic.pdpVerifier,
           getDataSetLeafCount: () => [leafCount],
         },
+        warmStorageView: {
+          ...Mocks.presets.basic.warmStorageView,
+          getDataSet: (args) => activeDataSet(args[0]),
+        },
       })
     )
 
-    // New context: dataSize = 1 TiB → rate for 1 TiB
+    // New context: one 1 TiB piece.
     const newCtx = makeContext(synapse, warmStorageService, {})
-    // Existing context: 1 TiB existing + 1 TiB new → rate for 2 TiB
+    // Existing context: padded leaf count converted to raw bytes + 1 TiB new.
     const existingCtx = makeContext(synapse, warmStorageService, {
       dataSetId: 5n,
       provider: mockProvider2,
     })
 
     const result = await manager.calculateMultiContextCosts([newCtx, existingCtx], {
-      dataSize: oneTiB,
+      pieceSizes: [oneTiB],
     })
 
     // Combined rate: storage rates plus one proving service rate per context.
     const pricePerTiBPerMonth = parseUnits('2.5', 18)
-    assert.equal(result.rates.perMonth, pricePerTiBPerMonth * 3n + parseUnits('0.024', 18) * 2n)
+    const addedLeafCount = rawSizeToLeafCount(oneTiB)
+    const totalPricedSize = leafCountToRawSize(addedLeafCount) + leafCountToRawSize(leafCount + addedLeafCount)
+    const expectedStorageRate = (pricePerTiBPerMonth * totalPricedSize) / oneTiB
+    assert.equal(result.rates.perMonth, expectedStorageRate + parseUnits('0.12', 18) * 2n)
   })
 
   it('should include debt in deposit for account in debt', async () => {
@@ -256,7 +341,7 @@ describe('calculateMultiContextCosts', () => {
     )
 
     const ctx = makeContext(synapse, warmStorageService, {})
-    const result = await manager.calculateMultiContextCosts([ctx], { dataSize: 1n })
+    const result = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [1n] })
 
     const expectedDebt = 5_832_100_000_000_000_000n
     assert.ok(
@@ -282,12 +367,12 @@ describe('calculateMultiContextCosts', () => {
     const ctxB = makeContext(synapse, warmStorageService, { provider: mockProvider2 })
 
     const baseline = await manager.calculateMultiContextCosts([ctxA, ctxB], {
-      dataSize: 1n,
+      pieceSizes: [1n],
       extraRunwayEpochs: 0n,
     })
 
     const withRunway = await manager.calculateMultiContextCosts([ctxA, ctxB], {
-      dataSize: 1n,
+      pieceSizes: [1n],
       extraRunwayEpochs: 10_000n,
     })
 
@@ -296,8 +381,9 @@ describe('calculateMultiContextCosts', () => {
       `deposit with runway (${withRunway.depositNeeded}) should exceed baseline (${baseline.depositNeeded})`
     )
 
-    const ratePerEpoch1Byte = parseUnits('2.5', 18) / ((1n << 40n) * 86400n) + parseUnits('0.024', 18) / 86400n
-    const expectedRunway = 2n * ratePerEpoch1Byte * 10_000n
+    const pricedSize = leafCountToRawSize(rawSizeToLeafCount(1n))
+    const ratePerEpoch = (parseUnits('2.5', 18) * pricedSize) / ((1n << 40n) * 86400n) + parseUnits('0.12', 18) / 86400n
+    const expectedRunway = 2n * ratePerEpoch * 10_000n
     assert.equal(
       withRunway.depositNeeded - baseline.depositNeeded,
       expectedRunway,
@@ -326,12 +412,12 @@ describe('calculateMultiContextCosts', () => {
     const ctx = makeContext(synapse, warmStorageService, {})
 
     const noBuffer = await manager.calculateMultiContextCosts([ctx], {
-      dataSize: 1n,
+      pieceSizes: [1n],
       bufferEpochs: 0n,
     })
 
     const withBuffer = await manager.calculateMultiContextCosts([ctx], {
-      dataSize: 1n,
+      pieceSizes: [1n],
       bufferEpochs: 100n,
     })
 
@@ -364,12 +450,12 @@ describe('calculateMultiContextCosts', () => {
     const ctx = makeContext(synapse, warmStorageService, {})
 
     const noBuffer = await manager.calculateMultiContextCosts([ctx], {
-      dataSize: 1n,
+      pieceSizes: [1n],
       bufferEpochs: 0n,
     })
 
     const withBuffer = await manager.calculateMultiContextCosts([ctx], {
-      dataSize: 1n,
+      pieceSizes: [1n],
       bufferEpochs: 100n,
     })
 
@@ -379,8 +465,9 @@ describe('calculateMultiContextCosts', () => {
     )
 
     // buffer delta = netRate * bufferEpochs = (currentLockupRate + rateDelta) * 100
-    const ratePerEpoch1Byte = parseUnits('2.5', 18) / ((1n << 40n) * 86400n) + parseUnits('0.024', 18) / 86400n
-    const netRate = 100_000_000_000_000n + ratePerEpoch1Byte
+    const pricedSize = leafCountToRawSize(rawSizeToLeafCount(1n))
+    const ratePerEpoch = (parseUnits('2.5', 18) * pricedSize) / ((1n << 40n) * 86400n) + parseUnits('0.12', 18) / 86400n
+    const netRate = 100_000_000_000_000n + ratePerEpoch
     const expectedDelta = netRate * 100n
     assert.equal(
       withBuffer.depositNeeded - noBuffer.depositNeeded,
@@ -405,14 +492,14 @@ describe('calculateMultiContextCosts', () => {
     const noCdnA = makeContext(synapse, warmStorageService, {})
     const noCdnB = makeContext(synapse, warmStorageService, { provider: mockProvider2 })
     const baselineResult = await manager.calculateMultiContextCosts([noCdnA, noCdnB], {
-      dataSize: 1n,
+      pieceSizes: [1n],
     })
 
     // Two contexts, one with CDN
     const cdnCtx = makeContext(synapse, warmStorageService, { withCDN: true })
     const plainCtx = makeContext(synapse, warmStorageService, { provider: mockProvider2 })
     const mixedResult = await manager.calculateMultiContextCosts([cdnCtx, plainCtx], {
-      dataSize: 1n,
+      pieceSizes: [1n],
     })
 
     const cdnLockupTotal = parseUnits('1', 18)
@@ -428,7 +515,7 @@ describe('calculateMultiContextCosts', () => {
     server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
     const ctx = makeContext(synapse, warmStorageService, {})
-    const result = await manager.calculateMultiContextCosts([ctx], { dataSize: 1n })
+    const result = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [1n] })
 
     assert.equal(result.needsFwssMaxApproval, true)
     assert.equal(result.ready, false)
@@ -448,7 +535,7 @@ describe('calculateMultiContextCosts', () => {
 
     // Single context underfunded
     const single = makeContext(synapse, warmStorageService, {})
-    const singleResult = await manager.calculateMultiContextCosts([single], { dataSize: 1n })
+    const singleResult = await manager.calculateMultiContextCosts([single], { pieceSizes: [1n] })
 
     // Three contexts underfunded
     const ctxs = [
@@ -456,7 +543,7 @@ describe('calculateMultiContextCosts', () => {
       makeContext(synapse, warmStorageService, { provider: mockProvider2 }),
       makeContext(synapse, warmStorageService, {}),
     ]
-    const tripleResult = await manager.calculateMultiContextCosts(ctxs, { dataSize: 1n })
+    const tripleResult = await manager.calculateMultiContextCosts(ctxs, { pieceSizes: [1n] })
 
     // Deposit for 3 contexts should be ~3x the single-context lockup
     // (debt=0, runway=0, buffer=0 since lockupRate=0)
@@ -464,7 +551,7 @@ describe('calculateMultiContextCosts', () => {
     assert.equal(tripleResult.depositNeeded, singleResult.depositNeeded * 3n)
   })
 
-  it('should handle new context as isNewDataSet=true with currentDataSetSize=0', async () => {
+  it('should handle a new context with zero current leaves', async () => {
     server.use(
       Mocks.JSONRPC({
         ...Mocks.presets.basic,
@@ -480,10 +567,48 @@ describe('calculateMultiContextCosts', () => {
     const pricePerTiBPerMonth = parseUnits('2.5', 18)
 
     // New context: dataSetId = undefined → isNewDataSet = true
-    // Rate should be for dataSize alone (1 TiB)
+    // Rate should be based on the data-bearing leaves of the new piece.
     const ctx = makeContext(synapse, warmStorageService, {})
-    const result = await manager.calculateMultiContextCosts([ctx], { dataSize: oneTiB })
+    const result = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [oneTiB] })
 
-    assert.equal(result.rates.perMonth, pricePerTiBPerMonth + parseUnits('0.024', 18))
+    const pricedSize = leafCountToRawSize(rawSizeToLeafCount(oneTiB))
+    assert.equal(result.rates.perMonth, (pricePerTiBPerMonth * pricedSize) / oneTiB + parseUnits('0.12', 18))
+  })
+
+  it('should derive add-pieces fees from pieceSizes', async () => {
+    server.use(Mocks.JSONRPC(Mocks.presets.basic))
+
+    const ctx = makeContext(synapse, warmStorageService, {})
+    const onePiece = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [2n] })
+    const twoPieces = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [1n, 1n] })
+
+    assert.equal(twoPieces.fees.addPiecesFee - onePiece.fees.addPiecesFee, parseUnits('0.011', 18))
+  })
+
+  it('should include reserve replenishment for an existing data set below threshold', async () => {
+    server.use(
+      Mocks.JSONRPC({
+        ...Mocks.presets.basic,
+        payments: {
+          ...Mocks.presets.basic.payments,
+          accounts: () => [0n, 0n, 0n, 0n],
+          operatorApprovals: fullyApproved,
+        },
+        pdpVerifier: {
+          ...Mocks.presets.basic.pdpVerifier,
+          getDataSetLeafCount: () => [0n],
+        },
+        warmStorageView: {
+          ...Mocks.presets.basic.warmStorageView,
+          getDataSet: (args) => activeDataSet(args[0], parseUnits('0.03', 18)),
+        },
+      })
+    )
+
+    const ctx = makeContext(synapse, warmStorageService, { dataSetId: 5n })
+    const result = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [1n], bufferEpochs: 0n })
+
+    assert.equal(result.lockups.reserveReplenishment, parseUnits('0.481', 18))
+    assert.equal(result.depositNeeded, result.lockups.total)
   })
 })

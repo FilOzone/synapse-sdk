@@ -92,14 +92,6 @@ export const SIZE_CONSTANTS = {
   DEFAULT_UPLOAD_BATCH_SIZE: 32,
 
   /**
-   * Heuristic pieces-per-addPieces used only for upload-fee previews.
-   *
-   * Action validation uses `MAX_ADD_PIECES_MESSAGE_SIZE` via `addPiecesFits`,
-   * not this count.
-   */
-  MAX_ADD_PIECES_BATCH_SIZE: 40,
-
-  /**
    * Payload budget (bytes) for one addPieces / createAndAdd Filecoin message.
    *
    * Filecoin messages are capped at 64 KiB. 288 bytes are reserved for message
@@ -118,7 +110,9 @@ export const SIZE_CONSTANTS = {
 
   /**
    * Bytes per leaf in the PDP merkle tree.
-   * The FWSS contract converts leaf counts to bytes via `totalBytes = leafCount * BYTES_PER_LEAF`.
+   *
+   * Use `leafCountToRawSize()` on the aggregate data-set leaf count when
+   * calculating the approximate byte size used by FWSS pricing.
    */
   BYTES_PER_LEAF: 32n,
 } as const

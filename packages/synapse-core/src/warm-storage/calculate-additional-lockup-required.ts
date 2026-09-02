@@ -1,13 +1,15 @@
+import { ValidationError } from '../errors/base.ts'
 import { TIME_CONSTANTS } from '../utils/constants.ts'
+import { leafCountToRawSize, pieceSizesToLeafCount } from '../utils/pdp-size.ts'
 import { calculateEffectiveRate } from './calculate-effective-rate.ts'
 import type { getPriceList } from './price-list.ts'
 
 export namespace calculateAdditionalLockupRequired {
   export type ParamsType = {
-    /** Size of new data being uploaded, in bytes. */
-    dataSize: bigint
-    /** Current total data size in the existing dataset, in bytes. 0n for new datasets. */
-    currentDataSetSize: bigint
+    /** Exact raw payload size of every piece added by this operation, in bytes. */
+    pieceSizes: readonly bigint[]
+    /** Aggregate leaf count reported by PDP Verifier. 0n for new data sets. */
+    dataSetLeafCount: bigint
     /** Canonical warm storage price list. */
     priceList: getPriceList.OutputType
     /** Epochs per month. Defaults to EPOCHS_PER_MONTH (86400). */
@@ -37,26 +39,36 @@ export namespace calculateAdditionalLockupRequired {
 }
 
 /**
- * Compute how much additional lockup this upload requires.
+ * Compute how much additional lockup an upload of known piece sizes requires.
  *
  * Existing datasets pay only the incremental rate lockup. New datasets also
- * include lifecycle and optional CDN/cache-miss lockups.
+ * include lifecycle and optional CDN/cache-miss lockups. Storage rates are
+ * calculated from aggregate PDP leaf counts, matching FWSS's rounding order.
  *
  * @param params - {@link calculateAdditionalLockupRequired.ParamsType}
  * @returns {@link calculateAdditionalLockupRequired.OutputType}
+ * @throws {@link ValidationError} when the leaf count or piece sizes are invalid
  */
 export function calculateAdditionalLockupRequired(
   params: calculateAdditionalLockupRequired.ParamsType
 ): calculateAdditionalLockupRequired.OutputType {
   const {
-    dataSize,
-    currentDataSetSize,
+    pieceSizes,
+    dataSetLeafCount,
     priceList,
     epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH,
     lockupEpochs,
     isNewDataSet,
     withCDN,
   } = params
+
+  if (dataSetLeafCount < 0n) {
+    throw new ValidationError('dataSetLeafCount cannot be negative')
+  }
+
+  const currentLeafCount = isNewDataSet ? 0n : dataSetLeafCount
+  const addedLeafCount = pieceSizesToLeafCount(pieceSizes)
+  const finalLeafCount = currentLeafCount + addedLeafCount
 
   // The price list defines the default PDP rail lockup period.
   const effectiveLockupEpochs = lockupEpochs ?? priceList.lockups.defaultLockupPeriod
@@ -69,25 +81,25 @@ export function calculateAdditionalLockupRequired(
 
   let rateDeltaPerEpoch: bigint
 
-  if (currentDataSetSize > 0n && !isNewDataSet) {
+  if (currentLeafCount > 0n) {
     // Existing dataset: compute delta between new and current rates
     const newRate = calculateEffectiveRate({
       ...rateParams,
-      sizeInBytes: currentDataSetSize + dataSize,
+      sizeInBytes: leafCountToRawSize(finalLeafCount),
     })
     const currentRate = calculateEffectiveRate({
       ...rateParams,
-      sizeInBytes: currentDataSetSize,
+      sizeInBytes: leafCountToRawSize(currentLeafCount),
     })
     rateDeltaPerEpoch = newRate.ratePerEpoch - currentRate.ratePerEpoch
     // Defensive only: additive storage rate is monotonic in size, so a positive
     // size delta never yields a negative rate delta in the current model.
     if (rateDeltaPerEpoch < 0n) rateDeltaPerEpoch = 0n
   } else {
-    // New dataset or unknown current size: full rate for new data
+    // New or empty dataset: full rate after adding the pieces.
     const newRate = calculateEffectiveRate({
       ...rateParams,
-      sizeInBytes: dataSize,
+      sizeInBytes: leafCountToRawSize(finalLeafCount),
     })
     rateDeltaPerEpoch = newRate.ratePerEpoch
   }

@@ -26,14 +26,14 @@ Pricing has two recurring rates and a set of small one-time fees.
 | Component | Cost | Notes |
 | -------------- | ------------------ | -------------------------------------------------------- |
 | **Storage** | $2.50/TiB/month per copy | Charged only while pieces exist. Empty data sets have no recurring cost. |
-| **Proving Service** | $0.024/data set/month | Flat per-data-set fee, added on top of the storage rate. |
+| **Proving Service** | $0.12/data set/month | Flat per-data-set fee, added on top of the storage rate. |
 | **CDN egress** | up to $14/TiB (≈ $0.014/GiB) downloaded | Optional, via Filecoin Beam. About half this when served from cache. |
 
 :::note[Be aware]
 "Month" means **30 days** here (86,400 epochs), not a calendar month.
 :::
 
-The monthly rate for an active data set is `(bytes / TiB) × $2.50 + $0.024`. There is no minimum floor: a data set with no pieces has no recurring cost, and the rate activates when the first piece is added.
+The monthly rate for an active data set is `(FWSS-priced bytes / TiB) × $2.50 + $0.12`. There is no minimum floor: a data set with no pieces has no recurring cost, and the rate activates when the first piece is added. PDP counts the data-bearing Merkle-tree leaves of each piece, then FWSS converts the aggregate leaf count using the Filecoin `127 / 128` ratio. This priced size can exceed the exact raw payload size by up to 31 bytes per piece.
 
 ### One-time fees
 
@@ -42,11 +42,11 @@ Each on-chain operation pays a small fee to the storage provider, covering the g
 | Operation | Fee |
 | -------------- | ------------------ |
 | **Create data set** | $0.025 |
-| **Add pieces** | $0.0005 + $0.0003 per piece |
-| **Schedule piece removals** | $0.002 per call |
-| **Terminate service** | $0.00112 (user-initiated only) |
+| **Add pieces** | $0.008 + $0.003 per piece |
+| **Schedule piece removals** | $0.007 per call |
+| **Terminate service** | $0.006 for client-authorized, provider-relayed termination; no fee for direct payer or provider termination |
 
-These are fractions of a cent. Think of them like gas: negligible for normal use, only adding up at very high operation volumes. They are paid from a small lockup reserve (~$0.10) held while the data set is active, not billed separately on every call. See [How the fees and lockup work](#how-the-fees-and-lockup-work) below.
+These are small one-time charges paid from a refundable lifecycle reserve (~$0.50) held while the data set is active, not added separately to the required deposit on every call. See [How the fees and lockup work](#how-the-fees-and-lockup-work) below.
 
 :::note[CDN setup]
 Enabling CDN adds two refundable lockups on first use: ~0.7 USDFC for egress credits and ~0.3 USDFC for cache-miss credits. Reusing an existing CDN data set incurs no new setup. These are lockups, not fees, and are returned when the rail is finalized if unused.
@@ -63,22 +63,22 @@ These examples use plain arithmetic for clarity. For programmatic cost calculati
 // 48.82 MiB is tiny, so the storage rate is negligible.
 // The recurring cost is dominated by the flat proving fee.
 const STORAGE_PRICE_PER_TIB_PER_MONTH = 2.5;
-const PROVING_FEE_PER_MONTH = 0.024;
+const PROVING_FEE_PER_MONTH = 0.12;
 
 const storageTiB = 48.82 / 1024 / 1024; // ≈ 0.0000466 TiB
 const storageCostPerMonth = storageTiB * STORAGE_PRICE_PER_TIB_PER_MONTH; // ≈ $0.00012
 
 // Per copy, per month
-const costPerMonth = storageCostPerMonth + PROVING_FEE_PER_MONTH; // ≈ 0.0241 USDFC
-const costFor24Months = costPerMonth * 24; // ≈ 0.578 USDFC
+const costPerMonth = storageCostPerMonth + PROVING_FEE_PER_MONTH; // ≈ 0.1201 USDFC
+const costFor24Months = costPerMonth * 24; // ≈ 2.883 USDFC
 ```
 
 | Duration | Per copy |
 | --------- | ---------- |
-| 1 month | ≈ 0.024 USDFC |
-| 24 months | ≈ 0.58 USDFC |
+| 1 month | ≈ 0.120 USDFC |
+| 24 months | ≈ 2.88 USDFC |
 
-The default 2-copy configuration roughly doubles the recurring cost. One-time fees apply once: $0.025 to create the data set plus the per-batch add-pieces fee.
+The default 2-copy configuration roughly doubles the recurring cost. Each copy uses its own data set, so one-time fees apply per copy: every new data set incurs the $0.025 creation fee, and each copy's `addPieces` operations incur their own base and per-piece fees.
 
 ---
 
@@ -90,7 +90,7 @@ The default 2-copy configuration roughly doubles the recurring cost. One-time fe
 ```ts twoslash
 // @lib: esnext,dom
 const STORAGE_PRICE_PER_TIB_PER_MONTH = 2.5; // $2.50/TiB/month
-const PROVING_FEE_PER_MONTH = 0.024; // flat per-data-set
+const PROVING_FEE_PER_MONTH = 0.12; // flat per-data-set
 const CDN_EGRESS_PRICE_PER_TIB = 14; // up to $14/TiB on a cache miss
 const storageMiB = 100_000;
 const egressMiB = 100_000;
@@ -107,19 +107,19 @@ const storageCostPerMonth = storageTiB * STORAGE_PRICE_PER_TIB_PER_MONTH;
 // Egress cost per month (worst case, all cache misses): 0.0953 TiB × $14 ≈ $1.334/month
 const egressCostPerMonth = egressTiB * CDN_EGRESS_PRICE_PER_TIB;
 
-// Total cost per month: $0.238 + $0.024 proving + $1.334 egress ≈ $1.596/month
+// Total cost per month: $0.238 + $0.12 proving + $1.335 egress ≈ $1.694/month
 const totalCostPerMonth = storageCostPerMonth + PROVING_FEE_PER_MONTH + egressCostPerMonth;
 
-// Total cost for 24 months: $1.596/month × 24 ≈ $38.31
+// Total cost for 24 months: $1.694/month × 24 ≈ $40.65
 const totalCostFor24Months = totalCostPerMonth * 24;
 ```
 
 | Cost Component | Per Month | 24 Months |
 | -------------- | ---------------- | ----------------- |
-| Storage | ≈ 0.238 USDFC | ≈ 5.71 USDFC |
-| Proving Service | ≈ 0.024 USDFC | ≈ 0.576 USDFC |
-| CDN Egress | ≈ 1.334 USDFC | ≈ 32.016 USDFC |
-| **Total** | **≈ 1.596 USDFC** | **≈ 38.31 USDFC** |
+| Storage | ≈ 0.238 USDFC | ≈ 5.72 USDFC |
+| Proving Service | ≈ 0.120 USDFC | ≈ 2.88 USDFC |
+| CDN Egress | ≈ 1.335 USDFC | ≈ 32.04 USDFC |
+| **Total** | **≈ 1.694 USDFC** | **≈ 40.65 USDFC** |
 
 Egress here is the worst case where every byte is a cache miss. When content is served from the Filecoin Beam cache, egress is roughly half this.
 
@@ -127,18 +127,18 @@ Egress here is the worst case where every byte is a cache miss. When content is 
 
 Most developers can stop at the tables above. This section explains the mechanics behind the per-operation fees and the lockup reserve for anyone who needs the detail.
 
-**The proving fee is additive, not a floor.** The rate is `(bytes / TiB) × $2.50 + $0.024`, so storage scales with size and the proving fee is a flat addition per data set. A data set with no pieces has no recurring charge until the first piece is added.
+**The proving fee is additive, not a floor.** The rate is `(FWSS-priced bytes / TiB) × $2.50 + $0.12`, so storage scales with size and the proving fee is a flat addition per data set. A data set with no pieces has no recurring charge until the first piece is added.
 
-**Add-pieces pricing scales with batch size.** Each `addPieces` call costs `$0.0005 + $0.0003 × N`, where `N` is the number of pieces in the batch. The base fee is shared across the batch, so adding many pieces in one call is cheaper per piece than adding them one at a time. When estimating the cost of a single piece, assume the single-piece price (`$0.0008`); batching only makes it cheaper.
+**Add-pieces pricing scales with batch size.** Each `addPieces` call costs `$0.008 + $0.003 × N`, where `N` is the number of pieces in the batch. The base fee is shared across the batch, so adding many pieces in one call is cheaper per piece than adding them one at a time. A single-piece call costs `$0.011`. Commit capacity is limited by the encoded Filecoin message size rather than a fixed piece count, and piece metadata affects how many pieces fit; batches of small pieces can exceed 40. Because batch boundaries also depend on upload timing, cost previews conservatively price each supplied piece as a separate operation, so actual batched fees can be lower.
 
-**Fees are paid from a small lockup reserve, not billed per call.** When a data set is created, ~$0.10 of USDFC is locked as a lifecycle reserve on the data set's payment rail. One-time fees are drawn from this reserve as operations happen, and the reserve is topped back up toward its target as it is drawn down. You see ~$0.10 of additional locked USDFC while the data set is active. It is refunded when the rail is finalized.
+**Fees are paid from a lifecycle reserve, not added twice to deposits.** When a data set is created, ~$0.50 of USDFC is locked as a lifecycle reserve on the data set's payment rail. Before pending one-time fees are paid, FWSS checks whether the reserve is below `pending fees + $0.025`. If so, it raises the fixed lockup enough that paying those fees leaves the reserve at its $0.50 target. The remaining reserve is refundable when the rail is finalized.
 
 <details>
 <summary>Why the reserve exists: wind-down after termination</summary>
 
 Filecoin Pay does not allow raising a rail's fixed lockup once the rail has been terminated. The lifecycle reserve gives you headroom to run wind-down operations (such as scheduling piece removals) after termination, when the reserve can no longer be refilled.
 
-If you expect to need more wind-down operations than the reserve covers, fund the reserve before terminating. User-initiated termination charges the $0.00112 termination fee and makes a best-effort top-up of the reserve. Provider-initiated termination charges no fee and does not top up, so those data sets are limited to whatever was in the reserve at termination.
+If you expect to need more wind-down operations than the reserve covers, account for them before terminating. A client-authorized termination relayed by the provider charges the $0.006 termination fee, pays pending fees, and releases the remaining reserve rather than replenishing it. Direct payer and provider termination paths do not charge this termination fee.
 
 For the full lockup model (streaming versus fixed lockup, rail settlement, finalization), see the [Payments & Storage cookbook](/cookbooks/payments-and-storage/) and the [Filecoin Pay spec](https://github.com/FilOzone/filecoin-pay/blob/main/SPEC.md).
 
@@ -154,23 +154,26 @@ Getting the costs for uploading to an existing data set:
 // @lib: esnext,dom
 // @noErrors
 import { Synapse, SIZE_CONSTANTS } from "@filoz/synapse-sdk"
+import { getDataSetLeafCount } from '@filoz/synapse-core/pdp-verifier'
+import { getDataSet } from '@filoz/synapse-core/warm-storage'
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 // ---cut---
-// Pass currentDataSetSize so rates reflect the data set's new total size
+// Read the existing data set so reserve replenishment is estimated correctly.
+const dataSet = await getDataSet(synapse.readClient, { dataSetId: 42n })
+if (dataSet == null) throw new Error('Data set not found')
+const dataSetLeafCount = await getDataSetLeafCount(synapse.readClient, { dataSetId: 42n })
+
 const { rates, fees, depositNeeded } = await synapse.storage.getUploadCosts({
   isNewDataSet: false,
-  currentDataSetSize: 50n * SIZE_CONSTANTS.MiB,
-  dataSize: 100n * SIZE_CONSTANTS.MiB,
+  dataSetLeafCount,
+  currentLifecycleReserveBalance: dataSet.lifecycleReserveBalance,
+  pendingOneTimePayments: dataSet.pendingOneTimePayments,
+  pdpEndEpoch: dataSet.pdpEndEpoch,
+  pieceSizes: [100n * SIZE_CONSTANTS.MiB],
 })
 // fees.addPiecesFee is the one-time fee for this upload
-// (pass pieceCount when adding more than one piece)
-
-// Without currentDataSetSize, rates cover the new data alone
-const costs2 = await synapse.storage.getUploadCosts({
-  isNewDataSet: false,
-  dataSize: 100n * SIZE_CONSTANTS.MiB,
-})
+// Pass every known raw piece size when committing a multi-piece batch.
 ```
 
 Getting the costs for uploading to a new data set:
@@ -183,7 +186,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 // ---cut---
 const { rates, fees, lockups, depositNeeded, needsFwssMaxApproval, ready } = await synapse.storage.getUploadCosts({
-  dataSize: 100n * SIZE_CONSTANTS.MiB,
+  pieceSizes: [100n * SIZE_CONSTANTS.MiB],
   isNewDataSet: true,
   withCDN: true,
 })
@@ -221,7 +224,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' });
 // ---cut---
 const { costs, transaction } = await synapse.storage.prepare({
-  dataSize: SIZE_CONSTANTS.GiB,
+  pieceSizes: [SIZE_CONSTANTS.GiB],
 })
 
 // Inspect costs
@@ -258,12 +261,12 @@ const oneYear = TIME_CONSTANTS.EPOCHS_PER_MONTH * 12n
 // Prepare a single deposit covering all 3 copies for 1 year
 const { costs, transaction } = await synapse.storage.prepare({
   context: contexts,
-  dataSize: 50n * SIZE_CONSTANTS.GiB,
+  pieceSizes: [50n * SIZE_CONSTANTS.GiB],
   extraRunwayEpochs: oneYear,
 })
 
 const { rates, depositNeeded, ready } = costs
-console.log("Monthly rate (per copy):", formatUnits(rates.perMonth), "USDFC")
+console.log("Total monthly rate:", formatUnits(rates.perMonth), "USDFC")
 console.log("Total deposit needed:", formatUnits(depositNeeded), "USDFC")
 console.log("Account ready:", ready)
 

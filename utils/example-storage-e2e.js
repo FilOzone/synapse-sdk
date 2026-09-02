@@ -35,7 +35,6 @@ async function main() {
   // Validate files and collect metadata
   console.log(`Reading file${filePaths.length === 1 ? '' : 's'}...`)
   const files = []
-  let totalSize = 0
 
   for (const filePath of filePaths) {
     const stat = await fsPromises.stat(filePath)
@@ -49,7 +48,6 @@ async function main() {
     }
     console.log(`  ${filePath} (${formatBytes(stat.size)})`)
     files.push({ path: filePath, length: stat.size })
-    totalSize += stat.size
   }
 
   // Create Synapse instance
@@ -78,7 +76,9 @@ async function main() {
 
   // Prepare account (deposit + approval if needed)
   console.log('\n--- Preparing Account ---')
-  const { costs, transaction } = await synapse.storage.prepare({ dataSize: BigInt(totalSize) })
+  const { costs, transaction } = await synapse.storage.prepare({
+    pieceSizes: files.map((file) => BigInt(file.length)),
+  })
 
   console.log('Estimated costs:')
   console.log(`  Per epoch (30s): ${formatUSDFC(costs.rates.perEpoch)}`)

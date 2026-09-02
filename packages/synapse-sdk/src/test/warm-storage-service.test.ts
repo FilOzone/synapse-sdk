@@ -150,7 +150,7 @@ describe('WarmStorageService', () => {
       assert.equal(result?.dataSetId, 1n)
     })
 
-    it('should return undefined for non-existent data set', async () => {
+    it('should return null for non-existent data set', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const warmStorageService = await createWarmStorageService()
       const dataSetId = 999n
