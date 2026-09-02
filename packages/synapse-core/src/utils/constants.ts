@@ -92,6 +92,13 @@ export const SIZE_CONSTANTS = {
   DEFAULT_UPLOAD_BATCH_SIZE: 32,
 
   /**
+   * Temporary maximum pieces per addPieces / createAndAdd operation.
+   *
+   * Enforced alongside `MAX_ADD_PIECES_MESSAGE_SIZE` by `addPiecesFits`.
+   */
+  MAX_ADD_PIECES_BATCH_SIZE: 40,
+
+  /**
    * Payload budget (bytes) for one addPieces / createAndAdd Filecoin message.
    *
    * Filecoin messages are capped at 64 KiB. 288 bytes are reserved for message

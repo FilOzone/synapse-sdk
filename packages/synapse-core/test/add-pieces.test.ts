@@ -42,10 +42,13 @@ describe('assertAddPiecesFit', () => {
     assert.doesNotThrow(() => assertAddPiecesFit({ kind: 'addPieces', pieces: [{ pieceCid }] }))
   })
 
-  it('should accept more than the old 40-piece count cap when pieces are small', () => {
-    const pieces = Array.from({ length: 41 }, () => ({ pieceCid }))
-    assert.doesNotThrow(() => assertAddPiecesFit({ kind: 'addPieces', pieces }))
-  })
+  for (const kind of ['addPieces', 'createDataSetAndAddPieces'] as const) {
+    it(`should reject ${kind} above 40 pieces`, () => {
+      const pieces = Array.from({ length: 40 }, () => ({ pieceCid }))
+      assert.doesNotThrow(() => assertAddPiecesFit({ kind, pieces }))
+      assert.throws(() => assertAddPiecesFit({ kind, pieces: [...pieces, { pieceCid }] }), AddPiecesBatchTooLargeError)
+    })
+  }
 
   it('should throw when a PieceCID is below MIN_UPLOAD_SIZE', () => {
     assert.throws(
@@ -63,7 +66,7 @@ describe('assertAddPiecesFit', () => {
     )
   })
 
-  it('should throw when the estimated message is too large', () => {
+  it('should throw when the batch exceeds the limiter', () => {
     assert.throws(
       () => assertAddPiecesFit({ kind: 'addPieces', pieces: oversizedBatch() }),
       AddPiecesBatchTooLargeError
