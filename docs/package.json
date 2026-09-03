@@ -45,7 +45,7 @@
     "@filoz/synapse-core": "workspace:*",
     "@filoz/synapse-react": "workspace:*",
     "@filoz/synapse-sdk": "workspace:*",
-    "@tanstack/react-query": "5.101.4",
+    "@tanstack/react-query": "5.102.5",
     "starlight-auto-sidebar": "0.4.0",
     "starlight-changelogs": "0.6.0",
     "starlight-links-validator": "0.25.3",
