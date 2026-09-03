@@ -76,10 +76,13 @@ describe('addPiecesFits', () => {
     )
   })
 
-  it('should accept more than the old 40-piece count cap when pieces are small', () => {
-    const pieces = Array.from({ length: 41 }, () => ({ pieceCid }))
-    assert.equal(addPiecesFits({ kind: 'addPieces', pieces }), true)
-  })
+  for (const kind of ['addPieces', 'createDataSetAndAddPieces'] as const) {
+    it(`should cap ${kind} at 40 pieces even when the message is small`, () => {
+      const pieces = Array.from({ length: 40 }, () => ({ pieceCid }))
+      assert.equal(addPiecesFits({ kind, pieces }), true)
+      assert.equal(addPiecesFits({ kind, pieces: [...pieces, { pieceCid }] }), false)
+    })
+  }
 
   it('should use compact metadata when every piece has none', () => {
     const emptyPieces = Array.from({ length: 2 }, () => ({ pieceCid }))

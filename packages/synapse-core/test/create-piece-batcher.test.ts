@@ -145,6 +145,24 @@ describe('createPieceBatcher', () => {
     assert.equal(a.batchIndex + b.batchIndex, 1)
   })
 
+  it('should split 41 pieces into batches of 40 and 1 with the default limiter', async () => {
+    const bodies: addPiecesApiRequest.RequestBody[] = []
+    server.use(addPiecesCaptureHandler((body) => bodies.push(body)))
+
+    const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+    const pending = Array.from({ length: 41 }, (_, index) =>
+      batcher.enqueue({ pieceCid: pieceCidA, metadata: { index: String(index) } })
+    )
+    await batcher.close()
+    const results = await Promise.all(pending)
+
+    assert.deepEqual(
+      bodies.map((body) => body.pieces.length),
+      [40, 1]
+    )
+    assert.equal(results.length, 41)
+  })
+
   it('should stream an upload into the same addPieces window', async () => {
     const bodies: addPiecesApiRequest.RequestBody[] = []
     server.use(
