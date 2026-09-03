@@ -2,8 +2,14 @@
 title: Session Keys
 description: Delegate signing permissions to ephemeral keys for improved UX and security.
 sidebar:
-  order: 6
+  order: 2
 ---
+
+:::tip[Which access control method to use?]
+FWSS offers 2 distinct methods of controlling write access to data sets.
+
+Ensure you pick the right one by consulting [which should I use?](/developer-guides/access-control/which-to-use/) first.
+:::
 
 ## What are session keys?
 
@@ -337,4 +343,8 @@ const expirations = await SessionKey.getExpirations(publicClient, {
 
 ## Next Steps
 
+- [Programmable ACLs](/developer-guides/access-control/programmable-acls/) — fine-grained per-dataset operation access control on FWSS.
+- [Storage Operations](/developer-guides/storage/storage-operations/) — add-pieces, removals, and
+  termination that accept the `extraData` override.
+- [Filecoin Warm Storage Service](/core-concepts/fwss-overview/) — how FWSS authorizes writes.
 - [Session Keys API](/reference/filoz/synapse-core/session-key/toc/#functions): Reference documentation
