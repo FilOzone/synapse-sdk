@@ -185,8 +185,8 @@ const StorageExample = () => {
 };
 ```
 
-:::caution[Deprecated]
-The `metadata` field returned for each piece by `useDataSets()` depends on deprecated FWSS piece metadata getters and will be removed. Read piece metadata from `PieceAdded` events or an indexer instead.
+:::caution[Piece metadata]
+Each data set returned by `useDataSets()` has a `pieces: Piece[]` array whose items have no `metadata` field. Read piece metadata from FWSS `PieceAdded` events or an indexer instead. See the [migration guide](/developer-guides/migration-guide/#action-replace-core-piece-metadata-reads) for the core API changes.
 :::
 
 Check out the [Synapse React Reference](/reference/filoz/synapse-react/toc/) for all available query and mutation hooks.
