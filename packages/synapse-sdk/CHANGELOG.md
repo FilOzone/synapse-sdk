@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v1.2.1...synapse-sdk-v2.0.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* correct storage cost and fee calculations ([#946](https://github.com/FilOzone/synapse-sdk/issues/946))
+* remove piece metadata getters ([#936](https://github.com/FilOzone/synapse-sdk/issues/936))
+
+### Features
+
+* correct storage cost and fee calculations ([#946](https://github.com/FilOzone/synapse-sdk/issues/946)) ([2be8ee5](https://github.com/FilOzone/synapse-sdk/commit/2be8ee57b5bec14b85ac1c6926a69e4006c63b08))
+* remove piece metadata getters ([#936](https://github.com/FilOzone/synapse-sdk/issues/936)) ([8e0ee82](https://github.com/FilOzone/synapse-sdk/commit/8e0ee82a16a6a48c3680a14281cab3fd753d991f))
+* **synapse-core:** add piece batcher with message-size addPieces limiter ([c63520a](https://github.com/FilOzone/synapse-sdk/commit/c63520a7385dbd2ebe9a06b1350975c79612f758))
+* **synapse-sdk:** batch storage uploads by default ([#935](https://github.com/FilOzone/synapse-sdk/issues/935)) ([1af645a](https://github.com/FilOzone/synapse-sdk/commit/1af645a395a883a2239e951493a49084011ad42b))
+
+
+### Chores
+
+* commit lockfile and update package dependencies ([#947](https://github.com/FilOzone/synapse-sdk/issues/947)) ([26bccbb](https://github.com/FilOzone/synapse-sdk/commit/26bccbbf1e84eaa42e40eeaddf7a7656ac9cf4d6))
+
 ## [1.2.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v1.2.0...synapse-sdk-v1.2.1) (2026-08-26)
 
 
