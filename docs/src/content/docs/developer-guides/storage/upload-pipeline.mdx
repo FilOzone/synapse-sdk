@@ -59,11 +59,11 @@ The result contains:
 
 Piece batching is enabled by default. Compatible uploads that run concurrently can share an on-chain transaction when they use the same provider and data set. Each provider maintains its own batch.
 
-Start the uploads together to give them an opportunity to join the same batch:
+For browser `File` objects, start the uploads together to give them an opportunity to join the same batch:
 
 ```ts
 const results = await Promise.all(
-  files.map((file) => synapse.storage.upload(file))
+  files.map((file) => synapse.storage.upload(file.stream()))
 )
 ```
 
@@ -71,24 +71,29 @@ Sequential uploads cannot share a batch because each call waits for its own on-c
 
 ```ts
 for (const file of files) {
-  await synapse.storage.upload(file)
+  await synapse.storage.upload(file.stream())
 }
 ```
 
-By default, the SDK submits a batch after a zero-delay window. You can instead hold compatible pieces until the transaction size limit is reached or you explicitly flush them:
+By default, the SDK submits a batch after a zero-delay window once its uploads and pulls finish parking. You can instead hold compatible pieces until the next piece would exceed the 40-piece cap or encoded message-size budget, or until you explicitly flush them:
 
 ```ts
 const synapse = Synapse.create({
   account: privateKeyToAccount("0x..."),
+  source: 'my-app',
   pieceBatching: { wait: { kind: "limiter" } },
 })
 
-const uploads = files.map((file) => synapse.storage.upload(file))
+const resultsPromise = Promise.allSettled(
+  files.map((file) => synapse.storage.upload(file.stream()))
+)
 await synapse.storage.flush()
-const results = await Promise.all(uploads)
+const results = await resultsPromise
 ```
 
-`flush()` waits for accepted uploads and pulls to finish parking, then submits their pending batch windows. It does not report whether every upload was submitted or confirmed successfully; always await the individual upload promises for results and errors.
+`flush()` waits for accepted uploads and pulls to finish parking, then submits their pending batch windows. It does not report whether every upload was submitted or confirmed successfully. Inspect the settled results for rejections and check `complete` on fulfilled upload results. Start uploads before flushing; awaiting an upload first in limiter mode can leave it waiting indefinitely.
+
+Compatible uploads can report the same transaction hash in their callbacks. Batched secondary pulls sign their per-piece authorization separately from the eventual commit batch, so interactive wallets can prompt again at commit time. To reuse one signature for pull and commit, disable batching or use the split operations with the same presigned `extraData`.
 
 Set `pieceBatching: false` when creating `Synapse` to disable batching. Use the [split operations](#split-operations) when you need manual control over provider selection, signing, or each store, pull, and commit phase.
 
