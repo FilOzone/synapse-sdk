@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.3.1...synapse-react-v0.4.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove piece metadata getters ([#936](https://github.com/FilOzone/synapse-sdk/issues/936))
+
+### Features
+
+* remove piece metadata getters ([#936](https://github.com/FilOzone/synapse-sdk/issues/936)) ([8e0ee82](https://github.com/FilOzone/synapse-sdk/commit/8e0ee82a16a6a48c3680a14281cab3fd753d991f))
+
 ## [0.3.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.3.0...synapse-react-v0.3.1) (2026-08-25)
 
 
