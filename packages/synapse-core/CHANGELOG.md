@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.9.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.8.1...synapse-core-v0.9.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* correct storage cost and fee calculations ([#946](https://github.com/FilOzone/synapse-sdk/issues/946))
+* remove piece metadata getters ([#936](https://github.com/FilOzone/synapse-sdk/issues/936))
+
+### Features
+
+* compact empty piece metadata in add-pieces calldata ([#953](https://github.com/FilOzone/synapse-sdk/issues/953)) ([e570649](https://github.com/FilOzone/synapse-sdk/commit/e57064975d47491df715d96fe1e387320dacb6a2))
+* correct storage cost and fee calculations ([#946](https://github.com/FilOzone/synapse-sdk/issues/946)) ([2be8ee5](https://github.com/FilOzone/synapse-sdk/commit/2be8ee57b5bec14b85ac1c6926a69e4006c63b08))
+* remove piece metadata getters ([#936](https://github.com/FilOzone/synapse-sdk/issues/936)) ([8e0ee82](https://github.com/FilOzone/synapse-sdk/commit/8e0ee82a16a6a48c3680a14281cab3fd753d991f))
+* **synapse-core:** add piece batcher with message-size addPieces limiter ([c63520a](https://github.com/FilOzone/synapse-sdk/commit/c63520a7385dbd2ebe9a06b1350975c79612f758))
+* **synapse-sdk:** batch storage uploads by default ([#935](https://github.com/FilOzone/synapse-sdk/issues/935)) ([1af645a](https://github.com/FilOzone/synapse-sdk/commit/1af645a395a883a2239e951493a49084011ad42b))
+
+
+### Bug Fixes
+
+* enforce the 40-piece limit for addPieces operations ([#956](https://github.com/FilOzone/synapse-sdk/issues/956)) ([95707ac](https://github.com/FilOzone/synapse-sdk/commit/95707ac015f547ea1ba1181c87e2f66504cd4895))
+* **synapse-core:** delay batch flush until parking settles ([08bcc60](https://github.com/FilOzone/synapse-sdk/commit/08bcc60fa13b67d813a067835c3dce9ca0c0757f))
+* **synapse-core:** sign new dataset pulls correctly ([#955](https://github.com/FilOzone/synapse-sdk/issues/955)) ([b0cf4a7](https://github.com/FilOzone/synapse-sdk/commit/b0cf4a7dd0524a4085af9714b2b65f19da87a41b))
+
+
+### Chores
+
+* commit lockfile and update package dependencies ([#947](https://github.com/FilOzone/synapse-sdk/issues/947)) ([26bccbb](https://github.com/FilOzone/synapse-sdk/commit/26bccbbf1e84eaa42e40eeaddf7a7656ac9cf4d6))
+* **synapse-core:** update FWSS StateView addresses ([#952](https://github.com/FilOzone/synapse-sdk/issues/952)) ([f41666e](https://github.com/FilOzone/synapse-sdk/commit/f41666e4484adf12b5d0c46bbaf772ed752df447))
+
 ## [0.8.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.8.0...synapse-core-v0.8.1) (2026-08-25)
 
 
