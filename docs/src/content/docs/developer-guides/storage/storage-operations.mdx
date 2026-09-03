@@ -72,7 +72,7 @@ const [primary, secondary] = contexts
 
 ### Data Set Matching
 
-After the storage contract upgrade, use distinct metadata to select new [compact data sets](/developer-guides/storage/storage-upgrade/), then reuse them. Matching an old data set continues using its legacy piece storage; the SDK does not migrate it automatically.
+To benefit from compact piece storage, explicitly switch future uploads to [new data sets](/developer-guides/storage/storage-upgrade/#choose-new-data-sets-once-then-reuse-them), then reuse them. Matching an old data set continues using its legacy piece storage; the SDK does not migrate it automatically.
 
 :::tip[Metadata Matching for Cost Efficiency]
 **The SDK reuses existing data sets when metadata matches exactly**, avoiding duplicate payment rails. To maximize reuse:

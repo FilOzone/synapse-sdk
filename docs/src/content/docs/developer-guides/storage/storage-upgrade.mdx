@@ -6,7 +6,7 @@ sidebar:
   label: Storage Upgrade
 ---
 
-The August 2026 storage upgrade makes it cheaper to manage many files together. Three changes work together: **smaller on-chain piece records, smaller addition events, and less metadata overhead**. More pieces can fit into one operation, and batching spreads the transaction's fixed costs across more files.
+The September 3, 2026 storage upgrade makes it cheaper to manage many files together. Three changes work together: **smaller on-chain piece records, smaller addition events, and less metadata overhead**. More pieces can fit into one operation, and batching spreads the transaction's fixed costs across more files.
 
 **For the full benefit, create new data sets after your network's upgrade, then reuse them.** Existing data sets remain supported, but their piece records keep the old storage format permanently. Neither the contract upgrade nor the SDK moves existing content automatically.
 
@@ -26,18 +26,18 @@ Sources: [compact storage](https://github.com/FilOzone/pdp/pull/292), [addition 
 
 Previously, the addition event limited transactions to 41 pieces, and the SDK/provider path used a conservative limit of 40. The upgraded contract splits addition events into groups of 100; **100 is an event size, not a transaction limit**. A transaction can contain several such events. [Event limits](https://github.com/FilOzone/pdp/pull/300)
 
-The SDK now checks the encoded request size against a 65,248-byte budget instead of using a fixed piece count. The less metadata you attach, the more pieces fit:
+With the larger event capacity, request size becomes a limit on how many pieces can fit. Less metadata leaves more room for pieces:
 
 | Metadata on each piece | Append to a data set | Create a data set and add pieces |
 | --- | ---: | ---: |
 | None | Up to 404 | Up to 401 |
-| One short pair, such as `name: 'a'` | Up to 134 | Up to 133 |
-| Three pairs with maximum-length keys and values | Up to 61 | Up to 60 |
+| One pair with a value of 1–32 bytes | Up to 134 | Up to 133 |
+| Three pairs with values of 65–96 bytes each | Up to 61 | Up to 60 |
 
-These are **encoded-size estimates, not guaranteed upload limits**, calculated with the [SDK encoder at `26bccbbf`](https://github.com/FilOzone/synapse-sdk/blob/26bccbbf/packages/synapse-core/src/sp/add-pieces-fits.ts). They assume a standard 65-byte signature, PieceCIDs occupying two ABI words, and no data-set metadata or CDN setting for creation. SDK-added `source` metadata, other creation options, transaction gas, and provider limits can reduce the actual batch size. If any piece has metadata, the batch must retain per-piece metadata arrays.
+These are [request-size estimates](https://github.com/FilOzone/synapse-sdk/blob/26bccbbf/packages/synapse-core/src/sp/add-pieces-fits.ts), not current upload limits. Creation options and transaction gas can reduce capacity. Metadata keys occupy the same space throughout their allowed 1–32-byte range; value length determines the difference shown here.
 
-:::caution[Provider support is still catching up]
-As checked on 2 September 2026, [Curio still caps append and create-and-add requests at 40 pieces](https://github.com/filecoin-project/curio/blob/b8467c315a18af4981991550d8ecfb3ac0388f07/pdp/handlers.go#L59-L61). The larger capacities above require provider support. Until then, keep groups of concurrent SDK uploads at 40 or fewer and await each group before starting another, including uploads sharing the same `Synapse` instance. The SDK's size check does not discover this provider limit.
+:::note[The SDK handles batching]
+The SDK currently splits compatible concurrent uploads into batches of **at most 40 pieces**, matching provider support. You can start uploads together; there is no need to split them into groups or wait between groups yourself. Larger batches require provider support and a corresponding SDK update. [SDK batching limit](https://github.com/FilOzone/synapse-sdk/pull/956)
 :::
 
 The SDK [batches compatible concurrent uploads automatically](/developer-guides/storage/upload-pipeline/#uploading-multiple-files). Each provider has its own batch, so storing two copies requires separate on-chain operations for the two providers.
@@ -63,28 +63,24 @@ At the FWSS 1.4.0 schedule, adding pieces costs **0.008 USDFC per operation plus
 
 That is **about 71% less in add-pieces fees** for the same files. Larger supported batches spread the base fee further. This excludes creation fees, recurring storage, and other charges; each replica pays separately.
 
-Gas savings are not a matching discount on the entire storage bill. Providers pay gas in FIL, while users pay the USDFC service schedule. The release also recalibrates prices for both old and new data sets. Read current prices and use `prepare()` to calculate funding. [Storage costs](/developer-guides/storage/storage-costs/), [release pricing changes](https://github.com/FilOzone/filecoin-services/blob/997da817328eb72bfae1e998924bf1d47d7090c2/CHANGELOG.md)
+Use `prepare()` to calculate funding for your uploads. See [Storage Costs](/developer-guides/storage/storage-costs/) for the current service fees.
 
 ## Get the full benefit with new data sets
 
-### Wait for your network's cutover
-
-The new format applies to data sets created after the PDPVerifier 3.5.0 migration. As of 2 September 2026, Calibration has completed the PDPVerifier 3.5.0 and FWSS 1.4.0 upgrades; Mainnet execution is still pending. Creating a Mainnet data set before the cutover still uses the old format. Check the [PDPVerifier rollout](https://github.com/FilOzone/pdp/issues/304) and [FWSS release status](https://github.com/FilOzone/filecoin-services/releases/tag/v1.4.0).
-
-You can check the format of a data set by reading `legacyPieceStorageIdLimit()` from the network's PDPVerifier proxy. An existing data set at or above a nonzero boundary uses compact storage; IDs below it remain legacy. Zero means the cutover has not happened, and older implementations do not expose the getter. The contract's `migrate()` sets this boundary; it does not migrate user content. [Cutover rules](https://github.com/FilOzone/pdp/pull/292)
+Data sets created after the September 3 upgrade use compact storage. Existing data sets keep their original format, including any pieces added to them later. Switching is opt-in: the SDK does not automatically recreate data sets or move their content. [Storage upgrade](https://github.com/FilOzone/pdp/pull/292)
 
 ### Choose new data sets once, then reuse them
 
-The SDK matches data sets by metadata and may keep reusing an old one after you upgrade. Choose a **stable metadata value unused by your old data sets** to direct future uploads into new ones. Keep that value on subsequent uploads; changing it for every file creates unnecessary data sets and fees. It is an application label, not a storage-format setting.
+The SDK matches data sets by metadata and may keep reusing an old one after you upgrade. If you want to keep the same metadata, explicitly create replacements with the core [`createDataSet()` and `waitForCreateDataSet()` APIs](https://github.com/FilOzone/synapse-sdk/blob/95707ac015f547ea1ba1181c87e2f66504cd4895/packages/synapse-core/src/sp/create-dataset.ts), then select their returned IDs with `dataSetIds` for future uploads. Preferential selection of already-created compact data sets is tracked separately in [#925](https://github.com/FilOzone/synapse-sdk/issues/925); it does not move existing content.
 
-After confirming the network cutover:
+Alternatively, the following example requests a separate group of data sets by adding a **stable metadata value unused by your old data sets**. Changing metadata is optional; it is a way to request new data sets with the current high-level API. Keep the value on subsequent uploads to reuse those data sets:
 
 ```ts twoslash
 import { Synapse } from '@filoz/synapse-sdk'
 declare const synapse: Synapse
 // ---cut---
 // Preserve your app's other metadata. Keep this generation value for future uploads.
-const metadata = { app: 'my-app', storageGeneration: 'compact-2026-08' }
+const metadata = { app: 'my-app', storageGeneration: 'compact-2026-09' }
 const contexts = await synapse.storage.createContexts({ copies: 2, metadata })
 
 const data = new TextEncoder().encode('Hello, compact storage!'.repeat(8))
