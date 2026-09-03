@@ -9,6 +9,232 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ---
 
+## synapse-sdk 2.0.0
+
+This release changes upload cost inputs, enables automatic piece batching, and removes the piece metadata getters deprecated in 1.2.1. If you use core actions directly, also follow [synapse-core 0.9.0](#synapse-core-090).
+
+### Action: Use new data sets for compact storage
+
+PDPVerifier 3.5.0 introduces compact piece storage for data sets created after the network's migration. Existing data sets keep their legacy format permanently, including newly appended pieces; neither the contract upgrade nor the SDK migrates them automatically.
+
+Read [Larger, Cheaper Storage Batches](/developer-guides/storage/storage-upgrade/) for gas savings, batching, and how to explicitly direct future uploads to new data sets. Reuse the new data sets after switching; changing application metadata is optional.
+
+### Action: Pass exact piece sizes to upload cost APIs
+
+Replace `dataSize` with `pieceSizes` in `storage.prepare()`, `storage.calculateMultiContextCosts()`, and `storage.getUploadCosts()`. Remove `pieceCount` from `getUploadCosts()` calls: the number of pieces is now the array length.
+
+```ts
+// before: one piece
+await synapse.storage.prepare({ dataSize })
+
+// after: one piece
+await synapse.storage.prepare({ pieceSizes: [dataSize] })
+
+// after: multiple pieces, with the same pieces uploaded to every context
+const pieceSizes = files.map((file) => BigInt(file.size))
+await synapse.storage.prepare({ context: contexts, pieceSizes })
+```
+
+Supply each piece's exact raw payload size as a `bigint`. Do not replace a multi-piece upload with `[totalSize]`: each piece is rounded independently to PDP leaves and incurs operation fees. Empty arrays and non-positive sizes are rejected.
+
+When passing precomputed `costs` to `prepare()`, calculate them for the exact contexts and piece sizes. Use `calculateMultiContextCosts(contexts, { pieceSizes })` for multiple copies; `getUploadCosts()` estimates only one context.
+
+### Action: Supply existing data-set state when estimating costs
+
+For `storage.getUploadCosts({ isNewDataSet: false, ... })`, replace `currentDataSetSize` with `dataSetLeafCount` and supply `currentLifecycleReserveBalance` and `pdpEndEpoch`. All three fields are required. Include `pendingOneTimePayments` when fees are pending; it defaults to `0n`.
+
+```ts
+import { getDataSetLeafCount } from '@filoz/synapse-core/pdp-verifier'
+import { getDataSet } from '@filoz/synapse-core/warm-storage'
+
+const [dataSet, dataSetLeafCount] = await Promise.all([
+  getDataSet(synapse.readClient, { dataSetId }),
+  getDataSetLeafCount(synapse.readClient, { dataSetId }),
+])
+if (dataSet == null) throw new Error('Data set not found')
+
+const costs = await synapse.storage.getUploadCosts({
+  isNewDataSet: false,
+  pieceSizes,
+  dataSetLeafCount,
+  currentLifecycleReserveBalance: dataSet.lifecycleReserveBalance,
+  pendingOneTimePayments: dataSet.pendingOneTimePayments,
+  pdpEndEpoch: dataSet.pdpEndEpoch,
+})
+```
+
+Missing required state throws `ValidationError`. A non-zero `pdpEndEpoch` throws `ServiceAlreadyTerminatedError`, since the data set can no longer accept uploads.
+
+To have the SDK read this state for you, use `storage.prepare({ context, pieceSizes })` or `storage.calculateMultiContextCosts(contexts, { pieceSizes })`. `DataSetInfo` now includes the required `pendingOneTimePayments` and `lifecycleReserveBalance` fields; update any typed fixtures or adapters that construct it.
+
+### Action: Use the reserve-aware funding result
+
+Use `costs.depositNeeded` for the amount to fund. Operation fees are paid from the lifecycle reserve and are no longer added directly to the deposit. Funding includes the initial reserve for a new data set and any replenishment required as pending fees drain the reserve. Do not add `costs.fees.total` to `depositNeeded`.
+
+The lockup breakdown now includes `lockups.reserveReplenishment` and `lockups.rateDeltaPerEpoch`. Include replenishment when displaying the components of `lockups.total`. Fee and reserve estimates conservatively treat each supplied piece as a separate add-pieces operation; actual batched fees can be lower. See [Storage Costs](/developer-guides/storage/storage-costs/) for the funding model.
+
+### Action: Account for automatic upload batching
+
+`storage.upload()` and `StorageContext.upload()` now batch compatible concurrent uploads by default. Uploads to the same provider and data set can share a transaction, so multiple upload callbacks may report the same transaction hash. Each upload still returns its own result; check `complete` on each result.
+
+The default wait is `{ kind: 'delay', ms: 0 }`: the batch is submitted after a zero-delay window once its uploads and pulls finish parking. Start uploads concurrently to let them join a batch. Sequentially awaiting each upload prevents them from sharing a batch.
+
+To preserve the previous upload path, disable batching when creating the SDK:
+
+```ts
+import { Synapse } from '@filoz/synapse-sdk'
+
+const synapse = Synapse.create({ account, source: 'my-app', pieceBatching: false })
+// With an existing client:
+const fromClient = new Synapse({ client, source: 'my-app', pieceBatching: false })
+```
+
+If you select limiter mode, start the uploads before flushing. A pending batch waits until the next piece would exceed the count or message-size limit, or until you call `storage.flush()`:
+
+```ts
+const synapse = Synapse.create({
+  account,
+  source: 'my-app',
+  pieceBatching: { wait: { kind: 'limiter' } },
+})
+
+const resultsPromise = Promise.allSettled(
+  files.map((file) => synapse.storage.upload(file.stream()))
+)
+await synapse.storage.flush()
+const results = await resultsPromise
+```
+
+`flush()` waits for accepted uploads and pulls to finish parking, then submits their pending batches. It does not establish that every upload succeeded or was confirmed. Inspect the settled results for rejections and check `complete` on fulfilled upload results. Awaiting an upload before flushing in limiter mode can leave it waiting indefinitely.
+
+Batched secondary pulls sign their per-piece authorization separately from the eventual commit batch. Interactive wallets can therefore prompt again at commit time. Use `pieceBatching: false` or the [split operations](/developer-guides/storage/upload-pipeline/#split-operations) with the same presigned `extraData` for pull and commit when you need signature reuse.
+
+### Action: Replace SDK piece metadata reads
+
+Newly added piece metadata is no longer stored in FWSS contract state, including additions to existing data sets. Upload and commit options still accept metadata, which is validated, signed, and emitted in `PieceAdded` events.
+
+`WarmStorageService.getPieceMetadata()` and `getPieceMetadataByKey()` were deprecated in 1.2.1 and are removed in 2.0.0. Read piece metadata from FWSS `PieceAdded` events or an indexer.
+
+For React integrations using the updated core, each data set returned by `useDataSets()` now has a `pieces: Piece[]` array whose items have no `metadata` field. Update components that read `piece.metadata` to use event or indexer data. See the [core metadata migration](#action-replace-core-piece-metadata-reads) for the removed actions and replacement types.
+
+---
+
+## synapse-core 0.9.0
+
+This release changes cost calculations and batch validation, and removes the piece metadata APIs deprecated in 0.8.1.
+
+### Action: Update core cost inputs and funding calculations
+
+The following APIs from `@filoz/synapse-core/warm-storage` now require exact raw piece sizes:
+
+| API | Input changes |
+| --- | --- |
+| `getUploadCosts()` | Replace `dataSize` and `pieceCount` with `pieceSizes`; replace `currentDataSetSize` with `dataSetLeafCount` |
+| `calculateDepositNeeded()` | Replace `dataSize` and `pieceCount` with `pieceSizes`; replace `currentDataSetSize` with `dataSetLeafCount` |
+| `calculateAdditionalLockupRequired()` | Replace `dataSize` with `pieceSizes` and `currentDataSetSize` with `dataSetLeafCount` |
+| `calculateUploadFees()` | Replace `pieceCount` with `pieceSizes` |
+
+`pieceSizes` must be a non-empty array of positive `bigint` byte sizes. Supply every piece separately, rather than a combined size. For the pure helpers that require `dataSetLeafCount`, use `0n` for new data sets.
+
+For existing data sets, `getUploadCosts()` and `calculateDepositNeeded()` require `dataSetLeafCount`, `currentLifecycleReserveBalance`, and `pdpEndEpoch`. Pass `pendingOneTimePayments` when fees are pending. Missing state throws `ValidationError`; a non-zero `pdpEndEpoch` throws `ServiceAlreadyTerminatedError`. Read this state as shown in the [SDK cost example](#action-supply-existing-data-set-state-when-estimating-costs), and include `clientAddress` when calling the core action:
+
+```ts
+import { getUploadCosts } from '@filoz/synapse-core/warm-storage'
+
+const costs = await getUploadCosts(client, {
+  clientAddress,
+  isNewDataSet: true,
+  pieceSizes: [1_000_000n, 2_000_000n],
+})
+```
+
+Deposit calculations now fund lifecycle-reserve creation and replenishment instead of adding operation fees directly to the deposit. `calculateDepositNeeded()` exposes `lockup.reserveReplenishment`; `getUploadCosts()` exposes `lockups.reserveReplenishment` and `lockups.rateDeltaPerEpoch`. Fee and replenishment estimates price each piece as its own operation, so actual batching can cost less.
+
+For custom cost calculations, use `calculateUploadCosts()` from `@filoz/synapse-core/utils` with resolved context, price-list, and account state. It aggregates context costs and applies account debt, available funds, runway, and buffer once. `calculateAdditionalLockupRequired()` alone does not calculate reserve replenishment; use `calculateLifecycleReserveFunding()` from `/warm-storage` if composing the individual helpers.
+
+### Action: Rename and relocate runway and buffer helpers
+
+The old helpers were removed from `@filoz/synapse-core/warm-storage`. Their replacements keep the same input fields and are exported from `@filoz/synapse-core/utils`:
+
+| Removed export | Replacement export |
+| --- | --- |
+| `calculateRunwayAmount` | `calculateRunwayAmountFromState` |
+| `calculateBufferAmount` | `calculateBufferAmountFromState` |
+| `calculateRunwayAmount.ParamsType` | `CalculateRunwayAmountFromStateOptions` |
+| `calculateBufferAmount.ParamsType` | `CalculateBufferAmountFromStateOptions` |
+
+```ts
+import {
+  calculateBufferAmountFromState,
+  calculateRunwayAmountFromState,
+} from '@filoz/synapse-core/utils'
+```
+
+### Action: Replace data-set byte reads with leaf counts
+
+`getDataSetSizes()` was removed from `@filoz/synapse-core/pdp-verifier`. Use `getDataSetLeafCounts()`, which returns a `Map<bigint, bigint>` keyed by data-set ID instead of a byte-size array ordered like the input. Duplicate IDs are read once, and non-live data sets have a leaf count of `0n`.
+
+```ts
+import { getDataSetLeafCounts } from '@filoz/synapse-core/pdp-verifier'
+import { leafCountToRawSize } from '@filoz/synapse-core/utils'
+
+const leafCounts = await getDataSetLeafCounts(client, { dataSetIds })
+for (const [dataSetId, leafCount] of leafCounts) {
+  console.log(dataSetId, leafCountToRawSize(leafCount))
+}
+```
+
+Pass leaf counts directly to the new cost inputs. For custom rate calculations, combine the existing data-set leaf count with `pieceSizesToLeafCount(pieceSizes)`, then call `leafCountToRawSize()` once on that total before passing it to `calculateEffectiveRate({ sizeInBytes, ... })`. This preserves per-piece leaf rounding and the contract's aggregate conversion order.
+
+`leafCountToRawSize()` converts leaves using `leafCount × 32 × 127 / 128`, rounded down. `getAccountTotalStorageSize().totalSizeBytes` now sums these FWSS-priced approximate sizes per live data set, replacing the previous padded-byte calculation. Use exact piece payload sizes for application accounting; this pricing approximation is not an exact sum of uploaded bytes.
+
+### Action: Replace count-only batch validation
+
+`validateAddPiecesBatch(count)` was removed from `@filoz/synapse-core/sp`. Use `assertAddPiecesFit()` with actual PieceCIDs and metadata:
+
+```ts
+import { assertAddPiecesFit } from '@filoz/synapse-core/sp'
+
+// Existing data set
+assertAddPiecesFit({ kind: 'addPieces', pieces })
+
+// New data set: include its metadata and CDN setting in the size estimate
+assertAddPiecesFit({
+  kind: 'createDataSetAndAddPieces',
+  pieces,
+  metadata: dataSetMetadata,
+  cdn: withCDN,
+})
+```
+
+Each piece uses `{ pieceCid, metadata? }`. Validation enforces both the temporary **40-piece cap** and the encoded message-size budget (`SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE`). Metadata can make a batch exceed the byte budget even within the count cap. Automatic batching splits pending pieces into fitting batches; explicit `commit()` and core add-pieces calls require callers to split oversized batches themselves.
+
+Update error handling: oversized batches now throw `AddPiecesBatchTooLargeError` instead of `TooManyPiecesError`. PieceCIDs outside Curio's upload-size bounds throw `InvalidUploadSizeError`; empty batches still throw `AtLeastOnePieceRequiredError`. These checks also apply to SDK `commit()`, `presignForCommit()`, and `pull()`.
+
+Use `addPiecesFits()` for a boolean count/message-size check when constructing batches. Use `assertAddPiecesFit()` when you also need PieceCID upload-size validation.
+
+### Action: Replace core piece metadata reads
+
+The following APIs were deprecated in 0.8.1 and are removed in 0.9.0:
+
+- `getAllPieceMetadata()`, `getAllPieceMetadataCall()`, and `parseAllPieceMetadata()` from `@filoz/synapse-core/warm-storage`
+- `getPiecesWithMetadata()` from `@filoz/synapse-core/pdp-verifier`
+- `PieceWithMetadata` from `@filoz/synapse-core/warm-storage`
+
+Replace `getPiecesWithMetadata()` with `getPieces()` using the same options and page handling, and replace the `PieceWithMetadata` type with `Piece`:
+
+```ts
+import { getPieces } from '@filoz/synapse-core/pdp-verifier'
+import type { Piece } from '@filoz/synapse-core/warm-storage'
+
+const page = await getPieces(client, { dataSet, address, cursor })
+const pieces: Piece[] = page.items
+```
+
+FWSS no longer persists piece metadata in contract state. Read it from FWSS `PieceAdded` events or an indexer. Upload and commit inputs continue to accept piece metadata for those events. Data-set metadata getters remain available.
+
+---
+
 ## synapse-core 0.8.0
 
 ### Action: Migrate paginated reads to cursors and pages
@@ -141,16 +367,6 @@ for await (const _piece of paginate(({ cursor }) =>
   activePieceCount++
 }
 ```
-
-### Action: Read piece metadata from events or an indexer
-
-Piece metadata is no longer persisted in FWSS contract state. The following getter APIs were removed:
-
-- `getAllPieceMetadata()`, `getAllPieceMetadataCall()`, and `parseAllPieceMetadata()` from `@filoz/synapse-core/warm-storage`
-- `getPiecesWithMetadata()` and the `PieceWithMetadata` type from `@filoz/synapse-core`
-- `WarmStorageService.getPieceMetadata()` and `getPieceMetadataByKey()` from `@filoz/synapse-sdk`
-
-The React `useDataSets()` hook now returns `Piece[]` without a `metadata` field. Read piece metadata from `PieceAdded` events or an indexer instead. Upload and commit options still accept piece metadata so it can be included in those events.
 
 ---
 
