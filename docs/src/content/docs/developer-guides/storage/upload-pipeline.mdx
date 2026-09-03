@@ -59,6 +59,8 @@ The result contains:
 
 Piece batching is enabled by default. Compatible uploads that run concurrently can share an on-chain transaction when they use the same provider and data set. Each provider maintains its own batch.
 
+The SDK automatically splits compatible concurrent uploads into batches of at most 40 pieces. Start uploads together without manually grouping them or waiting between groups. See [Larger, Cheaper Storage Batches](/developer-guides/storage/storage-upgrade/#more-pieces-per-operation) for the gas benefits and larger capacity enabled by the contracts.
+
 For browser `File` objects, start the uploads together to give them an opportunity to join the same batch:
 
 ```ts
