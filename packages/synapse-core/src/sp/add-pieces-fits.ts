@@ -79,7 +79,8 @@ export function addPiecesFits(options: addPiecesFits.OptionsType): addPiecesFits
   if (options.pieces.length < 1) {
     return false
   }
-  // Remove once Curio supports larger batches: filecoin-project/curio#1421.
+  // TODO: Remove the temporary provider cap once Curio supports larger batches.
+  // https://github.com/filecoin-project/curio/issues/1421
   if (options.pieces.length > SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE) {
     return false
   }
