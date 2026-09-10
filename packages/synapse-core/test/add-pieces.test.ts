@@ -42,8 +42,25 @@ describe('assertAddPiecesFit', () => {
     assert.doesNotThrow(() => assertAddPiecesFit({ kind: 'addPieces', pieces: [{ pieceCid }] }))
   })
 
+  it('should retain the provider cap for a legacy data set', () => {
+    const legacyPieceStorageIdLimit = 10n
+    const dataSetId = 1n
+    const pieces = Array.from({ length: 40 }, () => ({ pieceCid }))
+    assert.doesNotThrow(() => assertAddPiecesFit({ kind: 'addPieces', dataSetId, legacyPieceStorageIdLimit, pieces }))
+    assert.throws(
+      () =>
+        assertAddPiecesFit({
+          kind: 'addPieces',
+          dataSetId,
+          legacyPieceStorageIdLimit,
+          pieces: [...pieces, { pieceCid }],
+        }),
+      AddPiecesBatchTooLargeError
+    )
+  })
+
   for (const kind of ['addPieces', 'createDataSetAndAddPieces'] as const) {
-    it(`should reject ${kind} above 40 pieces`, () => {
+    it(`should reject ${kind} above the provider cap when the data set tier is unknown`, () => {
       const pieces = Array.from({ length: 40 }, () => ({ pieceCid }))
       assert.doesNotThrow(() => assertAddPiecesFit({ kind, pieces }))
       assert.throws(() => assertAddPiecesFit({ kind, pieces: [...pieces, { pieceCid }] }), AddPiecesBatchTooLargeError)

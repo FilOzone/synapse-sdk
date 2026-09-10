@@ -168,7 +168,12 @@ export class StorageContext {
   private assertPiecesFitMessage(pieces: Array<{ pieceCid: PieceCID; metadata?: MetadataObject }>): void {
     SP.assertAddPiecesFit(
       this._dataSetId
-        ? { kind: 'addPieces', pieces }
+        ? {
+            kind: 'addPieces',
+            dataSetId: this._dataSetId,
+            legacyPieceStorageIdLimit: this._chain.legacyPieceStorageIdLimit,
+            pieces,
+          }
         : {
             kind: 'createDataSetAndAddPieces',
             metadata: this._dataSetMetadata,

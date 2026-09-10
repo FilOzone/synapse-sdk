@@ -36,8 +36,10 @@ With the larger event capacity, request size becomes a limit on how many pieces 
 
 These are [request-size estimates](https://github.com/FilOzone/synapse-sdk/blob/26bccbbf/packages/synapse-core/src/sp/add-pieces-fits.ts), not current upload limits. Creation options and transaction gas can reduce capacity. Metadata keys occupy the same space throughout their allowed 1–32-byte range; value length determines the difference shown here.
 
+Legacy data sets have an **80-piece gas safety cap** in addition to the SDK's encoded message-size check. Compact data sets and new-data-set creation use the same size check without that legacy cap. Provider limits and transaction gas can further reduce batch size. [Legacy batching limit](https://github.com/FilOzone/synapse-sdk/issues/932)
+
 :::note[The SDK handles batching]
-The SDK currently splits compatible concurrent uploads into batches of **at most 40 pieces**, matching provider support. You can start uploads together; there is no need to split them into groups or wait between groups yourself. Larger batches require provider support and a corresponding SDK update. [SDK batching limit](https://github.com/FilOzone/synapse-sdk/pull/956)
+The SDK currently splits compatible concurrent uploads into batches of **at most 40 pieces** for Curio compatibility. This temporary provider cap applies to both legacy and compact data sets and takes precedence over the 80-piece legacy cap. Larger batches require a provider update and a corresponding SDK change. You can start uploads together without manually grouping them. [Provider support](https://github.com/filecoin-project/curio/issues/1421)
 :::
 
 The SDK [batches compatible concurrent uploads automatically](/developer-guides/storage/upload-pipeline/#uploading-multiple-files). Each provider has its own batch, so storing two copies requires separate on-chain operations for the two providers.
@@ -71,7 +73,7 @@ Data sets created after the September 3 upgrade use compact storage. Existing da
 
 ### Choose new data sets once, then reuse them
 
-The SDK matches data sets by metadata and may keep reusing an old one after you upgrade. If you want to keep the same metadata, explicitly create replacements with the core [`createDataSet()` and `waitForCreateDataSet()` APIs](https://github.com/FilOzone/synapse-sdk/blob/95707ac015f547ea1ba1181c87e2f66504cd4895/packages/synapse-core/src/sp/create-dataset.ts), then select their returned IDs with `dataSetIds` for future uploads. Preferential selection of already-created compact data sets is tracked separately in [#925](https://github.com/FilOzone/synapse-sdk/issues/925); it does not move existing content.
+The SDK prefers matching compact data sets over legacy ones during automatic and explicit provider selection. If no compact data set matches, it can reuse a legacy one. To keep the same metadata while switching, create replacements with the core [`createDataSet()` and `waitForCreateDataSet()` APIs](https://github.com/FilOzone/synapse-sdk/blob/95707ac015f547ea1ba1181c87e2f66504cd4895/packages/synapse-core/src/sp/create-dataset.ts), then reuse them. Passing `dataSetIds` explicitly selects those data sets regardless of storage format. Selection does not move existing content.
 
 Alternatively, the following example requests a separate group of data sets by adding a **stable metadata value unused by your old data sets**. Changing metadata is optional; it is a way to request new data sets with the current high-level API. Keep the value on subsequent uploads to reuse those data sets:
 

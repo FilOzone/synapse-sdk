@@ -1,4 +1,5 @@
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
+import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import { AddPiecesFlushError } from '../errors/pdp.ts'
 import { PullError } from '../errors/pull.ts'
@@ -156,6 +157,7 @@ export function createPieceBatcher(
     throw new ValidationError('`wait.ms` must be a non-negative number.')
   }
   const limiter = options.limiter ?? addPiecesFits
+  const legacyPieceStorageIdLimit = asChain(client.chain).legacyPieceStorageIdLimit
   const datasetMetadata = options.metadata
   const cdn = options.cdn
   const payee = options.payee
@@ -185,7 +187,7 @@ export function createPieceBatcher(
 
   function limiterOptions(pieces: LimiterPiece[]): LimiterOptions {
     if (dataSet != null) {
-      return { kind: 'addPieces', dataSet, pieces }
+      return { kind: 'addPieces', dataSet, dataSetId: dataSet.dataSetId, legacyPieceStorageIdLimit, pieces }
     }
     return { kind: 'createDataSetAndAddPieces', metadata: datasetMetadata, cdn, pieces }
   }
