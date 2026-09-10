@@ -41,19 +41,30 @@ export function metadataMatches(dataSetMetadata: MetadataObject, requestedMetada
  * Only active datasets are considered (live, managed, pdpEndEpoch === 0n).
  *
  * Sort order:
- *   1. Datasets with pieces before empty datasets
- *   2. Within each group, older datasets (lower ID) first
+ *   1. Compact datasets (dataSetId >= legacyPieceStorageIdLimit) before legacy ones
+ *   2. Within each group, datasets with pieces before empty datasets
+ *   3. Within each group, older datasets (lower ID) first
  *
  * @param dataSets - Datasets to search (typically filtered to a single provider)
  * @param metadata - Desired metadata keys and values
+ * @param legacyPieceStorageIdLimit - Data set ID boundary between legacy and
+ *   compact piece storage (see `FilecoinChain.legacyPieceStorageIdLimit`).
+ *   Defaults to 0n, which treats every dataset as compact.
  * @returns Matching datasets in preference order
  */
-export function findMatchingDataSets(dataSets: SelectionDataSet[], metadata: MetadataObject): SelectionDataSet[] {
+export function findMatchingDataSets(
+  dataSets: SelectionDataSet[],
+  metadata: MetadataObject,
+  legacyPieceStorageIdLimit: bigint = 0n
+): SelectionDataSet[] {
   const matching = dataSets.filter(
     (ds) => ds.live && ds.managed && ds.pdpEndEpoch === 0n && metadataMatches(ds.metadata, metadata)
   )
 
   return matching.sort((a, b) => {
+    const aCompact = a.dataSetId >= legacyPieceStorageIdLimit
+    const bCompact = b.dataSetId >= legacyPieceStorageIdLimit
+    if (aCompact !== bCompact) return aCompact ? -1 : 1
     if (a.hasActivePieces && !b.hasActivePieces) return -1
     if (b.hasActivePieces && !a.hasActivePieces) return 1
     return Number(a.dataSetId - b.dataSetId)

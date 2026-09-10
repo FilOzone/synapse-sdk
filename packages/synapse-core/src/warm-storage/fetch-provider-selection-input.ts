@@ -1,4 +1,5 @@
 import type { Address, Chain, Client, Transport } from 'viem'
+import { asChain } from '../chains.ts'
 import { getEndorsedProviderIds } from '../endorsements/get-endorsed-provider-ids.ts'
 import { paginate } from '../pagination.ts'
 import { getApprovedPDPProviders } from '../sp-registry/get-pdp-providers.ts'
@@ -43,5 +44,6 @@ export async function fetchProviderSelectionInput(
     providers,
     endorsedIds,
     clientDataSets: pdpDataSets,
+    legacyPieceStorageIdLimit: asChain(client.chain).legacyPieceStorageIdLimit,
   }
 }

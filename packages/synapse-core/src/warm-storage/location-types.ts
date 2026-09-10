@@ -46,6 +46,13 @@ export interface ProviderSelectionInput {
   endorsedIds: bigint[]
   /** Client's existing datasets with metadata and piece-presence information */
   clientDataSets: SelectionDataSet[]
+  /**
+   * Data set ID boundary between legacy and compact piece storage (see
+   * `FilecoinChain.legacyPieceStorageIdLimit`). Data sets at or above this ID
+   * are compact and are preferred over legacy ones. Defaults to 0n (every
+   * data set treated as compact) when omitted.
+   */
+  legacyPieceStorageIdLimit?: bigint
 }
 
 /**
