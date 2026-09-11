@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.9.0...synapse-core-v0.9.1) (2026-09-11)
+
+
+### Chores
+
+* **synapse-core:** remove FWSS StateView override ([#959](https://github.com/FilOzone/synapse-sdk/issues/959)) ([44fecae](https://github.com/FilOzone/synapse-sdk/commit/44fecae5af68754bae62be29dbaba89f3fc844a2))
+
 ## [0.9.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.8.1...synapse-core-v0.9.0) (2026-09-03)
 
 
