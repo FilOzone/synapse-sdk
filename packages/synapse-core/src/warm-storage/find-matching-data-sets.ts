@@ -67,6 +67,8 @@ export function findMatchingDataSets(
     if (aCompact !== bCompact) return aCompact ? -1 : 1
     if (a.hasActivePieces && !b.hasActivePieces) return -1
     if (b.hasActivePieces && !a.hasActivePieces) return 1
-    return Number(a.dataSetId - b.dataSetId)
+    if (a.dataSetId < b.dataSetId) return -1
+    if (a.dataSetId > b.dataSetId) return 1
+    return 0
   })
 }
