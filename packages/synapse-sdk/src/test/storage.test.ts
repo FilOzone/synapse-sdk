@@ -365,6 +365,62 @@ describe('StorageService', () => {
       assert.equal(service.dataSetId, 2n)
     })
 
+    it('should prefer a compact data set over a legacy one with existing pieces', async () => {
+      const expectedDataSetBase = {
+        cacheMissRailId: 0n,
+        cdnRailId: 0n,
+        clientDataSetId: 0n,
+        commissionBps: 100n,
+        payee: Mocks.ADDRESSES.serviceProvider1,
+        payer: Mocks.ADDRESSES.client1,
+        pdpEndEpoch: 0n,
+        providerId: 1n,
+        pendingOneTimePayments: 0n,
+        lifecycleReserveBalance: 0n,
+        serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+      }
+      // Legacy data set (last ID below calibration's compact cutover) has
+      // pieces; compact data set (first ID at the cutover) is empty. Compact
+      // must still win.
+      const legacyId = calibration.legacyPieceStorageIdLimit - 1n
+      const compactId = calibration.legacyPieceStorageIdLimit
+      const expectedDataSets = [
+        { ...expectedDataSetBase, dataSetId: legacyId, pdpRailId: 1n },
+        { ...expectedDataSetBase, dataSetId: compactId, pdpRailId: 2n },
+      ]
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getDataSetLeafCount: (args) => {
+              const [dataSetId] = args
+              return [dataSetId === legacyId ? 1n : 0n]
+            },
+          },
+          warmStorageView: {
+            ...Mocks.presets.basic.warmStorageView,
+            getClientDataSets: () => [expectedDataSets],
+            getAllDataSetMetadata: () => [[], []],
+            getDataSet: (args) => {
+              const [dataSetId] = args
+              return [expectedDataSets.find((ds) => ds.dataSetId === dataSetId) ?? ({} as (typeof expectedDataSets)[0])]
+            },
+          },
+        }),
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
+        })
+      )
+      const synapse = new Synapse({ client, source: null })
+      const warmStorageService = new WarmStorageService({ client })
+
+      const service = await StorageContext.create({ synapse, warmStorageService, providerId: 1n })
+
+      // Should select the compact data set despite the legacy one having pieces
+      assert.equal(service.dataSetId, compactId)
+    })
+
     it('should bound RPC fan-out when a provider has many data sets (#631)', async () => {
       // One provider with many active, metadata-matching data sets owned by the
       // client, the oldest of which already has pieces. The fan-out must stay
