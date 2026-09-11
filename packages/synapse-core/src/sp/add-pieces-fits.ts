@@ -22,7 +22,12 @@ export type LimiterPiece = {
 export type LimiterOptions =
   | {
       kind: 'addPieces'
+      /** Data set supplied to custom batch limiters. */
       dataSet?: PdpDataSet
+      /** Target data set ID. Defaults to `dataSet.dataSetId`. */
+      dataSetId?: bigint
+      /** Chain's compact-storage cutoff. Without it or a data set ID, the legacy count check is skipped. */
+      legacyPieceStorageIdLimit?: bigint
       pieces: LimiterPiece[]
     }
   | {
@@ -31,6 +36,13 @@ export type LimiterOptions =
       cdn?: boolean
       pieces: LimiterPiece[]
     }
+
+/** Whether an existing data set uses legacy piece storage. */
+function isLegacyDataSet(options: LimiterOptions): boolean {
+  if (options.kind !== 'addPieces') return false
+  const dataSetId = options.dataSetId ?? options.dataSet?.dataSetId
+  return dataSetId != null && options.legacyPieceStorageIdLimit != null && dataSetId < options.legacyPieceStorageIdLimit
+}
 
 /** `true` if `pieces` still fit in one addPieces / createAndAdd operation. */
 export type Limiter = (options: LimiterOptions) => boolean
@@ -43,10 +55,10 @@ export namespace addPiecesFits {
 /**
  * Whether a candidate piece list fits in one addPieces / createAndAdd message.
  *
- * Uses estimated encoded-params size (PieceCID bytes + dummy extraData) against
- * {@link SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE} (64 KiB message cap minus
- * overhead), with a temporary cap of {@link SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE}
- * pieces per operation. Empty `pieces` does not fit.
+ * Checks estimated encoded-params size against {@link SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE}
+ * and the temporary provider cap {@link SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE}.
+ * Legacy data sets also have an 80-piece cap when their ID and chain cutoff
+ * are supplied. Empty `pieces` does not fit.
  *
  * @param options - {@link addPiecesFits.OptionsType}
  * @returns Whether the pieces fit {@link addPiecesFits.OutputType}
@@ -57,7 +69,8 @@ export namespace addPiecesFits {
  *
  * const fits = addPiecesFits({
  *   kind: 'addPieces',
- *   dataSet,
+ *   dataSetId,
+ *   legacyPieceStorageIdLimit,
  *   pieces: [{ pieceCid }],
  * })
  * ```
@@ -66,9 +79,12 @@ export function addPiecesFits(options: addPiecesFits.OptionsType): addPiecesFits
   if (options.pieces.length < 1) {
     return false
   }
-  // TODO: Remove the temporary count cap once larger batches are supported.
-  // https://github.com/FilOzone/synapse-sdk/issues/954
+  // TODO: Remove the temporary provider cap once Curio supports larger batches.
+  // https://github.com/filecoin-project/curio/issues/1421
   if (options.pieces.length > SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE) {
+    return false
+  }
+  if (isLegacyDataSet(options) && options.pieces.length > SIZE_CONSTANTS.MAX_LEGACY_ADD_PIECES_BATCH_SIZE) {
     return false
   }
   return estimateAddPiecesCalldataSize(options) <= SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE
@@ -94,7 +110,7 @@ export function assertPieceCidSize(pieceCid: PieceCID): void {
  * @param options - {@link LimiterOptions}
  * @throws {@link AtLeastOnePieceRequiredError} when `pieces` is empty
  * @throws {@link InvalidUploadSizeError} when a PieceCID size is below {@link SIZE_CONSTANTS.MIN_UPLOAD_SIZE} or above {@link SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
- * @throws {@link AddPiecesBatchTooLargeError} when the piece count exceeds {@link SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE} or the estimated message exceeds {@link SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE}
+ * @throws {@link AddPiecesBatchTooLargeError} when a piece-count or message-size limit is exceeded
  */
 export function assertAddPiecesFit(options: LimiterOptions): void {
   if (options.pieces.length < 1) {

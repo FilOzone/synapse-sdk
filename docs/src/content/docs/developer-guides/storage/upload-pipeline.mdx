@@ -59,7 +59,7 @@ The result contains:
 
 Piece batching is enabled by default. Compatible uploads that run concurrently can share an on-chain transaction when they use the same provider and data set. Each provider maintains its own batch.
 
-The SDK automatically splits compatible concurrent uploads into batches of at most 40 pieces. Start uploads together without manually grouping them or waiting between groups. See [Larger, Cheaper Storage Batches](/developer-guides/storage/storage-upgrade/#more-pieces-per-operation) for the gas benefits and larger capacity enabled by the contracts.
+The SDK automatically splits compatible concurrent uploads into batches of at most **40 pieces** for Curio compatibility, also checking encoded message size. Legacy data sets have an additional 80-piece safety cap that becomes relevant when provider support allows larger batches. Start uploads together without manually grouping them or waiting between groups. See [Larger, Cheaper Storage Batches](/developer-guides/storage/storage-upgrade/#more-pieces-per-operation) for the limits and provider requirements.
 
 For browser `File` objects, start the uploads together to give them an opportunity to join the same batch:
 
@@ -77,7 +77,7 @@ for (const file of files) {
 }
 ```
 
-By default, the SDK submits a batch after a zero-delay window once its uploads and pulls finish parking. You can instead hold compatible pieces until the next piece would exceed the 40-piece cap or encoded message-size budget, or until you explicitly flush them:
+By default, the SDK submits a batch after a zero-delay window once its uploads and pulls finish parking. You can instead hold compatible pieces until the next piece would exceed a piece-count cap or encoded message-size budget, or until you explicitly flush them:
 
 ```ts
 const synapse = Synapse.create({
