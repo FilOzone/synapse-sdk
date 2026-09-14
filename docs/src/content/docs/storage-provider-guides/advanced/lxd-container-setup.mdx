@@ -1,0 +1,276 @@
+---
+title: LXD Container Setup
+description: Set up LXD containers with ZFS storage, static IPs, and SSH access to isolate Filecoin PDP deployments on a single host.
+sidebar:
+  order: 2
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+This guide sets up LXD containers with SSH access for Filecoin PDP deployments. Containers let you run several isolated nodes on one host, each with its own static IP and storage mounts.
+
+This config comes from one specific environment. Change hostnames, IPs, storage paths, and other settings to match your system.
+
+## Prerequisites
+
+- Root or sudo access
+- 32 GB+ RAM recommended
+- 100 GB+ disk space
+
+## Install and Initialize LXD
+
+<Steps>
+
+1. **Install LXD** and add your user to the `lxd` group:
+
+   ```bash
+   sudo snap install lxd
+   sudo usermod -aG lxd $USER
+   newgrp lxd
+   lxd --version
+   ```
+
+2. **Initialize LXD:**
+
+   ```bash
+   lxd init
+   ```
+
+   Use these values when prompted:
+
+   | Prompt | Value |
+   | --- | --- |
+   | Clustering | no |
+   | Storage pool | yes |
+   | Storage backend | zfs |
+   | Create new ZFS pool | yes |
+   | Use existing block device | no |
+   | Size | 200GiB (or more) |
+   | MAAS server | no |
+   | Network bridge | yes |
+   | Bridge name | lxdbr0 |
+   | IPv4 / IPv6 | auto for both |
+   | LXD over network | no |
+   | Auto-update images | yes |
+
+   Verify the storage pool:
+
+   ```bash
+   lxc storage list
+   zfs list
+   ```
+
+</Steps>
+
+## Create and Launch a Container
+
+<Steps>
+
+1. **Create a container profile.** Profiles define network and storage settings. Create one per container with a unique IP:
+
+   ```bash
+   lxc profile create mycontainer-1
+   lxc profile edit mycontainer-1
+   ```
+
+   Paste this config, changing the IP for each container:
+
+   ```yaml
+   name: mycontainer-1
+   description: Container with static IP
+   config:
+     user.network-config: |
+       version: 2
+       renderer: networkd
+       ethernets:
+           eth0:
+               dhcp4: false
+               addresses:
+                 - 192.168.1.100/24
+               gateway4: 192.168.1.1
+               nameservers:
+                 addresses:
+                   - 192.168.1.1
+                   - 8.8.8.8
+   devices:
+     eth0:
+       name: eth0
+       nictype: bridged
+       parent: lxdbr0
+       type: nic
+     root:
+       path: /
+       pool: default
+       type: disk
+   ```
+
+2. **Launch the container** and check its status:
+
+   ```bash
+   lxc launch ubuntu:22.04 mycontainer-1 -p mycontainer-1
+   lxc list
+   ```
+
+</Steps>
+
+## Set Up SSH Access
+
+<Steps>
+
+1. **Install OpenSSH** in the container:
+
+   ```bash
+   lxc exec mycontainer-1 -- bash
+   apt update
+   apt install -y openssh-server
+   systemctl enable ssh
+   systemctl start ssh
+   exit
+   ```
+
+2. **Add your SSH key** and test the connection:
+
+   ```bash
+   lxc exec mycontainer-1 -- mkdir -p /root/.ssh
+   lxc file push ~/.ssh/id_rsa.pub mycontainer-1/root/.ssh/authorized_keys
+   lxc exec mycontainer-1 -- chmod 700 /root/.ssh
+   lxc exec mycontainer-1 -- chmod 600 /root/.ssh/authorized_keys
+   ssh root@192.168.1.100
+   ```
+
+3. **Create a non-root user (recommended):**
+
+   ```bash
+   lxc exec mycontainer-1 -- bash
+   adduser myuser
+   usermod -aG sudo myuser
+   mkdir -p /home/myuser/.ssh
+   cp /root/.ssh/authorized_keys /home/myuser/.ssh/
+   chown -R myuser:myuser /home/myuser/.ssh
+   exit
+   ssh myuser@192.168.1.100
+   ```
+
+</Steps>
+
+## Add Storage Mounts
+
+Mount host directories into the container for sealing and long-term storage:
+
+```bash
+sudo mkdir -p /data/mycontainer-1/storage
+lxc config device add mycontainer-1 data-storage disk source=/data/mycontainer-1/storage path=/mnt/storage
+lxc exec mycontainer-1 -- df -h
+```
+
+Add multiple mounts the same way:
+
+```bash
+lxc config device add mycontainer-1 sealing disk source=/nvme-storage/mycontainer-1 path=/sealing
+lxc config device add mycontainer-1 long-term disk source=/network-storage/mycontainer-1 path=/storage
+```
+
+## Set Resource Limits (Optional)
+
+```bash
+lxc config set mycontainer-1 limits.memory 32GiB
+lxc config set mycontainer-1 limits.cpu 8
+lxc info mycontainer-1
+```
+
+## Management Commands
+
+```bash
+# Container control
+lxc start mycontainer-1
+lxc stop mycontainer-1
+lxc restart mycontainer-1
+lxc delete mycontainer-1 --force
+
+# Access
+lxc exec mycontainer-1 -- bash
+ssh myuser@192.168.1.100
+
+# Snapshots
+lxc snapshot mycontainer-1 backup-2024
+lxc restore mycontainer-1 backup-2024
+
+# Info
+lxc list
+lxc info mycontainer-1
+lxc config show mycontainer-1
+```
+
+## Create Additional Containers
+
+Copy the profile, change the IP, and launch:
+
+```bash
+lxc profile copy mycontainer-1 mycontainer-2
+lxc profile edit mycontainer-2   # change IP to 192.168.1.101
+lxc launch ubuntu:22.04 mycontainer-2 -p mycontainer-2
+lxc exec mycontainer-2 -- apt update
+lxc exec mycontainer-2 -- apt install -y openssh-server
+lxc file push ~/.ssh/id_rsa.pub mycontainer-2/root/.ssh/authorized_keys
+lxc exec mycontainer-2 -- chmod 700 /root/.ssh
+lxc exec mycontainer-2 -- chmod 600 /root/.ssh/authorized_keys
+sudo mkdir -p /data/mycontainer-2/storage
+lxc config device add mycontainer-2 data-storage disk source=/data/mycontainer-2/storage path=/mnt/storage
+```
+
+## Networking Options
+
+- **Managed bridge (default, lxdbr0).** Containers are NAT'd behind the host. Simple, with automatic DHCP, but not directly reachable externally without port forwarding. Configured during `lxd init`.
+- **Physical network bridge.** Containers receive IP addresses on your physical network. Set this in the profile:
+
+  ```yaml
+  devices:
+    eth0:
+      nictype: bridged
+      parent: br0
+      type: nic
+  ```
+
+- **SR-IOV (advanced).** Near-native performance with hardware isolation using dedicated NIC virtual functions. Requires an SR-IOV-capable NIC and kernel module configuration.
+
+## Troubleshooting
+
+```bash
+# Container won't start
+lxc info mycontainer-1 --show-log
+
+# Network issues
+lxc exec mycontainer-1 -- cloud-init status
+lxc exec mycontainer-1 -- ip addr
+ping 192.168.1.100
+
+# SSH not working
+lxc exec mycontainer-1 -- systemctl status ssh
+lxc exec mycontainer-1 -- ls -la /root/.ssh/
+
+# Storage issues
+zpool status
+lxc storage info default
+```
+
+## Complete Setup Example
+
+```bash
+lxc profile create prod-1
+lxc profile edit prod-1
+sudo mkdir -p /data/prod-1/{sealing,storage}
+lxc launch ubuntu:22.04 prod-1 -p prod-1
+lxc exec prod-1 -- apt update && apt install -y openssh-server
+lxc exec prod-1 -- mkdir -p /root/.ssh
+lxc file push ~/.ssh/id_rsa.pub prod-1/root/.ssh/authorized_keys
+lxc exec prod-1 -- chmod 700 /root/.ssh
+lxc exec prod-1 -- chmod 600 /root/.ssh/authorized_keys
+lxc config device add prod-1 sealing disk source=/data/prod-1/sealing path=/sealing
+lxc config device add prod-1 storage disk source=/data/prod-1/storage path=/storage
+lxc config set prod-1 limits.memory 64GiB
+lxc config set prod-1 limits.cpu 16
+lxc snapshot prod-1 initial-setup
+ssh root@192.168.1.100
+```
+
+You now have LXD containers with ZFS storage, static IP networking, SSH access, persistent storage mounts, and resource management.

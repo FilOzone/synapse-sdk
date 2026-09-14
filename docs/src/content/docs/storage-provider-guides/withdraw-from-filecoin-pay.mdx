@@ -1,0 +1,221 @@
+---
+title: Withdraw from Filecoin Pay
+description: Withdraw your available USDFC balance from Filecoin Pay and swap it to FIL, using either filpay-cli or Foundry.
+sidebar:
+  order: 3
+---
+
+import { Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+
+As clients store data with you, payments accrue in [Filecoin Pay](/core-concepts/filecoin-pay-overview/). This guide shows how to withdraw your available USDFC balance to your wallet and swap it to FIL.
+
+Two tools can do this. **filpay-cli** is recommended: it is built on the [Synapse SDK](/developer-guides/synapse/) and handles pending nonces correctly even while your PDP nodes are actively sending transactions. **Foundry (`cast`)** works for reference, but has a known nonce bug on Filecoin that causes frequent failures on busy nodes.
+
+:::caution[Only the available balance is withdrawable]
+Your account reports a total balance and an available balance. Only the available amount can be withdrawn. The rest is locked in active payment rails until those rails settle.
+:::
+
+## Contract Addresses (Mainnet)
+
+This guide covers Mainnet withdrawals. The addresses below, the default `rpc.ankr.com/filecoin` endpoint, and the SushiSwap swap all target Mainnet. The same commands work on Calibration with the Calibration contract addresses and an RPC such as `https://api.calibration.node.glif.io/rpc/v1`.
+
+| Contract | Address |
+| --- | --- |
+| Payments | `0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa` |
+| USDFC Token | `0x80B98d3aa09ffff255c3ba4A241111Ff1262F045` |
+
+## Withdraw
+
+<Tabs syncKey="tool">
+<TabItem label="filpay-cli (recommended)">
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/en) 18+
+- Your wallet private key
+- Some FIL for gas
+- filpay-cli installed:
+
+  ```bash
+  npm install -g filpay-cli
+  ```
+
+<Steps>
+
+1. **Check your available balance.** Replace `<YOUR_WALLET_ADDRESS>` with your address:
+
+   ```bash
+   filpay balance --account <YOUR_WALLET_ADDRESS>
+   ```
+
+   For wallet balance and more detail, add `--detailed`:
+
+   ```bash
+   filpay balance --account <YOUR_WALLET_ADDRESS> --detailed
+   ```
+
+   The command returns four values:
+
+   | Field | Description |
+   | --- | --- |
+   | `Current Funds` | Total funds in your Filecoin Pay account |
+   | `Available` | Withdrawable amount, what you can take out now |
+   | `Lockup Rate` | Amount locked in active payment rails |
+   | `Wallet Balance` | USDFC in your wallet (shown with `--detailed`) |
+
+2. **Withdraw funds** to your wallet:
+
+   ```bash
+   filpay withdraw <AMOUNT> --key <YOUR_PRIVATE_KEY>
+   ```
+
+   Examples:
+
+   ```bash
+   filpay withdraw 10 --key $PRIVATE_KEY      # withdraw 10 USDFC
+   filpay withdraw 0.5 --key $PRIVATE_KEY     # withdraw 0.5 USDFC
+   filpay withdraw 10 --to 0xRecipientAddress --key $PRIVATE_KEY  # to another address
+   ```
+
+   :::tip[Keep your key out of shell history]
+   Store the key in an environment variable rather than passing it inline:
+
+   ```bash
+   export FILPAY_KEY="your_private_key_here"
+   filpay withdraw 10 --key $FILPAY_KEY
+   ```
+
+   :::
+
+   The default RPC is `https://rpc.ankr.com/filecoin`. Use a different endpoint with `--rpc`:
+
+   ```bash
+   filpay withdraw 10 --key $PRIVATE_KEY --rpc https://api.node.glif.io/rpc/v1
+   ```
+
+</Steps>
+
+### Manage Payment Rails
+
+filpay-cli also covers wallet and rail operations:
+
+```bash
+filpay wallet-balance --account <YOUR_WALLET_ADDRESS>   # wallet USDFC balance
+filpay wallet-balance --key $PRIVATE_KEY                # include contract balance
+filpay rails list --key $PRIVATE_KEY                    # list your payment rails
+filpay rails info <RAIL_ID> --key $PRIVATE_KEY          # detail for one rail
+filpay settle 0xPayerAddress --key $PRIVATE_KEY         # settle a specific payer
+filpay rails settle-all --key $PRIVATE_KEY --yes        # settle all rails
+filpay settlement-preview 0xPayerAddress --key $PRIVATE_KEY  # preview before settling
+filpay deposit 100 --key $PRIVATE_KEY                   # deposit USDFC into Filecoin Pay
+filpay balance --account <YOUR_ADDRESS> --json          # JSON output for scripting
+```
+
+### Troubleshooting
+
+- **"Insufficient funds".** You are withdrawing more than your available balance. Re-check it with `filpay balance`.
+- **"Nonce too low".** Unlike `cast`, filpay-cli handles nonces correctly even with active PDP nodes. Wait a moment and retry.
+- **Transaction reverts.** Ensure your wallet has enough FIL for gas.
+- **Balance shows 0.** Funds may still be locked in active payment rails. If this looks wrong, contact the FOC team.
+- **"filpay: not found".** Install it globally with `npm install -g filpay-cli`, or run it with `npx filpay-cli balance --account <YOUR_ADDRESS>`.
+
+### Resources
+
+- npm package: [filpay-cli](https://www.npmjs.com/package/filpay-cli)
+- Source: [FilOzone/filpay-cli](https://github.com/FilOzone/filpay-cli)
+- Contract: [FilOzone/filecoin-pay](https://github.com/FilOzone/filecoin-pay)
+
+</TabItem>
+<TabItem label="Foundry (cast)">
+
+:::caution[Known nonce issue with cast]
+Foundry's `cast send` uses the `latest` nonce instead of `pending`, which causes frequent "nonce too low" errors while your PDP nodes are sending transactions. Prefer the filpay-cli tab, which handles pending nonces reliably. The `cast` commands below remain valid for reference.
+:::
+
+### Prerequisites
+
+- [Foundry](https://book.getfoundry.sh/getting-started/installation) installed (provides `cast`)
+- Your wallet private key, or a hardware wallet (Ledger or Trezor)
+- Some FIL for gas
+
+<Steps>
+
+1. **Check your available balance.** Replace `<YOUR_WALLET_ADDRESS>` with your address:
+
+   ```bash
+   cast call 0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa \
+     "getAccountInfoIfSettled(address,address)(uint256,uint256,uint256,uint256)" \
+     0x80B98d3aa09ffff255c3ba4A241111Ff1262F045 \
+     <YOUR_WALLET_ADDRESS> \
+     --rpc-url https://rpc.ankr.com/filecoin
+   ```
+
+   The command returns four values:
+
+   | Position | Field | Description |
+   | --- | --- | --- |
+   | 1 | `fundedUntilEpoch` | Epoch until which your account is funded |
+   | 2 | `currentFunds` | Total funds in your account |
+   | 3 | `availableFunds` | Withdrawable amount (in wei) |
+   | 4 | `currentLockupRate` | Rate locked in active payment rails |
+
+   Only the third value, `availableFunds`, can be withdrawn. USDFC uses 18 decimals, so divide by `10^18` to convert wei to USDFC. To print the available balance directly in USDFC:
+
+   ```bash
+   cast call 0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa \
+     "getAccountInfoIfSettled(address,address)(uint256,uint256,uint256,uint256)" \
+     0x80B98d3aa09ffff255c3ba4A241111Ff1262F045 \
+     <YOUR_WALLET_ADDRESS> \
+     --rpc-url https://rpc.ankr.com/filecoin | \
+     awk 'NR==3 {printf "Available: %.6f USDFC\n", $1/1e18}'
+   ```
+
+2. **Withdraw funds.** Replace `<AMOUNT_IN_WEI>` with the `availableFunds` value from step 1:
+
+   ```bash
+   cast send 0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa \
+     "withdraw(address,uint256)" \
+     0x80B98d3aa09ffff255c3ba4A241111Ff1262F045 \
+     <AMOUNT_IN_WEI> \
+     --rpc-url https://rpc.ankr.com/filecoin \
+     --private-key <YOUR_PRIVATE_KEY>
+   ```
+
+   For example, to withdraw 10 USDFC use `10000000000000000000`, and for 100 USDFC use `100000000000000000000`.
+
+   Using a hardware wallet, swap `--private-key` for `--ledger` or `--trezor`:
+
+   ```bash
+   cast send 0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa \
+     "withdraw(address,uint256)" \
+     0x80B98d3aa09ffff255c3ba4A241111Ff1262F045 \
+     <AMOUNT_IN_WEI> \
+     --rpc-url https://rpc.ankr.com/filecoin \
+     --ledger
+   ```
+
+</Steps>
+
+### Quick Reference: USDFC to Wei
+
+| USDFC | Wei |
+| --- | --- |
+| 1 | 1,000,000,000,000,000,000 |
+| 10 | 10,000,000,000,000,000,000 |
+| 100 | 100,000,000,000,000,000,000 |
+| 1,000 | 1,000,000,000,000,000,000,000 |
+
+You can also compute it directly: `cast to-wei 50` returns `50000000000000000000`.
+
+### Troubleshooting
+
+- **"Insufficient funds".** You are withdrawing more than your available balance. Re-check step 1.
+- **Transaction reverts.** Ensure your wallet has enough FIL for gas.
+- **Balance shows 0.** Funds may still be locked in active payment rails. If this looks wrong, contact the FOC team.
+
+</TabItem>
+</Tabs>
+
+## Swap USDFC to FIL
+
+After withdrawing, the USDFC is in your wallet. To swap it to FIL, open [SushiSwap](https://www.sushi.com/filecoin/swap?token0=0x80b98d3aa09ffff255c3ba4a241111ff1262f045&token1=NATIVE), connect your wallet, enter the amount of USDFC to swap, then review and confirm the transaction.

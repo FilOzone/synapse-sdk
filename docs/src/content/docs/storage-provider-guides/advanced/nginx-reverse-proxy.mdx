@@ -1,0 +1,212 @@
+---
+title: Nginx Reverse Proxy Setup
+description: Put Nginx in front of a Curio PDP node to terminate TLS with Let's Encrypt certificates while Curio serves plain HTTP on the LAN.
+sidebar:
+  order: 1
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+This guide sets up Nginx on Ubuntu 22.04 to provide HTTPS access to a Curio PDP node using Let's Encrypt certificates. Nginx terminates TLS on the public side and forwards plain HTTP to Curio over the LAN, so Curio does not manage certificates itself.
+
+The example serves `calib.ezpdpz.net` from a Curio instance at `192.168.1.160`. Substitute your own hostnames, internal IP addresses, and paths throughout.
+
+## Architecture
+
+- Nginx handles HTTPS on port 443 (public-facing) and terminates TLS.
+- Curio runs on an internal IP, serving HTTP on port 443 with `DelegateTLS` enabled.
+- Traffic between Nginx and Curio is unencrypted HTTP over the LAN.
+
+## Prerequisites
+
+- Root or sudo access
+- One or more domain names pointing at your server's public IP
+- A Curio PDP node running on the internal network
+- Ports 80 and 443 open in the firewall
+
+## Setup
+
+<Steps>
+
+1. **Install Nginx** and start it:
+
+   ```bash
+   sudo apt update
+   sudo apt install nginx
+   nginx -v
+   sudo systemctl start nginx
+   sudo systemctl enable nginx
+   ```
+
+2. **Install Certbot** for Let's Encrypt certificates:
+
+   ```bash
+   sudo apt install certbot python3-certbot-nginx
+   certbot --version
+   ```
+
+3. **Configure a virtual host.** Create a config file for your domain. Replace `calib.ezpdpz.net` with your domain:
+
+   ```bash
+   sudo nano /etc/nginx/sites-available/calib.ezpdpz.net
+   ```
+
+   Start with a minimal config so Certbot can validate the domain:
+
+   ```nginx
+   server {
+       listen 80;
+       server_name calib.ezpdpz.net;
+
+       location / {
+           return 200 "Server is ready for certbot";
+       }
+   }
+   ```
+
+   Enable the site, test the config, and reload:
+
+   ```bash
+   sudo ln -s /etc/nginx/sites-available/calib.ezpdpz.net /etc/nginx/sites-enabled/
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+4. **Obtain the SSL certificate** with the Nginx plugin:
+
+   ```bash
+   sudo certbot --nginx -d calib.ezpdpz.net
+   ```
+
+   Follow the prompts: enter your email, agree to the terms, and choose to redirect HTTP to HTTPS. Certbot obtains the certificate, wires it into Nginx, and sets up automatic renewal.
+
+5. **Configure the reverse proxy.** Edit the site config again:
+
+   ```bash
+   sudo nano /etc/nginx/sites-available/calib.ezpdpz.net
+   ```
+
+   Replace its contents with the following. Substitute `YOUR_DOMAIN` and `YOUR_CURIO_IP`:
+
+   ```nginx
+   # HTTP server - redirect to HTTPS
+   server {
+       listen 80;
+       server_name YOUR_DOMAIN;
+
+       # Let's Encrypt challenge location
+       location /.well-known/acme-challenge/ {
+           root /var/www/html;
+       }
+
+       # Redirect everything else to HTTPS
+       location / {
+           return 301 https://$server_name$request_uri;
+       }
+   }
+
+   # HTTPS server - proxy to Curio
+   server {
+       listen 443 ssl;
+       server_name YOUR_DOMAIN;
+
+       # Let's Encrypt certificates
+       ssl_session_cache shared:SSL:100m;
+       ssl_certificate /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem;
+       ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem;
+       include /etc/letsencrypt/options-ssl-nginx.conf;
+       ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+       # Logging
+       access_log /var/log/nginx/YOUR_DOMAIN.access.log;
+       error_log /var/log/nginx/YOUR_DOMAIN.error.log;
+
+       # Large file upload/download settings
+       client_max_body_size 0;
+       client_body_timeout 600s;
+       send_timeout 600s;
+       proxy_request_buffering off;
+       proxy_buffering off;
+       gzip off;
+
+       # Proxy everything to Curio (HTTP with DelegateTLS)
+       location / {
+           proxy_pass http://YOUR_CURIO_IP:443;
+           proxy_http_version 1.1;
+           proxy_socket_keepalive on;
+           proxy_set_header Connection "";
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+           proxy_connect_timeout 600s;
+           proxy_send_timeout 600s;
+           proxy_read_timeout 600s;
+       }
+   }
+   ```
+
+   Test and reload:
+
+   ```bash
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+6. **Configure Curio for DelegateTLS.** On the Curio machine, set `DelegateTLS = true` in the HTTP section of your PDP configuration layer. This tells Curio to serve HTTP on port 443 and let Nginx handle TLS termination. Restart Curio after the change.
+
+7. **Test the setup.**
+
+   ```bash
+   curl -I https://calib.ezpdpz.net
+   openssl s_client -connect calib.ezpdpz.net:443 -servername calib.ezpdpz.net
+   ```
+
+   You should see a response from Curio through Nginx, and a valid certificate chain.
+
+</Steps>
+
+## Configuration Breakdown
+
+### HTTP Server Block (Port 80)
+
+- `location /.well-known/acme-challenge/` lets Certbot renew certificates.
+- `location /` redirects all other HTTP traffic to HTTPS.
+
+### HTTPS Server Block (Port 443)
+
+- `ssl_session_cache shared:SSL:100m` caches roughly 400K SSL sessions to avoid "could not allocate new session" errors under load.
+- `ssl_certificate` and `ssl_certificate_key` point to the Let's Encrypt certificate and key.
+- `include /etc/letsencrypt/options-ssl-nginx.conf` applies Certbot's SSL settings, and `ssl_dhparam` supplies Diffie-Hellman parameters.
+
+### Large File Settings (Critical for PDP)
+
+- `client_max_body_size 0` removes the upload size limit.
+- `client_body_timeout 600s` and `send_timeout 600s` allow up to 10 minutes for slow uploads and responses.
+- `proxy_request_buffering off` and `proxy_buffering off` stream data straight through, reducing memory use.
+- `gzip off` skips compression of binary PDP data, which does not compress.
+
+### Proxy Settings
+
+- `proxy_pass http://YOUR_CURIO_IP:443` forwards to Curio over HTTP. Curio handles TLS internally only when not delegating, so with DelegateTLS this stays HTTP.
+- `proxy_http_version 1.1` with `proxy_socket_keepalive on` and `proxy_set_header Connection ""` keeps upstream connections alive during large transfers.
+- The `proxy_set_header` directives preserve client information, and the `proxy_*_timeout 600s` values allow long-running transfers.
+
+## Monitoring
+
+```bash
+sudo tail -f /var/log/nginx/calib.ezpdpz.net.access.log
+sudo tail -f /var/log/nginx/calib.ezpdpz.net.error.log
+sudo systemctl status nginx
+```
+
+## Troubleshooting
+
+- **Certificate renewal fails.** Ensure port 80 is reachable from the internet, the `/.well-known/acme-challenge/` location is present in the HTTP block, and `/var/www/html` exists.
+- **Proxy connection fails.** Verify Curio is running on the internal IP, has `DelegateTLS = true`, and is listening on port 443. Check network connectivity between the Nginx and Curio machines.
+- **502 Bad Gateway.** Curio is down or not responding, the `proxy_pass` IP is wrong, or Curio is not in DelegateTLS mode.
+- **Config test fails.** Run `sudo nginx -t` to see the specific syntax error.
+
+## Summary
+
+Nginx handles all SSL complexity, including automatic certificate renewal and centralized certificate management, while Curio focuses on PDP operations. The setup supports unlimited upload sizes, forwards client IPs to the backend, redirects HTTP to HTTPS, and serves multiple domains, one per Curio instance.
