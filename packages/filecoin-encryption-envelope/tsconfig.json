@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "types": ["mocha", "node"]
+  },
+  "include": ["src", "test"],
+  "exclude": ["node_modules", "dist"],
+  "typedocOptions": {
+    "entryPointStrategy": "resolve",
+    "entryPoints": ["src/index.ts"]
+  }
+}
