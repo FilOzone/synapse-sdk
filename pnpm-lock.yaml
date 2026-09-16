@@ -321,6 +321,28 @@ importers:
         specifier: 4.0.2
         version: 4.0.2
 
+  packages/filecoin-encryption-envelope:
+    dependencies:
+      cborg:
+        specifier: 6.1.2
+        version: 6.1.2
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 'catalog:'
+        version: 2.5.9
+      '@types/mocha':
+        specifier: 'catalog:'
+        version: 10.0.10
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.2.0
+      mocha:
+        specifier: 'catalog:'
+        version: 11.8.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/synapse-core:
     dependencies:
       dnum:
@@ -3777,6 +3799,10 @@ packages:
 
   cborg@5.1.11:
     resolution: {integrity: sha512-oc6Pzg/gkTobxHZNgMmny+G99dOeBMbAmnGHcZWMKtolxZBIVwfi0Pj0khxEtNU8HMFdbT5sK0HmtgecDUPP0A==}
+    hasBin: true
+
+  cborg@6.1.2:
+    resolution: {integrity: sha512-hQfFh6FuuCDoycN68FtUpjtQx5kCtxOLA8msbpJZxjtxaMqxgHl+4GNwO+0YexH/lHmVzhhAKa0ua+vtmTRoVw==}
     hasBin: true
 
   ccount@2.0.1:
@@ -9721,7 +9747,7 @@ snapshots:
 
   '@types/sax@1.2.7':
     dependencies:
-      '@types/node': 24.13.3
+      '@types/node': 26.2.0
 
   '@types/set-cookie-parser@2.4.10':
     dependencies:
@@ -10254,6 +10280,8 @@ snapshots:
   camelcase@9.0.0: {}
 
   cborg@5.1.11: {}
+
+  cborg@6.1.2: {}
 
   ccount@2.0.1: {}
 
