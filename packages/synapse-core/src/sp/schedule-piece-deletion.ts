@@ -1,9 +1,9 @@
 import { HttpError, type RequestErrors, request } from 'iso-web/http'
 import type { Account, Chain, Client, Hex, Transport } from 'viem'
-import { DeletePieceError, TooManyPiecesQueuedError } from '../errors/pdp.ts'
-import { AtLeastOnePieceRequiredError, TooManyPiecesError } from '../errors/warm-storage.ts'
+import { DeletePieceError } from '../errors/pdp.ts'
+import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
-import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
+import { RETRY_CONSTANTS } from '../utils/constants.ts'
 
 const MAX_CURIO_PIECE_ID = (1n << 63n) - 1n
 
@@ -21,12 +21,7 @@ export namespace deletePieces {
   export type OutputType = {
     hash: Hex
   }
-  export type ErrorType =
-    | AtLeastOnePieceRequiredError
-    | TooManyPiecesError
-    | RangeError
-    | DeletePieceError
-    | RequestErrors
+  export type ErrorType = AtLeastOnePieceRequiredError | RangeError | DeletePieceError | RequestErrors
 }
 
 /**
@@ -60,9 +55,6 @@ export async function deletePieces(options: deletePieces.OptionsType): Promise<d
 
   if (response.error) {
     if (HttpError.is(response.error)) {
-      if (response.error.code === 429) {
-        throw new TooManyPiecesQueuedError()
-      }
       throw new DeletePieceError(await response.error.response.text())
     }
     throw response.error
@@ -78,9 +70,6 @@ export async function deletePieces(options: deletePieces.OptionsType): Promise<d
 export function validateDeletePiecesBatch(pieceCount: number): void {
   if (!Number.isInteger(pieceCount) || pieceCount < 1) {
     throw new AtLeastOnePieceRequiredError()
-  }
-  if (pieceCount > SIZE_CONSTANTS.MAX_DELETE_PIECES_BATCH_SIZE) {
-    throw new TooManyPiecesError(pieceCount, SIZE_CONSTANTS.MAX_DELETE_PIECES_BATCH_SIZE)
   }
 }
 

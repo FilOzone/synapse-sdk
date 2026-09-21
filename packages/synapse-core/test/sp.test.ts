@@ -13,12 +13,11 @@ import {
   InvalidUploadSizeError,
   LocationHeaderError,
   PostPieceError,
-  TooManyPiecesQueuedError,
   UploadPieceError,
   WaitForAddPiecesError,
   WaitForCreateDataSetError,
 } from '../src/errors/pdp.ts'
-import { AtLeastOnePieceRequiredError, TooManyPiecesError } from '../src/errors/warm-storage.ts'
+import { AtLeastOnePieceRequiredError } from '../src/errors/warm-storage.ts'
 import { ADDRESSES, PRIVATE_KEYS } from '../src/mocks/index.ts'
 import {
   createAndAddPiecesHandler,
@@ -1027,12 +1026,12 @@ InvalidSignature(address expected, address actual)
       assert.equal(result.hash, mockTxHash)
     })
 
-    it('deletes multiple pieces should fail when too many pieces are queued', async () => {
+    it('preserves the response body for HTTP 429 errors', async () => {
       const submittedPieceIds = [2n, 3n, 2n, 9_007_199_254_740_993n]
 
       server.use(
         http.delete('http://pdp.local/pdp/data-sets/1/pieces/2', async () => {
-          return new HttpResponse(null, { status: 429 })
+          return HttpResponse.text('Provider rate limit exceeded', { status: 429 })
         })
       )
       try {
@@ -1044,9 +1043,10 @@ InvalidSignature(address expected, address actual)
           retryCount: 1,
           retryDelay: 10,
         })
-        assert.fail('Should have thrown TooManyPiecesQueuedError')
+        assert.fail('Should have thrown DeletePieceError')
       } catch (error) {
-        assert.instanceOf(error, TooManyPiecesQueuedError)
+        assert.instanceOf(error, DeletePieceError)
+        assert.include(error.message, 'Provider rate limit exceeded')
       }
     })
 
@@ -1064,18 +1064,33 @@ InvalidSignature(address expected, address actual)
       }
     })
 
-    it('rejects batches above the Curio limit', async () => {
-      try {
-        await deletePieces({
-          serviceURL: 'http://pdp.local',
-          dataSetId: 1n,
-          pieceIds: Array.from({ length: SIZE_CONSTANTS.MAX_DELETE_PIECES_BATCH_SIZE + 1 }, (_, i) => BigInt(i)),
-          extraData: '0x',
+    it('signs and submits a large deletion batch in one request', async () => {
+      const pieceIds = Array.from({ length: 5000 }, (_, i) => BigInt(i))
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      let requests = 0
+      const expectedExtraData = await TypedData.signSchedulePieceRemovals(client, {
+        clientDataSetId: 0n,
+        pieceIds,
+      })
+
+      server.use(
+        http.delete('http://pdp.local/pdp/data-sets/1/pieces/0', async ({ request }) => {
+          requests++
+          const body = (await request.json()) as { extraData: string; pieceIds: number[] }
+          assert.deepEqual(body.pieceIds, pieceIds.map(Number))
+          assert.equal(body.extraData, expectedExtraData)
+          return HttpResponse.json({ txHash: mockTxHash })
         })
-        assert.fail('Should have thrown')
-      } catch (error) {
-        assert.instanceOf(error, TooManyPiecesError)
-      }
+      )
+
+      const result = await schedulePieceDeletions(client, {
+        serviceURL: 'http://pdp.local',
+        dataSetId: 1n,
+        clientDataSetId: 0n,
+        pieceIds,
+      })
+      assert.equal(result.hash, mockTxHash)
+      assert.equal(requests, 1)
     })
 
     it("rejects piece IDs outside Curio's signed 64-bit range", async () => {

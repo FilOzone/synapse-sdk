@@ -1266,11 +1266,6 @@ export class StorageContext {
    * @param options - Options for the delete operation
    * @param options.pieces - PieceCID identifiers or piece numbers to delete by piece ID
    * @returns Transaction hash of the delete operation
-   *
-   * @remarks
-   * Curio accepts at most 35 pieces per request and rejects requests (429) when
-   * the data set already has 35 or more removals queued on-chain; the queue only
-   * drains at the next proving period.
    */
   async deletePieces(options: { pieces: Array<string | PieceCID | bigint> }): Promise<Hash> {
     if (this.dataSetId == null) {
