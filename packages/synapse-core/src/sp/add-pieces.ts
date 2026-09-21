@@ -2,6 +2,7 @@ import { type AbortError, HttpError, type NetworkError, request, type TimeoutErr
 import type { ToString } from 'multiformats'
 import { type Account, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import * as z from 'zod'
+import { asChain } from '../chains.ts'
 import { AddPiecesError, LocationHeaderError } from '../errors/index.ts'
 import type { AddPiecesBatchTooLargeError, InvalidUploadSizeError } from '../errors/pdp.ts'
 import { WaitForAddPiecesError, WaitForAddPiecesRejectedError } from '../errors/pdp.ts'
@@ -138,7 +139,12 @@ export async function addPieces(
   client: Client<Transport, Chain, Account>,
   options: addPieces.OptionsType
 ): Promise<addPieces.OutputType> {
-  assertAddPiecesFit({ kind: 'addPieces', pieces: options.pieces })
+  assertAddPiecesFit({
+    kind: 'addPieces',
+    dataSetId: options.dataSetId,
+    legacyPieceStorageIdLimit: asChain(client.chain).legacyPieceStorageIdLimit,
+    pieces: options.pieces,
+  })
   const extraData =
     options.extraData ??
     (await signAddPieces(client, {

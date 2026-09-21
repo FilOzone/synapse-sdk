@@ -145,12 +145,12 @@ describe('createPieceBatcher', () => {
     assert.equal(a.batchIndex + b.batchIndex, 1)
   })
 
-  it('should split 41 pieces into batches of 40 and 1 with the default limiter', async () => {
+  it('should split 81 pieces at the provider cap for a legacy data set', async () => {
     const bodies: addPiecesApiRequest.RequestBody[] = []
     server.use(addPiecesCaptureHandler((body) => bodies.push(body)))
 
     const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
-    const pending = Array.from({ length: 41 }, (_, index) =>
+    const pending = Array.from({ length: 81 }, (_, index) =>
       batcher.enqueue({ pieceCid: pieceCidA, metadata: { index: String(index) } })
     )
     await batcher.close()
@@ -158,9 +158,28 @@ describe('createPieceBatcher', () => {
 
     assert.deepEqual(
       bodies.map((body) => body.pieces.length),
-      [40, 1]
+      [40, 40, 1]
     )
-    assert.equal(results.length, 41)
+    assert.equal(results.length, 81)
+  })
+
+  it('should split 81 pieces at the provider cap for a compact data set', async () => {
+    const bodies: addPiecesApiRequest.RequestBody[] = []
+    server.use(addPiecesCaptureHandler((body) => bodies.push(body)))
+
+    const compactDataSet = { ...createDataSet(), dataSetId: Chains.calibration.legacyPieceStorageIdLimit }
+    const batcher = createPieceBatcher(client, { dataSet: compactDataSet, wait: { kind: 'limiter' } })
+    const pending = Array.from({ length: 81 }, (_, index) =>
+      batcher.enqueue({ pieceCid: pieceCidA, metadata: { index: String(index) } })
+    )
+    await batcher.close()
+    const results = await Promise.all(pending)
+
+    assert.deepEqual(
+      bodies.map((body) => body.pieces.length),
+      [40, 40, 1]
+    )
+    assert.equal(results.length, 81)
   })
 
   it('should stream an upload into the same addPieces window', async () => {
@@ -293,7 +312,15 @@ describe('createPieceBatcher', () => {
     const batcher = createPieceBatcher(client, {
       dataSet: createDataSet(),
       wait: { kind: 'limiter' },
-      limiter: ({ pieces }) => pieces.length <= 1,
+      limiter: (options) => {
+        assert.equal(options.kind, 'addPieces')
+        if (options.kind === 'addPieces') {
+          assert.equal(options.dataSet?.provider.pdp.serviceURL, pdpBase)
+          assert.equal(options.dataSet?.dataSetId, options.dataSetId)
+          assert.equal(options.legacyPieceStorageIdLimit, Chains.calibration.legacyPieceStorageIdLimit)
+        }
+        return options.pieces.length <= 1
+      },
     })
     const first = batcher.enqueue({ pieceCid: pieceCidA })
     const second = batcher.enqueue({ pieceCid: pieceCidB })
