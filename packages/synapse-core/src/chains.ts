@@ -22,6 +22,10 @@ export interface FilecoinChain extends ViemChain {
    */
   genesisTimestamp: number
   /**
+   * First data set ID using compact piece storage. Lower IDs use legacy storage.
+   */
+  legacyPieceStorageIdLimit: bigint
+  /**
    * The contracts of the chain
    */
   contracts: {
@@ -154,6 +158,7 @@ export const mainnet: FilecoinChain = {
    * Filecoin Mainnet genesis: August 24, 2020 22:00:00 UTC
    */
   genesisTimestamp: 1598306400,
+  legacyPieceStorageIdLimit: 1559n,
 }
 
 /**
@@ -247,6 +252,7 @@ export const calibration: FilecoinChain = {
    * Filecoin Calibration testnet genesis: November 1, 2022 18:13:00 UTC
    */
   genesisTimestamp: 1667326380,
+  legacyPieceStorageIdLimit: 32331n,
 }
 
 /**
@@ -320,6 +326,8 @@ export const devnet: FilecoinChain = {
    * are unaffected as they use epochs directly.
    */
   genesisTimestamp: 0,
+  // A fresh devnet has no legacy history, so every data set is compact.
+  legacyPieceStorageIdLimit: 1n,
 }
 
 export namespace getChain {
@@ -366,6 +374,8 @@ export function asChain(chain: ViemChain): FilecoinChain {
     'filecoinPay' in chain.contracts &&
     'fwss' in chain.contracts &&
     'genesisTimestamp' in chain &&
+    'legacyPieceStorageIdLimit' in chain &&
+    typeof (chain as Partial<FilecoinChain>).legacyPieceStorageIdLimit === 'bigint' &&
     [mainnet.id, calibration.id, devnet.id].includes(chain.id)
   ) {
     return chain as FilecoinChain

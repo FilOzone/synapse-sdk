@@ -289,7 +289,8 @@ export class StorageContext {
             providerId,
             options.metadata ?? {},
             options.warmStorageService,
-            spRegistry
+            spRegistry,
+            options.synapse.readClient.chain.legacyPieceStorageIdLimit
           )
         )
       )
@@ -432,7 +433,8 @@ export class StorageContext {
         options.providerId,
         requestedMetadata,
         warmStorageService,
-        spRegistry
+        spRegistry,
+        synapse.readClient.chain.legacyPieceStorageIdLimit
       )
     }
 
@@ -498,24 +500,20 @@ export class StorageContext {
    * Resolve the best matching DataSet for a Provider using a specific provider ID.
    *
    * Selection logic:
-   * 1. Filters for the provider's active datasets owned by the client
-   * 2. Sorts by dataSetId ascending (oldest first)
-   * 3. Evaluates datasets oldest-first through a sliding pool of at most
-   *    RESOLVE_CONCURRENCY reads, reading metadata before checking for pieces
-   * 4. Prefers the oldest metadata match that has active pieces, otherwise the
-   *    oldest metadata match; returns null when nothing matches
-   * 5. Stops starting datasets newer than the oldest non-empty match once it is
-   *    known, so the read fan-out shrinks to roughly the match position
-   *
-   * The pool caps RPC fan-out for clients with many datasets per provider
-   * (FilOzone/synapse-sdk#631).
+   * 1. Filters for the provider's active datasets owned by the client, sorted
+   *    ascending by dataSetId (oldest first)
+   * 2. Checks compact datasets first; falls back to legacy datasets only
+   *    when none match the metadata
+   * 3. Within a tier, {@link findBestDataSetMatch} prefers the oldest metadata
+   *    match that has active pieces, otherwise the oldest metadata match
    */
   private static async resolveByProviderId(
     clientAddress: Address,
     providerId: bigint,
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
-    spRegistry: SPRegistryService
+    spRegistry: SPRegistryService,
+    legacyPieceStorageIdLimit: bigint
   ): Promise<ProviderSelectionResult> {
     const [provider, dataSets] = await Promise.all([
       spRegistry.getProvider({ providerId }),
@@ -528,31 +526,73 @@ export class StorageContext {
       throw createError('StorageContext', 'resolveByProviderId', `Provider ID ${providerId} not found in registry`)
     }
 
-    // Filter for this provider's active datasets
-    const providerDataSets = dataSets.filter(
-      (dataSet) => dataSet.dataSetId && dataSet.providerId === provider.id && dataSet.pdpEndEpoch === 0n
-    )
+    // Filter for this provider's active datasets, sorted ascending by ID
+    // (oldest first). Compare as bigint so ordering stays correct for IDs
+    // beyond Number.MAX_SAFE_INTEGER.
+    const providerDataSets = dataSets
+      .filter((dataSet) => dataSet.dataSetId && dataSet.providerId === provider.id && dataSet.pdpEndEpoch === 0n)
+      .sort((a, b) => {
+        if (a.dataSetId < b.dataSetId) return -1
+        if (a.dataSetId > b.dataSetId) return 1
+        return 0
+      })
 
+    // Legacy IDs are always lower than compact IDs, so the ascending sort
+    // above already groups them into a legacy prefix and a compact suffix.
+    const splitIndex = providerDataSets.findIndex((dataSet) => dataSet.dataSetId >= legacyPieceStorageIdLimit)
+    const legacyDataSets = splitIndex === -1 ? providerDataSets : providerDataSets.slice(0, splitIndex)
+    const compactDataSets = splitIndex === -1 ? [] : providerDataSets.slice(splitIndex)
+
+    const selectedDataSet =
+      (await StorageContext.findBestDataSetMatch(compactDataSets, requestedMetadata, warmStorageService)) ??
+      (await StorageContext.findBestDataSetMatch(legacyDataSets, requestedMetadata, warmStorageService))
+
+    if (selectedDataSet != null) {
+      return {
+        provider,
+        dataSetId: selectedDataSet.dataSetId,
+        dataSetMetadata: selectedDataSet.dataSetMetadata,
+      }
+    }
+
+    return {
+      provider,
+      dataSetId: null,
+      dataSetMetadata: requestedMetadata,
+    }
+  }
+
+  /**
+   * Find the best metadata-matching dataset within a single legacy/compact
+   * tier, given datasets already sorted ascending by ID (oldest first).
+   *
+   * Evaluates datasets oldest-first through a sliding pool of at most
+   * RESOLVE_CONCURRENCY reads, reading metadata before checking for pieces.
+   * Prefers the oldest metadata match that has active pieces, otherwise the
+   * oldest metadata match; returns null when nothing matches. Stops starting
+   * datasets newer than the oldest non-empty match once it is known, so the
+   * read fan-out shrinks to roughly the match position.
+   *
+   * The pool caps RPC fan-out for clients with many datasets per provider
+   * (FilOzone/synapse-sdk#631).
+   */
+  private static async findBestDataSetMatch(
+    dataSets: { dataSetId: bigint }[],
+    requestedMetadata: Record<string, string>,
+    warmStorageService: WarmStorageService
+  ): Promise<{ dataSetId: bigint; dataSetMetadata: Record<string, string> } | null> {
     type EvaluatedDataSet = {
       dataSetId: bigint
       dataSetMetadata: Record<string, string>
       hasPieces: boolean
     }
 
-    // Sort ascending by ID (oldest first) for deterministic selection. Compare
-    // as bigint so ordering stays correct for IDs beyond Number.MAX_SAFE_INTEGER.
-    const sortedDataSets = providerDataSets.sort((a, b) => {
-      if (a.dataSetId < b.dataSetId) return -1
-      if (a.dataSetId > b.dataSetId) return 1
-      return 0
-    })
-
     // Result is selected by index, not completion order, because reads finish out
     // of order: `bestNonEmptyIndex` is the oldest non-empty metadata match and
     // `firstMatchIndex` the oldest metadata match (the fallback). Metadata is read
     // first and hasActivePieces only on a metadata match, so non-matching
     // datasets skip the leaf-count read.
-    const evaluated: (EvaluatedDataSet | null)[] = new Array(sortedDataSets.length).fill(null)
+    const evaluated: (EvaluatedDataSet | null)[] = new Array(dataSets.length).fill(null)
     let firstMatchIndex = Number.POSITIVE_INFINITY
     let bestNonEmptyIndex = Number.POSITIVE_INFINITY
 
@@ -591,15 +631,15 @@ export class StorageContext {
     const inFlight = new Set<Promise<void>>()
     let nextIndex = 0
     let failure: unknown
-    while (nextIndex < sortedDataSets.length || inFlight.size > 0) {
+    while (nextIndex < dataSets.length || inFlight.size > 0) {
       while (
         failure == null &&
         inFlight.size < RESOLVE_CONCURRENCY &&
-        nextIndex < sortedDataSets.length &&
+        nextIndex < dataSets.length &&
         nextIndex <= bestNonEmptyIndex
       ) {
         const index = nextIndex++
-        const task = evaluate(index, sortedDataSets[index].dataSetId)
+        const task = evaluate(index, dataSets[index].dataSetId)
           .catch((error) => {
             failure ??= error
           })
@@ -625,21 +665,7 @@ export class StorageContext {
     }
 
     const selectedIndex = bestNonEmptyIndex === Number.POSITIVE_INFINITY ? firstMatchIndex : bestNonEmptyIndex
-    const selectedDataSet = selectedIndex === Number.POSITIVE_INFINITY ? null : evaluated[selectedIndex]
-
-    if (selectedDataSet != null) {
-      return {
-        provider,
-        dataSetId: selectedDataSet.dataSetId,
-        dataSetMetadata: selectedDataSet.dataSetMetadata,
-      }
-    }
-
-    return {
-      provider,
-      dataSetId: null,
-      dataSetMetadata: requestedMetadata,
-    }
+    return selectedIndex === Number.POSITIVE_INFINITY ? null : evaluated[selectedIndex]
   }
 
   /**

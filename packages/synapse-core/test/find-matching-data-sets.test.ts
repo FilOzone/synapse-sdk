@@ -147,4 +147,42 @@ describe('findMatchingDataSets', () => {
       [5n, 8n, 3n, 10n]
     )
   })
+
+  it('prefers compact datasets over legacy ones, even when the legacy one has pieces', () => {
+    const dataSets = [
+      makeDataSet({ dataSetId: 1n, providerId: 1n, metadata: { source: 'app' }, hasActivePieces: true }),
+      makeDataSet({ dataSetId: 5n, providerId: 2n, metadata: { source: 'app' }, hasActivePieces: false }),
+    ]
+    const result = findMatchingDataSets(dataSets, { source: 'app' }, 5n)
+    assert.deepEqual(
+      result.map((ds) => ds.dataSetId),
+      [5n, 1n]
+    )
+  })
+
+  it('applies piece presence and ID ordering within the compact and legacy groups', () => {
+    const dataSets = [
+      makeDataSet({ dataSetId: 20n, providerId: 1n, metadata: { source: 'app' }, hasActivePieces: false }),
+      makeDataSet({ dataSetId: 10n, providerId: 2n, metadata: { source: 'app' }, hasActivePieces: true }),
+      makeDataSet({ dataSetId: 2n, providerId: 3n, metadata: { source: 'app' }, hasActivePieces: false }),
+      makeDataSet({ dataSetId: 1n, providerId: 4n, metadata: { source: 'app' }, hasActivePieces: true }),
+    ]
+    const result = findMatchingDataSets(dataSets, { source: 'app' }, 10n)
+    assert.deepEqual(
+      result.map((ds) => ds.dataSetId),
+      [10n, 20n, 1n, 2n]
+    )
+  })
+
+  it('treats every dataset as compact when legacyPieceStorageIdLimit is omitted', () => {
+    const dataSets = [
+      makeDataSet({ dataSetId: 10n, providerId: 1n, metadata: { source: 'app' }, hasActivePieces: true }),
+      makeDataSet({ dataSetId: 5n, providerId: 2n, metadata: { source: 'app' }, hasActivePieces: true }),
+    ]
+    const result = findMatchingDataSets(dataSets, { source: 'app' })
+    assert.deepEqual(
+      result.map((ds) => ds.dataSetId),
+      [5n, 10n]
+    )
+  })
 })

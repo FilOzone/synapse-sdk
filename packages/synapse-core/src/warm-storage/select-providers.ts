@@ -12,8 +12,9 @@ import type { ProviderSelectionOptions, ResolvedLocation } from './location-type
  * dataset are preferred (reuses payment rail). Otherwise a provider
  * without a matching dataset is selected (new dataset created on commit).
  *
- * Within matching datasets, those with existing pieces sort before empty
- * ones, and older datasets (lower ID) sort before newer ones.
+ * Within matching datasets, compact datasets sort before legacy ones, then
+ * those with existing pieces sort before empty ones, and older datasets
+ * (lower ID) sort before newer ones.
  *
  * This function does NOT perform health checks — the caller should
  * validate reachability via SP.ping() and call again with
@@ -43,7 +44,7 @@ export function selectProviders(options: ProviderSelectionOptions): ResolvedLoca
 
   // Find metadata-matching datasets from eligible providers
   const eligibleDataSets = options.clientDataSets.filter((ds) => providerMap.has(ds.providerId))
-  const matchingDataSets = findMatchingDataSets(eligibleDataSets, metadata)
+  const matchingDataSets = findMatchingDataSets(eligibleDataSets, metadata, options.legacyPieceStorageIdLimit)
 
   const results: ResolvedLocation[] = []
   const selectedProviderIds: bigint[] = []

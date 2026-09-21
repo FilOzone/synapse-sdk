@@ -104,6 +104,8 @@ export function toChain(devnetInfo: VersionedDevnetInfo): FilecoinChain {
      * are unaffected as they use epochs directly.
      */
     genesisTimestamp: 0,
+    // A fresh devnet has no legacy history, so every data set is compact.
+    legacyPieceStorageIdLimit: 1n,
   }
 }
 

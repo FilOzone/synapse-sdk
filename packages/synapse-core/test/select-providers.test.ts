@@ -336,6 +336,30 @@ describe('selectProviders', () => {
       })
       assert.equal(result[0].dataSetId, 5n)
     })
+
+    it('prefers a compact dataset over a legacy one with pieces when legacyPieceStorageIdLimit is set', () => {
+      const result = selectProviders({
+        providers: [provider1],
+        endorsedIds: [],
+        clientDataSets: [
+          makeDataSet({
+            dataSetId: 5n,
+            providerId: 1n,
+            metadata: { source: 'app' },
+            hasActivePieces: true,
+          }),
+          makeDataSet({
+            dataSetId: 10n,
+            providerId: 1n,
+            metadata: { source: 'app' },
+            hasActivePieces: false,
+          }),
+        ],
+        metadata: { source: 'app' },
+        legacyPieceStorageIdLimit: 10n,
+      })
+      assert.equal(result[0].dataSetId, 10n)
+    })
   })
 
   describe('metadata filtering', () => {
