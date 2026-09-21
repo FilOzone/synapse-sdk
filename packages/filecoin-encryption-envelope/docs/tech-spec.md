@@ -10,15 +10,22 @@ Status: draft. Nothing is published; the wire profile below is not yet frozen.
 | Owns | Does not own |
 | --- | --- |
 | Envelope format, encode and decode | Where the CEK came from |
-| Encryption and decryption, both schemes | Key derivation trees, salts, passwords |
+| Encryption and decryption, both schemes | Application CEK derivation trees, salts, passwords |
 | Chunk layout and positional nonce derivation | Datasets, wallets, on-chain state |
 | AEAD and AAD construction | Storage, retrieval, HTTP |
 | Key wrapping to recipients | Recipient key discovery |
 | Authenticated range decryption | Any UX |
 
-The library accepts a 32-byte content encryption key and asks no questions about it. Application
-metadata travels inside the envelope as opaque CBOR: we carry it and authenticate it, we never
-interpret it.
+The library accepts a caller-supplied 32-byte content encryption key (CEK). It validates the key's
+length and rejects an all-zero value, but does not generate or derive the CEK, inspect its origin,
+or track its use across encryption attempts. Key secrecy and reuse management belong to the caller;
+see [CEK responsibilities](#cek-responsibilities).
+
+Application CEK derivation is outside this package. The KDF required by ECDH recipient wrapping
+is inside it: that KDF produces a key-encryption key (KEK) used to wrap the supplied CEK.
+
+Application metadata travels inside the envelope as opaque CBOR: we carry it and authenticate it,
+we never interpret it.
 
 ## Blob layout
 
@@ -117,6 +124,17 @@ default and never inferred.
 
 Recipient key wrapping: `-5` (A256KW) and `-31` (ECDH-ES+A256KW, HKDF-SHA-256 per RFC 9053
 §6.3.1). Heterogeneous recipients in one envelope are supported.
+
+### Nonce generation
+
+For each new whole-object encryption invocation, the library MUST generate a fresh random IV using
+`crypto.getRandomValues`: 12 bytes for scheme 1, or a 7-byte base nonce for the chunked scheme.
+The encryption API MUST NOT accept a caller-supplied IV or base nonce. Failure to obtain randomness
+MUST fail encryption; there is no deterministic fallback.
+
+All chunks within one invocation share the supplied CEK and base nonce. The library derives a
+different full nonce for each chunk as shown below. Decryption uses the IV stored in the envelope.
+Retransmitting existing encrypted bytes is not a new encryption invocation and draws no new nonce.
 
 ### Per-chunk nonce
 
@@ -223,43 +241,20 @@ until it adopts these values.
 `v0.1.0`, and **both write `alg -31`** with nothing on the wire to distinguish them. Envelopes from
 the two versions do not interoperate.
 
-## Proposed FIP amendments
+## Library profile decisions
 
-1. **Per-object CEKs are mandatory for the chunked scheme, not merely recommended — and the stated
-   reuse budget is wrong by twenty orders of magnitude.** The security considerations justify key
-   reuse with "the birthday bound on 96-bit nonces … approximately 2^48 encryptions". That number
-   describes scheme 1's 12-byte random IV. The chunked scheme has no 96-bit nonce:
+This document specifies the library's draft behavior, not amendments adopted by the FIP. A proposal there does not
+change this library's requirements until we explicitly incorporate the decision here.
 
-   ```
-   nonce (12 bytes) = base_nonce (7) ‖ chunk_index (4) ‖ last_flag (1)
-                      └── random ──┘   └──── deterministic ────┘
-   ```
+The current library profile retains the FIP's `typ` value and protected `chunk_size`, and adds the
+optional protected `chunk_count` described above. Its final-chunk policy and the guarantees of
+`chunk_count` still need reconciliation with the amendment proposal; this section does not resolve
+those review items.
 
-   Only 7 bytes are unpredictable — the index and flag are fixed by position — so the space is 2^56,
-   not 2^96. Random values collide at the square root of their space, which puts coin-flip odds near
-   2^28 objects and a conservative limit, keeping collision risk below 2⁻³², at roughly **5,800
-   objects** under one key.
-
-   A single collision is worse than one nonce reuse. Because the index is deterministic, two objects
-   sharing a base nonce produce byte-identical nonces at *every* chunk index: 4,096 keystream reuses
-   for a pair of 1 GiB files at the default chunk size. Each one leaks the XOR of the two plaintexts,
-   and together they expose GCM's authentication subkey, which enables tag forgery.
-
-   Per-object CEKs remove the risk structurally rather than probabilistically: within a single object
-   the chunk counter guarantees distinct nonces, so no two chunks — and no two objects — are ever
-   encrypted under one key twice. Two changes follow. Make it MUST for the chunked scheme, and
-   correct the analysis: as written it hands an implementer contemplating a dataset-wide key a budget
-   of 2^48 when the real figure is a few thousand. A wrong number in a security section is worse than
-   no number, because it reassures rather than merely failing to warn.
-2. **`typ`** — adopt the shipped string, or state why implementations should change.
-3. **`chunk_size`** — either accept the unprotected placement and delete the claim that it "can be
-   trusted for offset calculations", which is false where it ships, or coordinate a break.
-4. **`chunk_count`** — the FIP says do not store it; both implementations store it unprotected.
-   Store it in the *protected* header when the content length is known. Authenticated, it is the
-   only thing that detects a deliberately truncated object on a range read that does not reach the
-   final chunk; unprotected, an attacker edits it to match and the check is worthless.
-5. **Overhead table** — 4096 chunks per GiB at 256 KiB × 16-byte tags is 64 KiB per GiB, not 4 KiB.
-   The worked example should read 0.0061%, not 0.0004%.
+The library accepts caller-supplied CEKs and owns nonce generation, not application key generation
+or derivation. The FIP-wide choice between controlled CEK reuse and a fresh CEK per encryption
+attempt remains open.
+Neither policy can be identified from the supplied key bytes or the envelope format.
 
 ## API
 
@@ -373,10 +368,10 @@ in browsers.
 **Not authenticated:** `iv`, and nothing else. It fails closed — a tampered IV yields a wrong nonce
 and a failed tag, never plausible plaintext.
 
-**Reading `app_metadata` before decryption is unverified.** A dataset-key holder must read the
-derivation context out of the header *before* deriving the key that would authenticate it. Putting
-the field in the protected header makes tampering detectable *when you decrypt*, not before. A
-tampered salt yields a wrong key and a failed tag. No pre-decryption trust decision may rest on it.
+**Reading `app_metadata` before decryption is unverified.** Parsing exposes these values without
+authenticating them. Putting the field in the protected header makes tampering detectable when an
+AEAD tag is verified, not when the envelope is parsed. The library does not interpret this metadata;
+callers must not treat it as authenticated before successful tag verification.
 
 **A range read authenticates only the chunks it touches.** Truncation detection lives in the final
 chunk's `last_flag`, so a range that stops short of the end cannot detect that the object was cut.
@@ -390,12 +385,36 @@ unknown length, the one-byte suffix read above is the remedy. STREAM binds an ob
 its length, so one of the two is always required — a truncated prefix is otherwise indistinguishable
 from a genuinely shorter object.
 
-**The caller must not reuse a CEK across objects.** See amendment 1 — the chunked scheme has 56
-bits of nonce randomness. This is a constraint on the key handed to us, not a statement about how
-keys should be produced.
-
 **Metadata is public.** Algorithm, parameters, content type, application metadata and the number
 and type of recipients are all readable without any key.
+
+### CEK responsibilities
+
+The library MUST validate every CEK before using it for content encryption or decryption: exactly
+32 bytes, not all-zero. This includes CEKs recovered through recipient unwrapping. These checks
+cannot establish that a key is secret, unpredictable, or unused.
+
+The caller is responsible for supplying a secret, cryptographically suitable CEK and managing its
+use across encryption attempts. The library does not maintain a key-use registry and cannot detect
+reuse across calls, processes, or devices. It neither selects nor implements an application CEK
+generation or derivation strategy.
+
+Both schemes use 96-bit full nonces. Scheme 1 draws all 96 bits randomly; the chunked scheme draws
+only the 56-bit base randomly and appends the chunk index and final flag. Chunk positions prevent
+nonce reuse within one invocation. They do not prevent a base-nonce collision between invocations
+using the same CEK. A fresh random draw is not a guarantee of a distinct value.
+
+Random nonce generation does not make unrestricted CEK reuse safe. Any reuse policy must account
+for all encryption attempts under that key, including retries and attempts that encrypt data but
+never finish, across all callers. GCM usage limits must also account for the number and size of
+chunks encrypted under a key, not just base-nonce collisions. A distinct CEK per invocation avoids
+cross-invocation reuse but does not remove these within-invocation limits.
+
+The same CEK and full nonce MUST NOT be reused for separate encryption operations. This rule does
+not prohibit using one CEK for all chunks of an invocation, since each chunk has a distinct nonce.
+
+This specification does not yet define an approved cross-invocation reuse budget. The roughly
+5,800 attempts illustrate one base-collision probability threshold, not a complete GCM usage budget or a supported library limit. Keeping CEK management outside the library is not approval for unlimited reuse.
 
 ## Limits
 
@@ -409,6 +428,9 @@ and type of recipients are all readable without any key.
 
 ## Open questions
 
+- GCM usage limits and the caller-facing CEK reuse contract. Define supported per-invocation limits
+  and the requirements for any cross-invocation reuse; chunk counter capacity alone is not a
+  security budget. Application key-generation and CEK-derivation mechanisms remain out of scope.
 - npm package name and import path. "Filecoin Encryption Envelope" is the library's name;
   `@filoz/filecoin-encryption-envelope` is long and `@filoz/fee` collides with payments vocabulary.
 - Whether to add a second decode profile for `go-fee`-format blobs. Deferred until such blobs exist;
