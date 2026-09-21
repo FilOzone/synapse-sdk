@@ -374,6 +374,8 @@ export function asChain(chain: ViemChain): FilecoinChain {
     'filecoinPay' in chain.contracts &&
     'fwss' in chain.contracts &&
     'genesisTimestamp' in chain &&
+    'legacyPieceStorageIdLimit' in chain &&
+    typeof (chain as Partial<FilecoinChain>).legacyPieceStorageIdLimit === 'bigint' &&
     [mainnet.id, calibration.id, devnet.id].includes(chain.id)
   ) {
     return chain as FilecoinChain

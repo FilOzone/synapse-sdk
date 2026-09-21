@@ -86,5 +86,23 @@ describe('chains', () => {
         (err: unknown) => UnsupportedChainError.is(err)
       )
     })
+
+    it('should throw for a chain missing legacyPieceStorageIdLimit', () => {
+      const { legacyPieceStorageIdLimit, ...chainWithoutLimit } = mainnet
+
+      assert.throws(
+        () => asChain(chainWithoutLimit as ViemChain),
+        (err: unknown) => UnsupportedChainError.is(err)
+      )
+    })
+
+    it('should throw for a chain with a non-bigint legacyPieceStorageIdLimit', () => {
+      const badChain = { ...mainnet, legacyPieceStorageIdLimit: 1559 }
+
+      assert.throws(
+        () => asChain(badChain as unknown as ViemChain),
+        (err: unknown) => UnsupportedChainError.is(err)
+      )
+    })
   })
 })
