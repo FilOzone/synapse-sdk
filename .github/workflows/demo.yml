@@ -19,11 +19,9 @@ jobs:
     if: github.ref_name == 'master'
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/setup@v3
         with:
-          node-version: lts/*
-      - run: pnpm install
+          require-lockfile: true
       - run: pnpm run build
       - run: pnpm -r --filter synapse-playground run build
       - run: pnpm --dir apps/synapse-playground exec wrangler deploy --env production

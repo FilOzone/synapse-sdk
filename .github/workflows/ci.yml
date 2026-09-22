@@ -25,14 +25,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Use Node.js lts/*
-        uses: actions/setup-node@v7
+        uses: pnpm/setup@v3
         with:
-          node-version: lts/*
-      - name: Install Dependencies
-        run: pnpm install
+          require-lockfile: true
       - name: Generate ABIs
         run: |
           pnpm -r --filter @filoz/synapse-core run generate-abi
@@ -55,23 +50,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [lts/*, current]
+        node: [lts, latest]
         os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-      - name: Use Node.js ${{ matrix.node }}
-        uses: actions/setup-node@v7
+        uses: pnpm/setup@v3
         with:
-          node-version: ${{ matrix.node }}
+          runtime: node@${{ matrix.node }}
+          require-lockfile: true
       - name: Playwright for Windows
         if: matrix.os == 'windows-latest'
         run: pnpx playwright install winldd
-      - name: Install Dependencies
-        run: pnpm install
       - name: Run synapse-sdk tests
         run: |
           pnpm config set script-shell bash
@@ -84,12 +76,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-      - name: Use Node.js lts/*
-        uses: actions/setup-node@v7
+        uses: pnpm/setup@v3
         with:
-          node-version: lts/*
-      - name: Install Dependencies
-        run: pnpm install
+          require-lockfile: true
       - name: Run synapse-core tests
         run: pnpm -r --filter @filoz/synapse-core run test

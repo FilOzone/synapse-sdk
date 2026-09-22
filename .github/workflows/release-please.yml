@@ -28,25 +28,22 @@ jobs:
           manifest-file: .github/release-please-manifest.json
   npm:
     needs: release
-    if: |
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk') || 
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-core') ||
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react')
+    if: ${{ needs.release.outputs.paths_released != '[]' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
+    env:
+      RELEASE_PATH: ${{ fromJson(needs.release.outputs.paths_released)[0] }}
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/setup@v3
         with:
-          node-version: lts/*
-          registry-url: "https://registry.npmjs.org"
-      - run: pnpm install
+          require-lockfile: true
       - run: pnpm run lint
       - run: pnpm run build
-      - run: pnpm -r --filter './packages/**' publish --access=public
+      - run: pnpm publish --access=public
+        working-directory: ${{ env.RELEASE_PATH }}
   docs:
     needs: release
     # Publish docs when any package is released (manual publishing is also available from the GitHub UI)
