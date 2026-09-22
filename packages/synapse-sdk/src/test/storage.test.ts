@@ -2009,7 +2009,8 @@ describe('StorageService', () => {
   })
 
   describe('deletePieces', () => {
-    it('schedules multiple unique piece IDs in one request', async () => {
+    it('schedules a large batch of unique piece IDs in one request', async () => {
+      const pieceIds = Array.from({ length: 5000 }, (_, i) => BigInt(i + 2))
       const txHash = `0x${'12'.repeat(32)}` as Hex
 
       server.use(
@@ -2017,7 +2018,7 @@ describe('StorageService', () => {
         Mocks.PING(),
         http.delete('https://pdp.example.com/pdp/data-sets/1/pieces/2', async ({ request }) => {
           const body = (await request.json()) as { extraData: Hex; pieceIds: number[] }
-          assert.deepEqual(body.pieceIds, [2, 3])
+          assert.deepEqual(body.pieceIds, pieceIds.map(Number))
           assert.isDefined(body.extraData)
           return HttpResponse.json({ txHash })
         })
@@ -2027,7 +2028,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
       const context = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const hash = await context.deletePieces({ pieces: [2n, 3n, 2n] })
+      const hash = await context.deletePieces({ pieces: [...pieceIds, 2n] })
 
       assert.equal(hash, txHash)
     })
