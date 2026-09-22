@@ -145,7 +145,7 @@ describe('createPieceBatcher', () => {
     assert.equal(a.batchIndex + b.batchIndex, 1)
   })
 
-  it('should split 81 pieces at the provider cap for a legacy data set', async () => {
+  it('should split 81 pieces at the legacy data-set cap', async () => {
     const bodies: addPiecesApiRequest.RequestBody[] = []
     server.use(addPiecesCaptureHandler((body) => bodies.push(body)))
 
@@ -158,12 +158,12 @@ describe('createPieceBatcher', () => {
 
     assert.deepEqual(
       bodies.map((body) => body.pieces.length),
-      [40, 40, 1]
+      [80, 1]
     )
     assert.equal(results.length, 81)
   })
 
-  it('should split 81 pieces at the provider cap for a compact data set', async () => {
+  it('should keep 81 compact-data-set pieces together when they fit the message-size budget', async () => {
     const bodies: addPiecesApiRequest.RequestBody[] = []
     server.use(addPiecesCaptureHandler((body) => bodies.push(body)))
 
@@ -177,7 +177,7 @@ describe('createPieceBatcher', () => {
 
     assert.deepEqual(
       bodies.map((body) => body.pieces.length),
-      [40, 40, 1]
+      [81]
     )
     assert.equal(results.length, 81)
   })

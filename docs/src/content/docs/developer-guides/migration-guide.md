@@ -213,9 +213,9 @@ assertAddPiecesFit({
 })
 ```
 
-Each piece uses `{ pieceCid, metadata? }`. Validation enforces both the temporary **40-piece cap** and the encoded message-size budget (`SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE`). Metadata can make a batch exceed the byte budget even within the count cap. Automatic batching splits pending pieces into fitting batches; explicit `commit()` and core add-pieces calls require callers to split oversized batches themselves.
+Each piece uses `{ pieceCid, metadata? }`. Validation enforces the encoded message-size budget (`SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE`). Metadata affects how many pieces fit within that byte budget. Automatic batching splits pending pieces into fitting batches; explicit `commit()` and core add-pieces calls require callers to split oversized batches themselves.
 
-Supply the data set ID and chain cutoff to enable the additional **80-piece legacy cap**. The temporary provider cap remains stricter until larger batches are supported. Omitting the cutoff or both `dataSetId` and `dataSet` skips only the legacy check; provider and message-size limits still apply. Custom batch limiters continue to receive the full `dataSet`, along with `dataSetId` and `legacyPieceStorageIdLimit`.
+Supply the data set ID and chain cutoff to enable the additional **80-piece legacy cap**. Omitting the cutoff or both `dataSetId` and `dataSet` skips only the legacy check; the message-size limit still applies. Custom batch limiters continue to receive the full `dataSet`, along with `dataSetId` and `legacyPieceStorageIdLimit`.
 
 Update error handling: oversized batches now throw `AddPiecesBatchTooLargeError` instead of `TooManyPiecesError`. PieceCIDs outside Curio's upload-size bounds throw `InvalidUploadSizeError`; empty batches still throw `AtLeastOnePieceRequiredError`. These checks also apply to SDK `commit()`, `presignForCommit()`, and `pull()`.
 
