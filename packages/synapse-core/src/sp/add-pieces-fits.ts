@@ -55,10 +55,9 @@ export namespace addPiecesFits {
 /**
  * Whether a candidate piece list fits in one addPieces / createAndAdd message.
  *
- * Checks estimated encoded-params size against {@link SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE}
- * and the temporary provider cap {@link SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE}.
- * Legacy data sets also have an 80-piece cap when their ID and chain cutoff
- * are supplied. Empty `pieces` does not fit.
+ * Checks estimated encoded-params size against {@link SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE}.
+ * Legacy data sets also have an 80-piece cap when their ID and chain cutoff are supplied.
+ * Empty `pieces` does not fit.
  *
  * @param options - {@link addPiecesFits.OptionsType}
  * @returns Whether the pieces fit {@link addPiecesFits.OutputType}
@@ -77,11 +76,6 @@ export namespace addPiecesFits {
  */
 export function addPiecesFits(options: addPiecesFits.OptionsType): addPiecesFits.OutputType {
   if (options.pieces.length < 1) {
-    return false
-  }
-  // TODO: Remove the temporary provider cap once Curio supports larger batches.
-  // https://github.com/filecoin-project/curio/issues/1421
-  if (options.pieces.length > SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE) {
     return false
   }
   if (isLegacyDataSet(options) && options.pieces.length > SIZE_CONSTANTS.MAX_LEGACY_ADD_PIECES_BATCH_SIZE) {

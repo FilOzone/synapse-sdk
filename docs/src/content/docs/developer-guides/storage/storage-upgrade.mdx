@@ -39,7 +39,7 @@ These are [request-size estimates](https://github.com/FilOzone/synapse-sdk/blob/
 Legacy data sets have an **80-piece gas safety cap** in addition to the SDK's encoded message-size check. Compact data sets and new-data-set creation use the same size check without that legacy cap. Provider limits and transaction gas can further reduce batch size. [Legacy batching limit](https://github.com/FilOzone/synapse-sdk/issues/932)
 
 :::note[The SDK handles batching]
-The SDK currently splits compatible concurrent uploads into batches of **at most 40 pieces** for Curio compatibility. This temporary provider cap applies to both legacy and compact data sets and takes precedence over the 80-piece legacy cap. Larger batches require a provider update and a corresponding SDK change. You can start uploads together without manually grouping them. [Provider support](https://github.com/filecoin-project/curio/issues/1421)
+The SDK splits compatible concurrent uploads according to the encoded Filecoin message-size budget. Legacy data sets additionally have an **80-piece safety cap**. You can start uploads together without manually grouping them.
 :::
 
 The SDK [batches compatible concurrent uploads automatically](/developer-guides/storage/upload-pipeline/#uploading-multiple-files). Each provider has its own batch, so storing two copies requires separate on-chain operations for the two providers.

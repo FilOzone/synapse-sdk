@@ -92,11 +92,6 @@ export const SIZE_CONSTANTS = {
   DEFAULT_UPLOAD_BATCH_SIZE: 32,
 
   /**
-   * Temporary provider limit for addPieces and createAndAdd operations.
-   */
-  MAX_ADD_PIECES_BATCH_SIZE: 40,
-
-  /**
    * Maximum pieces per legacy data-set addition, enforced alongside the message-size limit.
    */
   MAX_LEGACY_ADD_PIECES_BATCH_SIZE: 80,

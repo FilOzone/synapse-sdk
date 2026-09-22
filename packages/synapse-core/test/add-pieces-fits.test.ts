@@ -4,7 +4,6 @@ import { pdpVerifierAbi } from '../src/abis/generated.ts'
 import * as Piece from '../src/piece/index.ts'
 import { addPiecesFits, estimateAddPiecesCalldataSize } from '../src/sp/add-pieces-fits.ts'
 import { signAddPiecesAbiParameters } from '../src/typed-data/sign-add-pieces.ts'
-import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
 
 const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
 
@@ -17,31 +16,22 @@ describe('addPiecesFits', () => {
     assert.equal(addPiecesFits({ kind: 'addPieces', pieces: [{ pieceCid }] }), true)
   })
 
-  for (const kind of ['addPieces', 'createDataSetAndAddPieces'] as const) {
-    it(`should retain the 40-piece provider cap for ${kind}`, () => {
-      const pieces = Array.from({ length: 40 }, () => ({ pieceCid }))
-      assert.equal(addPiecesFits({ kind, pieces }), true)
-      assert.equal(addPiecesFits({ kind, pieces: [...pieces, { pieceCid }] }), false)
-    })
-  }
+  it('should allow more than 40 pieces when they fit the message-size budget', () => {
+    const pieces = Array.from({ length: 41 }, () => ({ pieceCid }))
+    assert.equal(addPiecesFits({ kind: 'addPieces', pieces }), true)
+    assert.equal(addPiecesFits({ kind: 'createDataSetAndAddPieces', pieces }), true)
+  })
 
-  it('should enforce the legacy cap when the provider cap is raised', () => {
-    const providerCap = SIZE_CONSTANTS.MAX_ADD_PIECES_BATCH_SIZE
-    // Simulate provider support for larger batches to exercise the legacy boundary.
-    Object.assign(SIZE_CONSTANTS, { MAX_ADD_PIECES_BATCH_SIZE: 100 })
-    try {
-      const pieces = Array.from({ length: 80 }, () => ({ pieceCid }))
-      const legacy = { kind: 'addPieces' as const, dataSetId: 9n, legacyPieceStorageIdLimit: 10n }
-      assert.equal(addPiecesFits({ ...legacy, pieces }), true)
-      pieces.push({ pieceCid })
-      assert.equal(addPiecesFits({ ...legacy, pieces }), false)
-      assert.equal(addPiecesFits({ ...legacy, dataSetId: 10n, pieces }), true)
-      assert.equal(addPiecesFits({ ...legacy, dataSetId: undefined, pieces }), true)
-      assert.equal(addPiecesFits({ ...legacy, legacyPieceStorageIdLimit: undefined, pieces }), true)
-      assert.equal(addPiecesFits({ kind: 'createDataSetAndAddPieces', pieces }), true)
-    } finally {
-      Object.assign(SIZE_CONSTANTS, { MAX_ADD_PIECES_BATCH_SIZE: providerCap })
-    }
+  it('should enforce the legacy data-set cap', () => {
+    const pieces = Array.from({ length: 80 }, () => ({ pieceCid }))
+    const legacy = { kind: 'addPieces' as const, dataSetId: 9n, legacyPieceStorageIdLimit: 10n }
+    assert.equal(addPiecesFits({ ...legacy, pieces }), true)
+    pieces.push({ pieceCid })
+    assert.equal(addPiecesFits({ ...legacy, pieces }), false)
+    assert.equal(addPiecesFits({ ...legacy, dataSetId: 10n, pieces }), true)
+    assert.equal(addPiecesFits({ ...legacy, dataSetId: undefined, pieces }), true)
+    assert.equal(addPiecesFits({ ...legacy, legacyPieceStorageIdLimit: undefined, pieces }), true)
+    assert.equal(addPiecesFits({ kind: 'createDataSetAndAddPieces', pieces }), true)
   })
 
   it('should use compact metadata when every piece has none', () => {
