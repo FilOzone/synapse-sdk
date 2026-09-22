@@ -29,6 +29,9 @@ export namespace getPieces {
 /**
  * Get one bounded page of visible pieces for a data set.
  *
+ * Pieces remain visible without an active provider; their URL is null unless
+ * CDN retrieval is configured for the data set and chain.
+ *
  * Pieces scheduled for removal are filtered from `items`, while `nextCursor`
  * continues to describe the unfiltered source page. A page can therefore be
  * empty and still have a continuation. Treat it as opaque and use
@@ -76,7 +79,7 @@ export async function getPieces(
   const { cursor, limit } = resolvePagination(options, 100n)
 
   const address = options.address
-  const serviceURL = options.dataSet.provider.pdp.serviceURL
+  const serviceURL = options.dataSet.provider?.pdp.serviceURL
   try {
     const [activePiecesResult, removalsResult] = await multicall(client, {
       contracts: [
@@ -107,13 +110,18 @@ export async function getPieces(
           return {
             cid,
             id: piece.id,
-            url: createPieceUrl({
-              cid: cid.toString(),
-              cdn: options.dataSet.cdn,
-              address,
-              chain,
-              serviceURL,
-            }),
+            url:
+              serviceURL == null
+                ? options.dataSet.cdn && chain.filbeam != null
+                  ? new URL(cid.toString(), `https://${address}.${chain.filbeam.retrievalDomain}`).toString()
+                  : null
+                : createPieceUrl({
+                    cid: cid.toString(),
+                    cdn: options.dataSet.cdn,
+                    address,
+                    chain,
+                    serviceURL,
+                  }),
           }
         })
         .filter((piece) => !removals.includes(piece.id)),

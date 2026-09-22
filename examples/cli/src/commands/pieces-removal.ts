@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts'
+import { PDPProviderUnavailableError } from '@filoz/synapse-core/errors'
 import { schedulePieceDeletions } from '@filoz/synapse-core/sp'
 import { getPdpDataSet } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
@@ -35,6 +36,10 @@ export const piecesRemoval: Command = command(
       if (!dataSet) {
         p.cancel(`Data set ${dataSetId} not found.`)
         process.exit(1)
+      }
+
+      if (dataSet.provider == null) {
+        throw new PDPProviderUnavailableError(dataSet.providerId)
       }
 
       const pieceId = argv._.pieceId

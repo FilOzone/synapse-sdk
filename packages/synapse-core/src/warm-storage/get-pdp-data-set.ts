@@ -5,7 +5,7 @@ import { dataSetLiveCall } from '../pdp-verifier/data-set-live.ts'
 import type { getActivePiecesByCursor } from '../pdp-verifier/get-active-pieces-by-cursor.ts'
 import { type getDataSetLeafCount, getDataSetLeafCountCall } from '../pdp-verifier/get-data-set-leaf-count.ts'
 import { getDataSetListenerCall } from '../pdp-verifier/get-data-set-listener.ts'
-import { getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
+import { getPDPProviderCall, hasActivePDPProduct, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
 import { getAllDataSetMetadataCall, parseAllDataSetMetadata } from './get-all-data-set-metadata.ts'
 import { getDataSet } from './get-data-set.ts'
 import type { DataSetInfo, PdpDataSet, PdpDataSetInfo } from './types.ts'
@@ -26,6 +26,8 @@ export namespace getPdpDataSet {
 
 /**
  * Get a PDP data set by ID.
+ *
+ * Existing data sets without an active PDP product have `provider: null`.
  *
  * The result reports piece presence from a non-zero {@link getDataSetLeafCount}
  * read, which is an O(1) storage lookup, rather than scanning piece IDs. Exact
@@ -122,7 +124,7 @@ export async function readPdpDataSetInfo(
     ],
   })
 
-  const pdpProvider = parsePDPProvider(_pdpProvider)
+  const pdpProvider = hasActivePDPProduct(_pdpProvider) ? parsePDPProvider(_pdpProvider) : null
   const metadata = parseAllDataSetMetadata(_metadata)
 
   return {

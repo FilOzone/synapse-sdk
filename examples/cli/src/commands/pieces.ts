@@ -47,7 +47,7 @@ export const pieces: Command = command(
                 .filter((dataSet) => dataSet.pdpEndEpoch === 0n)
                 .map((dataSet) => ({
                   value: dataSet.dataSetId,
-                  label: `#${dataSet.dataSetId} - SP: #${dataSet.providerId} ${dataSet.provider.pdp.serviceURL}`,
+                  label: `#${dataSet.dataSetId} - SP: #${dataSet.providerId} ${dataSet.provider?.pdp.serviceURL ?? 'PDP provider unavailable'}`,
                 })),
             })
           },

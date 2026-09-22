@@ -2,7 +2,7 @@ import { type AbortError, HttpError, type NetworkError, request, type TimeoutErr
 import type { Account, Chain, Client, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { InvalidUploadSizeError, LocationHeaderError, PostPieceError, UploadPieceError } from '../errors/pdp.ts'
-import { DataSetNotFoundError } from '../errors/warm-storage.ts'
+import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/warm-storage.ts'
 import * as Piece from '../piece/index.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -122,7 +122,12 @@ export namespace upload {
     url: string
     metadata: { name: string; type: string }
   }
-  export type ErrorType = DataSetNotFoundError | uploadPiece.ErrorType | findPiece.ErrorType | addPieces.ErrorType
+  export type ErrorType =
+    | PDPProviderUnavailableError
+    | DataSetNotFoundError
+    | uploadPiece.ErrorType
+    | findPiece.ErrorType
+    | addPieces.ErrorType
 }
 
 /**
@@ -139,6 +144,9 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
   })
   if (!dataSet) {
     throw new DataSetNotFoundError(options.dataSetId)
+  }
+  if (dataSet.provider == null) {
+    throw new PDPProviderUnavailableError(dataSet.providerId)
   }
   const chain = asChain(client.chain)
   const serviceURL = dataSet.provider.pdp.serviceURL

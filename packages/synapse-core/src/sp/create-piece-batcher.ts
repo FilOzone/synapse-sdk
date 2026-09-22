@@ -3,7 +3,7 @@ import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import { AddPiecesFlushError } from '../errors/pdp.ts'
 import { PullError } from '../errors/pull.ts'
-import { DataSetNotFoundError } from '../errors/warm-storage.ts'
+import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
@@ -177,6 +177,9 @@ export function createPieceBatcher(
 
   function serviceURL(): string {
     if (dataSet != null) {
+      if (dataSet.provider == null) {
+        throw new PDPProviderUnavailableError(dataSet.providerId)
+      }
       return dataSet.provider.pdp.serviceURL
     }
     if (options.serviceURL == null) {

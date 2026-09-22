@@ -46,8 +46,8 @@ export type PdpDataSetInfo = {
   cdn: boolean
   /** Metadata associated with the data set. */
   metadata: MetadataObject
-  /** PDP provider associated with the data set. */
-  provider: PDPProvider
+  /** PDP provider, or null when its PDP product is inactive or unavailable. */
+  provider: PDPProvider | null
   /** Whether the data set contains at least one active piece (non-zero leaf count). */
   hasActivePieces: boolean
 }
@@ -57,5 +57,6 @@ export interface PdpDataSet extends DataSetInfo, PdpDataSetInfo {}
 export interface Piece {
   cid: PieceCID
   id: bigint
-  url: string
+  /** Retrieval URL, or null when no provider endpoint or CDN is available. */
+  url: string | null
 }

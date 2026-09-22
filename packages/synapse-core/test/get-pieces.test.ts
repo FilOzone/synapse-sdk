@@ -67,6 +67,24 @@ describe('getPieces', () => {
     server.resetHandlers()
   })
 
+  for (const cdn of [false, true]) {
+    it(`lists pieces without a provider (CDN: ${cdn})`, async () => {
+      server.use(JSONRPC(presets.basic))
+      const client = createPublicClient({ chain: calibration, transport: http() })
+      const result = await getPieces(client, {
+        dataSet: { ...createDataSet(), provider: null, cdn },
+        address: ADDRESSES.client1,
+      })
+      assert.ok(result.items.length > 0)
+      for (const piece of result.items) {
+        assert.equal(
+          piece.url,
+          cdn ? `https://${ADDRESSES.client1.toLowerCase()}.${calibration.filbeam?.retrievalDomain}/${piece.cid}` : null
+        )
+      }
+    })
+  }
+
   it('should fetch pieces and filter deduplicated scheduled removals', async () => {
     server.use(
       JSONRPC({

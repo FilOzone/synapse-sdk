@@ -1,4 +1,5 @@
 import * as p from '@clack/prompts'
+import { PDPProviderUnavailableError } from '@filoz/synapse-core/errors'
 import * as SP from '@filoz/synapse-core/sp'
 import {
   extractPDPPaymentTerminatedEvent,
@@ -50,6 +51,11 @@ export const datasetsTerminate: Command = command(
         const dataset = await getPdpDataSet(client, { dataSetId })
         if (!dataset) {
           throw new Error('Data set not found')
+        }
+        if (dataset.provider == null) {
+          throw new PDPProviderUnavailableError(dataset.providerId, {
+            details: 'Use --on-chain to terminate on chain.',
+          })
         }
         const { statusUrl } = await SP.terminateService(client, {
           dataSetId,

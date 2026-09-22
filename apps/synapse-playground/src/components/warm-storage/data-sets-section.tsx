@@ -137,7 +137,7 @@ export function DataSetsSection({
                             alt={piece.metadata.name || piece.cid.toString()}
                             className="object-cover"
                             height={48}
-                            src={piece.url}
+                            src={piece.url ?? undefined}
                             width={48}
                           />
                         ) : videosMimeTypes.includes(piece.metadata.type) ? (
@@ -150,7 +150,7 @@ export function DataSetsSection({
                           <FileCode className="w-10" />
                         ) : (
                           <Avatar className="size-10">
-                            <AvatarImage src={piece.url} />
+                            <AvatarImage src={piece.url ?? undefined} />
                             <AvatarFallback>NA</AvatarFallback>
                           </Avatar>
                         )}
@@ -163,13 +163,15 @@ export function DataSetsSection({
                       </ItemContent>
                       <ItemActions>
                         <Button
+                          disabled={piece.url == null}
                           onClick={() => {
-                            window.open(piece.url, '_blank')
+                            if (piece.url != null) window.open(piece.url, '_blank')
                           }}
                         >
                           <CloudDownload />
                         </Button>
                         <ButtonLoading
+                          disabled={dataSet.provider == null}
                           loading={isDeletingPiece && deletingPiece === piece.id}
                           onClick={async () => {
                             setDeletingPiece(piece.id)

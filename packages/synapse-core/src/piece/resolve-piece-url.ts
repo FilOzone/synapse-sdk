@@ -123,11 +123,11 @@ export async function chainResolver(options: resolvePieceUrl.ResolverFnOptionsTy
   const dataSets = await Array.fromAsync(paginate(({ cursor }) => getPdpDataSets(client, { address, cursor })))
 
   const providersById = dataSets.reduce((acc, dataSet) => {
-    if (dataSet.live && dataSet.managed && dataSet.pdpEndEpoch === 0n) {
+    if (dataSet.provider != null && dataSet.live && dataSet.managed && dataSet.pdpEndEpoch === 0n) {
       acc.set(dataSet.providerId, dataSet.provider)
     }
     return acc
-  }, new Map<bigint, (typeof dataSets)[number]['provider']>())
+  }, new Map<bigint, PDPProvider>())
   const providers = [...providersById.values()]
 
   const result = await findPieceOnProviders(

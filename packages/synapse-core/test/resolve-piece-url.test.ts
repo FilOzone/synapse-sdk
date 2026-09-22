@@ -13,6 +13,7 @@ import {
   resolvePieceUrl,
 } from '../src/piece/resolve-piece-url.ts'
 import type { PDPProvider } from '../src/sp-registry/types.ts'
+import { getPdpDataSets } from '../src/warm-storage/get-pdp-data-sets.ts'
 
 describe('resolve-piece-url', () => {
   const server = setup()
@@ -278,6 +279,63 @@ describe('resolve-piece-url', () => {
 
       assert.equal(result, expectedPdpUrl)
     })
+
+    for (const allInactive of [false, true]) {
+      it(`skips unavailable PDP providers (all inactive: ${allInactive})`, async () => {
+        server.use(
+          JSONRPC({
+            ...presets.basic,
+            warmStorageView: {
+              ...presets.basic.warmStorageView,
+              getClientDataSets: (args) => {
+                const template = presets.basic.warmStorageView?.getClientDataSets?.(args)?.[0]?.[0]
+                assert.ok(template)
+                return [
+                  [
+                    { ...template, providerId: 2n },
+                    { ...template, dataSetId: 2n, clientDataSetId: 1n },
+                  ],
+                ]
+              },
+            },
+            serviceRegistry: {
+              ...presets.basic.serviceRegistry,
+              getProviderWithProduct: (args) => {
+                const result = presets.basic.serviceRegistry?.getProviderWithProduct?.([1n, args[1]])?.[0]
+                assert.ok(result)
+                const active = !allInactive && args[0] === 1n
+                return [
+                  {
+                    ...result,
+                    providerId: args[0],
+                    product: {
+                      ...result.product,
+                      isActive: active,
+                      capabilityKeys: active ? result.product.capabilityKeys : [],
+                    },
+                    productCapabilityValues: active ? result.productCapabilityValues : [],
+                  },
+                ]
+              },
+            },
+          }),
+          http.head(`https://pdp.example.com/piece/${pieceCidString}`, () => new HttpResponse(null, { status: 200 }))
+        )
+        const page = await getPdpDataSets(client, { address: ADDRESSES.client1 })
+        assert.deepEqual(
+          page.items.map(({ dataSetId }) => dataSetId),
+          [1n, 2n]
+        )
+        assert.equal(page.items[0]?.provider, null)
+        assert.equal(page.items[1]?.provider?.id ?? null, allInactive ? null : 1n)
+        const resolve = () => chainResolver({ client, address: ADDRESSES.client1, pieceCid })
+        if (allInactive) {
+          await assert.rejects(resolve(), /No provider found/)
+        } else {
+          assert.equal(await resolve(), expectedPdpUrl)
+        }
+      })
+    }
 
     it('throws when client has no active managed data sets', async () => {
       server.use(

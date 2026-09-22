@@ -1,4 +1,4 @@
-import { isSynapseError, SynapseError } from './base.ts'
+import { isSynapseError, SynapseError, type SynapseErrorOptions } from './base.ts'
 
 export class DataSetNotFoundError extends SynapseError {
   override name: 'DataSetNotFoundError' = 'DataSetNotFoundError'
@@ -30,5 +30,20 @@ export class TooManyPiecesError extends SynapseError {
 
   static override is(value: unknown): value is TooManyPiecesError {
     return isSynapseError(value) && value.name === 'TooManyPiecesError'
+  }
+}
+
+/** A required PDP provider has no usable offering or could not be resolved. */
+export class PDPProviderUnavailableError extends SynapseError {
+  override name: 'PDPProviderUnavailableError' = 'PDPProviderUnavailableError'
+  readonly providerId: bigint
+
+  constructor(providerId: bigint, options?: SynapseErrorOptions) {
+    super(`PDP provider ${providerId} is unavailable`, options)
+    this.providerId = providerId
+  }
+
+  static override is(value: unknown): value is PDPProviderUnavailableError {
+    return isSynapseError(value) && value.name === 'PDPProviderUnavailableError'
   }
 }

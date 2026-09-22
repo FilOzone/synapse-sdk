@@ -6,7 +6,12 @@ import { type dataSetLive, dataSetLiveCall } from '../pdp-verifier/data-set-live
 import type { getActivePiecesByCursor } from '../pdp-verifier/get-active-pieces-by-cursor.ts'
 import { type getDataSetLeafCount, getDataSetLeafCountCall } from '../pdp-verifier/get-data-set-leaf-count.ts'
 import { type getDataSetListener, getDataSetListenerCall } from '../pdp-verifier/get-data-set-listener.ts'
-import { type getPDPProvider, getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
+import {
+  type getPDPProvider,
+  getPDPProviderCall,
+  hasActivePDPProduct,
+  parsePDPProvider,
+} from '../sp-registry/get-pdp-provider.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
 import {
   type getAllDataSetMetadata,
@@ -38,6 +43,9 @@ export namespace getPdpDataSets {
 
 /**
  * Get one bounded page of enriched PDP data sets.
+ *
+ * Data sets whose provider has no active PDP product are retained with
+ * `provider: null`, preserving their on-chain state and metadata.
  *
  * Only the current source page is enriched, in bounded batches with source
  * order preserved. Pass `nextCursor` back as `cursor`; treat it as
@@ -87,7 +95,7 @@ export async function getPdpDataSets(
 ): Promise<getPdpDataSets.OutputType> {
   const page = await getClientDataSets(client, options)
   const items: PdpDataSet[] = []
-  const providers = new Map<bigint, PDPProvider>()
+  const providers = new Map<bigint, PDPProvider | null>()
 
   for (let offset = 0; offset < page.items.length; offset += ENRICHMENT_BATCH_SIZE) {
     const dataSets = page.items.slice(offset, offset + ENRICHMENT_BATCH_SIZE)
@@ -123,7 +131,7 @@ export async function getPdpDataSets(
 async function enrichDataSetBatch(
   client: Client<Transport, Chain>,
   dataSets: DataSetInfo[],
-  providers: Map<bigint, PDPProvider>
+  providers: Map<bigint, PDPProvider | null>
 ): Promise<PdpDataSet[]> {
   const chain = asChain(client.chain)
   const missingProviderIds = [...new Set(dataSets.map(({ providerId }) => providerId))].filter(
@@ -149,7 +157,7 @@ async function enrichDataSetBatch(
     if (result == null) {
       throw new Error(`Missing PDP provider result for provider ${providerId}`)
     }
-    providers.set(providerId, parsePDPProvider(result))
+    providers.set(providerId, hasActivePDPProduct(result) ? parsePDPProvider(result) : null)
   }
 
   return dataSets.map((dataSet, index) => {
@@ -159,8 +167,8 @@ async function enrichDataSetBatch(
       resultOffset + DATA_SET_CALL_COUNT
     ) as DataSetEnrichmentResults
     const provider = providers.get(dataSet.providerId)
-    if (provider == null) {
-      throw new Error(`Missing PDP provider for provider ${dataSet.providerId}`)
+    if (provider === undefined) {
+      throw new Error(`Missing PDP provider in enrichment cache for provider ${dataSet.providerId}`)
     }
     const metadata = parseAllDataSetMetadata(rawMetadata)
 
