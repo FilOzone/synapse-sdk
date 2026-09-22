@@ -1,6 +1,6 @@
 import { assert } from 'chai'
 import { calibration, devnet, mainnet } from '../src/chains.ts'
-import { createPieceUrl, createPieceUrlPDP } from '../src/utils/piece-url.ts'
+import { createPieceUrl, createPieceUrlFilBeam, createPieceUrlPDP } from '../src/utils/piece-url.ts'
 
 describe('createPieceUrl', () => {
   const testCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
@@ -62,5 +62,17 @@ describe('createPieceUrlPDP', () => {
       result,
       'https://sp.example.com/pdp/piece/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
     )
+  })
+})
+
+describe('createPieceUrlFilBeam', () => {
+  it('should create a retrieval URL using the configured domain and normalize the address hostname', () => {
+    const cid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+    for (const retrievalDomain of ['filbeam.io', 'calibration.filbeam.io']) {
+      assert.strictEqual(
+        createPieceUrlFilBeam({ cid, address: '0xABCDEF0123456789012345678901234567890123', retrievalDomain }),
+        `https://0xabcdef0123456789012345678901234567890123.${retrievalDomain}/${cid}`
+      )
+    }
   })
 })

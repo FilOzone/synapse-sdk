@@ -4,7 +4,7 @@ import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { type Page, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { createPieceUrl } from '../utils/piece-url.ts'
+import { createPieceUrl, createPieceUrlFilBeam } from '../utils/piece-url.ts'
 import type { PdpDataSet, Piece } from '../warm-storage/types.ts'
 import { getActivePiecesByCursorCall, parseGetActivePiecesByCursor } from './get-active-pieces-by-cursor.ts'
 import { getScheduledRemovalsCall, parseScheduledRemovals } from './get-scheduled-removals.ts'
@@ -113,7 +113,11 @@ export async function getPieces(
             url:
               serviceURL == null
                 ? options.dataSet.cdn && chain.filbeam != null
-                  ? new URL(cid.toString(), `https://${address}.${chain.filbeam.retrievalDomain}`).toString()
+                  ? createPieceUrlFilBeam({
+                      cid: cid.toString(),
+                      address,
+                      retrievalDomain: chain.filbeam.retrievalDomain,
+                    })
                   : null
                 : createPieceUrl({
                     cid: cid.toString(),
