@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v2.0.0...synapse-sdk-v2.0.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* remove delete piece batch size limits ([#971](https://github.com/FilOzone/synapse-sdk/issues/971)) ([87cda5d](https://github.com/FilOzone/synapse-sdk/commit/87cda5d53c50cd9bdd0203ebc16129c5b91a5c1a))
+* **storage:** add legacy dataset batch limit ([#961](https://github.com/FilOzone/synapse-sdk/issues/961)) ([ce94aab](https://github.com/FilOzone/synapse-sdk/commit/ce94aab69478be67177ca370722d2029fa250aa5))
+* **storage:** prefer compact data sets over legacy ones ([#960](https://github.com/FilOzone/synapse-sdk/issues/960)) ([6a9d43d](https://github.com/FilOzone/synapse-sdk/commit/6a9d43d8b4a8e7c426f72fee829862ac622006be))
+
 ## [2.0.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v1.2.1...synapse-sdk-v2.0.0) (2026-09-03)
 
 
