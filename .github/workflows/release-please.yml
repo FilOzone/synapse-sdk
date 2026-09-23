@@ -45,16 +45,13 @@ jobs:
       - run: pnpm run build
       - name: Publish synapse-core
         if: contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-core')
-        run: pnpm publish --access=public
-        working-directory: packages/synapse-core
+        run: pnpm -r --filter=./packages/synapse-core publish --access=public
       - name: Publish synapse-sdk
         if: contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk')
-        run: pnpm publish --access=public
-        working-directory: packages/synapse-sdk
+        run: pnpm -r --filter=./packages/synapse-sdk publish --access=public
       - name: Publish synapse-react
         if: contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react')
-        run: pnpm publish --access=public
-        working-directory: packages/synapse-react
+        run: pnpm -r --filter=./packages/synapse-react publish --access=public
   docs:
     needs: release
     # Publish docs when any package is released (manual publishing is also available from the GitHub UI)
