@@ -107,25 +107,26 @@ export async function getPieces(
       items: page.items
         .map((piece) => {
           const cid = piece.cid
+          let url: string | null = null
+          if (serviceURL != null) {
+            url = createPieceUrl({
+              cid: cid.toString(),
+              cdn: options.dataSet.cdn,
+              address,
+              chain,
+              serviceURL,
+            })
+          } else if (options.dataSet.cdn && chain.filbeam != null) {
+            url = createPieceUrlFilBeam({
+              cid: cid.toString(),
+              address,
+              retrievalDomain: chain.filbeam.retrievalDomain,
+            })
+          }
           return {
             cid,
             id: piece.id,
-            url:
-              serviceURL == null
-                ? options.dataSet.cdn && chain.filbeam != null
-                  ? createPieceUrlFilBeam({
-                      cid: cid.toString(),
-                      address,
-                      retrievalDomain: chain.filbeam.retrievalDomain,
-                    })
-                  : null
-                : createPieceUrl({
-                    cid: cid.toString(),
-                    cdn: options.dataSet.cdn,
-                    address,
-                    chain,
-                    serviceURL,
-                  }),
+            url,
           }
         })
         .filter((piece) => !removals.includes(piece.id)),

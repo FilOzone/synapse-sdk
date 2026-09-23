@@ -5,7 +5,7 @@ import type { Address, Chain, Client, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { paginate } from '../pagination.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
-import { createPieceUrlPDP } from '../utils/piece-url.ts'
+import { createPieceUrlFilBeam, createPieceUrlPDP } from '../utils/piece-url.ts'
 import { getPdpDataSets } from '../warm-storage/get-pdp-data-sets.ts'
 import type { PieceCID } from './piece-cid.ts'
 
@@ -92,7 +92,11 @@ export async function filbeamResolver(options: resolvePieceUrl.ResolverFnOptions
   if (chain.filbeam == null) {
     throw new Error('FilBeam not supported on this chain')
   }
-  const url = `https://${address}.${chain.filbeam.retrievalDomain}/${pieceCid.toString()}`
+  const url = createPieceUrlFilBeam({
+    cid: pieceCid.toString(),
+    address,
+    retrievalDomain: chain.filbeam.retrievalDomain,
+  })
   const result = await request.head(url, {
     signal,
   })

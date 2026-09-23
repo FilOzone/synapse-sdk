@@ -151,7 +151,7 @@ describe('resolve-piece-url', () => {
 
   describe('filbeamResolver', () => {
     it('returns filbeam URL when HEAD succeeds', async () => {
-      const url = `https://${ADDRESSES.client1}.${calibration.filbeam?.retrievalDomain}/${pieceCidString}`
+      const url = `https://${ADDRESSES.client1.toLowerCase()}.${calibration.filbeam?.retrievalDomain}/${pieceCidString}`
       server.use(
         http.head(url, () => {
           return new HttpResponse(null, { status: 200 })
