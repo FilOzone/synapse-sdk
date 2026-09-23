@@ -29,8 +29,8 @@ jobs:
   npm:
     needs: release
     if: |
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk') || 
       contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-core') ||
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk') ||
       contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react')
     runs-on: ubuntu-latest
     permissions:
@@ -38,15 +38,20 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/setup@v3
         with:
-          node-version: lts/*
-          registry-url: "https://registry.npmjs.org"
-      - run: pnpm install
+          require-lockfile: true
       - run: pnpm run lint
       - run: pnpm run build
-      - run: pnpm -r --filter './packages/**' publish --access=public
+      - name: Publish synapse-core
+        if: contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-core')
+        run: pnpm -r --filter=./packages/synapse-core publish --access=public
+      - name: Publish synapse-sdk
+        if: contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk')
+        run: pnpm -r --filter=./packages/synapse-sdk publish --access=public
+      - name: Publish synapse-react
+        if: contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react')
+        run: pnpm -r --filter=./packages/synapse-react publish --access=public
   docs:
     needs: release
     # Publish docs when any package is released (manual publishing is also available from the GitHub UI)

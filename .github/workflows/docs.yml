@@ -75,11 +75,9 @@ jobs:
             echo "Checked out ${checked_out_sha}, expected ${PR_SHA}. Review the new PR head and rerun."
             exit 1
           fi
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/setup@v3
         with:
-          node-version: lts/*
-      - run: pnpm install
+          require-lockfile: true
       - run: pnpm run check:markdown
       - run: pnpm run build
       - run: pnpm -r --filter docs run build
