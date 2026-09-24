@@ -250,6 +250,9 @@ last_flag  = 0x01 on the final chunk, 0x00 otherwise
 
 Every chunk uses the *same* AAD, the envelope-level `Enc_structure`. The nonce is the only thing
 binding a chunk to its position, which is what detects reordering, insertion and truncation.
+Scheme 2 makes one random base-nonce choice for the object. Its chunks are not separate random
+nonce choices; the index and final flag deterministically give each chunk a distinct 12-byte
+AES-GCM nonce.
 
 ### AAD
 
@@ -302,10 +305,11 @@ N = max(1, ceil(P / S))     ← the max matters: ceil(0 / S) is 0, and empty inp
 C = P + 16 × N              ← expected detached ciphertext length
 ```
 
-Before writing the envelope the encoder checks that `P` is a non-negative safe integer, that `N` is
-within the library's operational range of 1 … 2²⁴, and that `C` is a safe integer. It then
-**counts the plaintext bytes it actually consumes** and fails if the total differs from the
-declared `P`.
+When the caller supplies `contentLength`, the encoder knows `P` before writing the envelope. It
+checks that `P` is a non-negative safe integer, that `N` is within the format range of
+1 … 2³² − 1, and that `C` is a safe integer. It then **counts the plaintext bytes it actually
+consumes** and fails if the total differs from the declared `P`. When the length is not known before
+the envelope is written, the caller omits `contentLength` and the encoder omits `plaintext_length`.
 
 The timing is better than "check at the end" suggests, because the encoder already holds one chunk
 of lookahead: it cannot know a chunk is final until the next read returns, and the final chunk needs
@@ -327,7 +331,7 @@ transfer; omit it when unsure and the object is valid, just without the commitme
 
 When the field is present, recompute `N` and `C` from `P` and compare `C` against the observed
 detached ciphertext length for the same object version. Reject a negative, non-integer or unsafe
-`P`, a derived count outside the library's operational range of 1 … 2²⁴, an unsafe derived length
+`P`, a derived count outside the format range of 1 … 2³² − 1, an unsafe derived length
 or offset, and any mismatch. The mapping is unambiguous:
 `P + 16 × max(1, ceil(P / S))` is strictly increasing in `P`, so one ciphertext length admits
 exactly one valid `P`.
@@ -649,15 +653,15 @@ and type of recipients are all readable without any key.
 ### CEK responsibilities
 
 The caller — either the application or a separate key-management library — supplies the CEK. Each
-new whole-object encryption MUST receive a new secret CEK.. Re-encrypting the same plaintext, including a retry, needs a new CEK. Sending the
-existing encrypted bytes again does not.
+new whole-object encryption MUST receive a new secret CEK. Re-encrypting the same plaintext,
+including a retry, needs a new CEK. Sending the existing encrypted bytes again does not.
 
 FEE checks that the CEK is exactly 32 bytes and not all-zero, including after recipient unwrapping.
 It does not generate application CEKs or track their use, so it cannot tell whether a valid-looking
 key is secret, unpredictable, or fresh.
 
 One encryption uses the same CEK for all its chunks. The library gives each chunk a distinct nonce,
-as described under [Nonce generation](#nonce-generation); a separate CEK per chunk is not needed.
+as described under [Nonce generation](#nonce-generation).
 
 ## Limits
 
@@ -665,7 +669,7 @@ as described under [Nonce generation](#nonce-generation); a separate CEK per chu
 | --- | --- |
 | CEK | exactly 32 bytes, all-zero rejected, fresh for each whole-object encryption invocation |
 | Chunk size | every integer from 4 KiB through 16 MiB is supported; default 256 KiB |
-| Chunk count | v1 encodes and decodes at most 2²⁴ per CEK; 2³² − 1 is the wire-format limit |
+| Chunk count | between 1 and 2³² − 1; the 64 GiB object limit binds first |
 | Chunked object | encoded envelope plus detached ciphertext must not exceed 64 GiB |
 | Scheme 1 | 64 MiB plaintext; one-shot API |
 | Envelope | 1 MiB decode ceiling; no separate collection item-count limit |
@@ -674,30 +678,22 @@ as described under [Nonce generation](#nonce-generation); a separate CEK per chu
 The 64 GiB chunked limit applies to the complete encoded object: envelope plus detached ciphertext,
 including every 16-byte chunk tag. Encryption fails before emitting a chunk that would cross the
 chunk-count or encoded-size limit. Encryption and decryption both reject a derived count above
-2²⁴, whether `plaintext_length` is present or absent. The wire format can represent up to 2³² − 1
-chunks, but counts above 2²⁴ are unsupported by this library version. Decryption also rejects a
+2³² − 1, whether `plaintext_length` is present or absent. Decryption also rejects a
 reported object size above 64 GiB before fetching its ciphertext; as with other pre-authentication
 metadata, that reported size remains untrusted until an AEAD tag authenticates the protected
 headers.
 
-**Where 2²⁴ comes from.** Each chunk is one AES-GCM message. [RFC 9053
-§4.1.1](https://www.rfc-editor.org/rfc/rfc9053#section-4.1.1) sets an absolute limit of 2³² messages
-per key and recommends roughly 2²⁴·⁵, following the TLS analysis; this profile rounds that
-recommendation down to the nearest power of two. It is a conservative message-count ceiling, not a
-FEE-specific forgery-probability calculation — the TLS analysis carries its own message-size
-assumptions, while FEE chunks range from 4 KiB to 16 MiB and re-authenticate the protected-header
-AAD on every one. Message count alone is not a complete GCM budget: message sizes, authenticated-data
-sizes, and failed decryption attempts all count against it.
+The chunk-count limit comes from the format's 32-bit chunk index. Chunk indices start at zero, end
+at `chunk_count - 1`, and never wrap. With a fresh CEK for one object, Scheme 2 chooses one random
+base nonce and derives the chunks' 12-byte AES-GCM nonces deterministically from that base, the
+index, and the final flag. The chunks are not separate random-IV choices, so the random-IV
+invocation limit in [SP 800-38D §8.3](https://doi.org/10.6028/NIST.SP.800-38D) is not used as the
+chunk-count limit.
 
-The limit is per **CEK**, which equals per invocation only because a fresh CEK is required for each
-whole-object encryption (see [CEK responsibilities](#cek-responsibilities)). Should that requirement
-ever soften, this ceiling would have to be restated against the key rather than the call.
-
-In practice the object and chunk-size limits already bind first — a 64 GiB encoded object holds
-about 16,711,935 chunks at the 4 KiB minimum, 262,128 at the 256 KiB default, and 4,095 at 16 MiB,
-so only the smallest chunk size comes close. The explicit ceiling is kept anyway, so that a later
-change to the object size or the minimum chunk size cannot silently raise the permitted GCM
-workload.
+In practice the object and chunk-size limits bind much earlier. A 64 GiB encoded object holds about
+16,711,935 chunks at the 4 KiB minimum, 262,128 at the 256 KiB default, and 4,095 at 16 MiB. If the
+object limit, chunk-size range, or CEK policy changes, the AES-GCM data and authentication limits
+must be reviewed again rather than inferred from chunk count alone.
 
 ### Lengths and offsets are safe integers
 

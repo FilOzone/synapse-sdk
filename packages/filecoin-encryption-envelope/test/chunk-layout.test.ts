@@ -124,13 +124,10 @@ describe('chunkLayout', () => {
     assert.doesNotThrow(() => chunkLayout(justUnder, MIN_CHUNK_SIZE))
   })
 
-  it('reaches the object-size limit before the chunk-count limit, at every legal chunk size', () => {
-    // 2^24 chunks at the 4 KiB minimum is already 64 GiB of plaintext alone,
-    // so no ciphertext this function accepts can carry that many chunks. The
-    // count check in chunkLayout is therefore unreachable today and kept as
-    // a guard: if the object limit rises, or the minimum chunk size falls,
-    // it is what stops the permitted GCM workload rising with it. This test
-    // is what will fail, loudly, if that day arrives.
+  it('reaches the object-size limit before the wire chunk-count limit, at every legal chunk size', () => {
+    // The 64 GiB object ceiling permits far fewer than 2^32 - 1 chunks at
+    // every supported chunk size. Keep the count check anyway: it records the
+    // format boundary independently of the current object-size policy.
     for (const chunkSize of [MIN_CHUNK_SIZE, 262144, MAX_CHUNK_SIZE]) {
       const chunksAtObjectLimit = Math.floor(MAX_ENCODED_OBJECT_SIZE / (chunkSize + TAG_SIZE))
       assert.ok(

@@ -429,9 +429,9 @@ describe('encodeProtectedHeader / decodeProtectedHeader', () => {
 
     it("rejects a plaintext_length describing a layout past this library's limits", () => {
       // At every legal chunk size the 64 GiB object ceiling binds before the
-      // 2^24 chunk-count ceiling (see chunk-layout.test.ts), so this is the
-      // object limit talking. Either way the header is refused rather than
-      // written and left for a decoder to discover.
+      // wire chunk-count limit (see chunk-layout.test.ts), so this is the
+      // object limit talking. The header is refused rather than written and
+      // left for a decoder to discover.
       assert.throws(
         () =>
           encodeProtectedHeader({

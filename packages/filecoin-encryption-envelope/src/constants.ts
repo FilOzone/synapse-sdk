@@ -33,17 +33,12 @@ export const MIN_CHUNK_SIZE = 4096 // 4 KiB
 export const MAX_CHUNK_SIZE = 16777216 // 16 MiB
 
 /**
- * Largest chunk count this library encodes or decodes: 2^24. The wire format
- * can represent up to 2^32 - 1, which nothing here produces or accepts.
- *
- * Each chunk is one AES-GCM message. RFC 9053 §4.1.1 sets an absolute limit
- * of 2^32 messages per key and recommends roughly 2^24.5, following the TLS
- * analysis; this rounds that down to the nearest power of two. A
- * conservative message-count ceiling, not a FEE-specific forgery-probability
- * calculation. Per CEK, which equals per invocation only because a fresh CEK
- * is required for each whole-object encryption.
+ * Largest chunk count the wire profile permits: 2^32 - 1. Indices start at
+ * zero and end at `chunkCount - 1`, so the 32-bit counter never wraps.
+ * The 64 GiB encoded-object limit binds much earlier for every legal chunk
+ * size.
  */
-export const MAX_CHUNK_COUNT = 16777216
+export const MAX_CHUNK_COUNT = 4294967295
 
 // ── Object size limits, in bytes ────────────────────────────────────────────
 
