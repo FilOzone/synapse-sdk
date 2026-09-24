@@ -326,6 +326,9 @@ importers:
       cborg:
         specifier: 6.1.2
         version: 6.1.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
