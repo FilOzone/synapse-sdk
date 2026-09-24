@@ -18,7 +18,7 @@ import { FR_RATIO, IN_BYTES_PER_QUAD, MIN_PAYLOAD_SIZE, OUT_BYTES_PER_QUAD } fro
  * Bytes of zero-padding required to bring a payload up to the next pow2-aligned
  * piece while leaving room for FR32 expansion.
  */
-export function toZeroPaddedSize(payloadSize: number): number {
+function toZeroPaddedSize(payloadSize: number): number {
   const size = Math.max(payloadSize, MIN_PAYLOAD_SIZE)
   const highestBit = Math.floor(Math.log2(size))
   const bound = Math.ceil(FR_RATIO * 2 ** (highestBit + 1))
@@ -28,14 +28,14 @@ export function toZeroPaddedSize(payloadSize: number): number {
 /**
  * FR32-expanded byte size for a given raw payload size.
  */
-export function toPieceSize(size: number): number {
+function toPieceSize(size: number): number {
   return toZeroPaddedSize(size) / FR_RATIO
 }
 
 /**
  * Raw byte size derivable from an FR32-expanded byte size.
  */
-export function fromPieceSize(size: number): number {
+function fromPieceSize(size: number): number {
   return size * FR_RATIO
 }
 
