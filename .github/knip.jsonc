@@ -21,6 +21,9 @@
     },
     "packages/synapse-core": {
       "ignoreFiles": ["wagmi.config.ts"]
+    },
+    "examples/cli": {
+      "ignoreBinaries": ["cast"]
     }
   }
 }
