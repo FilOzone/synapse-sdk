@@ -42,7 +42,7 @@ export async function selectDataSet(
       message: 'Select a data set:',
       options: dataSets.map((dataSet) => ({
         value: dataSet.dataSetId,
-        label: `#${dataSet.dataSetId} - SP: #${dataSet.providerId} ${dataSet.provider.pdp.serviceURL} ${dataSet.pdpEndEpoch > 0n ? `Terminating at epoch ${dataSet.pdpEndEpoch}` : ''}`,
+        label: `#${dataSet.dataSetId} - SP: #${dataSet.providerId} ${dataSet.provider?.pdp.serviceURL ?? 'PDP provider unavailable'} ${dataSet.pdpEndEpoch > 0n ? `Terminating at epoch ${dataSet.pdpEndEpoch}` : ''}`,
       })),
     })
     if (p.isCancel(dataSetId)) {

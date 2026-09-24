@@ -1,3 +1,4 @@
+import { PDPProviderUnavailableError } from '@filoz/synapse-core/errors'
 import * as SP from '@filoz/synapse-core/sp'
 import type { PdpDataSet } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -27,6 +28,9 @@ export function useDeletePiece(props: UseDeletePieceProps) {
   return useMutation({
     ...props?.mutation,
     mutationFn: async ({ dataSet, pieceId }: UseDeletePieceVariables) => {
+      if (dataSet.provider == null) {
+        throw new PDPProviderUnavailableError(dataSet.providerId)
+      }
       const connectorClient = await getConnectorClient(config, {
         account: account.address,
         chainId,

@@ -4,7 +4,7 @@ import { multicall } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { type Page, type PaginationOptions, type paginate, resolvePagination } from '../pagination.ts'
 import { STRING_ERRORS, stringErrorEquals } from '../utils/contract-errors.ts'
-import { createPieceUrl } from '../utils/piece-url.ts'
+import { createPieceUrl, createPieceUrlFilBeam } from '../utils/piece-url.ts'
 import type { PdpDataSet, Piece } from '../warm-storage/types.ts'
 import { getActivePiecesByCursorCall, parseGetActivePiecesByCursor } from './get-active-pieces-by-cursor.ts'
 import { getScheduledRemovalsCall, parseScheduledRemovals } from './get-scheduled-removals.ts'
@@ -28,6 +28,9 @@ export namespace getPieces {
 
 /**
  * Get one bounded page of visible pieces for a data set.
+ *
+ * Pieces remain visible without an active provider; their URL is null unless
+ * CDN retrieval is configured for the data set and chain.
  *
  * Pieces scheduled for removal are filtered from `items`, while `nextCursor`
  * continues to describe the unfiltered source page. A page can therefore be
@@ -76,7 +79,7 @@ export async function getPieces(
   const { cursor, limit } = resolvePagination(options, 100n)
 
   const address = options.address
-  const serviceURL = options.dataSet.provider.pdp.serviceURL
+  const serviceURL = options.dataSet.provider?.pdp.serviceURL
   try {
     const [activePiecesResult, removalsResult] = await multicall(client, {
       contracts: [
@@ -104,16 +107,26 @@ export async function getPieces(
       items: page.items
         .map((piece) => {
           const cid = piece.cid
-          return {
-            cid,
-            id: piece.id,
-            url: createPieceUrl({
+          let url: string | null = null
+          if (serviceURL != null) {
+            url = createPieceUrl({
               cid: cid.toString(),
               cdn: options.dataSet.cdn,
               address,
               chain,
               serviceURL,
-            }),
+            })
+          } else if (options.dataSet.cdn && chain.filbeam != null) {
+            url = createPieceUrlFilBeam({
+              cid: cid.toString(),
+              address,
+              retrievalDomain: chain.filbeam.retrievalDomain,
+            })
+          }
+          return {
+            cid,
+            id: piece.id,
+            url,
           }
         })
         .filter((piece) => !removals.includes(piece.id)),

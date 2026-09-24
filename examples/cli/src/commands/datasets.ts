@@ -36,7 +36,7 @@ export const datasets: Command = command(
         getPdpDataSets(client, { address, cursor })
       )) {
         p.log.step(
-          `#${item.dataSetId} ${new URL(item.provider.pdp.serviceURL).hostname} #${item.providerId} ${item.pdpEndEpoch > 0n ? `Terminating at epoch ${item.pdpEndEpoch}` : ''}${item.cdn ? ' CDN' : ''}`,
+          `#${item.dataSetId} ${item.provider ? new URL(item.provider.pdp.serviceURL).hostname : 'PDP provider unavailable'} #${item.providerId} ${item.pdpEndEpoch > 0n ? `Terminating at epoch ${item.pdpEndEpoch}` : ''}${item.cdn ? ' CDN' : ''}`,
           { spacing: 0 }
         )
       }

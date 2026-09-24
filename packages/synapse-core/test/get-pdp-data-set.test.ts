@@ -21,6 +21,67 @@ describe('getPdpDataSet', () => {
   })
 
   describe('getPdpDataSet (with mocked RPC)', () => {
+    for (const product of [
+      { isActive: false, capabilityKeys: [], productCapabilityValues: [] },
+      { isActive: false, capabilityKeys: ['serviceURL'], productCapabilityValues: ['0x'] },
+      { isActive: true, capabilityKeys: [], productCapabilityValues: [] },
+    ]) {
+      it(`retains data sets with unavailable PDP products (${JSON.stringify(product)})`, async () => {
+        server.use(
+          JSONRPC({
+            ...presets.basic,
+            serviceRegistry: {
+              ...presets.basic.serviceRegistry,
+              getProviderWithProduct: (args) => {
+                const result = presets.basic.serviceRegistry?.getProviderWithProduct?.(args)?.[0]
+                assert.ok(result)
+                return [
+                  {
+                    ...result,
+                    product: { ...result.product, isActive: product.isActive, capabilityKeys: product.capabilityKeys },
+                    productCapabilityValues: product.productCapabilityValues as `0x${string}`[],
+                  },
+                ]
+              },
+            },
+          })
+        )
+        const client = createPublicClient({ chain: calibration, transport: http() })
+        const result = await getPdpDataSet(client, { dataSetId: 1n })
+        const dataSet = result
+        assert.ok(dataSet)
+        assert.equal(dataSet.dataSetId, 1n)
+        assert.equal(dataSet.providerId, 1n)
+        assert.equal(dataSet.provider, null)
+        assert.equal(dataSet.live, true)
+        assert.equal(dataSet.hasActivePieces, true)
+      })
+    }
+
+    it('still rejects malformed active PDP offerings', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            getProviderWithProduct: (args) => {
+              const result = presets.basic.serviceRegistry?.getProviderWithProduct?.(args)?.[0]
+              assert.ok(result)
+              return [
+                {
+                  ...result,
+                  product: { ...result.product, isActive: true, capabilityKeys: ['serviceURL'] },
+                  productCapabilityValues: ['0x'],
+                },
+              ]
+            },
+          },
+        })
+      )
+      const client = createPublicClient({ chain: calibration, transport: http() })
+      await assert.rejects(getPdpDataSet(client, { dataSetId: 1n }), /Validation failed/)
+    })
+
     it('should fetch PDP data set', async () => {
       server.use(JSONRPC(presets.basic))
 

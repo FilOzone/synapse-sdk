@@ -5,7 +5,7 @@ import type { Address, Chain, Client, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { paginate } from '../pagination.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
-import { createPieceUrlPDP } from '../utils/piece-url.ts'
+import { createPieceUrlFilBeam, createPieceUrlPDP } from '../utils/piece-url.ts'
 import { getPdpDataSets } from '../warm-storage/get-pdp-data-sets.ts'
 import type { PieceCID } from './piece-cid.ts'
 
@@ -92,7 +92,11 @@ export async function filbeamResolver(options: resolvePieceUrl.ResolverFnOptions
   if (chain.filbeam == null) {
     throw new Error('FilBeam not supported on this chain')
   }
-  const url = `https://${address}.${chain.filbeam.retrievalDomain}/${pieceCid.toString()}`
+  const url = createPieceUrlFilBeam({
+    cid: pieceCid.toString(),
+    address,
+    retrievalDomain: chain.filbeam.retrievalDomain,
+  })
   const result = await request.head(url, {
     signal,
   })
@@ -123,11 +127,11 @@ export async function chainResolver(options: resolvePieceUrl.ResolverFnOptionsTy
   const dataSets = await Array.fromAsync(paginate(({ cursor }) => getPdpDataSets(client, { address, cursor })))
 
   const providersById = dataSets.reduce((acc, dataSet) => {
-    if (dataSet.live && dataSet.managed && dataSet.pdpEndEpoch === 0n) {
+    if (dataSet.provider != null && dataSet.live && dataSet.managed && dataSet.pdpEndEpoch === 0n) {
       acc.set(dataSet.providerId, dataSet.provider)
     }
     return acc
-  }, new Map<bigint, (typeof dataSets)[number]['provider']>())
+  }, new Map<bigint, PDPProvider>())
   const providers = [...providersById.values()]
 
   const result = await findPieceOnProviders(

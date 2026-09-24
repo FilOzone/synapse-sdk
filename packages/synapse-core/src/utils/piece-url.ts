@@ -38,7 +38,7 @@ export namespace createPieceUrl {
 export function createPieceUrl(options: createPieceUrl.OptionsType) {
   const { cid, cdn, address, chain, serviceURL } = options
   if (cdn && chain.filbeam != null) {
-    return new URL(`${cid}`, `https://${address}.${chain.filbeam.retrievalDomain}`).toString()
+    return createPieceUrlFilBeam({ cid, address, retrievalDomain: chain.filbeam.retrievalDomain })
   }
 
   return createPieceUrlPDP({ cid, serviceURL })
@@ -71,4 +71,37 @@ export namespace createPieceUrlPDP {
 export function createPieceUrlPDP(options: createPieceUrlPDP.OptionsType) {
   const { cid, serviceURL } = options
   return new URL(`piece/${cid}`, serviceURL).toString()
+}
+
+export namespace createPieceUrlFilBeam {
+  export type OptionsType = {
+    /** The PieceCID identifier. */
+    cid: string
+    /** The address of the user. */
+    address: Address
+    /** The FilBeam retrieval domain configured for the chain. */
+    retrievalDomain: string
+  }
+
+  export type OutputType = string
+}
+
+/**
+ * Create a piece URL for FilBeam.
+ *
+ * @param options - {@link createPieceUrlFilBeam.OptionsType}
+ * @returns The FilBeam retrieval URL.
+ *
+ * @example
+ * ```ts
+ * const url = createPieceUrlFilBeam({
+ *   cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+ *   address: '0x1234567890123456789012345678901234567890',
+ *   retrievalDomain: 'calibration.filbeam.io',
+ * })
+ * ```
+ */
+export function createPieceUrlFilBeam(options: createPieceUrlFilBeam.OptionsType): createPieceUrlFilBeam.OutputType {
+  const { cid, address, retrievalDomain } = options
+  return new URL(cid, `https://${address}.${retrievalDomain}`).toString()
 }

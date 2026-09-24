@@ -5,6 +5,7 @@ import { createWalletClient, decodeAbiParameters, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import * as Chains from '../src/chains.ts'
 import { ValidationError } from '../src/errors/base.ts'
+import { PDPProviderUnavailableError } from '../src/errors/index.ts'
 import { AddPiecesFlushError, InvalidUploadSizeError } from '../src/errors/pdp.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from '../src/mocks/jsonrpc/index.ts'
 import {
@@ -123,6 +124,20 @@ describe('createPieceBatcher', () => {
 
   beforeEach(() => {
     server.resetHandlers()
+  })
+
+  it('rejects uploads when the data set has no active PDP provider', async () => {
+    const batcher = createPieceBatcher(client, {
+      dataSet: { ...createDataSet(), provider: null },
+      wait: { kind: 'limiter' },
+    })
+    await assert.rejects(batcher.upload({ data: new Uint8Array(127), pieceCid: pieceCidA }), (error: unknown) => {
+      assert.ok(PDPProviderUnavailableError.is(error))
+      assert.equal(error.providerId, 1n)
+      assert.equal(error.message, 'PDP provider 1 is unavailable')
+      return true
+    })
+    await batcher.close()
   })
 
   it('should batch two uploads in one addPieces window', async () => {
@@ -315,7 +330,7 @@ describe('createPieceBatcher', () => {
       limiter: (options) => {
         assert.equal(options.kind, 'addPieces')
         if (options.kind === 'addPieces') {
-          assert.equal(options.dataSet?.provider.pdp.serviceURL, pdpBase)
+          assert.equal(options.dataSet?.provider?.pdp.serviceURL, pdpBase)
           assert.equal(options.dataSet?.dataSetId, options.dataSetId)
           assert.equal(options.legacyPieceStorageIdLimit, Chains.calibration.legacyPieceStorageIdLimit)
         }
