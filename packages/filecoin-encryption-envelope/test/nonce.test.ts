@@ -8,9 +8,7 @@ const BASE_NONCE = Uint8Array.from([1, 2, 3, 4, 5, 6, 7])
 describe('deriveChunkNonce', () => {
   it('lays out base nonce, big-endian index, and last_flag byte-for-byte', () => {
     // Four distinct index bytes, so a wrong-endian implementation would
-    // produce a visibly different (reversed) result here. The leading byte
-    // is 0x00 because MAX_CHUNK_COUNT caps indices at 2^24 - 1 — the wire
-    // field is still four bytes wide, and all four are checked.
+    // produce a visibly different (reversed) result here.
     const nonce = deriveChunkNonce(BASE_NONCE, 0x00a1b2c3, true)
     const expected = Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 0x00, 0xa1, 0xb2, 0xc3, 0x01])
     assert.deepStrictEqual(nonce, expected)
@@ -25,6 +23,11 @@ describe('deriveChunkNonce', () => {
   it('encodes chunk index 0 as four zero bytes', () => {
     const nonce = deriveChunkNonce(BASE_NONCE, 0, false)
     assert.deepStrictEqual(nonce.subarray(7, 11), Uint8Array.from([0, 0, 0, 0]))
+  })
+
+  it('encodes the highest permitted chunk index without wrapping', () => {
+    const nonce = deriveChunkNonce(BASE_NONCE, MAX_CHUNK_COUNT - 1, false)
+    assert.deepStrictEqual(nonce.subarray(7, 11), Uint8Array.from([0xff, 0xff, 0xff, 0xfe]))
   })
 
   it('rejects a base nonce that is not a Uint8Array, before the length check can pass it', () => {
