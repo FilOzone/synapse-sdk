@@ -79,7 +79,8 @@
     }
   },
   "dependencies": {
-    "cborg": "6.1.2"
+    "cborg": "6.1.2",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

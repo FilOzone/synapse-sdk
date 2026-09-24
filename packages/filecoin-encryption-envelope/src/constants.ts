@@ -1,41 +1,12 @@
 /**
- * Wire constants for the Filecoin Encryption Envelope (FIP-1253).
+ * Constants shared beyond `cose/`: the two scheme identifiers and the size
+ * bounds that `chunk-layout.ts`, `nonce.ts` and `cose/headers.ts` must all
+ * agree on byte-for-byte. Labels, tags and other COSE-only values live in
+ * `cose/constants.ts`; `CLAUDE.md` has the rule for choosing between them.
  *
- * Reference: https://github.com/filecoin-project/FIPs/discussions/1253
- * See docs/tech-spec.md in this package for the full wire profile and the
- * rationale behind each deliberate divergence from the FIP text.
+ * FIP-1253: https://github.com/filecoin-project/FIPs/discussions/1253
+ * Wire profile and rationale: docs/tech-spec.md
  */
-
-// ── COSE header labels (protected unless noted) ────────────────────────────
-
-/** `alg`, RFC 9052 §3.1. Selects the encryption scheme, see the ALG_* constants. */
-export const HEADER_ALG = 1
-/** `content_type`, RFC 9052 §3.1. Media type of the plaintext. Optional. */
-export const HEADER_CONTENT_TYPE = 3
-/** `kid`, RFC 9052 §3.1. Not used at the top level in this profile; kept for recipients. */
-export const HEADER_KID = 4
-/** `iv`, RFC 9052 §3.1. Unprotected: 12-byte nonce (scheme 1) or 7-byte base nonce (chunked). */
-export const HEADER_IV = 5
-/** `typ`, RFC 9052 §3.1. Must equal {@link ENVELOPE_TYPE}. */
-export const HEADER_TYP = 16
-
-/**
- * `chunk_size`, algorithm-specific label per RFC 9052 §3.1. Required for the
- * chunked scheme, must not appear when `alg` is {@link ALG_AES_256_GCM} (3) —
- * whole-object AEAD has no chunk layout.
- */
-export const HEADER_CHUNK_SIZE = -1
-
-/**
- * `chunk_count`, private use (RFC 9052 §3.1). Present only when the content
- * length was known at encryption time. See docs/tech-spec.md, "chunk_count
- * and truncation" — this label lives in the *protected* header so an
- * attacker cannot edit it to mask a truncated object without failing every
- * chunk's AEAD tag.
- */
-export const HEADER_CHUNK_COUNT = -65791
-/** `app_metadata`, private use. Opaque, string-keyed map carried and authenticated but never interpreted. */
-export const HEADER_APP_METADATA = -65792
 
 // ── Algorithms ──────────────────────────────────────────────────────────────
 
@@ -43,25 +14,6 @@ export const HEADER_APP_METADATA = -65792
 export const ALG_AES_256_GCM = 3
 /** Chunked AES-256-GCM with STREAM (per-chunk nonce, positional AAD binding). Seekable. */
 export const ALG_CHUNKED_AES_256_GCM_STREAM = -65793
-
-// ── Key wrap algorithms (RFC 9053) ──────────────────────────────────────────
-
-/** AES key wrap, RFC 9053 §6.2.1. */
-export const ALG_A256KW = -5
-/** ECDH-ES + AES key wrap, HKDF-SHA-256, RFC 9053 §6.3.1. */
-export const ALG_ECDH_ES_A256KW = -31
-
-// ── CBOR tags ────────────────────────────────────────────────────────────────
-
-/** `COSE_Encrypt0`, RFC 9052 §5.2. No recipients array; used when the CEK is out of band. */
-export const TAG_ENCRYPT0 = 16
-/** `COSE_Encrypt`, RFC 9052 §5.1. Carries a recipients array for key wrapping. */
-export const TAG_ENCRYPT = 96
-
-// ── Envelope identity ────────────────────────────────────────────────────────
-
-/** `typ` header value identifying this envelope format. */
-export const ENVELOPE_TYPE = 'application/vnd.filecoin-encryption+cose'
 
 // ── Sizes, in bytes ──────────────────────────────────────────────────────────
 
@@ -76,20 +28,47 @@ export const NONCE_SIZE = 12
 
 // ── Chunk size limits, in plaintext bytes per chunk ─────────────────────────
 
-/** Default chunk size when the caller does not specify one. */
-export const DEFAULT_CHUNK_SIZE = 262144
-/** Smallest permitted chunk size. */
-export const MIN_CHUNK_SIZE = 4096
-/** Largest permitted chunk size. */
-export const MAX_CHUNK_SIZE = 16777216
+export const DEFAULT_CHUNK_SIZE = 262144 // 256 KiB
+export const MIN_CHUNK_SIZE = 4096 // 4 KiB
+export const MAX_CHUNK_SIZE = 16777216 // 16 MiB
 
 /**
- * Largest permitted chunk count.
+ * Largest chunk count this library encodes or decodes: 2^24. The wire format
+ * can represent up to 2^32 - 1, which nothing here produces or accepts.
  *
- * The per-chunk nonce reserves 4 bytes for the chunk index (see
- * docs/tech-spec.md, "Per-chunk nonce"), which could in principle count up
- * to 2^32 values. The FIP deliberately caps `chunk_count` one below that, at
- * 2^32 - 1, so we follow the spec's stated limit rather than the counter's
- * raw addressable range.
+ * Each chunk is one AES-GCM message. RFC 9053 §4.1.1 sets an absolute limit
+ * of 2^32 messages per key and recommends roughly 2^24.5, following the TLS
+ * analysis; this rounds that down to the nearest power of two. A
+ * conservative message-count ceiling, not a FEE-specific forgery-probability
+ * calculation. Per CEK, which equals per invocation only because a fresh CEK
+ * is required for each whole-object encryption.
  */
-export const MAX_CHUNK_COUNT = 4294967295
+export const MAX_CHUNK_COUNT = 16777216
+
+// ── Object size limits, in bytes ────────────────────────────────────────────
+
+/**
+ * Largest complete encoded chunked object: envelope plus detached
+ * ciphertext, every 16-byte chunk tag included.
+ *
+ * Enforcing it needs both lengths, so it belongs to whichever layer holds
+ * the total blob size. `chunkLayout` sees only the ciphertext and can apply
+ * it as a necessary condition, no more.
+ */
+export const MAX_ENCODED_OBJECT_SIZE = 68719476736 // 64 GiB
+
+/**
+ * Largest plaintext the one-shot AES-256-GCM scheme accepts.
+ *
+ * Memory sets this number, not cryptography: NIST allows nearly 64 GiB per
+ * GCM message. But scheme 1 cannot stream — one tag covers the whole
+ * ciphertext, so decrypting holds the input, the output and Web Crypto's
+ * internal copy at the same time, roughly 3x the plaintext. Runtime
+ * allocation ceilings differ and cannot be queried, so this sits well under
+ * all of them. Larger objects use the chunked scheme, which is flat in
+ * memory.
+ *
+ * Raise it only with measurements, and never lower it: raising accepts
+ * inputs older versions rejected, lowering breaks callers that work today.
+ */
+export const MAX_AES_GCM_PLAINTEXT_SIZE = 67108864 // 64 MiB

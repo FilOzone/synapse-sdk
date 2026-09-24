@@ -15,6 +15,9 @@ import { InvalidNonceError } from './errors.ts'
  * Returns a freshly allocated array; `baseNonce` is never mutated.
  */
 export function deriveChunkNonce(baseNonce: Uint8Array, chunkIndex: number, isLast: boolean): Uint8Array {
+  if (!(baseNonce instanceof Uint8Array)) {
+    throw new InvalidNonceError(`Invalid base nonce: expected a Uint8Array, got ${typeof baseNonce}.`)
+  }
   if (baseNonce.length !== BASE_NONCE_SIZE) {
     throw new InvalidNonceError(
       `Invalid base nonce length: ${baseNonce.length}. Expected exactly ${BASE_NONCE_SIZE} bytes.`
@@ -24,6 +27,11 @@ export function deriveChunkNonce(baseNonce: Uint8Array, chunkIndex: number, isLa
     throw new InvalidNonceError(
       `Invalid chunk index: ${chunkIndex}. Must be an integer between 0 and ${MAX_CHUNK_COUNT - 1}.`
     )
+  }
+  // Validated rather than trusted to the type: this flag is what binds a
+  // chunk to the end of the object, and `"false"` is truthy.
+  if (typeof isLast !== 'boolean') {
+    throw new InvalidNonceError(`Invalid last-chunk flag: expected a boolean, got ${typeof isLast}.`)
   }
 
   const nonce = new Uint8Array(NONCE_SIZE)
