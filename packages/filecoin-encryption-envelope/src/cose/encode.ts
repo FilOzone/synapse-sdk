@@ -58,9 +58,7 @@ export interface EncodeEnvelopeInput {
 
 /**
  * Result of assembling an envelope: its encoded bytes, the exact protected
- * bytes placed inside it, and its tag. `protectedBytes` is returned because
- * the AEAD layer's `Enc_structure` must use those exact bytes, not a
- * re-encode of the header values that produced them.
+ * bytes placed inside it (needed verbatim for `Enc_structure`), and its tag.
  */
 export interface PreparedEnvelope {
   bytes: Uint8Array
@@ -70,31 +68,23 @@ export interface PreparedEnvelope {
 
 /**
  * Validate arbitrary structured input and encode an envelope, retaining the
- * protected bytes. This is the checked conformance encoder: it enforces the
- * same structural rules as `decodeEnvelope`, so it cannot produce an envelope
- * the decoder would reject. Wire-format tests use it to build fixtures and
- * check encode/decode symmetry; production code does not call it, because it
- * re-validates recipient records the library already built and trusts (see
- * `assemblePreparedEnvelope`).
+ * protected bytes alongside the encoded bytes.
  */
 export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
   if (input === null || typeof input !== 'object') {
     throw new MalformedEnvelopeError(`Invalid envelope input: expected an object, got ${describeCborType(input)}.`)
   }
 
-  // Snapshot the fields so the values passed to CBOR are the same ones that were validated
+  // Read the fields once: a getter could otherwise answer differently for
+  // validation than for encoding.
   const { protectedHeader, recipients: recipientInputs } = input
   const recipients = prepareRecipientRecords(recipientInputs)
   return assemble(encodeProtectedHeader(protectedHeader), recipients)
 }
 
 /**
- * Assemble an envelope from protected bytes and recipient records the
- * library already built and trusts — skips `prepareRecipientRecords`'s
- * caller-input validation entirely. The AEAD layer uses this: it fixes the
- * protected header before its first `await` but only has recipient records
- * after key wrapping, and it built those records itself, so re-validating
- * them here would be redundant. `records` omitted selects tag 16
+ * Map already-built recipient records straight into COSE tuples, skipping
+ * `prepareRecipientRecords`'s validation. `records` omitted selects tag 16
  * (`COSE_Encrypt0`); a non-empty list selects tag 96 (`COSE_Encrypt`).
  */
 export function assemblePreparedEnvelope(
@@ -173,8 +163,7 @@ function assemble(protectedBytes: Uint8Array, recipients: CborValue[][]): Prepar
 
 /**
  * `prepareEnvelope`, keeping only the encoded bytes. The caller appends the
- * detached ciphertext separately. See docs/tech-spec.md, "Blob layout". Part
- * of the checked conformance encoder; see `prepareEnvelope`'s doc comment.
+ * detached ciphertext separately. See docs/tech-spec.md, "Blob layout".
  */
 export function encodeEnvelope(input: EncodeEnvelopeInput): Uint8Array {
   return prepareEnvelope(input).bytes
