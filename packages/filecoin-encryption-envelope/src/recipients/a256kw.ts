@@ -17,8 +17,8 @@ import type { A256KWKey, A256KWUnwrapperOptions, RecipientInfo, Unwrapper } from
 /** Default cap on AES-KW unwrap attempts per {@link createA256KWUnwrapper} call. */
 const DEFAULT_MAX_ATTEMPTS = 64
 
-/** One validated A256KW recipient, holding references into the caller's own objects. */
-export interface PreparedA256KWRecipient {
+/** A validated 32-byte KEK and optional kid. The caller decides whether `kid` is a reference or a copy. */
+export interface ParsedA256KWKey {
   readonly kek: Uint8Array<ArrayBuffer>
   readonly kid?: Uint8Array
 }
@@ -28,11 +28,7 @@ export interface PreparedA256KWRecipient {
  * getter cannot pass validation with one value and be encoded with another.
  * Returns references into the caller's own objects; nothing is copied.
  */
-export function parseA256KWRecipient(
-  value: unknown,
-  path: string,
-  remainingPayloadBudget: number
-): PreparedA256KWRecipient {
+export function parseA256KWRecipient(value: unknown, path: string, remainingPayloadBudget: number): ParsedA256KWKey {
   if (value === null || typeof value !== 'object') {
     throw new MalformedEnvelopeError(`Invalid ${path}: expected a recipient object, got ${describeCborType(value)}.`)
   }
@@ -63,7 +59,7 @@ export function parseA256KWRecipient(
  */
 export async function createA256KWRecipientRecord(
   cekKey: CryptoKey,
-  recipient: PreparedA256KWRecipient
+  recipient: ParsedA256KWKey
 ): Promise<RecipientInput> {
   const unprotected = new Map<number, CborValue>([[HEADER_ALG, ALG_A256KW]])
   if (recipient.kid !== undefined) {
@@ -84,7 +80,7 @@ interface PreparedA256KWKey {
 }
 
 /** Validate one entry of `createA256KWUnwrapper`'s `keys` array. Does not import anything. */
-function parseA256KWKey(value: unknown, path: string): { kek: Uint8Array<ArrayBuffer>; kid?: Uint8Array } {
+function parseA256KWKey(value: unknown, path: string): ParsedA256KWKey {
   if (value === null || typeof value !== 'object') {
     throw new MalformedEnvelopeError(`Invalid ${path}: expected an object, got ${describeCborType(value)}.`)
   }
@@ -115,15 +111,7 @@ function parseMaxAttempts(options: unknown): number {
 }
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) {
-    return false
-  }
-  for (let index = 0; index < a.length; index++) {
-    if (a[index] !== b[index]) {
-      return false
-    }
-  }
-  return true
+  return a.length === b.length && a.every((byte, index) => byte === b[index])
 }
 
 /**
@@ -169,7 +157,7 @@ export async function createA256KWUnwrapper(
     throw new MalformedEnvelopeError('Invalid keys: an unwrapper with no keys can never recover a CEK.')
   }
 
-  const parsed: Array<{ kek: Uint8Array<ArrayBuffer>; kid?: Uint8Array }> = []
+  const parsed: ParsedA256KWKey[] = []
   // Indexed, not `.map`: a sparse hole must be validated, not skipped.
   for (let index = 0; index < keys.length; index++) {
     parsed.push(parseA256KWKey(keys[index], `keys[${index}]`))
