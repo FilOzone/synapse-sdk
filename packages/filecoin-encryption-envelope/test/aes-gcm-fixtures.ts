@@ -1,6 +1,6 @@
 import assert from 'node:assert'
-import { KEY_SIZE, NONCE_SIZE } from '../src/constants.ts'
-import { FIXTURE_IV_12, MINIMAL_ENVELOPE_TAG16_HEX } from './cose-fixtures.ts'
+import { BASE_NONCE_SIZE, KEY_SIZE, NONCE_SIZE } from '../src/constants.ts'
+import { FIXTURE_BASE_NONCE_7, FIXTURE_IV_12, MINIMAL_ENVELOPE_TAG16_HEX } from './cose-fixtures.ts'
 
 export const FIXED_CEK = Uint8Array.from({ length: KEY_SIZE }, (_, index) => index)
 export const HELLO = new TextEncoder().encode('hello')
@@ -26,5 +26,12 @@ export async function withRandomValues<T>(
 export const fixedRandomValues = ((array: Uint8Array<ArrayBuffer>) => {
   assert.strictEqual(array.length, NONCE_SIZE)
   array.set(FIXTURE_IV_12)
+  return array
+}) as Crypto['getRandomValues']
+
+/** `getRandomValues` stub for the chunked scheme's 7-byte base nonce, drawn once per `aesGcmStream.encrypt` call. */
+export const fixedBaseNonceRandomValues = ((array: Uint8Array<ArrayBuffer>) => {
+  assert.strictEqual(array.length, BASE_NONCE_SIZE)
+  array.set(FIXTURE_BASE_NONCE_7)
   return array
 }) as Crypto['getRandomValues']

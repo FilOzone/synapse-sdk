@@ -34,6 +34,8 @@ export interface ChunkFramer {
   next(): Promise<FramedChunk>
   /** Consumer gave up: reject any pending write and error the writable with `reason`. */
   cancel(reason: unknown): void
+  /** Throw the intake/abort error if input has already failed, like `AbortSignal.throwIfAborted`. */
+  throwIfFailed(): void
 }
 
 function assertValidBlock(value: unknown): asserts value is Uint8Array<ArrayBuffer> {
@@ -200,5 +202,9 @@ export function createChunkFramer(chunkSize: number): ChunkFramer {
     controller?.error(reason)
   }
 
-  return { writable, next, cancel }
+  function throwIfFailed(): void {
+    if (failed) throw error
+  }
+
+  return { writable, next, cancel, throwIfFailed }
 }
