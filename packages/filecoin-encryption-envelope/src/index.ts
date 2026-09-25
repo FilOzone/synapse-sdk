@@ -11,6 +11,7 @@
  *
  * @module filecoin-encryption-envelope
  */
+export * as aesGcm from './aes-gcm.ts'
 export * as chunkLayout from './chunk-layout.ts'
 export * as constants from './constants.ts'
 export * as cose from './cose/index.ts'
