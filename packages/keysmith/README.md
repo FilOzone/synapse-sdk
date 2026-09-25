@@ -78,19 +78,11 @@ await decrypt(blob, pk)
 ```
 
 `DK` and `SK` are both 32 bytes of HKDF output, so nothing in the envelope says which
-one you are holding — you have to tell it. The grant that delivered the key knows, so
-let it answer:
+one you are holding — you have to tell it. The grant that delivered the key holds this information, so keep the whole grant when receiving a share and then use it in the derivation:
 
 ```ts
 const key = Keysmith.keyForEnvelope(node, metadata, Keysmith.holdingOf(grant))
 ```
-
-Getting it wrong derives a plausible-looking key that fails later at the GCM tag, with
-nothing to say why. The one case that is always a mistake — a scope key against a piece
-written at the root of the dataset — throws immediately instead.
-
-Two limits follow from one-way derivation, and both surface as decryption failures: a
-scope key cannot read pieces outside its scope, and it cannot read pieces at the root.
 
 ## Sharing
 
