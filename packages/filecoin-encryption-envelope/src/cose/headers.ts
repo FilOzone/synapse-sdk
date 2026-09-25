@@ -1061,19 +1061,19 @@ export function decodeRecipientHeaders(
   // `kid` (4) is a byte string in either recipient header bucket.
   const protectedKid = protectedMap?.get(HEADER_KID)
 
-if (protectedKid !== undefined && !(protectedKid instanceof Uint8Array)) {
-  throw new MalformedEnvelopeError(
-    `Invalid kid (4) in ${path}.protected: expected a byte string, got ${describeCborType(protectedKid)}.`
-  )
-}
+  if (protectedKid !== undefined && !(protectedKid instanceof Uint8Array)) {
+    throw new MalformedEnvelopeError(
+      `Invalid kid (4) in ${path}.protected: expected a byte string, got ${describeCborType(protectedKid)}.`
+    )
+  }
 
-const unprotectedKid = unprotected?.get(HEADER_KID)
+  const unprotectedKid = unprotected?.get(HEADER_KID)
 
-if (unprotectedKid !== undefined && !(unprotectedKid instanceof Uint8Array)) {
-  throw new MalformedEnvelopeError(
-    `Invalid kid (4) in ${path}.unprotected: expected a byte string, got ${describeCborType(unprotectedKid)}.`
-  )
-}
+  if (unprotectedKid !== undefined && !(unprotectedKid instanceof Uint8Array)) {
+    throw new MalformedEnvelopeError(
+      `Invalid kid (4) in ${path}.unprotected: expected a byte string, got ${describeCborType(unprotectedKid)}.`
+    )
+  }
 
   if (protectedMap !== undefined) {
     for (const key of protectedMap.keys()) {
