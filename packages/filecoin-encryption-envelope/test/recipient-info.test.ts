@@ -19,7 +19,8 @@ function encodeAndDecodeRecipient(recipient: RecipientInput) {
 describe('recipient interfaces', () => {
   it('extracts A256KW alg and kid from the unprotected recipient map', () => {
     const kid = Uint8Array.from([0xaa, 0xbb])
-    const wrappedKey = Uint8Array.from([1, 2, 3])
+    // A256KW's ciphertext must be exactly 40 bytes.
+    const wrappedKey = new Uint8Array(40).fill(9)
     const { decoded } = encodeAndDecodeRecipient({
       protectedBytes: new Uint8Array(0),
       unprotected: new Map<number, CborValue>([

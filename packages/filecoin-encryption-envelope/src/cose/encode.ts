@@ -17,7 +17,8 @@ import type { EnvelopeTag } from './enc-structure.ts'
 import type { CborValue, ProtectedHeaderFields } from './headers.ts'
 import {
   assertAllowlistedValue,
-  assertValidRecipientHeaders,
+  assertRecipientCiphertext,
+  decodeRecipientHeaders,
   describeCborType,
   encodeProtectedHeader,
   encodeUnprotectedHeader,
@@ -138,7 +139,7 @@ function prepareRecipientRecords(recipientInputs: readonly RecipientInput[] | un
     }
 
     const { protectedBytes, unprotected, ciphertext } = recipient
-    assertValidRecipientHeaders(protectedBytes, unprotected, `recipients[${index}]`)
+    const { alg } = decodeRecipientHeaders(protectedBytes, unprotected, `recipients[${index}]`)
 
     if (!(ciphertext instanceof Uint8Array)) {
       throw new MalformedEnvelopeError(
@@ -146,6 +147,7 @@ function prepareRecipientRecords(recipientInputs: readonly RecipientInput[] | un
           `${describeCborType(ciphertext)}.`
       )
     }
+    assertRecipientCiphertext(alg, ciphertext, `recipients[${index}]`)
 
     assertAllowlistedValue(unprotected, `recipients[${index}].unprotected`, RECIPIENT_ENCLOSING_DEPTH)
     recipients.push([protectedBytes, unprotected, ciphertext])

@@ -40,6 +40,7 @@ import {
 } from '../constants.ts'
 import { CriticalHeaderError, MalformedEnvelopeError, UnsupportedSchemeError } from '../errors.ts'
 import {
+  A256KW_WRAPPED_CEK_SIZE,
   ALG_A256KW,
   ALG_ECDH_ES_A256KW,
   ENVELOPE_TYPE,
@@ -1130,13 +1131,19 @@ export function decodeRecipientHeaders(
   }
 }
 
-/** Validate a recipient's header buckets without retaining their decoded fields. */
-export function assertValidRecipientHeaders(
-  protectedBytes: Uint8Array,
-  unprotected: Map<CborValue, CborValue>,
-  path: string
-): void {
-  decodeRecipientHeaders(protectedBytes, unprotected, path)
+/**
+ * Enforce algorithm-specific ciphertext length rules for one recipient.
+ * A256KW's ciphertext must be exactly {@link A256KW_WRAPPED_CEK_SIZE} bytes
+ * (a 32-byte CEK plus RFC 3394's 8-byte integrity block); any other length is
+ * malformed recipient data, not a failed key match. Other algorithms are not
+ * constrained here.
+ */
+export function assertRecipientCiphertext(alg: number | string, ciphertext: Uint8Array, path: string): void {
+  if (alg === ALG_A256KW && ciphertext.length !== A256KW_WRAPPED_CEK_SIZE) {
+    throw new MalformedEnvelopeError(
+      `Invalid ${path}.ciphertext: A256KW (${ALG_A256KW}) requires exactly ${A256KW_WRAPPED_CEK_SIZE} bytes, got ${ciphertext.length}.`
+    )
+  }
 }
 
 /**

@@ -12,7 +12,8 @@ import { ALG_A256KW, TAG_ENCRYPT, TAG_ENCRYPT0 } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import { encStructure } from '../src/cose/enc-structure.ts'
 import type { RecipientInput } from '../src/cose/encode.ts'
-import { encodeEnvelope, prepareEnvelope } from '../src/cose/encode.ts'
+import { assemblePreparedEnvelope, encodeEnvelope, prepareEnvelope } from '../src/cose/encode.ts'
+import { encodeProtectedHeader } from '../src/cose/headers.ts'
 import {
   AuthenticationError,
   CryptoOperationError,
@@ -251,6 +252,33 @@ describe('aesGcm.decrypt', () => {
     malformed[recipientAlgorithm + 2] = 0xf5
 
     await assert.rejects(decrypt(malformed, new Uint8Array(FIXED_CEK)), MalformedEnvelopeError)
+  })
+
+  it('rejects a tag-96 A256KW recipient with a bad ciphertext length, even with a directly supplied CEK', async () => {
+    // `prepareEnvelope` (the checked encoder) would reject this recipient
+    // outright, so this bad envelope can only be built through the trusted
+    // `assemblePreparedEnvelope` path, which does not check ciphertext
+    // length itself — proving the check that matters here is decodeEnvelope's.
+    const badRecipient: RecipientInput = { ...TEST_RECIPIENT, ciphertext: new Uint8Array(39) }
+    const protectedBytes = encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12 })
+    const prepared = assemblePreparedEnvelope(protectedBytes, [badRecipient])
+
+    const key = await globalThis.crypto.subtle.importKey('raw', new Uint8Array(FIXED_CEK), 'AES-GCM', false, [
+      'encrypt',
+    ])
+    const ciphertext = await globalThis.crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv: FIXTURE_IV_12,
+        additionalData: encStructure(TAG_ENCRYPT, prepared.protectedBytes),
+        tagLength: 128,
+      },
+      key,
+      new Uint8Array(HELLO)
+    )
+    const encoded = concatBytes(prepared.bytes, new Uint8Array(ciphertext))
+
+    await assert.rejects(decrypt(encoded, new Uint8Array(FIXED_CEK)), MalformedEnvelopeError)
   })
 
   it('decrypts with a directly supplied CEK despite an unsupported recipient algorithm', async () => {

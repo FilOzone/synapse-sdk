@@ -12,6 +12,7 @@ import { MalformedEnvelopeError } from '../errors.ts'
 import { MAX_ENVELOPE_SIZE, TAG_ENCRYPT, TAG_ENCRYPT0 } from './constants.ts'
 import type { CborValue, DecodedCborValue, DecodedProtectedHeader, UnprotectedHeaderMap } from './headers.ts'
 import {
+  assertRecipientCiphertext,
   decodeFirst,
   decodeProtectedHeader,
   decodeRecipientHeaders,
@@ -90,6 +91,7 @@ function parseBody<T>(schema: z.ZodType<T>, value: CborValue, context: string): 
 
 function toRecipient([protectedBytes, unprotected, ciphertext]: RecipientTuple, index: number): DecodedRecipient {
   const headers = decodeRecipientHeaders(protectedBytes, unprotected, `recipients[${index}]`)
+  assertRecipientCiphertext(headers.alg, ciphertext, `recipients[${index}]`)
   return {
     protectedBytes,
     protected: headers.protected,

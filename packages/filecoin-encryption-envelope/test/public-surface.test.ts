@@ -37,8 +37,8 @@ describe('public surface (src/index.ts)', () => {
     assert.deepStrictEqual(Object.keys(fee.cose).sort(), ['decodeEnvelope'])
   })
 
-  it('recipients has no runtime surface (types only)', () => {
-    assert.deepStrictEqual(Object.keys(fee.recipients), [])
+  it('recipients exposes exactly createA256KWUnwrapper', () => {
+    assert.deepStrictEqual(Object.keys(fee.recipients), ['createA256KWUnwrapper'])
   })
 
   it('constants exposes exactly the curated public list, matching the owning modules', () => {
@@ -64,6 +64,7 @@ describe('public surface (src/index.ts)', () => {
       'InvalidPlaintextLengthError',
       'MalformedEnvelopeError',
       'NoUsableRecipientError',
+      'RecipientAttemptLimitError',
       'RecipientUnwrapError',
       'UnsupportedSchemeError',
     ])
