@@ -47,7 +47,7 @@ export interface EncodeEnvelopeInput {
    * selects tag 16 (`COSE_Encrypt0`). An empty array is invalid rather than
    * being treated as `COSE_Encrypt0`, since it indicates a different caller intent.
    */
-  recipients?: RecipientInput[]
+  recipients?: readonly RecipientInput[]
 }
 
 /**
@@ -80,7 +80,20 @@ export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
 
   // Snapshot the fields so the values passed to CBOR are the same ones that were validated
   const { protectedHeader, recipients: recipientInputs } = input
+  const recipients = prepareRecipientRecords(recipientInputs)
+  return assemble(encodeProtectedHeader(protectedHeader), recipients)
+}
 
+/**
+ * Assemble an envelope around protected bytes that `encodeProtectedHeader`
+ * already produced. For the AEAD layer, which must fix the protected header
+ * before its first `await` but only has recipient records after key wrapping.
+ */
+export function assembleEnvelope(protectedBytes: Uint8Array, recipients?: readonly RecipientInput[]): PreparedEnvelope {
+  return assemble(protectedBytes, prepareRecipientRecords(recipients))
+}
+
+function prepareRecipientRecords(recipientInputs: readonly RecipientInput[] | undefined): CborValue[][] {
   if (recipientInputs !== undefined) {
     if (!Array.isArray(recipientInputs)) {
       throw new MalformedEnvelopeError(
@@ -97,9 +110,10 @@ export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
 
   // Use an indexed loop to validate every position in the array. `.map` ignores
   // missing entries in sparse arrays, which could otherwise bypass validation.
+  const inputs = recipientInputs ?? []
   const recipients: CborValue[][] = []
-  for (let index = 0; index < (recipientInputs?.length ?? 0); index++) {
-    const recipient = (recipientInputs as RecipientInput[])[index]
+  for (let index = 0; index < inputs.length; index++) {
+    const recipient = inputs[index]
 
     if (recipient === null || typeof recipient !== 'object') {
       throw new MalformedEnvelopeError(
@@ -120,8 +134,10 @@ export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
     assertAllowlistedValue(unprotected, `recipients[${index}].unprotected`, RECIPIENT_ENCLOSING_DEPTH)
     recipients.push([protectedBytes, unprotected, ciphertext])
   }
+  return recipients
+}
 
-  const protectedBytes = encodeProtectedHeader(protectedHeader)
+function assemble(protectedBytes: Uint8Array, recipients: CborValue[][]): PreparedEnvelope {
   const unprotectedMap = encodeUnprotectedHeader()
   const tag = recipients.length === 0 ? TAG_ENCRYPT0 : TAG_ENCRYPT
 

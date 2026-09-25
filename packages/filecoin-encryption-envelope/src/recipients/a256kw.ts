@@ -1,17 +1,20 @@
 /**
  * AES-256 Key Wrap (RFC 3394) for A256KW recipients (`alg -5`).
  *
- * Internal: `recipients/index.ts` does not export these. The recipient layer
- * above turns them into COSE_recipient records and an unwrapper.
+ * Internal: `recipients/index.ts` does not export these helpers. This module
+ * owns key wrapping, recipient parsing, and A256KW record construction.
  */
 import { KEY_SIZE } from '../constants.ts'
+import { ALG_A256KW, HEADER_ALG, HEADER_KID } from '../cose/constants.ts'
+import type { RecipientInput } from '../cose/encode.ts'
+import type { CborValue } from '../cose/headers.ts'
 import { describeCborType } from '../cose/headers.ts'
 import { CryptoOperationError, hasErrorName, InvalidKeyError, MalformedEnvelopeError } from '../errors.ts'
 
 /** RFC 3394 adds one 8-byte integrity block, so a 32-byte CEK wraps to 40 bytes. */
 export const WRAPPED_CEK_SIZE = KEY_SIZE + 8
 
-function snapshotKey(value: unknown, name: 'CEK' | 'KEK'): Uint8Array<ArrayBuffer> {
+function snapshotKey(value: unknown, name: string): Uint8Array<ArrayBuffer> {
   if (!(value instanceof Uint8Array)) {
     throw new InvalidKeyError(`Invalid ${name}: expected a Uint8Array, got ${describeCborType(value)}.`)
   }
@@ -24,6 +27,66 @@ function snapshotKey(value: unknown, name: 'CEK' | 'KEK'): Uint8Array<ArrayBuffe
     throw new InvalidKeyError(`Invalid ${name}: an all-zero 32-byte key is not permitted.`)
   }
   return snapshot
+}
+
+/** A validated A256KW recipient holding private copies of its KEK and `kid`. */
+export interface ParsedA256KWRecipient {
+  kek: Uint8Array<ArrayBuffer>
+  kid?: Uint8Array
+}
+
+/**
+ * Validate one caller-supplied recipient and copy its key material. Each
+ * field is read once, so a getter cannot pass validation with one value and
+ * be encoded with another.
+ */
+export function parseA256KWRecipient(
+  value: unknown,
+  path: string,
+  remainingPayloadBudget: number
+): ParsedA256KWRecipient {
+  if (value === null || typeof value !== 'object') {
+    throw new MalformedEnvelopeError(`Invalid ${path}: expected a recipient object, got ${describeCborType(value)}.`)
+  }
+  const { alg, kek, kid } = value as Record<'alg' | 'kek' | 'kid', unknown>
+  if (alg !== ALG_A256KW) {
+    throw new MalformedEnvelopeError(
+      `Invalid ${path}.alg: ${describeCborType(alg)} ${String(alg)}. Only A256KW (${ALG_A256KW}) recipients can be created.`
+    )
+  }
+  if (kid !== undefined && !(kid instanceof Uint8Array)) {
+    throw new MalformedEnvelopeError(`Invalid ${path}.kid: expected a Uint8Array, got ${describeCborType(kid)}.`)
+  }
+  const minimumPayloadSize = WRAPPED_CEK_SIZE + (kid?.length ?? 0)
+  if (minimumPayloadSize > remainingPayloadBudget) {
+    throw new MalformedEnvelopeError(
+      `Invalid ${path}: its wrapped CEK and kid require at least ${minimumPayloadSize} bytes, ` +
+        `exceeding the ${remainingPayloadBudget}-byte remaining envelope budget.`
+    )
+  }
+  // Validated last so a rejection above leaves no KEK copy behind.
+  const kekSnapshot = snapshotKey(kek, `${path}.kek`)
+  return kid === undefined ? { kek: kekSnapshot } : { kek: kekSnapshot, kid: new Uint8Array(kid) }
+}
+
+/**
+ * Wrap `cek` for one recipient and build its A256KW record:
+ * `[h'', {1: -5, 4: kid}, wrapped_cek]`, with `kid` only when supplied.
+ * RFC 9052 requires the empty protected field for A256KW.
+ */
+export async function createA256KWRecipientRecord(
+  cek: Uint8Array,
+  recipient: ParsedA256KWRecipient
+): Promise<RecipientInput> {
+  const unprotected = new Map<number, CborValue>([[HEADER_ALG, ALG_A256KW]])
+  if (recipient.kid !== undefined) {
+    unprotected.set(HEADER_KID, recipient.kid)
+  }
+  return {
+    protectedBytes: new Uint8Array(0),
+    unprotected,
+    ciphertext: await wrapCek(cek, recipient.kek),
+  }
 }
 
 async function importKek(kek: Uint8Array<ArrayBuffer>, usage: 'wrapKey' | 'unwrapKey'): Promise<CryptoKey> {

@@ -23,23 +23,8 @@ import {
   MalformedEnvelopeError,
   UnsupportedSchemeError,
 } from '../src/errors.ts'
-import {
-  concatBytes,
-  FIXTURE_BASE_NONCE_7,
-  FIXTURE_IV_12,
-  hexToBytes,
-  MINIMAL_ENVELOPE_TAG16_HEX,
-  toNullProto,
-} from './cose-fixtures.ts'
-
-const FIXED_CEK = Uint8Array.from({ length: KEY_SIZE }, (_, index) => index)
-const HELLO = new TextEncoder().encode('hello')
-
-// Key 000102...1f, IV 000102...0b, plaintext "hello", and the minimal
-// tag-16 Enc_structure. The envelope prefix is the existing hand-derived
-// COSE fixture; the final 21 bytes are 5 bytes of ciphertext plus the
-// 16-byte GCM tag.
-const HELLO_VECTOR_HEX = `${MINIMAL_ENVELOPE_TAG16_HEX}2f67ba77aa3e5b52d043203a731722e538ba0f0538`
+import { FIXED_CEK, fixedRandomValues, HELLO, HELLO_VECTOR_HEX, withRandomValues } from './aes-gcm-fixtures.ts'
+import { concatBytes, FIXTURE_BASE_NONCE_7, FIXTURE_IV_12, hexToBytes, toNullProto } from './cose-fixtures.ts'
 
 const TEST_RECIPIENT: RecipientInput = {
   protectedBytes: new Uint8Array(0),
@@ -64,22 +49,6 @@ function findBytes(haystack: Uint8Array, needle: Uint8Array): number {
   }
   return -1
 }
-
-async function withRandomValues<T>(implementation: Crypto['getRandomValues'], action: () => Promise<T>): Promise<T> {
-  const original = globalThis.crypto.getRandomValues
-  globalThis.crypto.getRandomValues = implementation
-  try {
-    return await action()
-  } finally {
-    globalThis.crypto.getRandomValues = original
-  }
-}
-
-const fixedRandomValues = ((array: Uint8Array<ArrayBuffer>) => {
-  assert.strictEqual(array.length, NONCE_SIZE)
-  array.set(FIXTURE_IV_12)
-  return array
-}) as Crypto['getRandomValues']
 
 async function decryptWithWebCrypto(encoded: Uint8Array, cek: Uint8Array): Promise<Uint8Array> {
   const decoded = decodeEnvelope(encoded)
@@ -209,15 +178,6 @@ describe('aesGcm.encrypt', () => {
 
   it('rejects malformed options with a package error', async () => {
     await assert.rejects(encrypt(new Uint8Array(HELLO), null as unknown as EncryptOptions), MalformedEnvelopeError)
-  })
-
-  it('rejects recipients instead of silently producing an envelope without them', async () => {
-    const options = {
-      cek: new Uint8Array(FIXED_CEK),
-      recipients: [{ key: 'recipient' }],
-    }
-
-    await assert.rejects(encrypt(new Uint8Array(HELLO), options), MalformedEnvelopeError)
   })
 
   it('round-trips plaintext at the 64 MiB scheme-1 limit', async function () {
