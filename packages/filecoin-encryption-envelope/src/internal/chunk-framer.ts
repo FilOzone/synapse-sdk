@@ -54,7 +54,7 @@ function assertValidBlock(value: unknown): asserts value is Uint8Array<ArrayBuff
  * writable stream closes.
  *
  * @param chunkSize Plaintext bytes per chunk. Validated by the caller.
- * @param expectedLength Exact total plaintext bytes, if known.Checked 
+ * @param expectedLength Exact total plaintext bytes, if known. Checked
  *   as blocks arrive (one byte over fails that write) and at
  *   close (short fails the close), so a mismatch never yields the last chunk
  *   and no per-chunk length check is needed.

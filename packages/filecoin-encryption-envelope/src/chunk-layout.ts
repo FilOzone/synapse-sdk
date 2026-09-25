@@ -16,9 +16,9 @@ import {
 } from './errors.ts'
 
 /**
- * Shared by every entry point that takes a chunk size, in this module and in
- * the chunked encryption stream: one definition so the range and the message
- * cannot drift apart between them.
+ * Throw `InvalidChunkSizeError` unless `chunkSize` is an integer from
+ * `MIN_CHUNK_SIZE` to `MAX_CHUNK_SIZE`. Every entry point that takes a chunk
+ * size calls this one, so the range and message can't drift apart.
  */
 export function assertValidChunkSize(chunkSize: number): void {
   if (!Number.isInteger(chunkSize) || chunkSize < MIN_CHUNK_SIZE || chunkSize > MAX_CHUNK_SIZE) {
