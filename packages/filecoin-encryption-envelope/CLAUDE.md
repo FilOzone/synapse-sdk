@@ -11,12 +11,13 @@ wire format itself.
 Status: draft, unpublished (`version: 0.0.0`). Nothing here is a public API commitment yet, so breaking
 the export shape costs nothing — no downstream consumers exist.
 
-The implemented foundation is `chunk-layout.ts`, `nonce.ts`, the error hierarchy, and the `cose/`
-wire layer: strict CBOR parsing, tags 16/96, protected and unprotected headers, detached-ciphertext
-framing, `Enc_structure`, and structural recipient validation. Whole-object AES-GCM encryption,
-decryption, and CEK validation are implemented in `aes-gcm.ts`. Chunked AEAD, streaming, range reads,
-and A256KW wrap/unwrap are still planned. ECDH-ES+A256KW remains deferred; the code enforces its settled
-header placement but does not derive or unwrap its KEK.
+Implemented: `chunk-layout.ts`, `nonce.ts`, the error hierarchy, the `cose/` wire layer (strict CBOR
+parsing, tags 16/96, protected and unprotected headers, detached-ciphertext framing, `Enc_structure`,
+structural recipient validation), scheme-1 AES-256-GCM encryption and decryption in `aes-gcm.ts` (direct
+CEK, both tag 16 and tag 96), A256KW recipient wrapping on encryption, and the A256KW unwrap primitive.
+Not yet implemented: recipient-based decryption, the chunked scheme and streaming, range reads, and
+envelope inspection beyond decode. ECDH-ES+A256KW remains deferred; the code enforces its settled header
+placement but does not derive or unwrap its KEK.
 
 ## Scope discipline
 
@@ -53,7 +54,26 @@ function.
 
 Tests import the specific file under test directly (`'../src/cose/headers.ts'`), never through
 `src/index.ts` — that keeps a test failure pointing at the module that actually changed, and it's also
-what makes the root barrel's export *shape* freely changeable without touching any test.
+what makes the root barrel's export *shape* freely changeable without touching any test. The one
+exception is `test/public-surface.test.ts`, which tests the root barrel itself.
+
+## Input ownership and validation
+
+- Public async operations borrow caller input; callers must not modify any input (plaintext, encoded
+  object, keys, recipient objects, metadata) until the promise settles. The library never modifies
+  caller input and does not detect mutation.
+- Validate once at each external seam (public functions, values returned by caller-supplied callbacks);
+  internal functions trust prepared values and do not re-validate.
+- Read each caller-object property once (getters can return different values per read).
+- Raw key bytes are validated, then imported to a `CryptoKey`; only `CryptoKey`s travel inward. The CEK
+  is imported once per operation, extractable only when it must be wrapped.
+- Byte inputs handed to Web Crypto must be ArrayBuffer-backed; SharedArrayBuffer-backed views are
+  rejected with the relevant input error.
+- Copy only data handed to caller code (e.g. the recipient view given to an unwrapper), so the callback
+  cannot alter the caller's encoded input.
+- Recipient key operations run sequentially; never start one Web Crypto operation per recipient at once.
+- Web Crypto calls live only in `src/internal/web-crypto.ts`, which owns error mapping; key-shape
+  validation lives in `src/internal/keys.ts`.
 
 ## Constants: shared root file vs. module-local file
 
