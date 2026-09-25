@@ -13,7 +13,6 @@ import { assemblePreparedEnvelope } from './cose/encode.ts'
 import type { AppMetadata } from './cose/headers.ts'
 import { describeCborType, encodeProtectedHeader } from './cose/headers.ts'
 import {
-  CryptoOperationError,
   InvalidCiphertextLengthError,
   InvalidPlaintextError,
   InvalidPlaintextLengthError,
@@ -21,7 +20,7 @@ import {
   UnsupportedSchemeError,
 } from './errors.ts'
 import { assertAes256Key, assertArrayBufferBacked } from './internal/keys.ts'
-import { aesGcmDecrypt, aesGcmEncrypt, importAesGcmKey } from './internal/web-crypto.ts'
+import { aesGcmDecrypt, aesGcmEncrypt, importAesGcmKey, randomBytes } from './internal/web-crypto.ts'
 import { createRecipientRecords, prepareRecipientInputs } from './recipients/prepare.ts'
 import type { Recipient } from './recipients/types.ts'
 
@@ -53,16 +52,6 @@ function assertValidPlaintext(value: unknown): asserts value is Uint8Array<Array
   }
 }
 
-function generateIv(): Uint8Array<ArrayBuffer> {
-  const iv = new Uint8Array(NONCE_SIZE)
-  try {
-    globalThis.crypto.getRandomValues(iv)
-  } catch (cause) {
-    throw new CryptoOperationError(`Could not generate the ${NONCE_SIZE}-byte AES-GCM IV.`, { cause })
-  }
-  return iv
-}
-
 /** Length-check only; the returned value is a view into `encoded`, not a copy. */
 function sliceCiphertext(encoded: Uint8Array, envelopeLength: number): Uint8Array<ArrayBuffer> {
   const ciphertextLength = encoded.length - envelopeLength
@@ -72,7 +61,6 @@ function sliceCiphertext(encoded: Uint8Array, envelopeLength: number): Uint8Arra
         `${MAX_AES_GCM_CIPHERTEXT_SIZE} bytes, including the ${TAG_SIZE}-byte authentication tag.`
     )
   }
-  // `encoded` was already confirmed ArrayBuffer-backed at the public seam.
   return encoded.subarray(envelopeLength) as Uint8Array<ArrayBuffer>
 }
 
@@ -102,7 +90,7 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
   assertAes256Key(cek, 'CEK')
   const recipients = prepareRecipientInputs(recipientInputs)
 
-  const iv = generateIv()
+  const iv = randomBytes(NONCE_SIZE)
   // Encoding validates contentType and appMetadata, so it runs here with the
   // other synchronous checks, before any crypto.
   const protectedBytes = encodeProtectedHeader({
@@ -114,8 +102,9 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
 
   // The CEK is imported once, only after all synchronous validation passes.
   // Extractable when there are recipients: Web Crypto's wrapKey requires it.
-  const cekKey = await importAesGcmKey(cek, 'encrypt', recipients !== undefined)
-  const records = recipients === undefined ? undefined : await createRecipientRecords(cekKey, recipients)
+  const hasRecipients = recipients !== undefined
+  const cekKey = await importAesGcmKey(cek, 'encrypt', hasRecipients)
+  const records = hasRecipients ? await createRecipientRecords(cekKey, recipients) : undefined
 
   // Fails on the envelope-size limit here, before any content encryption.
   const prepared = assemblePreparedEnvelope(protectedBytes, records)
