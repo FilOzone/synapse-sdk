@@ -9,9 +9,9 @@
 import { ALG_AES_256_GCM, KEY_SIZE, MAX_AES_GCM_PLAINTEXT_SIZE, NONCE_SIZE, TAG_SIZE } from './constants.ts'
 import { decodeEnvelope } from './cose/decode.ts'
 import { encStructure } from './cose/enc-structure.ts'
-import { prepareEnvelope } from './cose/encode.ts'
+import { assembleEnvelope } from './cose/encode.ts'
 import type { CborValue } from './cose/headers.ts'
-import { describeCborType } from './cose/headers.ts'
+import { describeCborType, encodeProtectedHeader } from './cose/headers.ts'
 import {
   AuthenticationError,
   CryptoOperationError,
@@ -23,6 +23,8 @@ import {
   MalformedEnvelopeError,
   UnsupportedSchemeError,
 } from './errors.ts'
+import { type PreparedRecipientInputs, prepareRecipientInputs } from './recipients/prepare.ts'
+import type { Recipient } from './recipients/types.ts'
 
 const MAX_AES_GCM_CIPHERTEXT_SIZE = MAX_AES_GCM_PLAINTEXT_SIZE + TAG_SIZE
 
@@ -33,6 +35,11 @@ export interface EncryptOptions {
   contentType?: string | number
   /** Authenticated application metadata carried without interpretation. */
   appMetadata?: Record<string, CborValue>
+  /**
+   * Wrap the CEK for each recipient and write `COSE_Encrypt` (tag 96).
+   * Omit for `COSE_Encrypt0` (tag 16); an empty array is rejected.
+   */
+  recipients?: readonly Recipient[]
 }
 
 function snapshotPlaintext(value: unknown): Uint8Array<ArrayBuffer> {
@@ -106,9 +113,9 @@ function joinEnvelopeAndCiphertext(envelope: Uint8Array, ciphertext: ArrayBuffer
 /**
  * Encrypt a complete plaintext as scheme 1 and return `envelope || ciphertext`.
  *
- * Caller-owned byte arrays are snapshotted before the first async step to
- * prevent them from changing during the operation. The IV is always generated
- * internally and cannot be provided by the caller.
+ * Every caller-owned input, recipients included, is validated and copied
+ * before the first `await`, so changing it mid-call has no effect. The IV is
+ * always generated internally and cannot be provided by the caller.
  */
 export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): Promise<Uint8Array> {
   if (options === null || typeof options !== 'object') {
@@ -117,26 +124,25 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
     )
   }
 
-  const recipientInputs = (options as EncryptOptions & { recipients?: unknown }).recipients
-  if (recipientInputs !== undefined) {
-    throw new MalformedEnvelopeError(
-      'Invalid AES-GCM encryption options: recipient encryption is not supported by this operation.'
-    )
-  }
-
+  const { cek: cekInput, contentType, appMetadata, recipients: recipientInputs } = options
   const plaintextSnapshot = snapshotPlaintext(plaintext)
-  const { cek: cekInput, contentType, appMetadata } = options
   const cek = snapshotCek(cekInput)
+  let recipients: PreparedRecipientInputs | undefined
   try {
+    recipients = prepareRecipientInputs(recipientInputs)
     const iv = generateIv()
-    const prepared = prepareEnvelope({
-      protectedHeader: {
-        alg: ALG_AES_256_GCM,
-        iv,
-        contentType,
-        appMetadata,
-      },
+    // Encoded now, before any await: it reads the caller's appMetadata.
+    const protectedBytes = encodeProtectedHeader({
+      alg: ALG_AES_256_GCM,
+      iv,
+      contentType,
+      appMetadata,
     })
+
+    const records = await recipients?.buildRecords(cek)
+
+    // Fails on the envelope-size limit here, before any content encryption.
+    const prepared = assembleEnvelope(protectedBytes, records)
     const additionalData = encStructure(prepared.tag, prepared.protectedBytes)
     const key = await importKey(cek, 'encrypt')
 
@@ -159,6 +165,7 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
     return joinEnvelopeAndCiphertext(prepared.bytes, ciphertext)
   } finally {
     cek.fill(0)
+    recipients?.clear()
   }
 }
 
