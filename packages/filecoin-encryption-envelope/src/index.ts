@@ -5,13 +5,15 @@
  * ```ts
  * import * as fee from '@filoz/filecoin-encryption-envelope'
  *
- * fee.aesGcm.encrypt(...)
+ * source.pipeThrough(fee.encrypt({ cek }))  // chunked stream, the default
+ * fee.aesGcm.encrypt(plaintext, { cek })     // whole-object, opt-in
  * fee.constants.ALG_A256KW
  * ```
  *
  * @module filecoin-encryption-envelope
  */
 export * as aesGcm from './aes-gcm.ts'
+export { type ChunkedEncryptOptions, encrypt } from './aes-gcm-stream.ts'
 export type { AppMetadata, CborValue } from './cose/headers.ts'
 export * as cose from './cose/index.ts'
 export * as errors from './errors.ts'

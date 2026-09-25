@@ -16,8 +16,9 @@ parsing, tags 16/96, protected and unprotected headers, detached-ciphertext fram
 structural recipient validation), scheme-1 AES-256-GCM encryption and decryption in `aes-gcm.ts` (direct
 CEK, both tag 16 and tag 96), A256KW recipient wrapping on encryption, the built-in A256KW unwrapper
 factory (`createA256KWUnwrapper`), and recipient-based decryption through an unwrapper
-(`aesGcm.decryptWith`). Not yet implemented: the chunked scheme and streaming, range reads, and envelope
-inspection beyond decode. ECDH-ES+A256KW remains deferred; the code enforces its settled header
+(`aesGcm.decryptWith`), and chunked streaming encryption in `aes-gcm-stream.ts` (direct CEK or A256KW
+recipients, optional `plaintext_length`). Not yet implemented: chunked decryption, range reads, and
+envelope inspection beyond decode. ECDH-ES+A256KW remains deferred; the code enforces its settled header
 placement but does not derive or unwrap its KEK.
 
 ## Scope discipline
@@ -36,12 +37,15 @@ explicit exports when helpers must stay internal, as `cose/index.ts` does for `h
 
 `src/index.ts` is the allowlist of this package's public interface: a module is public only if
 `src/index.ts` exports it. Shared implementation code lives under `src/internal/` and is never exported.
-Shared type-only exports at the root (currently `AppMetadata`, `CborValue`) are the one exception to
-"namespaces only" — a type carries no runtime shape, so it doesn't need one. Public constants are
+Two exceptions to "namespaces only": shared type-only exports (currently `AppMetadata`, `CborValue`),
+since a type carries no runtime shape, and the chunked streaming functions (`encrypt` and its options
+type, later `decrypt`/`decryptWith`), which the tech spec makes the default path at the root while
+whole-object AES-GCM stays opt-in under `aesGcm`. Public constants are
 re-exported through the curated `src/public-constants.ts`, never `src/constants.ts` directly:
 
 ```ts
 export * as aesGcm from './aes-gcm.ts'
+export { type ChunkedEncryptOptions, encrypt } from './aes-gcm-stream.ts'
 export type { AppMetadata, CborValue } from './cose/headers.ts'
 export * as cose from './cose/index.ts'
 export * as errors from './errors.ts'
@@ -61,8 +65,10 @@ exception is `test/public-surface.test.ts`, which tests the root barrel itself.
 ## Input ownership and validation
 
 - Public async operations borrow caller input; callers must not modify any input (plaintext, encoded
-  object, keys, recipient objects, metadata) until the promise settles. The library never modifies
-  caller input and does not detect mutation.
+  object, keys, recipient objects, metadata) until the promise settles. Streaming operations borrow
+  their options until the returned readable closes or errors; a plaintext block written to the stream
+  may be reused once its `write()` resolves. The library never modifies caller input and does not
+  detect mutation.
 - Validate once at each external seam (public functions, values returned by caller-supplied callbacks);
   internal functions trust prepared values and do not re-validate.
 - Read each caller-object property once (getters can return different values per read).
