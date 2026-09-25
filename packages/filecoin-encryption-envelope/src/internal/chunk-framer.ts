@@ -1,40 +1,43 @@
 /**
- * Reframes an arbitrarily-blocked input stream into fixed-size chunks for the
- * chunked AES-256-GCM scheme, one chunk per `next()` call.
+ * Reframes an arbitrarily blocked input stream into fixed-size chunks for the
+ * chunked AES-256-GCM scheme, returning one chunk per `next()` call.
  *
- * Ownership rule: a block passed to `writable`'s sink resolves its `write()`
- * promise only once the framer holds no reference to it any more. A chunk
- * that lies entirely inside one block, with more block bytes still to come,
- * is handed out as a zero-copy `subarray` view — cheap, but it keeps the
- * block alive. Once a block's unyielded tail is small enough to be a whole
- * chunk (the last one, full or partial), that tail is copied into an
- * internal buffer and the write resolves immediately: copying a bounded
- * amount of memory is what lets the caller reuse or transfer the block
- * without waiting on the consumer, and it is also what prevents deadlock —
- * `WritableStream` delivers blocks to `write()` one at a time, so a
- * still-referenced block would stall every block behind it.
+ * Ownership rule: a block written to `writable` remains owned by the framer
+ * until its `write()` promise resolves. When a chunk fits entirely within a
+ * block and more bytes remain, it is returned as a zero-copy `subarray` view,
+ * which keeps the block alive. Once the remaining tail fits in a single chunk
+ * (full or partial), it is copied into an internal buffer and the write
+ * resolves. This bounded copy lets the caller reuse or transfer the block
+ * without waiting for the consumer and prevents deadlock: `WritableStream`
+ * delivers blocks to `write()` sequentially, so retaining one block would
+ * stall those behind it.
  *
- * A plain object instead of an async generator: a generator's `return()` is
- * queued behind any `next()` already awaiting input, so `cancel()` while
- * waiting for a block would hang instead of settling immediately.
+ * This uses a plain object instead of an async generator because a generator's
+ * `return()` is queued behind a `next()` already waiting for input. With a
+ * plain object, `cancel()` can settle immediately while waiting for a block.
  */
 import { describeCborType } from '../cose/headers.ts'
-import { InvalidPlaintextError } from '../errors.ts'
+import { InvalidPlaintextError, InvalidPlaintextLengthError } from '../errors.ts'
 import { assertArrayBufferBacked } from './keys.ts'
 
+/** One plaintext chunk; `isLast` marks the final one. */
 export interface FramedChunk {
   bytes: Uint8Array<ArrayBuffer>
   isLast: boolean
 }
 
+/** Plaintext input and pull-based chunk output. */
 export interface ChunkFramer {
-  /** Caller-facing input side. */
+  /** Accept plaintext blocks. `write()` resolves once the block is no longer referenced. */
   writable: WritableStream<Uint8Array>
-  /** Next chunk. A yielded chunk's bytes are valid only until the next call. Not called again after isLast. Rejects with the intake/abort error. */
+  /**
+   * Pull the next chunk. Its bytes are only valid until the next call; don't
+   * call again after `isLast`. Rejects if the input failed or was aborted.
+   */
   next(): Promise<FramedChunk>
-  /** Consumer gave up: reject any pending write and error the writable with `reason`. */
+  /** Stop from the output side: rejects a pending write and errors `writable`. */
   cancel(reason: unknown): void
-  /** Throw the intake/abort error if input has already failed, like `AbortSignal.throwIfAborted`. */
+  /** Throw if input has failed or been aborted. */
   throwIfFailed(): void
 }
 
@@ -45,9 +48,21 @@ function assertValidBlock(value: unknown): asserts value is Uint8Array<ArrayBuff
   assertArrayBufferBacked(value, 'plaintext block', (message) => new InvalidPlaintextError(message))
 }
 
-export function createChunkFramer(chunkSize: number): ChunkFramer {
+/**
+ * Create a framer that accepts plaintext blocks of any size and returns
+ * fixed-size chunks through `next()`. The final chunk is flagged after the
+ * writable stream closes.
+ *
+ * @param chunkSize Plaintext bytes per chunk. Validated by the caller.
+ * @param expectedLength Exact total plaintext bytes, if known.Checked 
+ *   as blocks arrive (one byte over fails that write) and at
+ *   close (short fails the close), so a mismatch never yields the last chunk
+ *   and no per-chunk length check is needed.
+ */
+export function createChunkFramer(chunkSize: number, expectedLength?: number): ChunkFramer {
   const buffer = new Uint8Array(chunkSize)
   let bufferLength = 0
+  let consumedBytes = 0
 
   let heldBlock: Uint8Array<ArrayBuffer> | undefined
   let heldBlockOffset = 0
@@ -69,7 +84,7 @@ export function createChunkFramer(chunkSize: number): ChunkFramer {
     return { bytes, isLast }
   }
 
-  /** Copy as much of the held block's remaining bytes into `buffer` as fit; release the block once it is exhausted. */
+  /** Copy what fits of the held block into `buffer`; release the block (resolving its write) once it's used up. */
   function drainHeldBlock(): void {
     if (heldBlock === undefined) return
     const remaining = heldBlock.length - heldBlockOffset
@@ -88,7 +103,7 @@ export function createChunkFramer(chunkSize: number): ChunkFramer {
     }
   }
 
-  /** Produce one chunk from current state, or `undefined` if more input is needed first. */
+  /** Next chunk from what's buffered or held, or `undefined` if more input is needed first. */
   function produceChunk(): FramedChunk | undefined {
     for (;;) {
       if (bufferLength === chunkSize) {
@@ -112,7 +127,7 @@ export function createChunkFramer(chunkSize: number): ChunkFramer {
     }
   }
 
-  /** Advance state after new input arrives, without inventing a chunk nobody asked for yet. */
+  /** React to a new block or close: answer a waiting `next()`, or else copy a short tail so the write can resolve. */
   function pump(): void {
     if (pendingNext !== undefined) {
       const chunk = produceChunk()
@@ -153,10 +168,9 @@ export function createChunkFramer(chunkSize: number): ChunkFramer {
   const writable = new WritableStream<Uint8Array>({
     start(c) {
       controller = c
-      // WritableStream defers the sink's own abort() until any in-flight
-      // write settles -- which, for a block bigger than chunkSize, only
-      // happens once the consumer pulls it. The controller's signal fires
-      // immediately instead, so a pending write can be rejected right away.
+      // `WritableStream.abort()` waits for any in-flight write to settle. For a
+      // block larger than `chunkSize`, that depends on the consumer pulling it.
+      // The controller signal fires immediately, so a pending write can be rejected right away.
       c.signal.addEventListener('abort', () => setError(c.signal.reason))
     },
     write(chunk) {
@@ -167,6 +181,18 @@ export function createChunkFramer(chunkSize: number): ChunkFramer {
           setError(cause)
           reject(cause)
           return
+        }
+        if (expectedLength !== undefined) {
+          consumedBytes += chunk.length
+          if (consumedBytes > expectedLength) {
+            const cause = new InvalidPlaintextLengthError(
+              `Invalid plaintext: expected exactly ${expectedLength} bytes, but intake reached ` +
+                `${consumedBytes} bytes and the source has not finished.`
+            )
+            setError(cause)
+            reject(cause)
+            return
+          }
         }
         if (chunk.length === 0) {
           resolve() // no-op: an empty block carries nothing to frame
@@ -180,11 +206,17 @@ export function createChunkFramer(chunkSize: number): ChunkFramer {
       })
     },
     close() {
+      if (expectedLength !== undefined && consumedBytes !== expectedLength) {
+        const cause = new InvalidPlaintextLengthError(
+          `Invalid plaintext: expected exactly ${expectedLength} bytes, but only ${consumedBytes} bytes were ` +
+            'written before the source closed.'
+        )
+        setError(cause)
+        throw cause
+      }
       closed = true
       pump()
     },
-    // No abort() here: the signal listener in start() already covers it,
-    // and runs sooner (abort() itself waits for an in-flight write).
   })
 
   function next(): Promise<FramedChunk> {
