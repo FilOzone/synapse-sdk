@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v2.0.1...synapse-sdk-v2.0.2) (2026-09-25)
+
+
+### Chores
+
+* fix root lint command issues and clean up unused exports ([#980](https://github.com/FilOzone/synapse-sdk/issues/980)) ([28bd4b2](https://github.com/FilOzone/synapse-sdk/commit/28bd4b2486dd85560a8b9ff8c8fdb384722f8bda))
+
 ## [2.0.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v2.0.0...synapse-sdk-v2.0.1) (2026-09-22)
 
 
