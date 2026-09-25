@@ -29,6 +29,7 @@ export {
   datasetKey,
   datasetKeyMessage,
   datasetSecret,
+  holdingOf,
   keyForEnvelope,
   lowSrs,
   newClientDataSetId,

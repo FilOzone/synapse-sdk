@@ -7,6 +7,7 @@ import {
   datasetKey,
   datasetKeyMessage,
   datasetSecret,
+  holdingOf,
   keyForEnvelope,
   lowSrs,
   newClientDataSetId,
@@ -123,6 +124,37 @@ describe('derivation tree', () => {
     const metadata = pieceMetadata(ref, { salt })
     assert.equal(metadata['foc/scope'], undefined)
     assert.deepEqual(keyForEnvelope(dk, metadata), pieceKey(dk, salt))
+  })
+
+  it('says so when a scope key is used on a piece at the root', async () => {
+    const dk = datasetKey(await datasetSecret(account, ref))
+    const metadata = pieceMetadata(ref, { salt: newSalt() })
+    assert.throws(
+      () => keyForEnvelope(scopeKey(dk, 'invoices'), metadata, 'scope'),
+      /not in a scope/,
+      'better a clear error than a key that fails later at the AEAD tag'
+    )
+  })
+})
+
+describe('holdingOf', () => {
+  it('reads the level back off a grant', () => {
+    assert.equal(holdingOf({ node: 'dataset' }), 'dataset')
+    assert.equal(holdingOf({ node: 'scope:invoices' }), 'scope')
+    assert.equal(holdingOf({ node: 'scope:with:colons' }), 'scope')
+  })
+
+  it('refuses a node it does not understand', () => {
+    assert.throws(() => holdingOf({ node: 'folder:2026' }), /Unrecognised grant node/)
+    assert.throws(() => holdingOf({ node: 'piece' }), /Unrecognised grant node/)
+  })
+
+  it('round-trips with what a scope grant would carry', async () => {
+    const dk = datasetKey(await datasetSecret(account, ref))
+    const salt = newSalt()
+    const metadata = pieceMetadata(ref, { salt, scope: 'invoices' })
+    const grant = { node: 'scope:invoices' }
+    assert.deepEqual(keyForEnvelope(scopeKey(dk, 'invoices'), metadata, holdingOf(grant)), keyForEnvelope(dk, metadata))
   })
 })
 

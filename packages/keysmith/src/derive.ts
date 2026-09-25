@@ -14,7 +14,14 @@ import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
 import type { Hex } from 'viem'
 import { bytesToHex, hexToBytes } from 'viem'
-import type { DatasetKeyMessage, DatasetRef, Holding, PieceMetadata, TypedDataSigner } from './types.ts'
+import type {
+  DatasetKeyMessage,
+  DatasetRef,
+  GrantDescriptor,
+  Holding,
+  PieceMetadata,
+  TypedDataSigner,
+} from './types.ts'
 
 const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
 /** Half the secp256k1 group order; an `s` above this is the malleable form. */
@@ -166,6 +173,30 @@ export function pieceMetadata(ref: DatasetRef, options: { salt: Hex; scope?: str
  */
 export function keyForEnvelope(node: Uint8Array, metadata: PieceMetadata, holding: Holding = 'dataset'): Uint8Array {
   const scope = metadata['foc/scope']
+  if (holding === 'scope' && scope == null) {
+    throw new Error(
+      'This piece is not in a scope, so no scope key opens it. Pieces written at the ' +
+        'root of a dataset need the dataset key.'
+    )
+  }
   const at = holding === 'dataset' && scope != null ? scopeKey(node, scope) : node
   return pieceKey(at, metadata['foc/salt'])
+}
+
+/**
+ * Which level a grant carries, ready to pass to {@link keyForEnvelope}.
+ *
+ * `DK` and `SK` are both 32 bytes of HKDF output, so nothing distinguishes them
+ * once unwrapped — but the grant that delivered the key says which it is.
+ *
+ * @throws If the grant names a node this version does not understand.
+ */
+export function holdingOf(grant: Pick<GrantDescriptor, 'node'>): Holding {
+  if (grant.node === 'dataset') {
+    return 'dataset'
+  }
+  if (grant.node.startsWith('scope:')) {
+    return 'scope'
+  }
+  throw new Error(`Unrecognised grant node: ${grant.node}`)
 }
