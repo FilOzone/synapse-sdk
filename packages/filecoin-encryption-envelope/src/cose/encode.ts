@@ -7,6 +7,7 @@
 import { encode as cborEncode, rfc8949EncodeOptions, Tagged } from 'cborg'
 import { MalformedEnvelopeError } from '../errors.ts'
 import { MAX_ENVELOPE_SIZE, TAG_ENCRYPT, TAG_ENCRYPT0 } from './constants.ts'
+import type { EnvelopeTag } from './enc-structure.ts'
 import type { CborValue, ProtectedHeaderFields } from './headers.ts'
 import {
   assertAllowlistedValue,
@@ -50,14 +51,29 @@ export interface EncodeEnvelopeInput {
 }
 
 /**
- * Encode an envelope with detached ciphertext. The caller appends the ciphertext separately. See
- * docs/tech-spec.md, "Blob layout".
+ * Result used by the AEAD layer while preparing detached ciphertext.
+ *
+ * This type and {@link prepareEnvelope} are intentionally omitted from the
+ * public `cose` barrel. Callers that only shape COSE bytes use
+ * {@link encodeEnvelope}; the AEAD layer also needs the exact protected bytes
+ * placed in the envelope because `Enc_structure` must use those bytes.
+ * Encoding again would re-read caller-owned header values, which can change
+ * or return different values through getters.
+ */
+export interface PreparedEnvelope {
+  bytes: Uint8Array
+  protectedBytes: Uint8Array
+  tag: EnvelopeTag
+}
+
+/**
+ * Encode an envelope and retain the protected bytes needed by the AEAD layer.
  *
  * The encoder enforces the same structural rules as `decodeEnvelope`, so it
  * cannot produce an envelope the decoder would reject. Protected header
  * rules are handled by `encodeProtectedHeader`.
  */
-export function encodeEnvelope(input: EncodeEnvelopeInput): Uint8Array {
+export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
   if (input === null || typeof input !== 'object') {
     throw new MalformedEnvelopeError(`Invalid envelope input: expected an object, got ${describeCborType(input)}.`)
   }
@@ -107,9 +123,10 @@ export function encodeEnvelope(input: EncodeEnvelopeInput): Uint8Array {
 
   const protectedBytes = encodeProtectedHeader(protectedHeader)
   const unprotectedMap = encodeUnprotectedHeader()
+  const tag = recipients.length === 0 ? TAG_ENCRYPT0 : TAG_ENCRYPT
 
   const encoded =
-    recipients.length === 0
+    tag === TAG_ENCRYPT0
       ? cborEncode(new Tagged(TAG_ENCRYPT0, [protectedBytes, unprotectedMap, null]), rfc8949EncodeOptions)
       : cborEncode(new Tagged(TAG_ENCRYPT, [protectedBytes, unprotectedMap, null, recipients]), rfc8949EncodeOptions)
 
@@ -119,5 +136,13 @@ export function encodeEnvelope(input: EncodeEnvelopeInput): Uint8Array {
     )
   }
 
-  return encoded
+  return { bytes: encoded, protectedBytes, tag }
+}
+
+/**
+ * Encode an envelope with detached ciphertext. The caller appends the
+ * ciphertext separately. See docs/tech-spec.md, "Blob layout".
+ */
+export function encodeEnvelope(input: EncodeEnvelopeInput): Uint8Array {
+  return prepareEnvelope(input).bytes
 }
