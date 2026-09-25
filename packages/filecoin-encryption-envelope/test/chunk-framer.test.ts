@@ -1,5 +1,5 @@
 import assert from 'node:assert'
-import { InvalidPlaintextError } from '../src/errors.ts'
+import { InvalidPlaintextError, InvalidPlaintextLengthError } from '../src/errors.ts'
 import { createChunkFramer, type FramedChunk } from '../src/internal/chunk-framer.ts'
 
 /** Split `data` into consecutive blocks of the given sizes, which must sum to `data.length`. */
@@ -286,5 +286,45 @@ describe('createChunkFramer', () => {
     const framer = createChunkFramer(4)
     const writer = framer.writable.getWriter()
     await writer.abort(new Error('idle abort'))
+  })
+
+  describe('expectedLength (contentLength intake check)', () => {
+    it('rejects the write that crosses expectedLength, leaving earlier writes resolved', async () => {
+      const framer = createChunkFramer(4, 5) // exactly 5 bytes expected
+      const writer = framer.writable.getWriter()
+
+      await writer.write(Uint8Array.from([1, 2, 3])) // 3/5: within budget
+      const overrun = writer.write(Uint8Array.from([4, 5, 6])) // would total 6 > 5
+
+      await assert.rejects(overrun, InvalidPlaintextLengthError)
+      await assert.rejects(framer.next(), InvalidPlaintextLengthError)
+    })
+
+    it('rejects close() on an underrun, and never yields an isLast chunk to a pending next()', async () => {
+      const framer = createChunkFramer(4, 5) // exactly 5 bytes expected
+      const writer = framer.writable.getWriter()
+      await writer.write(Uint8Array.from([1, 2, 3])) // only 3 of the promised 5
+
+      const pending = framer.next() // no full/final chunk decidable yet: waits
+      await assert.rejects(writer.close(), InvalidPlaintextLengthError)
+      await assert.rejects(pending, InvalidPlaintextLengthError)
+    })
+
+    it('yields the normal chunks when intake matches expectedLength exactly', async () => {
+      const framer = createChunkFramer(4, 8)
+      const writer = framer.writable.getWriter()
+      const writeDone = writer.write(Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8]))
+      const closeDone = writer.close()
+
+      const chunk1 = await framer.next()
+      assert.deepStrictEqual(Array.from(chunk1.bytes), [1, 2, 3, 4])
+      assert.strictEqual(chunk1.isLast, false)
+      const chunk2 = await framer.next()
+      assert.deepStrictEqual(Array.from(chunk2.bytes), [5, 6, 7, 8])
+      assert.strictEqual(chunk2.isLast, true)
+
+      await writeDone
+      await closeDone
+    })
   })
 })

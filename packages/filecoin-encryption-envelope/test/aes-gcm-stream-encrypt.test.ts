@@ -369,7 +369,7 @@ describe('aesGcmStream.encrypt', () => {
       'decrypt',
     ])
     const decrypted = await globalThis.crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: deriveChunkNonce(baseNonce, 0, false), additionalData: aad, tagLength: 128 },
+      { name: 'AES-GCM', iv: Uint8Array.of(...baseNonce, 0, 0, 0, 0, 0x00), additionalData: aad, tagLength: 128 },
       key,
       chunk
     )
@@ -475,5 +475,224 @@ describe('aesGcmStream.encrypt', () => {
 
     const decrypted = await decryptChunkedOutput(full, FIXED_CEK)
     assert.deepStrictEqual(decrypted, plaintext)
+  })
+
+  describe('contentLength', () => {
+    // Envelope hex and tag generated once with node:crypto directly (never
+    // this package's aesGcmEncrypt/deriveChunkNonce), against the AAD from
+    // encStructure and a literal nonce -- same approach as the independent
+    // vectors above, extended to a header carrying plaintext_length.
+    const CONTENT_LENGTH_VECTOR = {
+      contentLength: 100,
+      envelopeHex:
+        'd0835846a5013a000101000547000102030405061078286170706c69636174696f6e2f766e642e66696c65636f696e2d656e6372797074696f6e2b636f7365201910003a000100fc1864a0f6',
+      tagHex: '7eeeed681893653415ca0dfed7f67871',
+    }
+
+    it('matches the independent oracle for an envelope carrying plaintext_length', async () => {
+      const plaintext = deterministicPlaintext(CONTENT_LENGTH_VECTOR.contentLength)
+      const { writable, readable } = await withRandomValues(fixedBaseNonceRandomValues, async () =>
+        encrypt({
+          cek: new Uint8Array(FIXED_CEK),
+          chunkSize: CHUNK_SIZE,
+          contentLength: CONTENT_LENGTH_VECTOR.contentLength,
+        })
+      )
+      const writer = writable.getWriter()
+      const writeDone = writer.write(plaintext)
+      const closeDone = writer.close()
+
+      const output = await readAllChunks(readable)
+      await writeDone
+      await closeDone
+
+      assert.strictEqual(output.length, 2)
+      assert.deepStrictEqual(output[0], hexToBytes(CONTENT_LENGTH_VECTOR.envelopeHex))
+      const chunk = output[1]
+      assert.strictEqual(chunk.length, CONTENT_LENGTH_VECTOR.contentLength + TAG_SIZE)
+      assert.deepStrictEqual(chunk.subarray(chunk.length - TAG_SIZE), hexToBytes(CONTENT_LENGTH_VECTOR.tagHex))
+    })
+
+    it('writes plaintext_length only when contentLength is given, equal to it', async () => {
+      const { readable: withoutLength } = encrypt({ cek: new Uint8Array(FIXED_CEK) })
+      const envelope1 = await readChunk(withoutLength.getReader())
+      assert.strictEqual(decodeEnvelope(envelope1).protectedHeader.plaintextLength, undefined)
+
+      const { readable: withLength } = encrypt({ cek: new Uint8Array(FIXED_CEK), contentLength: 12345 })
+      const envelope2 = await readChunk(withLength.getReader())
+      assert.strictEqual(decodeEnvelope(envelope2).protectedHeader.plaintextLength, 12345)
+    })
+
+    it('rejects an invalid contentLength synchronously', () => {
+      const invalidValues: unknown[] = [-1, 1.5, Number.NaN, '10', 2 ** 53]
+      for (const contentLength of invalidValues) {
+        assert.throws(
+          () => encrypt({ cek: new Uint8Array(FIXED_CEK), contentLength: contentLength as number }),
+          InvalidPlaintextLengthError
+        )
+      }
+      // The implied ciphertext alone already exceeds MAX_ENCODED_OBJECT_SIZE.
+      assert.throws(
+        () =>
+          encrypt({
+            cek: new Uint8Array(FIXED_CEK),
+            chunkSize: MIN_CHUNK_SIZE,
+            contentLength: MAX_ENCODED_OBJECT_SIZE,
+          }),
+        InvalidPlaintextLengthError
+      )
+    })
+
+    it('preflights envelope + ciphertext against MAX_ENCODED_OBJECT_SIZE before any allocation', async () => {
+      // Hand-calculated at chunk size 4096 (stride 4112):
+      //   envelope   83 bytes: the 76-byte vector envelope above, with
+      //              plaintext_length grown from `18 64` to `1b` + 8 bytes
+      //   budget     2^36 - 83 = 68,719,476,653 = 16,711,934 × 4112 + 4045
+      //   P          16,711,934 × 4096 + (4045 - 16) = 68,452,085,693
+      // so envelope + C lands exactly on 2^36, and P + 1 is one byte over.
+      const atLimit = 68_452_085_693
+      const { readable } = encrypt({
+        cek: new Uint8Array(FIXED_CEK),
+        chunkSize: MIN_CHUNK_SIZE,
+        contentLength: atLimit,
+      })
+      const envelope = await readChunk(readable.getReader())
+      assert.strictEqual(envelope.length, 83, 'fixture assumes an 83-byte envelope')
+
+      assert.throws(
+        () => encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize: MIN_CHUNK_SIZE, contentLength: atLimit + 1 }),
+        InvalidPlaintextLengthError
+      )
+    })
+
+    it('round-trips when contentLength matches the source exactly', async () => {
+      const chunkSize = CHUNK_SIZE
+      for (const contentLength of [0, chunkSize, chunkSize * 2 + 100]) {
+        const plaintext = deterministicPlaintext(contentLength)
+        const output = sourceOf([plaintext]).pipeThrough(
+          encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize, contentLength })
+        )
+        const chunks = await readAllChunks(output)
+        const full = concatBytes(...chunks)
+
+        assert.strictEqual(decodeEnvelope(full).protectedHeader.plaintextLength, contentLength)
+        const decrypted = await decryptChunkedOutput(full, FIXED_CEK)
+        assert.deepStrictEqual(decrypted, plaintext)
+      }
+    })
+
+    it('underrun: emits exactly the completed non-final chunks, then rejects', async () => {
+      const chunkSize = CHUNK_SIZE
+      const { writable, readable } = encrypt({
+        cek: new Uint8Array(FIXED_CEK),
+        chunkSize,
+        contentLength: chunkSize * 3,
+      })
+      const writer = writable.getWriter()
+      // Two full chunks written; a third was promised but never arrives.
+      const write1 = writer.write(deterministicPlaintext(chunkSize))
+      const write2 = writer.write(deterministicPlaintext(chunkSize))
+      const closeAttempt = writer.close()
+
+      const reader = readable.getReader()
+      const envelope = await readChunk(reader)
+      const decodedEnvelope = decodeEnvelope(envelope)
+      const aad = encStructure(decodedEnvelope.tag, decodedEnvelope.protectedHeader.bytes)
+      const baseNonce = decodedEnvelope.protectedHeader.iv
+
+      const chunk1 = await readChunk(reader)
+      assert.strictEqual(chunk1.length, chunkSize + TAG_SIZE)
+      const key = await globalThis.crypto.subtle.importKey('raw', new Uint8Array(FIXED_CEK), 'AES-GCM', false, [
+        'decrypt',
+      ])
+      const decrypted1 = await globalThis.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: Uint8Array.of(...baseNonce, 0, 0, 0, 0, 0x00), additionalData: aad, tagLength: 128 },
+        key,
+        chunk1
+      )
+      assert.deepStrictEqual(new Uint8Array(decrypted1), deterministicPlaintext(chunkSize))
+
+      await assert.rejects(reader.read(), InvalidPlaintextLengthError)
+      await assert.rejects(closeAttempt, InvalidPlaintextLengthError)
+      await write1
+      await write2
+    })
+
+    it('overrun: emits exactly the completed non-final chunks, then rejects', async () => {
+      const chunkSize = CHUNK_SIZE
+      const { writable, readable } = encrypt({
+        cek: new Uint8Array(FIXED_CEK),
+        chunkSize,
+        contentLength: chunkSize * 2,
+      })
+      const writer = writable.getWriter()
+      // One big block exactly matching contentLength, so its first chunk is a
+      // zero-copy slice decidable as non-last on its own; then one more byte
+      // arrives and overruns.
+      const write1 = writer.write(deterministicPlaintext(chunkSize * 2))
+      const write2 = writer.write(Uint8Array.from([0]))
+
+      const reader = readable.getReader()
+      const envelope = await readChunk(reader)
+      const decodedEnvelope = decodeEnvelope(envelope)
+      const aad = encStructure(decodedEnvelope.tag, decodedEnvelope.protectedHeader.bytes)
+      const baseNonce = decodedEnvelope.protectedHeader.iv
+
+      const chunk1 = await readChunk(reader)
+      assert.strictEqual(chunk1.length, chunkSize + TAG_SIZE)
+      const key = await globalThis.crypto.subtle.importKey('raw', new Uint8Array(FIXED_CEK), 'AES-GCM', false, [
+        'decrypt',
+      ])
+      const decrypted1 = await globalThis.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: Uint8Array.of(...baseNonce, 0, 0, 0, 0, 0x00), additionalData: aad, tagLength: 128 },
+        key,
+        chunk1
+      )
+      assert.deepStrictEqual(new Uint8Array(decrypted1), deterministicPlaintext(chunkSize))
+
+      // write1's tail (the rest of the 2×chunkSize block) is still held --
+      // this next pull is what drains and releases it, which is also what
+      // finally lets the platform attempt write2's now-overrunning intake.
+      await assert.rejects(reader.read(), InvalidPlaintextLengthError)
+      await write1
+      await assert.rejects(write2, InvalidPlaintextLengthError)
+    })
+
+    it('rejects the entire block when a single write already overruns, emitting no chunks at all', async () => {
+      const chunkSize = CHUNK_SIZE
+      const { writable, readable } = encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize, contentLength: chunkSize })
+      const reader = readable.getReader()
+      await readChunk(reader) // envelope, read before the offending write is even issued
+
+      const writer = writable.getWriter()
+      const write = writer.write(deterministicPlaintext(chunkSize + 1))
+
+      await assert.rejects(reader.read(), InvalidPlaintextLengthError)
+      await assert.rejects(write, InvalidPlaintextLengthError)
+    })
+
+    it('treats contentLength 0 as declared, rejecting a single extra byte', async () => {
+      const { writable, readable } = encrypt({ cek: new Uint8Array(FIXED_CEK), contentLength: 0 })
+      const reader = readable.getReader()
+      const envelope = await readChunk(reader)
+      assert.strictEqual(decodeEnvelope(envelope).protectedHeader.plaintextLength, 0)
+
+      await assert.rejects(writable.getWriter().write(Uint8Array.of(1)), InvalidPlaintextLengthError)
+      await assert.rejects(reader.read(), InvalidPlaintextLengthError)
+    })
+
+    it('rejects the third of three under-chunk-sized writes once intake exceeds contentLength', async () => {
+      const chunkSize = CHUNK_SIZE
+      const { writable, readable } = encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize, contentLength: 250 })
+      const reader = readable.getReader()
+      await readChunk(reader) // envelope, read before any write can fail
+
+      const writer = writable.getWriter()
+      await writer.write(deterministicPlaintext(100)) // 100/250
+      await writer.write(deterministicPlaintext(100)) // 200/250
+      await assert.rejects(writer.write(deterministicPlaintext(100)), InvalidPlaintextLengthError) // 300 > 250
+
+      await assert.rejects(reader.read(), InvalidPlaintextLengthError)
+    })
   })
 })

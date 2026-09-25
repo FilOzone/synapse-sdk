@@ -1,16 +1,13 @@
 /**
- * Chunked AES-256-GCM STREAM encryption (FEE scheme 2) with a caller-supplied
- * CEK, exposed as a `{ writable, readable }` transform: pipe plaintext into
- * `writable`, read the encoded FEE object -- envelope followed by detached,
- * per-chunk-tagged ciphertext -- out of `readable`.
+ * Chunked AES-256-GCM STREAM encryption (FEE scheme 2) using a caller-supplied
+ * CEK. Plaintext is written to `writable`; `readable` outputs the encoded FEE
+ * object: the envelope followed by detached, per-chunk-tagged ciphertext.
  *
- * `writable` is `internal/chunk-framer.ts`'s framer, so the same block
- * ownership rule applies to whatever is piped in. `readable` drives it: each
- * `pull()` asks the framer for exactly one chunk and encrypts it, so at most
- * one plaintext chunk and one ciphertext chunk exist at a time -- this stays
- * flat in memory regardless of how large the source is.
+ * `writable` uses the framer from `internal/chunk-framer.ts`, so its block
+ * ownership rules apply to whatever is piped in. Each `readable` pull requests and
+ * encrypts one chunk, keeping memory bounded regardless of source size.
  */
-import { assertValidChunkSize, assertWithinObjectLimit } from './chunk-layout.ts'
+import { assertValidChunkSize, assertWithinObjectLimit, ciphertextLengthForPlaintext } from './chunk-layout.ts'
 import { ALG_CHUNKED_AES_256_GCM_STREAM, BASE_NONCE_SIZE, DEFAULT_CHUNK_SIZE, TAG_SIZE } from './constants.ts'
 import { encStructure } from './cose/enc-structure.ts'
 import { assemblePreparedEnvelope } from './cose/encode.ts'
@@ -22,33 +19,42 @@ import { assertAes256Key } from './internal/keys.ts'
 import { aesGcmEncrypt, importAesGcmKey, randomBytes } from './internal/web-crypto.ts'
 import { deriveChunkNonce } from './nonce.ts'
 
-/** Options for one chunked AES-256-GCM STREAM encryption with a direct CEK. */
+/** Options for one chunked AES-256-GCM STREAM encryption using a direct CEK. */
 export interface ChunkedEncryptOptions {
   /** Exactly 32 bytes and not all-zero. The caller owns its lifecycle and reuse policy. */
   cek: Uint8Array
+
   /** Plaintext bytes per chunk. Defaults to `DEFAULT_CHUNK_SIZE`. */
   chunkSize?: number
+
   contentType?: string | number
+
   /** Authenticated application metadata carried without interpretation. */
   appMetadata?: AppMetadata
+
+  /**
+   * Exact plaintext length, if known up front. Stored in the authenticated
+   * `plaintext_length` header. Exceeding it fails the write; closing before
+   * reaching it fails the close. In either case, no final chunk is emitted
+   * and earlier output must be discarded. Omit if the length is not guaranteed.
+   */
+  contentLength?: number
 }
 
 /**
- * Encrypt an arbitrarily large plaintext as scheme 2, with a direct CEK.
+ * Encrypt a plaintext stream using scheme 2 (chunked AES-256-GCM STREAM) and
+ * a direct CEK.
  *
- * Borrows `options.cek` and `options.appMetadata`: the caller must not modify
- * them until `readable` settles (closes or errors). A plaintext block handed
- * to `writable` may be reused once its own `write()` call resolves, per
- * `internal/chunk-framer.ts`'s ownership rule. The base nonce is generated
- * internally here and is never caller-supplied.
+ * Returns a `{ writable, readable }` pair for
+ * `source.pipeThrough(encrypt(options))`. Plaintext goes in; the FEE envelope
+ * followed by one encrypted chunk at a time comes out.
  *
- * The final chunk is emitted only once the writable side closes --
- * `ReadableStream.pipeThrough` does this for its source automatically. On any
- * error, whatever `readable` has already produced is an incomplete object:
- * discard it rather than treating it as a usable truncated prefix.
- *
- * Invalid options throw synchronously; the CEK is imported on the first read
- * of `readable`.
+ * - Invalid options throw synchronously; the CEK is imported on the first read.
+ * - `cek` and `appMetadata` are borrowed and must not change until `readable`
+ *   closes or errors. Input blocks may be reused once their `write()` resolves.
+ * - The base nonce is always generated internally.
+ * - The final chunk is emitted only after `writable` closes.
+ * - If the stream errors, any output already read is incomplete and must be discarded.
  */
 export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Uint8Array, Uint8Array> {
   if (options === null || typeof options !== 'object') {
@@ -57,28 +63,41 @@ export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Ui
     )
   }
 
-  // Read each field once: a getter could otherwise answer differently for
-  // validation than for encoding.
-  const { cek, chunkSize = DEFAULT_CHUNK_SIZE, contentType, appMetadata } = options
+  // Read each field once so getters cannot return different values during
+  // validation and encoding.
+  const { cek, chunkSize = DEFAULT_CHUNK_SIZE, contentType, appMetadata, contentLength } = options
   assertAes256Key(cek, 'CEK')
   assertValidChunkSize(chunkSize)
 
+  // Validate the option directly to preserve its length-specific errors.
+  // `encodeProtectedHeader` validates it again as a header value below.
+  const expectedCiphertextLength =
+    contentLength === undefined ? undefined : ciphertextLengthForPlaintext(contentLength, chunkSize)
+
   const baseNonce = randomBytes(BASE_NONCE_SIZE)
-  // Encoding validates contentType and appMetadata, so it runs here with the
-  // other synchronous checks, before any crypto.
+
+  // Encode now so content type and metadata are validated synchronously,
+  // before any cryptographic work.
   const protectedBytes = encodeProtectedHeader({
     alg: ALG_CHUNKED_AES_256_GCM_STREAM,
     iv: baseNonce,
     chunkSize,
     contentType,
     appMetadata,
+    plaintextLength: contentLength,
   })
-  // No recipients yet (commit 4): always COSE_Encrypt0, one fixed AAD for
-  // every chunk -- the tag and protected bytes never change mid-stream.
+
+  // Without recipients, use COSE_Encrypt0 and one fixed AAD for every chunk.
   const prepared = assemblePreparedEnvelope(protectedBytes)
   const additionalData = encStructure(prepared.tag, prepared.protectedBytes)
 
-  const framer = createChunkFramer(chunkSize)
+  // If the plaintext length is known, validate the complete encoded object
+  // before streaming begins.
+  if (expectedCiphertextLength !== undefined) {
+    assertWithinObjectLimit(prepared.bytes.length, expectedCiphertextLength)
+  }
+
+  const framer = createChunkFramer(chunkSize, contentLength)
   let cekKey: CryptoKey | undefined
   let chunkIndex = 0
   let emittedBytes = 0
@@ -88,9 +107,10 @@ export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Ui
       async pull(controller) {
         try {
           if (cekKey === undefined) {
-            // Deferred to the first pull: no key operation before then.
+            // Defer key import until the first pull.
             cekKey = await importAesGcmKey(cek, 'encrypt', false)
-            // Input that already failed (abort, invalid block) gets no envelope.
+
+            // Do not emit the envelope if input has already failed.
             framer.throwIfFailed()
             controller.enqueue(prepared.bytes)
             emittedBytes = prepared.bytes.length
@@ -108,8 +128,8 @@ export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Ui
             controller.close()
           }
         } catch (cause) {
-          // Propagate to the writable side too: rejects a pending write, and
-          // errors the writable so an upstream `pipeThrough` source stops.
+          // Propagate output failures to the writable side so pending writes
+          // reject and an upstream `pipeThrough` source stops.
           framer.cancel(cause)
           throw cause
         }
