@@ -40,6 +40,7 @@ export * as constants from './constants.ts'
 export * as cose from './cose/index.ts'
 export * as errors from './errors.ts'
 export * as nonce from './nonce.ts'
+export * as recipients from './recipients/index.ts'
 ```
 
 This mirrors `packages/synapse-core`'s convention exactly (see its `src/index.ts`) — namespace nearly
