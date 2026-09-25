@@ -61,29 +61,6 @@ const metadata = Keysmith.pieceMetadata(ref, { salt }) // goes in the FEE envelo
 //   metadata: { [Keysmith.COMMITMENT_KEY]: Keysmith.commitment(secret) }
 ```
 
-## Reading a piece
-
-The FEE envelope carries everything a reader needs, so there is no index to keep in sync.
-What you pass depends on which key you were given:
-
-```ts
-// the dataset key: walks down into whatever scope the metadata names
-const key = Keysmith.keyForEnvelope(dk, metadata)
-
-// a scope key: already at the scope, so don't walk into it again
-const key = Keysmith.keyForEnvelope(sk, metadata, 'scope')
-
-// a piece key: nothing to derive — hand it straight to FEE
-await decrypt(blob, pk)
-```
-
-`DK` and `SK` are both 32 bytes of HKDF output, so nothing in the envelope says which
-one you are holding — you have to tell it. The grant that delivered the key holds this information, so keep the whole grant when receiving a share and then use it in the derivation:
-
-```ts
-const key = Keysmith.keyForEnvelope(node, metadata, Keysmith.holdingOf(grant))
-```
-
 ## Sharing
 
 A grant is a node key wrapped to a recipient's secp256k1 public key — their wallet, or a
@@ -118,6 +95,29 @@ The grant's descriptor is authenticated, so it cannot be relabelled as another d
 scope.
 
 ℹ️ NOTE: because shared keys are symmetric and deterministic, sharing the key in this way also enables a suitably permissioned delegate to *write* encrypted data to the dataset as well as read.
+
+## Reading a piece
+
+The FEE envelope carries everything a reader needs, so there is no index to keep in sync.
+What you pass depends on which key you were given:
+
+```ts
+// the dataset key: walks down into whatever scope the metadata names
+const key = Keysmith.keyForEnvelope(dk, metadata)
+
+// a scope key: already at the scope, so don't walk into it again
+const key = Keysmith.keyForEnvelope(sk, metadata, 'scope')
+
+// a piece key: nothing to derive — hand it straight to FEE
+await decrypt(blob, pk)
+```
+
+`DK` and `SK` are both 32 bytes of HKDF output, so nothing in the envelope says which
+one you are holding — you have to tell it. The grant that delivered the key holds this information, so keep the whole grant when receiving a share and then use it in the derivation:
+
+```ts
+const key = Keysmith.keyForEnvelope(node, metadata, Keysmith.holdingOf(grant))
+```
 
 ## Recovery
 
