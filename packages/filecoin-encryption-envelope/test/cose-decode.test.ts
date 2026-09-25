@@ -132,9 +132,14 @@ describe('COSE_recipient structural validation', () => {
     )
   })
 
-  it('rejects a non-integer algorithm identifier', () => {
+  it('accepts a text algorithm identifier as a well-formed unsupported recipient', () => {
+    const decoded = decodeEnvelope(envelopeWithRawRecipient(new Uint8Array(0), new Map([[1, 'custom-wrap']])))
+    assert.strictEqual(decoded.recipients[0].alg, 'custom-wrap')
+  })
+
+  it('rejects a recipient algorithm identifier that is neither an integer nor a text string', () => {
     assert.throws(
-      () => decodeEnvelope(envelopeWithRawRecipient(new Uint8Array(0), new Map([[1, 'A256KW']]))),
+      () => decodeEnvelope(envelopeWithRawRecipient(new Uint8Array(0), new Map([[1, true]]))),
       MalformedEnvelopeError
     )
   })
@@ -321,7 +326,10 @@ describe('decodeEnvelope', () => {
       assert.strictEqual(decoded.recipients.length, 1)
       assert.deepStrictEqual(decoded.recipients[0], {
         protectedBytes: RECIPIENT.protectedBytes,
+        protected: new Map(),
         unprotected: RECIPIENT.unprotected,
+        alg: -5,
+        kid: RECIPIENT.unprotected.get(4),
         ciphertext: RECIPIENT.ciphertext,
       })
       assert.strictEqual(decoded.envelopeLength, bytes.length)

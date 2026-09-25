@@ -118,6 +118,15 @@ export interface DecodedProtectedHeader extends ProtectedHeaderFields {
  */
 export type UnprotectedHeaderMap = Map<CborValue, CborValue>
 
+/** Validated logical fields from one recipient's protected and unprotected headers. */
+export interface DecodedRecipientHeaders {
+  /** Decoded protected map. Empty when the serialized protected field is `h''`. */
+  protected: Map<CborValue, CborValue>
+  alg: number | string
+  /** Key identifier from either header bucket, when present. */
+  kid?: Uint8Array
+}
+
 /**
  * Strict CBOR decoding for envelope data.
  *
@@ -998,11 +1007,11 @@ export function decodeProtectedHeader(
  * A protected recipient header is either `h''` or one serialized CBOR map.
  * A256KW specifically requires `h''`.
  */
-export function assertValidRecipientHeaders(
+export function decodeRecipientHeaders(
   protectedBytes: Uint8Array,
   unprotected: Map<CborValue, CborValue>,
   path: string
-): void {
+): DecodedRecipientHeaders {
   // Validate runtime types as well as TypeScript types so the encoder cannot
   // produce recipient shapes its decoder would reject.
   if (!(protectedBytes instanceof Uint8Array)) {
@@ -1050,17 +1059,21 @@ export function assertValidRecipientHeaders(
   }
 
   // `kid` (4) is a byte string in either recipient header bucket.
-  for (const [bucket, map] of [
-    ['protected', protectedMap],
-    ['unprotected', unprotected],
-  ] as const) {
-    const kid = map?.get(HEADER_KID)
-    if (kid !== undefined && !(kid instanceof Uint8Array)) {
-      throw new MalformedEnvelopeError(
-        `Invalid kid (4) in ${path}.${bucket}: expected a byte string, got ${describeCborType(kid)}.`
-      )
-    }
-  }
+  const protectedKid = protectedMap?.get(HEADER_KID)
+
+if (protectedKid !== undefined && !(protectedKid instanceof Uint8Array)) {
+  throw new MalformedEnvelopeError(
+    `Invalid kid (4) in ${path}.protected: expected a byte string, got ${describeCborType(protectedKid)}.`
+  )
+}
+
+const unprotectedKid = unprotected?.get(HEADER_KID)
+
+if (unprotectedKid !== undefined && !(unprotectedKid instanceof Uint8Array)) {
+  throw new MalformedEnvelopeError(
+    `Invalid kid (4) in ${path}.unprotected: expected a byte string, got ${describeCborType(unprotectedKid)}.`
+  )
+}
 
   if (protectedMap !== undefined) {
     for (const key of protectedMap.keys()) {
@@ -1077,9 +1090,9 @@ export function assertValidRecipientHeaders(
   if (alg === undefined) {
     throw new MalformedEnvelopeError(`Missing alg (1) in ${path}: every COSE_recipient must name its algorithm.`)
   }
-  if (typeof alg !== 'number' || !Number.isInteger(alg)) {
+  if (!((typeof alg === 'number' && Number.isInteger(alg)) || typeof alg === 'string')) {
     throw new MalformedEnvelopeError(
-      `Invalid alg (1) in ${path}: ${describeCborType(alg)}. Expected an integer algorithm identifier.`
+      `Invalid alg (1) in ${path}: ${describeCborType(alg)}. Expected an integer or text-string algorithm identifier.`
     )
   }
 
@@ -1105,6 +1118,22 @@ export function assertValidRecipientHeaders(
       `Invalid ${path}: ECDH-ES+A256KW (${ALG_ECDH_ES_A256KW}) requires alg (1) in the protected map, not the unprotected one.`
     )
   }
+
+  const kid = protectedMap?.get(HEADER_KID) ?? unprotected.get(HEADER_KID)
+  return {
+    protected: protectedMap ?? new Map(),
+    alg,
+    ...(kid instanceof Uint8Array ? { kid } : {}),
+  }
+}
+
+/** Validate a recipient's header buckets without retaining their decoded fields. */
+export function assertValidRecipientHeaders(
+  protectedBytes: Uint8Array,
+  unprotected: Map<CborValue, CborValue>,
+  path: string
+): void {
+  decodeRecipientHeaders(protectedBytes, unprotected, path)
 }
 
 /**

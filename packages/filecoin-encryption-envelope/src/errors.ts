@@ -33,6 +33,16 @@ export class AuthenticationError extends EnvelopeError {
   override name = 'AuthenticationError'
 }
 
+/** No recipient in a valid envelope could provide a CEK. */
+export class NoUsableRecipientError extends EnvelopeError {
+  override name = 'NoUsableRecipientError'
+}
+
+/** A recipient unwrapper failed instead of declining the available recipients. */
+export class RecipientUnwrapError extends EnvelopeError {
+  override name = 'RecipientUnwrapError'
+}
+
 /** `chunkSize` is not an integer within `[MIN_CHUNK_SIZE, MAX_CHUNK_SIZE]`. */
 export class InvalidChunkSizeError extends EnvelopeError {
   override name = 'InvalidChunkSizeError'
