@@ -14,10 +14,11 @@ the export shape costs nothing — no downstream consumers exist.
 Implemented: `chunk-layout.ts`, `nonce.ts`, the error hierarchy, the `cose/` wire layer (strict CBOR
 parsing, tags 16/96, protected and unprotected headers, detached-ciphertext framing, `Enc_structure`,
 structural recipient validation), scheme-1 AES-256-GCM encryption and decryption in `aes-gcm.ts` (direct
-CEK, both tag 16 and tag 96), A256KW recipient wrapping on encryption, and the built-in A256KW
-unwrapper factory (`createA256KWUnwrapper`). Not yet implemented: `aesGcm.decryptWith`, the chunked
-scheme and streaming, range reads, and envelope inspection beyond decode. ECDH-ES+A256KW remains
-deferred; the code enforces its settled header placement but does not derive or unwrap its KEK.
+CEK, both tag 16 and tag 96), A256KW recipient wrapping on encryption, the built-in A256KW unwrapper
+factory (`createA256KWUnwrapper`), and recipient-based decryption through an unwrapper
+(`aesGcm.decryptWith`). Not yet implemented: the chunked scheme and streaming, range reads, and envelope
+inspection beyond decode. ECDH-ES+A256KW remains deferred; the code enforces its settled header
+placement but does not derive or unwrap its KEK.
 
 ## Scope discipline
 

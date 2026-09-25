@@ -29,8 +29,8 @@ describe('public surface (src/index.ts)', () => {
     assert.deepStrictEqual(Object.keys(fee).sort(), ['aesGcm', 'constants', 'cose', 'errors', 'recipients'])
   })
 
-  it('aesGcm exposes exactly encrypt and decrypt', () => {
-    assert.deepStrictEqual(Object.keys(fee.aesGcm).sort(), ['decrypt', 'encrypt'])
+  it('aesGcm exposes exactly decrypt, decryptWith, and encrypt', () => {
+    assert.deepStrictEqual(Object.keys(fee.aesGcm).sort(), ['decrypt', 'decryptWith', 'encrypt'])
   })
 
   it('cose is decode-only: exposes exactly decodeEnvelope', () => {
