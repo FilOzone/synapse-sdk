@@ -20,9 +20,9 @@ import {
   MalformedEnvelopeError,
   UnsupportedSchemeError,
 } from './errors.ts'
-import { assertAes256Key } from './internal/keys.ts'
+import { assertAes256Key, assertArrayBufferBacked } from './internal/keys.ts'
 import { aesGcmDecrypt, aesGcmEncrypt, importAesGcmKey } from './internal/web-crypto.ts'
-import { type PreparedRecipientInputs, prepareRecipientInputs } from './recipients/prepare.ts'
+import { createRecipientRecords, prepareRecipientInputs } from './recipients/prepare.ts'
 import type { Recipient } from './recipients/types.ts'
 
 const MAX_AES_GCM_CIPHERTEXT_SIZE = MAX_AES_GCM_PLAINTEXT_SIZE + TAG_SIZE
@@ -41,21 +41,16 @@ export interface EncryptOptions {
   recipients?: readonly Recipient[]
 }
 
-function snapshotPlaintext(value: unknown): Uint8Array<ArrayBuffer> {
+function assertValidPlaintext(value: unknown): asserts value is Uint8Array<ArrayBuffer> {
   if (!(value instanceof Uint8Array)) {
     throw new InvalidPlaintextError(`Invalid plaintext: expected a Uint8Array, got ${describeCborType(value)}.`)
   }
+  assertArrayBufferBacked(value, 'plaintext', (message) => new InvalidPlaintextError(message))
   if (value.length > MAX_AES_GCM_PLAINTEXT_SIZE) {
     throw new InvalidPlaintextLengthError(
       `Invalid plaintext length ${value.length}: scheme 1 accepts at most ${MAX_AES_GCM_PLAINTEXT_SIZE} bytes.`
     )
   }
-  return new Uint8Array(value)
-}
-
-function snapshotCek(value: unknown): Uint8Array<ArrayBuffer> {
-  assertAes256Key(value, 'CEK')
-  return new Uint8Array(value)
 }
 
 function generateIv(): Uint8Array<ArrayBuffer> {
@@ -68,7 +63,8 @@ function generateIv(): Uint8Array<ArrayBuffer> {
   return iv
 }
 
-function snapshotCiphertext(encoded: Uint8Array, envelopeLength: number): Uint8Array<ArrayBuffer> {
+/** Length-check only; the returned value is a view into `encoded`, not a copy. */
+function sliceCiphertext(encoded: Uint8Array, envelopeLength: number): Uint8Array<ArrayBuffer> {
   const ciphertextLength = encoded.length - envelopeLength
   if (ciphertextLength < TAG_SIZE || ciphertextLength > MAX_AES_GCM_CIPHERTEXT_SIZE) {
     throw new InvalidCiphertextLengthError(
@@ -76,7 +72,8 @@ function snapshotCiphertext(encoded: Uint8Array, envelopeLength: number): Uint8A
         `${MAX_AES_GCM_CIPHERTEXT_SIZE} bytes, including the ${TAG_SIZE}-byte authentication tag.`
     )
   }
-  return new Uint8Array(encoded.subarray(envelopeLength))
+  // `encoded` was already confirmed ArrayBuffer-backed at the public seam.
+  return encoded.subarray(envelopeLength) as Uint8Array<ArrayBuffer>
 }
 
 function joinEnvelopeAndCiphertext(envelope: Uint8Array, ciphertext: Uint8Array): Uint8Array {
@@ -89,9 +86,9 @@ function joinEnvelopeAndCiphertext(envelope: Uint8Array, ciphertext: Uint8Array)
 /**
  * Encrypt a complete plaintext as scheme 1 and return `envelope || ciphertext`.
  *
- * Every caller-owned input, recipients included, is validated and copied
- * before the first `await`, so changing it mid-call has no effect. The IV is
- * always generated internally and cannot be provided by the caller.
+ * Borrows its inputs: callers must not modify plaintext, keys, recipients or
+ * metadata until the promise settles. The IV is always generated internally
+ * and cannot be provided by the caller.
  */
 export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): Promise<Uint8Array> {
   if (options === null || typeof options !== 'object') {
@@ -100,34 +97,32 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
     )
   }
 
-  const { cek: cekInput, contentType, appMetadata, recipients: recipientInputs } = options
-  const plaintextSnapshot = snapshotPlaintext(plaintext)
-  const cek = snapshotCek(cekInput)
-  let recipients: PreparedRecipientInputs | undefined
-  try {
-    recipients = prepareRecipientInputs(recipientInputs)
-    const iv = generateIv()
-    // Encoded now, before any await: it reads the caller's appMetadata.
-    const protectedBytes = encodeProtectedHeader({
-      alg: ALG_AES_256_GCM,
-      iv,
-      contentType,
-      appMetadata,
-    })
+  const { cek, contentType, appMetadata, recipients: recipientInputs } = options
+  assertValidPlaintext(plaintext)
+  assertAes256Key(cek, 'CEK')
+  const recipients = prepareRecipientInputs(recipientInputs)
 
-    const records = await recipients?.buildRecords(cek)
+  const iv = generateIv()
+  // Encoding validates contentType and appMetadata, so it runs here with the
+  // other synchronous checks, before any crypto.
+  const protectedBytes = encodeProtectedHeader({
+    alg: ALG_AES_256_GCM,
+    iv,
+    contentType,
+    appMetadata,
+  })
 
-    // Fails on the envelope-size limit here, before any content encryption.
-    const prepared = assembleEnvelope(protectedBytes, records)
-    const additionalData = encStructure(prepared.tag, prepared.protectedBytes)
-    const key = await importAesGcmKey(cek, 'encrypt', false)
-    const ciphertext = await aesGcmEncrypt(key, iv, additionalData, plaintextSnapshot)
+  // The CEK is imported once, only after all synchronous validation passes.
+  // Extractable when there are recipients: Web Crypto's wrapKey requires it.
+  const cekKey = await importAesGcmKey(cek, 'encrypt', recipients !== undefined)
+  const records = recipients === undefined ? undefined : await createRecipientRecords(cekKey, recipients)
 
-    return joinEnvelopeAndCiphertext(prepared.bytes, ciphertext)
-  } finally {
-    cek.fill(0)
-    recipients?.clear()
-  }
+  // Fails on the envelope-size limit here, before any content encryption.
+  const prepared = assembleEnvelope(protectedBytes, records)
+  const additionalData = encStructure(prepared.tag, prepared.protectedBytes)
+  const ciphertext = await aesGcmEncrypt(cekKey, iv, additionalData, plaintext)
+
+  return joinEnvelopeAndCiphertext(prepared.bytes, ciphertext)
 }
 
 /**
@@ -135,24 +130,26 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
  *
  * Both COSE_Encrypt0 and COSE_Encrypt are accepted. The envelope tag selects
  * the AAD context; recipient records are validated by the COSE decoder but do
- * not participate when the caller supplies the CEK directly.
+ * not participate when the caller supplies the CEK directly. Borrows its
+ * inputs: callers must not modify `encoded` or `cek` until the promise settles.
  */
-export async function decrypt(encoded: Uint8Array, cekInput: Uint8Array): Promise<Uint8Array> {
-  const cek = snapshotCek(cekInput)
-  try {
-    const decoded = decodeEnvelope(encoded)
-    if (decoded.protectedHeader.alg !== ALG_AES_256_GCM) {
-      throw new UnsupportedSchemeError(
-        `Unsupported content algorithm ${decoded.protectedHeader.alg}: AES-GCM decryption requires alg ${ALG_AES_256_GCM}.`
-      )
-    }
-
-    const ciphertext = snapshotCiphertext(encoded, decoded.envelopeLength)
-    const iv = new Uint8Array(decoded.protectedHeader.iv)
-    const additionalData = encStructure(decoded.tag, decoded.protectedHeader.bytes)
-    const key = await importAesGcmKey(cek, 'decrypt', false)
-    return await aesGcmDecrypt(key, iv, additionalData, ciphertext)
-  } finally {
-    cek.fill(0)
+export async function decrypt(encoded: Uint8Array, cek: Uint8Array): Promise<Uint8Array> {
+  assertAes256Key(cek, 'CEK')
+  if (encoded instanceof Uint8Array) {
+    assertArrayBufferBacked(encoded, 'envelope input', (message) => new MalformedEnvelopeError(message))
   }
+
+  const decoded = decodeEnvelope(encoded)
+  if (decoded.protectedHeader.alg !== ALG_AES_256_GCM) {
+    throw new UnsupportedSchemeError(
+      `Unsupported content algorithm ${decoded.protectedHeader.alg}: AES-GCM decryption requires alg ${ALG_AES_256_GCM}.`
+    )
+  }
+
+  const ciphertext = sliceCiphertext(encoded, decoded.envelopeLength)
+  const additionalData = encStructure(decoded.tag, decoded.protectedHeader.bytes)
+  // Derived from `encoded`, already confirmed ArrayBuffer-backed above.
+  const iv = decoded.protectedHeader.iv as Uint8Array<ArrayBuffer>
+  const key = await importAesGcmKey(cek, 'decrypt', false)
+  return await aesGcmDecrypt(key, iv, additionalData, ciphertext)
 }

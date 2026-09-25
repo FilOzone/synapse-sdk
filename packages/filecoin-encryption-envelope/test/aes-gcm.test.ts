@@ -138,29 +138,21 @@ describe('aesGcm.encrypt', () => {
     assert.deepStrictEqual(decoded.protectedHeader.appMetadata, toNullProto({ name: 'greeting', revision: 1 }))
   })
 
-  it('snapshots caller-owned plaintext, CEK, and metadata before its first await', async () => {
-    const plaintext = new Uint8Array(HELLO)
-    const cek = new Uint8Array(FIXED_CEK)
-    const appMetadata: NonNullable<EncryptOptions['appMetadata']> = { state: 'before' }
-
-    const encoded = await withRandomValues(fixedRandomValues, async () => {
-      const pending = encrypt(plaintext, { cek, appMetadata })
-      plaintext.fill(0xff)
-      cek.fill(0xff)
-      appMetadata.state = 'after'
-      return await pending
-    })
-    const decoded = decodeEnvelope(encoded)
-
-    assert.deepStrictEqual(decoded.protectedHeader.appMetadata, toNullProto({ state: 'before' }))
-    assert.deepStrictEqual(await decryptWithWebCrypto(encoded, FIXED_CEK), HELLO)
-  })
-
   it('rejects plaintext that is not a Uint8Array', async () => {
     await assert.rejects(
       encrypt('hello' as unknown as Uint8Array, { cek: new Uint8Array(FIXED_CEK) }),
       InvalidPlaintextError
     )
+  })
+
+  it('rejects a SharedArrayBuffer-backed plaintext', async () => {
+    const plaintext = new Uint8Array(new SharedArrayBuffer(HELLO.length))
+    await assert.rejects(encrypt(plaintext, { cek: new Uint8Array(FIXED_CEK) }), InvalidPlaintextError)
+  })
+
+  it('rejects a SharedArrayBuffer-backed CEK', async () => {
+    const cek = new Uint8Array(new SharedArrayBuffer(KEY_SIZE))
+    await assert.rejects(encrypt(new Uint8Array(HELLO), { cek }), InvalidKeyError)
   })
 
   it('rejects a non-byte, wrong-length, or all-zero CEK', async () => {
@@ -420,16 +412,23 @@ describe('aesGcm.decrypt', () => {
     await assert.rejects(decrypt(encoded, new Uint8Array(FIXED_CEK)), InvalidCiphertextLengthError)
   })
 
-  it('does not observe envelope or CEK mutations after the call starts', async () => {
+  it('rejects a SharedArrayBuffer-backed encoded envelope', async () => {
     const encoded = await withRandomValues(fixedRandomValues, () =>
       encrypt(new Uint8Array(HELLO), { cek: new Uint8Array(FIXED_CEK) })
     )
-    const cek = new Uint8Array(FIXED_CEK)
+    const shared = new Uint8Array(new SharedArrayBuffer(encoded.length))
+    shared.set(encoded)
 
-    const pending = decrypt(encoded, cek)
-    encoded.fill(0xff)
-    cek.fill(0xff)
+    await assert.rejects(decrypt(shared, new Uint8Array(FIXED_CEK)), MalformedEnvelopeError)
+  })
 
-    assert.deepStrictEqual(await pending, HELLO)
+  it('rejects a SharedArrayBuffer-backed CEK', async () => {
+    const encoded = await withRandomValues(fixedRandomValues, () =>
+      encrypt(new Uint8Array(HELLO), { cek: new Uint8Array(FIXED_CEK) })
+    )
+    const cek = new Uint8Array(new SharedArrayBuffer(KEY_SIZE))
+    cek.set(FIXED_CEK)
+
+    await assert.rejects(decrypt(encoded, cek), InvalidKeyError)
   })
 })

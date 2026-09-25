@@ -7,9 +7,9 @@
 import { AuthenticationError, CryptoOperationError } from '../errors.ts'
 
 /** Web Crypto reports an AEAD tag or AES-KW integrity failure as a DOMException named OperationError. */
-  function isOperationError(cause: unknown): boolean {
-    return cause !== null && typeof cause === 'object' && 'name' in cause && cause.name === 'OperationError'
-  }
+function isOperationError(cause: unknown): boolean {
+  return cause !== null && typeof cause === 'object' && 'name' in cause && cause.name === 'OperationError'
+}
 
 /** Import a raw AES-GCM key. */
 export async function importAesGcmKey(

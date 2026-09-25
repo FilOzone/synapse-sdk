@@ -12,12 +12,11 @@ import {
 } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import { encStructure } from '../src/cose/enc-structure.ts'
-import type { CborValue } from '../src/cose/headers.ts'
 import { InvalidKeyError, MalformedEnvelopeError } from '../src/errors.ts'
 import { unwrapCek, WRAPPED_CEK_SIZE } from '../src/recipients/a256kw.ts'
 import type { A256KWRecipient } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedRandomValues, HELLO, HELLO_VECTOR_HEX, withRandomValues } from './aes-gcm-fixtures.ts'
-import { hexToBytes, MINIMAL_PROTECTED_HEADER_HEX, toNullProto } from './cose-fixtures.ts'
+import { hexToBytes, MINIMAL_PROTECTED_HEADER_HEX } from './cose-fixtures.ts'
 
 describe('aesGcm.encrypt with A256KW recipients', () => {
   const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x40 + index)
@@ -190,35 +189,172 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
     }
   })
 
-  it('does not observe recipient, KEK, kid, or metadata mutations after the call starts', async () => {
-    const keks = [new Uint8Array(KEK_A), new Uint8Array(KEK_B)]
-    const kids = [new Uint8Array(KID_A), new Uint8Array(KID_B)]
-    const entries = keks.map((kek, index) => ({ alg: ALG_A256KW, kek, kid: kids[index] })) as {
-      alg: typeof ALG_A256KW
-      kek: Uint8Array
-      kid: Uint8Array
-    }[]
-    const recipients: A256KWRecipient[] = [...entries]
-    const appMetadata: Record<string, CborValue> = { state: 'before' }
+  it('rejects a SharedArrayBuffer-backed recipient KEK before wrapping or encrypting', async () => {
+    const badKek = new Uint8Array(new SharedArrayBuffer(KEY_SIZE))
+    badKek.set(KEK_B)
 
-    const encoded = await withRandomValues(fixedRandomValues, async () => {
-      const pending = encrypt(new Uint8Array(HELLO), { cek: new Uint8Array(FIXED_CEK), recipients, appMetadata })
-      for (const bytes of [...keks, ...kids]) {
-        bytes.fill(0xff)
-      }
-      entries[1].kek = new Uint8Array(KEK_A)
-      recipients.push(recipient(KEK_A))
-      appMetadata.state = 'after'
-      return await pending
+    const calls = await countCryptoCalls(async () => {
+      await assert.rejects(
+        encryptFor([recipient(KEK_A, KID_A), { alg: ALG_A256KW, kek: badKek }]),
+        (error: unknown) => error instanceof InvalidKeyError && error.message.includes('recipients[1].kek')
+      )
     })
-    const decoded = decodeEnvelope(encoded)
+    assert.deepStrictEqual(calls, { wrapKey: 0, encrypt: 0 })
+  })
 
-    assert.strictEqual(decoded.recipients.length, 2)
-    assert.deepStrictEqual(decoded.recipients[0].kid, KID_A)
-    assert.deepStrictEqual(decoded.recipients[1].kid, KID_B)
-    assert.deepStrictEqual(await unwrapCek(decoded.recipients[0].ciphertext, KEK_A), FIXED_CEK)
-    assert.deepStrictEqual(await unwrapCek(decoded.recipients[1].ciphertext, KEK_B), FIXED_CEK)
-    assert.deepStrictEqual(decoded.protectedHeader.appMetadata, toNullProto({ state: 'before' }))
+  it('imports the CEK once and each recipient KEK once, by algorithm', async () => {
+    const subtle = globalThis.crypto.subtle
+    const original = subtle.importKey
+    const importsByAlgorithm = new Map<string, number>()
+    subtle.importKey = ((...args: Parameters<SubtleCrypto['importKey']>) => {
+      const algorithm = args[2]
+      const name = typeof algorithm === 'string' ? algorithm : algorithm.name
+      importsByAlgorithm.set(name, (importsByAlgorithm.get(name) ?? 0) + 1)
+      return original.apply(subtle, args)
+    }) as SubtleCrypto['importKey']
+
+    try {
+      await encryptFor([recipient(KEK_A, KID_A), recipient(KEK_B, KID_B)])
+    } finally {
+      subtle.importKey = original
+    }
+
+    assert.strictEqual(importsByAlgorithm.get('AES-GCM'), 1)
+    assert.strictEqual(importsByAlgorithm.get('AES-KW'), 2)
+  })
+
+  /** Record the `extractable` flag of every AES-GCM `importKey` call made by `action`. */
+  async function captureCekExtractable(action: () => Promise<unknown>): Promise<boolean[]> {
+    const subtle = globalThis.crypto.subtle
+    const original = subtle.importKey
+    const extractableFlags: boolean[] = []
+    subtle.importKey = ((...args: Parameters<SubtleCrypto['importKey']>) => {
+      const algorithm = args[2]
+      const name = typeof algorithm === 'string' ? algorithm : algorithm.name
+      if (name === 'AES-GCM') {
+        extractableFlags.push(args[3])
+      }
+      return original.apply(subtle, args)
+    }) as SubtleCrypto['importKey']
+    try {
+      await action()
+    } finally {
+      subtle.importKey = original
+    }
+    return extractableFlags
+  }
+
+  it('imports the CEK as extractable only when it will be wrapped for recipients', async () => {
+    const withoutRecipients = await captureCekExtractable(() =>
+      withRandomValues(fixedRandomValues, () => encrypt(new Uint8Array(HELLO), { cek: new Uint8Array(FIXED_CEK) }))
+    )
+    assert.deepStrictEqual(withoutRecipients, [false])
+
+    const withRecipients = await captureCekExtractable(() => encryptFor([recipient(KEK_A, KID_A)]))
+    assert.deepStrictEqual(withRecipients, [true])
+
+    const encoded = await encryptFor([recipient(KEK_A, KID_A)])
+    const decrypting = await captureCekExtractable(() => decrypt(encoded, new Uint8Array(FIXED_CEK)))
+    assert.deepStrictEqual(decrypting, [false])
+  })
+
+  it('wraps recipient keys sequentially, never more than one in flight', async () => {
+    const subtle = globalThis.crypto.subtle
+    const originalImportKey = subtle.importKey
+    const originalWrapKey = subtle.wrapKey
+    let inFlight = 0
+    let maxInFlight = 0
+
+    const track = <A extends unknown[], R>(fn: (...args: A) => Promise<R>) =>
+      (async (...args: A) => {
+        inFlight++
+        maxInFlight = Math.max(maxInFlight, inFlight)
+        try {
+          return await fn(...args)
+        } finally {
+          inFlight--
+        }
+      }) as (...args: A) => Promise<R>
+
+    subtle.importKey = track(originalImportKey.bind(subtle)) as SubtleCrypto['importKey']
+    subtle.wrapKey = track(originalWrapKey.bind(subtle)) as SubtleCrypto['wrapKey']
+
+    try {
+      await encryptFor([recipient(KEK_A, KID_A), recipient(KEK_B, KID_B), recipient(KEK_A)])
+    } finally {
+      subtle.importKey = originalImportKey
+      subtle.wrapKey = originalWrapKey
+    }
+
+    assert.strictEqual(maxInFlight, 1)
+  })
+
+  it('makes zero crypto calls when a late recipient (index 2 of 3) is malformed', async () => {
+    let randomCalls = 0
+    const observeRandomValues = ((array: Uint8Array<ArrayBuffer>) => {
+      randomCalls++
+      return fixedRandomValues(array)
+    }) as Crypto['getRandomValues']
+
+    const subtle = globalThis.crypto.subtle
+    const originalImportKey = subtle.importKey
+    const originalWrapKey = subtle.wrapKey
+    const originalEncrypt = subtle.encrypt
+    const calls = { importKey: 0, wrapKey: 0, encrypt: 0 }
+    subtle.importKey = ((...args: Parameters<SubtleCrypto['importKey']>) => {
+      calls.importKey++
+      return originalImportKey.apply(subtle, args)
+    }) as SubtleCrypto['importKey']
+    subtle.wrapKey = ((...args: Parameters<SubtleCrypto['wrapKey']>) => {
+      calls.wrapKey++
+      return originalWrapKey.apply(subtle, args)
+    }) as SubtleCrypto['wrapKey']
+    subtle.encrypt = ((...args: Parameters<SubtleCrypto['encrypt']>) => {
+      calls.encrypt++
+      return originalEncrypt.apply(subtle, args)
+    }) as SubtleCrypto['encrypt']
+
+    try {
+      await withRandomValues(observeRandomValues, async () => {
+        await assert.rejects(
+          encryptFor([
+            recipient(KEK_A, KID_A),
+            recipient(KEK_B, KID_B),
+            { alg: ALG_ECDH_ES_A256KW, kek: new Uint8Array(KEK_A) },
+          ] as A256KWRecipient[]),
+          MalformedEnvelopeError
+        )
+      })
+    } finally {
+      subtle.importKey = originalImportKey
+      subtle.wrapKey = originalWrapKey
+      subtle.encrypt = originalEncrypt
+    }
+
+    assert.strictEqual(randomCalls, 0)
+    assert.deepStrictEqual(calls, { importKey: 0, wrapKey: 0, encrypt: 0 })
+  })
+
+  it('reads each recipient property exactly once', async () => {
+    const reads = { alg: 0, kek: 0, kid: 0 }
+    const recipientWithGetters: A256KWRecipient = {
+      get alg(): typeof ALG_A256KW {
+        reads.alg++
+        return ALG_A256KW
+      },
+      get kek() {
+        reads.kek++
+        return new Uint8Array(KEK_A)
+      },
+      get kid() {
+        reads.kid++
+        return new Uint8Array(KID_A)
+      },
+    }
+
+    await encryptFor([recipientWithGetters])
+
+    assert.deepStrictEqual(reads, { alg: 1, kek: 1, kid: 1 })
   })
 
   it('rejects a kid that cannot fit before copying keys or starting cryptography', async () => {
