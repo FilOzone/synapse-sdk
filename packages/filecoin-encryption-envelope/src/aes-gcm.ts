@@ -1,10 +1,10 @@
 /**
  * Whole-object AES-256-GCM encryption and decryption (FEE scheme 1).
  *
- * This module owns IV generation, COSE framing, AAD construction, and the
- * Web Crypto operations. Encryption returns one encoded FEE object: envelope
- * followed by detached ciphertext and its 16-byte authentication tag.
- * Decryption accepts that complete layout and a directly supplied CEK.
+ * This module orchestrates scheme 1 — IV generation, COSE framing, AAD
+ * construction — and delegates Web Crypto calls to `internal/web-crypto.ts`.
+ * Encryption returns one encoded FEE object: envelope, detached ciphertext,
+ * and its 16-byte tag. Decryption accepts that layout and a supplied CEK.
  */
 import { ALG_AES_256_GCM, MAX_AES_GCM_PLAINTEXT_SIZE, NONCE_SIZE, TAG_SIZE } from './constants.ts'
 import { decodeEnvelope } from './cose/decode.ts'
@@ -148,8 +148,7 @@ export async function decrypt(encoded: Uint8Array, cek: Uint8Array): Promise<Uin
 
   const ciphertext = sliceCiphertext(encoded, decoded.envelopeLength)
   const additionalData = encStructure(decoded.tag, decoded.protectedHeader.bytes)
-  // Derived from `encoded`, already confirmed ArrayBuffer-backed above.
-  const iv = decoded.protectedHeader.iv as Uint8Array<ArrayBuffer>
+  const iv = new Uint8Array(decoded.protectedHeader.iv)
   const key = await importAesGcmKey(cek, 'decrypt', false)
   return await aesGcmDecrypt(key, iv, additionalData, ciphertext)
 }
