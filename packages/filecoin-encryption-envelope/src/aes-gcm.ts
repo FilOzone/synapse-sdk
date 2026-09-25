@@ -4,10 +4,12 @@
  * This module orchestrates scheme 1 — IV generation, COSE framing, AAD
  * construction — and delegates Web Crypto calls to `internal/web-crypto.ts`.
  * Encryption returns one encoded FEE object: envelope, detached ciphertext,
- * and its 16-byte tag. Decryption accepts that layout and a supplied CEK.
+ * and its 16-byte tag. Decryption accepts that layout and either a directly
+ * supplied CEK (`decrypt`) or a CEK recovered from a recipient (`decryptWith`).
  */
 import { ALG_AES_256_GCM, MAX_AES_GCM_PLAINTEXT_SIZE, NONCE_SIZE, TAG_SIZE } from './constants.ts'
-import { decodeEnvelope } from './cose/decode.ts'
+import { TAG_ENCRYPT0 } from './cose/constants.ts'
+import { type DecodedEnvelope, decodeEnvelope } from './cose/decode.ts'
 import { encStructure } from './cose/enc-structure.ts'
 import { assemblePreparedEnvelope } from './cose/encode.ts'
 import type { AppMetadata } from './cose/headers.ts'
@@ -17,12 +19,15 @@ import {
   InvalidPlaintextError,
   InvalidPlaintextLengthError,
   MalformedEnvelopeError,
+  NoUsableRecipientError,
+  RecipientUnwrapError,
   UnsupportedSchemeError,
 } from './errors.ts'
 import { assertAes256Key, assertArrayBufferBacked } from './internal/keys.ts'
 import { aesGcmDecrypt, aesGcmEncrypt, importAesGcmKey, randomBytes } from './internal/web-crypto.ts'
+import { toRecipientInfo } from './recipients/info.ts'
 import { createRecipientRecords, prepareRecipientInputs } from './recipients/prepare.ts'
-import type { Recipient } from './recipients/types.ts'
+import type { Recipient, Unwrapper } from './recipients/types.ts'
 
 const MAX_AES_GCM_CIPHERTEXT_SIZE = MAX_AES_GCM_PLAINTEXT_SIZE + TAG_SIZE
 
@@ -114,16 +119,21 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
   return joinEnvelopeAndCiphertext(prepared.bytes, ciphertext)
 }
 
+/** Values `decrypt` and `decryptWith` both need, once the envelope shape is settled. */
+interface PreparedDecryption {
+  decoded: DecodedEnvelope
+  ciphertext: Uint8Array<ArrayBuffer>
+  additionalData: Uint8Array<ArrayBuffer>
+  iv: Uint8Array<ArrayBuffer>
+}
+
 /**
- * Authenticate and decrypt a complete scheme-1 FEE object with a supplied CEK.
- *
- * Both COSE_Encrypt0 and COSE_Encrypt are accepted. The envelope tag selects
- * the AAD context; recipient records are validated by the COSE decoder but do
- * not participate when the caller supplies the CEK directly. Borrows its
- * inputs: callers must not modify `encoded` or `cek` until the promise settles.
+ * Shared steps for both decryption entry points: input backing check, decode,
+ * content-algorithm check, detached-ciphertext view, AAD, and IV. Neither
+ * caller's remaining checks (CEK shape, recipient presence) belong here, since
+ * `decrypt` and `decryptWith` order them differently against this common work.
  */
-export async function decrypt(encoded: Uint8Array, cek: Uint8Array): Promise<Uint8Array> {
-  assertAes256Key(cek, 'CEK')
+function prepareDecryption(encoded: Uint8Array): PreparedDecryption {
   if (encoded instanceof Uint8Array) {
     assertArrayBufferBacked(encoded, 'envelope input', (message) => new MalformedEnvelopeError(message))
   }
@@ -138,6 +148,63 @@ export async function decrypt(encoded: Uint8Array, cek: Uint8Array): Promise<Uin
   const ciphertext = sliceCiphertext(encoded, decoded.envelopeLength)
   const additionalData = encStructure(decoded.tag, decoded.protectedHeader.bytes)
   const iv = new Uint8Array(decoded.protectedHeader.iv)
+  return { decoded, ciphertext, additionalData, iv }
+}
+
+/**
+ * Authenticate and decrypt a complete scheme-1 FEE object with a supplied CEK.
+ *
+ * Both COSE_Encrypt0 and COSE_Encrypt are accepted. The envelope tag selects
+ * the AAD context; recipient records are validated by the COSE decoder but do
+ * not participate when the caller supplies the CEK directly. Borrows its
+ * inputs: callers must not modify `encoded` or `cek` until the promise settles.
+ */
+export async function decrypt(encoded: Uint8Array, cek: Uint8Array): Promise<Uint8Array> {
+  assertAes256Key(cek, 'CEK')
+  const { ciphertext, additionalData, iv } = prepareDecryption(encoded)
+  const key = await importAesGcmKey(cek, 'decrypt', false)
+  return await aesGcmDecrypt(key, iv, additionalData, ciphertext)
+}
+
+/**
+ * Authenticate and decrypt a complete scheme-1 FEE object, recovering its CEK
+ * from a recipient via `unwrapper`.
+ *
+ * Accepts only `COSE_Encrypt` (tag 96); a tag-16 envelope carries no
+ * recipients and fails with `NoUsableRecipientError` without calling
+ * `unwrapper`. Borrows `encoded`: callers must not modify it until the
+ * returned promise settles. Each recipient is copied into an isolated
+ * `RecipientInfo` before reaching `unwrapper`, so the caller's `encoded` bytes
+ * are unaffected by anything the unwrapper does to what it receives.
+ * `unwrapper` is called at most once, with every recipient in wire order; its
+ * resolved CEK is validated as an exactly 32-byte, non-zero key before use.
+ */
+export async function decryptWith(encoded: Uint8Array, unwrapper: Unwrapper): Promise<Uint8Array> {
+  if (typeof unwrapper !== 'function') {
+    throw new MalformedEnvelopeError(`Invalid unwrapper: expected a function, got ${describeCborType(unwrapper)}.`)
+  }
+
+  const { decoded, ciphertext, additionalData, iv } = prepareDecryption(encoded)
+  if (decoded.tag === TAG_ENCRYPT0) {
+    throw new NoUsableRecipientError(
+      'No usable recipient: this envelope is COSE_Encrypt0 and carries no recipients; supply the CEK directly with aesGcm.decrypt instead.'
+    )
+  }
+
+  const infos = decoded.recipients.map(toRecipientInfo)
+  let cek: Uint8Array | undefined
+  try {
+    cek = await unwrapper(infos)
+  } catch (cause) {
+    throw new RecipientUnwrapError('Recipient key recovery failed.', { cause })
+  }
+  if (cek === undefined) {
+    throw new NoUsableRecipientError(
+      `No usable recipient: none of the ${infos.length} recipients offered a usable key.`
+    )
+  }
+  assertAes256Key(cek, 'recovered CEK')
+
   const key = await importAesGcmKey(cek, 'decrypt', false)
   return await aesGcmDecrypt(key, iv, additionalData, ciphertext)
 }
