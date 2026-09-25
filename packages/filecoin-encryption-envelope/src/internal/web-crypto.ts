@@ -1,14 +1,26 @@
 /**
- * Every direct call into `globalThis.crypto.subtle` in this package: AES-GCM
- * import/encrypt/decrypt and AES-KW import/wrap/unwrap. This module owns
- * only Web Crypto mechanics and their error mapping — no COSE, no recipient
- * logic, no key validation, no all-zero checks (see `./keys.ts` for that).
+ * Every direct call into `globalThis.crypto` in this package: randomness plus
+ * `subtle`'s AES-GCM import/encrypt/decrypt and AES-KW import/wrap/unwrap.
+ * This module owns only Web Crypto mechanics and their error mapping — no
+ * COSE, no recipient logic, no key validation, no all-zero checks (see
+ * `./keys.ts` for that).
  */
 import { AuthenticationError, CryptoOperationError } from '../errors.ts'
 
 /** Web Crypto reports an AEAD tag or AES-KW integrity failure as a DOMException named OperationError. */
 function isOperationError(cause: unknown): boolean {
   return cause !== null && typeof cause === 'object' && 'name' in cause && cause.name === 'OperationError'
+}
+
+/** Generate `length` cryptographically random bytes. */
+export function randomBytes(length: number): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(length)
+  try {
+    globalThis.crypto.getRandomValues(bytes)
+  } catch (cause) {
+    throw new CryptoOperationError(`Could not generate ${length} random bytes.`, { cause })
+  }
+  return bytes
 }
 
 /** Import a raw AES-GCM key. */

@@ -88,17 +88,27 @@ export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
  * (`COSE_Encrypt0`); a non-empty list selects tag 96 (`COSE_Encrypt`).
  */
 export function assemblePreparedEnvelope(
-  protectedBytes: Uint8Array,
-  records?: readonly RecipientInput[]
+  envelopeProtectedBytes: Uint8Array,
+  records: readonly RecipientInput[] = []
 ): PreparedEnvelope {
-  const recipients: CborValue[][] = (records ?? []).map(({ protectedBytes, unprotected, ciphertext }) => [
-    protectedBytes,
-    unprotected,
-    ciphertext,
-  ])
-  return assemble(protectedBytes, recipients)
+  const recipients: CborValue[][] = records.map(
+    ({ protectedBytes: recipientProtectedBytes, unprotected, ciphertext }) => [
+      recipientProtectedBytes,
+      unprotected,
+      ciphertext,
+    ]
+  )
+
+  return assemble(envelopeProtectedBytes, recipients)
 }
 
+/**
+ * Validate caller-supplied recipient records and convert them to
+ * `[protected, unprotected, ciphertext]` tuples. Omitted input yields `[]`
+ * (tag 16); an empty array is rejected. Each record must pass the same
+ * header rules `decodeEnvelope` applies, and its unprotected map must be
+ * encodable within the decoder's depth limit.
+ */
 function prepareRecipientRecords(recipientInputs: readonly RecipientInput[] | undefined): CborValue[][] {
   if (recipientInputs !== undefined) {
     if (!Array.isArray(recipientInputs)) {
