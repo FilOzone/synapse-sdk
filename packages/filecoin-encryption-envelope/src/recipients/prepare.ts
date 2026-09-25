@@ -3,13 +3,13 @@ import { A256KW_WRAPPED_CEK_SIZE, MAX_ENVELOPE_SIZE } from '../cose/constants.ts
 import type { RecipientInput } from '../cose/encode.ts'
 import { describeCborType } from '../cose/headers.ts'
 import { MalformedEnvelopeError } from '../errors.ts'
-import { createA256KWRecipientRecord, type PreparedA256KWRecipient, parseA256KWRecipient } from './a256kw.ts'
+import { createA256KWRecipientRecord, type ParsedA256KWKey, parseA256KWRecipient } from './a256kw.ts'
 
 /**
  * Read and validate all recipient inputs. Omission selects COSE_Encrypt0; an
  * empty list is always a caller error.
  */
-export function prepareRecipientInputs(value: unknown): readonly PreparedA256KWRecipient[] | undefined {
+export function prepareRecipientInputs(value: unknown): readonly ParsedA256KWKey[] | undefined {
   if (value === undefined) {
     return undefined
   }
@@ -22,7 +22,7 @@ export function prepareRecipientInputs(value: unknown): readonly PreparedA256KWR
     )
   }
 
-  const recipients: PreparedA256KWRecipient[] = []
+  const recipients: ParsedA256KWKey[] = []
   let minimumPayloadSize = 0
   // Indexed, not `.map`: a sparse hole must be validated, not skipped.
   for (let index = 0; index < value.length; index++) {
@@ -41,7 +41,7 @@ export function prepareRecipientInputs(value: unknown): readonly PreparedA256KWR
  */
 export async function createRecipientRecords(
   cekKey: CryptoKey,
-  recipients: readonly PreparedA256KWRecipient[]
+  recipients: readonly ParsedA256KWKey[]
 ): Promise<RecipientInput[]> {
   const records: RecipientInput[] = []
   for (const recipient of recipients) {

@@ -139,7 +139,7 @@ export interface DecodedRecipientHeaders {
  * preserves integer map labels, while `retainStringBytes` allows
  * {@link createStrictTokenizer} to validate the original UTF-8.
  */
-export const DECODE_OPTIONS: DecodeOptions = {
+const DECODE_OPTIONS: DecodeOptions = {
   useMaps: true,
   strict: true,
   rejectDuplicateMapKeys: true,
@@ -333,7 +333,7 @@ export function describeCborType(value: unknown): string {
 }
 
 /** The IV length this profile requires for `alg`: 12 bytes (scheme 1) or 7 bytes (chunked base nonce). */
-export function ivLengthForAlg(alg: Alg): number {
+function ivLengthForAlg(alg: Alg): number {
   return alg === ALG_AES_256_GCM ? NONCE_SIZE : BASE_NONCE_SIZE
 }
 

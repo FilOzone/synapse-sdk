@@ -136,6 +136,25 @@ describe('aesGcm.decryptWith', () => {
 
       assert.deepStrictEqual(await decryptWith(encoded, unwrapper), HELLO)
     })
+
+    it('passes a recipient whose algorithm it does not know through to a custom unwrapper', async () => {
+      // decryptWith must not filter recipients by algorithm itself: custom
+      // and threshold schemes rely on seeing every recipient, known or not.
+      const unknownRecipient: RecipientInput = {
+        protectedBytes: new Uint8Array(0),
+        unprotected: new Map([[HEADER_ALG, -999]]),
+        ciphertext: new Uint8Array(40),
+      }
+      const encoded = await encryptTag96WithWebCrypto(HELLO, FIXED_CEK, [unknownRecipient])
+      const unwrapper: Unwrapper = async (recipients) => {
+        assert.strictEqual(recipients.length, 1)
+        assert.strictEqual(recipients[0].alg, -999)
+        assert.strictEqual(recipients[0].index, 0)
+        return new Uint8Array(FIXED_CEK)
+      }
+
+      assert.deepStrictEqual(await decryptWith(encoded, unwrapper), HELLO)
+    })
   })
 
   describe('no usable recipient', () => {
