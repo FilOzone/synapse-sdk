@@ -9,7 +9,7 @@
 import { ALG_AES_256_GCM, MAX_AES_GCM_PLAINTEXT_SIZE, NONCE_SIZE, TAG_SIZE } from './constants.ts'
 import { decodeEnvelope } from './cose/decode.ts'
 import { encStructure } from './cose/enc-structure.ts'
-import { assembleEnvelope } from './cose/encode.ts'
+import { assemblePreparedEnvelope } from './cose/encode.ts'
 import type { CborValue } from './cose/headers.ts'
 import { describeCborType, encodeProtectedHeader } from './cose/headers.ts'
 import {
@@ -118,7 +118,7 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
   const records = recipients === undefined ? undefined : await createRecipientRecords(cekKey, recipients)
 
   // Fails on the envelope-size limit here, before any content encryption.
-  const prepared = assembleEnvelope(protectedBytes, records)
+  const prepared = assemblePreparedEnvelope(protectedBytes, records)
   const additionalData = encStructure(prepared.tag, prepared.protectedBytes)
   const ciphertext = await aesGcmEncrypt(cekKey, iv, additionalData, plaintext)
 

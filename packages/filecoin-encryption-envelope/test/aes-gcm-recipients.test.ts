@@ -385,4 +385,18 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
     })
     assert.deepStrictEqual(calls, { wrapKey: 0, encrypt: 0 })
   })
+
+  it('still enforces the exact MAX_ENVELOPE_SIZE ceiling once CBOR framing is added, even after the budget check passes', async () => {
+    // The pre-crypto budget check only sums WRAPPED_CEK_SIZE + kid.length; it
+    // has no way to know the CBOR framing overhead (tags, array/map headers,
+    // the protected header) that assembly adds on top. A kid sized to fill
+    // the budget exactly therefore clears that check but yields an encoded
+    // envelope a little over MAX_ENVELOPE_SIZE, which assembly must still catch.
+    const kid = new Uint8Array(MAX_ENVELOPE_SIZE - WRAPPED_CEK_SIZE)
+
+    const calls = await countCryptoCalls(async () => {
+      await assert.rejects(encryptFor([recipient(KEK_A, kid)]), /exceeds the \d+-byte decode ceiling/)
+    })
+    assert.strictEqual(calls.encrypt, 0)
+  })
 })

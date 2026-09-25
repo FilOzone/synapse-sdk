@@ -3,6 +3,12 @@
  * optional recipients into the wire-format COSE structure (docs/tech-spec.md,
  * "Wire profile" and "CDDL"). This module only shapes bytes — no AEAD, no
  * key wrap, no chunk framing; those live in layers above this one.
+ *
+ * Two paths: `prepareEnvelope`/`encodeEnvelope` validate arbitrary structured
+ * input and are the checked conformance encoder, used by wire-format tests to
+ * build fixtures and check encode/decode symmetry. `assemblePreparedEnvelope`
+ * skips that validation and assembles records the library already built and
+ * trusts; the AEAD layer uses it.
  */
 import { encode as cborEncode, rfc8949EncodeOptions, Tagged } from 'cborg'
 import { MalformedEnvelopeError } from '../errors.ts'
@@ -51,14 +57,10 @@ export interface EncodeEnvelopeInput {
 }
 
 /**
- * Result used by the AEAD layer while preparing detached ciphertext.
- *
- * This type and {@link prepareEnvelope} are intentionally omitted from the
- * public `cose` barrel. Callers that only shape COSE bytes use
- * {@link encodeEnvelope}; the AEAD layer also needs the exact protected bytes
- * placed in the envelope because `Enc_structure` must use those bytes.
- * Encoding again would re-read caller-owned header values, which can change
- * or return different values through getters.
+ * Result of assembling an envelope: its encoded bytes, the exact protected
+ * bytes placed inside it, and its tag. `protectedBytes` is returned because
+ * the AEAD layer's `Enc_structure` must use those exact bytes, not a
+ * re-encode of the header values that produced them.
  */
 export interface PreparedEnvelope {
   bytes: Uint8Array
@@ -67,11 +69,13 @@ export interface PreparedEnvelope {
 }
 
 /**
- * Encode an envelope and retain the protected bytes needed by the AEAD layer.
- *
- * The encoder enforces the same structural rules as `decodeEnvelope`, so it
- * cannot produce an envelope the decoder would reject. Protected header
- * rules are handled by `encodeProtectedHeader`.
+ * Validate arbitrary structured input and encode an envelope, retaining the
+ * protected bytes. This is the checked conformance encoder: it enforces the
+ * same structural rules as `decodeEnvelope`, so it cannot produce an envelope
+ * the decoder would reject. Wire-format tests use it to build fixtures and
+ * check encode/decode symmetry; production code does not call it, because it
+ * re-validates recipient records the library already built and trusts (see
+ * `assemblePreparedEnvelope`).
  */
 export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
   if (input === null || typeof input !== 'object') {
@@ -85,12 +89,24 @@ export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
 }
 
 /**
- * Assemble an envelope around protected bytes that `encodeProtectedHeader`
- * already produced. For the AEAD layer, which must fix the protected header
- * before its first `await` but only has recipient records after key wrapping.
+ * Assemble an envelope from protected bytes and recipient records the
+ * library already built and trusts — skips `prepareRecipientRecords`'s
+ * caller-input validation entirely. The AEAD layer uses this: it fixes the
+ * protected header before its first `await` but only has recipient records
+ * after key wrapping, and it built those records itself, so re-validating
+ * them here would be redundant. `records` omitted selects tag 16
+ * (`COSE_Encrypt0`); a non-empty list selects tag 96 (`COSE_Encrypt`).
  */
-export function assembleEnvelope(protectedBytes: Uint8Array, recipients?: readonly RecipientInput[]): PreparedEnvelope {
-  return assemble(protectedBytes, prepareRecipientRecords(recipients))
+export function assemblePreparedEnvelope(
+  protectedBytes: Uint8Array,
+  records?: readonly RecipientInput[]
+): PreparedEnvelope {
+  const recipients: CborValue[][] = (records ?? []).map(({ protectedBytes, unprotected, ciphertext }) => [
+    protectedBytes,
+    unprotected,
+    ciphertext,
+  ])
+  return assemble(protectedBytes, recipients)
 }
 
 function prepareRecipientRecords(recipientInputs: readonly RecipientInput[] | undefined): CborValue[][] {
@@ -156,8 +172,9 @@ function assemble(protectedBytes: Uint8Array, recipients: CborValue[][]): Prepar
 }
 
 /**
- * Encode an envelope with detached ciphertext. The caller appends the
- * ciphertext separately. See docs/tech-spec.md, "Blob layout".
+ * `prepareEnvelope`, keeping only the encoded bytes. The caller appends the
+ * detached ciphertext separately. See docs/tech-spec.md, "Blob layout". Part
+ * of the checked conformance encoder; see `prepareEnvelope`'s doc comment.
  */
 export function encodeEnvelope(input: EncodeEnvelopeInput): Uint8Array {
   return prepareEnvelope(input).bytes

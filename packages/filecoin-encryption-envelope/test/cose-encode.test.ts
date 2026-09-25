@@ -9,7 +9,7 @@ import {
 } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import type { EncodeEnvelopeInput, RecipientInput } from '../src/cose/encode.ts'
-import { encodeEnvelope, prepareEnvelope } from '../src/cose/encode.ts'
+import { assemblePreparedEnvelope, encodeEnvelope, prepareEnvelope } from '../src/cose/encode.ts'
 import type { CborValue } from '../src/cose/headers.ts'
 import { MalformedEnvelopeError } from '../src/errors.ts'
 import {
@@ -41,6 +41,14 @@ const A256KW_RECIPIENT: RecipientInput = {
   ciphertext: Uint8Array.from([9, 9, 9, 9]),
 }
 
+// D8 60 (tag 96, needs a 1-byte-follows form since 96 >= 24)
+// 84 (array/4) 58 3C <60-byte protected bstr> A0 (empty unprotected)
+// F6 (ciphertext: null) 81 (recipients: array/1)
+// 83 (recipient tuple/3) 40 (protected: h'', zero-length)
+// A2 01 24 04 42 AABB (unprotected: {1: -5, 4: h'aabb'})
+// 44 09090909 (ciphertext)
+const A256KW_ENVELOPE_TAG96_HEX = `d86084583c${MINIMAL_PROTECTED_HEADER_HEX}a0f6818340a201240442aabb4409090909`
+
 /**
  * ECDH-ES+A256KW recipient per FIP amendment 1: unlike A256KW, `alg` MUST
  * appear in the recipient protected map (its bytes feed `COSE_KDF_Context`)
@@ -61,15 +69,10 @@ describe('encodeEnvelope', () => {
 
     it('encodes an envelope with one A256KW recipient as tag 96 (COSE_Encrypt)', () => {
       assert.strictEqual(A256KW_RECIPIENT.protectedBytes.length, 0)
-
-      // D8 60 (tag 96, needs a 1-byte-follows form since 96 >= 24)
-      // 84 (array/4) 58 3C <60-byte protected bstr> A0 (empty unprotected)
-      // F6 (ciphertext: null) 81 (recipients: array/1)
-      // 83 (recipient tuple/3) 40 (protected: h'', zero-length)
-      // A2 01 24 04 42 AABB (unprotected: {1: -5, 4: h'aabb'})
-      // 44 09090909 (ciphertext)
-      const expected = hexToBytes(`d86084583c${MINIMAL_PROTECTED_HEADER_HEX}a0f6818340a201240442aabb4409090909`)
-      assert.deepStrictEqual(encodeEnvelope({ ...MINIMAL_INPUT, recipients: [A256KW_RECIPIENT] }), expected)
+      assert.deepStrictEqual(
+        encodeEnvelope({ ...MINIMAL_INPUT, recipients: [A256KW_RECIPIENT] }),
+        hexToBytes(A256KW_ENVELOPE_TAG96_HEX)
+      )
     })
 
     it('retains the exact protected bytes placed in either envelope type', () => {
@@ -540,5 +543,26 @@ describe('encodeEnvelope', () => {
         })
       )
     })
+  })
+})
+
+describe('assemblePreparedEnvelope', () => {
+  // The trusted path: no `prepareRecipientRecords` validation, so it takes
+  // raw protected bytes rather than an `EncodeEnvelopeInput` to validate.
+  const protectedBytes = hexToBytes(MINIMAL_PROTECTED_HEADER_HEX)
+
+  it('matches the tag-16 fixture with no records', () => {
+    const prepared = assemblePreparedEnvelope(protectedBytes)
+
+    assert.strictEqual(prepared.tag, TAG_ENCRYPT0)
+    assert.deepStrictEqual(prepared.protectedBytes, protectedBytes)
+    assert.deepStrictEqual(prepared.bytes, hexToBytes(MINIMAL_ENVELOPE_TAG16_HEX))
+  })
+
+  it('matches the tag-96 fixture with the existing A256KW recipient record', () => {
+    const prepared = assemblePreparedEnvelope(protectedBytes, [A256KW_RECIPIENT])
+
+    assert.strictEqual(prepared.tag, TAG_ENCRYPT)
+    assert.deepStrictEqual(prepared.bytes, hexToBytes(A256KW_ENVELOPE_TAG96_HEX))
   })
 })
