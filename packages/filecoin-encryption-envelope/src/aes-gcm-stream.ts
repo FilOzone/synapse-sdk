@@ -57,7 +57,10 @@ export interface ChunkedEncryptOptions {
  * `source.pipeThrough(encrypt(options))`. Plaintext goes in; the FEE envelope
  * followed by one encrypted chunk at a time comes out.
  *
- * - Invalid options throw synchronously; the CEK is imported on the first read.
+ * - Invalid options throw synchronously. Key work happens on the first read:
+ *   importing the CEK and, with `recipients`, wrapping it. With recipients the
+ *   `contentLength` total-size check also waits for that read (the envelope
+ *   size isn't known before), but still fails before any output.
  * - Every buffer in `options` (the CEK, recipient KEKs and kids, metadata) is
  *   borrowed and read as late as the first read: don't change or clear it
  *   until `readable` closes or errors. Input blocks may be reused once their
@@ -65,9 +68,6 @@ export interface ChunkedEncryptOptions {
  * - The base nonce is always generated internally.
  * - The final chunk is emitted only after `writable` closes.
  * - If the stream errors, any output already read is incomplete and must be discarded.
- * - With `recipients`, the CEK is wrapped on the first read too (it can't be
- *   until the CEK is imported), so the `contentLength` size check also runs
- *   there instead of synchronously -- still before any output.
  */
 export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Uint8Array, Uint8Array> {
   if (options === null || typeof options !== 'object') {
@@ -134,8 +134,9 @@ export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Ui
           if (keyed === undefined) {
             // First read: import the CEK (extractable only when wrapKey needs
             // it), wrap it for each recipient, and emit the envelope. Failed
-            // input is checked before each key operation, so a cancel stops
-            // the work after at most the current Web Crypto call.
+            // input is checked before the import and before each recipient,
+            // so a cancel stops the work after at most one recipient's KEK
+            // import and wrap.
             framer.throwIfFailed()
             const cekKey = await importAesGcmKey(cek, 'encrypt', recipients !== undefined)
             const records =
