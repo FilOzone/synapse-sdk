@@ -38,7 +38,7 @@ function contextForTag(tag: EnvelopeTag) {
  * re-encode a decoded header map, as the resulting bytes may differ and break
  * authentication.
  */
-export function encStructure(tag: EnvelopeTag, protectedHeaderBytes: Uint8Array): Uint8Array {
+export function encStructure(tag: EnvelopeTag, protectedHeaderBytes: Uint8Array): Uint8Array<ArrayBuffer> {
   const context = contextForTag(tag)
   // The CDDL requires the second element to be a bstr. Other types encode to
   // different CBOR major types and produce AAD that other implementations

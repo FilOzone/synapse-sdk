@@ -10,6 +10,29 @@ export class EnvelopeError extends Error {
   override name = 'EnvelopeError'
 }
 
+/** A CEK is not a 32-byte, non-zero AES-256 key. */
+export class InvalidKeyError extends EnvelopeError {
+  override name = 'InvalidKeyError'
+}
+
+/** Plaintext supplied to an encryption operation is not a byte string. */
+export class InvalidPlaintextError extends EnvelopeError {
+  override name = 'InvalidPlaintextError'
+}
+
+/** Randomness, key import, or an encryption operation failed. */
+export class EncryptionError extends EnvelopeError {
+  override name = 'EncryptionError'
+}
+
+/**
+ * AEAD authentication failed. A wrong key and modified authenticated data
+ * are intentionally reported as the same error.
+ */
+export class AuthenticationError extends EnvelopeError {
+  override name = 'AuthenticationError'
+}
+
 /** `chunkSize` is not an integer within `[MIN_CHUNK_SIZE, MAX_CHUNK_SIZE]`. */
 export class InvalidChunkSizeError extends EnvelopeError {
   override name = 'InvalidChunkSizeError'
@@ -26,8 +49,8 @@ export class ChunkCountExceededError extends EnvelopeError {
 }
 
 /**
- * `plaintextLength` is not a non-negative safe integer, or the ciphertext
- * length it implies is unrepresentable or past the encoded-object limit.
+ * `plaintextLength` is not a non-negative safe integer or exceeds the limit
+ * for the selected scheme or encoded layout.
  */
 export class InvalidPlaintextLengthError extends EnvelopeError {
   override name = 'InvalidPlaintextLengthError'
