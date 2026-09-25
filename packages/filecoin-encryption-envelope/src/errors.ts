@@ -20,9 +20,9 @@ export class InvalidPlaintextError extends EnvelopeError {
   override name = 'InvalidPlaintextError'
 }
 
-/** Randomness, key import, or an encryption operation failed. */
-export class EncryptionError extends EnvelopeError {
-  override name = 'EncryptionError'
+/** A cryptographic runtime operation failed for a reason other than authentication. */
+export class CryptoOperationError extends EnvelopeError {
+  override name = 'CryptoOperationError'
 }
 
 /**
@@ -38,7 +38,7 @@ export class InvalidChunkSizeError extends EnvelopeError {
   override name = 'InvalidChunkSizeError'
 }
 
-/** `ciphertextLength` is not a valid ciphertext length for the given chunk size. */
+/** The ciphertext length cannot represent a valid object for the selected scheme. */
 export class InvalidCiphertextLengthError extends EnvelopeError {
   override name = 'InvalidCiphertextLengthError'
 }

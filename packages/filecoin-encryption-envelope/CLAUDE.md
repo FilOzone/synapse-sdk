@@ -13,10 +13,10 @@ the export shape costs nothing — no downstream consumers exist.
 
 The implemented foundation is `chunk-layout.ts`, `nonce.ts`, the error hierarchy, and the `cose/`
 wire layer: strict CBOR parsing, tags 16/96, protected and unprotected headers, detached-ciphertext
-framing, `Enc_structure`, and structural recipient validation. Whole-object AES-GCM encryption and CEK
-validation are implemented in `aes-gcm.ts`. Whole-object decryption, chunked AEAD, streaming, range
-reads, and A256KW wrap/unwrap are still planned. ECDH-ES+A256KW remains deferred; the code enforces its
-settled header placement but does not derive or unwrap its KEK.
+framing, `Enc_structure`, and structural recipient validation. Whole-object AES-GCM encryption,
+decryption, and CEK validation are implemented in `aes-gcm.ts`. Chunked AEAD, streaming, range reads,
+and A256KW wrap/unwrap are still planned. ECDH-ES+A256KW remains deferred; the code enforces its settled
+header placement but does not derive or unwrap its KEK.
 
 ## Scope discipline
 

@@ -1,23 +1,29 @@
 /**
- * Whole-object AES-256-GCM encryption (FEE scheme 1).
+ * Whole-object AES-256-GCM encryption and decryption (FEE scheme 1).
  *
  * This module owns IV generation, COSE framing, AAD construction, and the
- * Web Crypto operation. Callers supply plaintext and a CEK; ciphertext is
- * returned as one encoded FEE object: envelope followed by detached
- * ciphertext and its 16-byte authentication tag.
+ * Web Crypto operations. Encryption returns one encoded FEE object: envelope
+ * followed by detached ciphertext and its 16-byte authentication tag.
+ * Decryption accepts that complete layout and a directly supplied CEK.
  */
-import { ALG_AES_256_GCM, KEY_SIZE, MAX_AES_GCM_PLAINTEXT_SIZE, NONCE_SIZE } from './constants.ts'
+import { ALG_AES_256_GCM, KEY_SIZE, MAX_AES_GCM_PLAINTEXT_SIZE, NONCE_SIZE, TAG_SIZE } from './constants.ts'
+import { decodeEnvelope } from './cose/decode.ts'
 import { encStructure } from './cose/enc-structure.ts'
 import { prepareEnvelope } from './cose/encode.ts'
 import type { CborValue } from './cose/headers.ts'
 import { describeCborType } from './cose/headers.ts'
 import {
-  EncryptionError,
+  AuthenticationError,
+  CryptoOperationError,
+  InvalidCiphertextLengthError,
   InvalidKeyError,
   InvalidPlaintextError,
   InvalidPlaintextLengthError,
   MalformedEnvelopeError,
+  UnsupportedSchemeError,
 } from './errors.ts'
+
+const MAX_AES_GCM_CIPHERTEXT_SIZE = MAX_AES_GCM_PLAINTEXT_SIZE + TAG_SIZE
 
 /** Options for one whole-object AES-256-GCM encryption. */
 export interface EncryptOptions {
@@ -60,17 +66,36 @@ function generateIv(): Uint8Array<ArrayBuffer> {
   try {
     globalThis.crypto.getRandomValues(iv)
   } catch (cause) {
-    throw new EncryptionError(`Could not generate the ${NONCE_SIZE}-byte AES-GCM IV.`, { cause })
+    throw new CryptoOperationError(`Could not generate the ${NONCE_SIZE}-byte AES-GCM IV.`, { cause })
   }
   return iv
 }
 
-async function importEncryptionKey(key: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
+type AesGcmUsage = 'encrypt' | 'decrypt'
+
+async function importKey(key: Uint8Array<ArrayBuffer>, usage: AesGcmUsage): Promise<CryptoKey> {
   try {
-    return await globalThis.crypto.subtle.importKey('raw', key, 'AES-GCM', false, ['encrypt'])
+    return await globalThis.crypto.subtle.importKey('raw', key, 'AES-GCM', false, [usage])
   } catch (cause) {
-    throw new EncryptionError('Could not import the AES-256-GCM CEK.', { cause })
+    throw new CryptoOperationError(`Could not import the AES-256-GCM CEK for an AES-GCM ${usage} operation.`, {
+      cause,
+    })
   }
+}
+
+function hasErrorName(cause: unknown, name: string): boolean {
+  return cause !== null && typeof cause === 'object' && 'name' in cause && cause.name === name
+}
+
+function snapshotCiphertext(encoded: Uint8Array, envelopeLength: number): Uint8Array<ArrayBuffer> {
+  const ciphertextLength = encoded.length - envelopeLength
+  if (ciphertextLength < TAG_SIZE || ciphertextLength > MAX_AES_GCM_CIPHERTEXT_SIZE) {
+    throw new InvalidCiphertextLengthError(
+      `Invalid AES-GCM ciphertext length ${ciphertextLength}: expected between ${TAG_SIZE} and ` +
+        `${MAX_AES_GCM_CIPHERTEXT_SIZE} bytes, including the ${TAG_SIZE}-byte authentication tag.`
+    )
+  }
+  return new Uint8Array(encoded.subarray(envelopeLength))
 }
 
 function joinEnvelopeAndCiphertext(envelope: Uint8Array, ciphertext: ArrayBuffer): Uint8Array {
@@ -116,7 +141,7 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
       },
     })
     const additionalData = encStructure(prepared.tag, prepared.protectedBytes)
-    const key = await importEncryptionKey(cek)
+    const key = await importKey(cek, 'encrypt')
 
     let ciphertext: ArrayBuffer
     try {
@@ -131,10 +156,60 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
         plaintextSnapshot
       )
     } catch (cause) {
-      throw new EncryptionError('AES-256-GCM encryption failed.', { cause })
+      throw new CryptoOperationError('AES-256-GCM encryption failed.', { cause })
     }
 
     return joinEnvelopeAndCiphertext(prepared.bytes, ciphertext)
+  } finally {
+    cek.fill(0)
+  }
+}
+
+/**
+ * Authenticate and decrypt a complete scheme-1 FEE object with a supplied CEK.
+ *
+ * Both COSE_Encrypt0 and COSE_Encrypt are accepted. The envelope tag selects
+ * the AAD context; recipient records are validated by the COSE decoder but do
+ * not participate when the caller supplies the CEK directly.
+ */
+export async function decrypt(encoded: Uint8Array, cekInput: Uint8Array): Promise<Uint8Array> {
+  const cek = snapshotCek(cekInput)
+  try {
+    const decoded = decodeEnvelope(encoded)
+    if (decoded.protectedHeader.alg !== ALG_AES_256_GCM) {
+      throw new UnsupportedSchemeError(
+        `Unsupported content algorithm ${decoded.protectedHeader.alg}: AES-GCM decryption requires alg ${ALG_AES_256_GCM}.`
+      )
+    }
+
+    const ciphertext = snapshotCiphertext(encoded, decoded.envelopeLength)
+    const iv = new Uint8Array(decoded.protectedHeader.iv)
+    const additionalData = encStructure(decoded.tag, decoded.protectedHeader.bytes)
+    const key = await importKey(cek, 'decrypt')
+
+    try {
+      const plaintext = await globalThis.crypto.subtle.decrypt(
+        {
+          name: 'AES-GCM',
+          iv,
+          additionalData,
+          tagLength: 128,
+        },
+        key,
+        ciphertext
+      )
+      return new Uint8Array(plaintext)
+    } catch (cause) {
+      if (hasErrorName(cause, 'OperationError')) {
+        throw new AuthenticationError(
+          'AES-256-GCM authentication failed: the CEK is wrong or authenticated envelope data was changed.',
+          { cause }
+        )
+      }
+      throw new CryptoOperationError('AES-256-GCM decryption failed before authentication could be established.', {
+        cause,
+      })
+    }
   } finally {
     cek.fill(0)
   }
