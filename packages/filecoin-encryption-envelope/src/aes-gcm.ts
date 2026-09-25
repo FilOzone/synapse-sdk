@@ -15,6 +15,7 @@ import { describeCborType } from './cose/headers.ts'
 import {
   AuthenticationError,
   CryptoOperationError,
+  hasErrorName,
   InvalidCiphertextLengthError,
   InvalidKeyError,
   InvalidPlaintextError,
@@ -81,10 +82,6 @@ async function importKey(key: Uint8Array<ArrayBuffer>, usage: AesGcmUsage): Prom
       cause,
     })
   }
-}
-
-function hasErrorName(cause: unknown, name: string): boolean {
-  return cause !== null && typeof cause === 'object' && 'name' in cause && cause.name === name
 }
 
 function snapshotCiphertext(encoded: Uint8Array, envelopeLength: number): Uint8Array<ArrayBuffer> {
