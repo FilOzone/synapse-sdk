@@ -13,6 +13,18 @@ export interface A256KWRecipient {
 /** Recipient input accepted by high-level encryption functions. */
 export type Recipient = A256KWRecipient
 
+/** A caller-held AES-256 KEK for unwrapping A256KW recipients. */
+export interface A256KWKey {
+  readonly kek: Uint8Array
+  readonly kid?: Uint8Array
+}
+
+/** Options for {@link createA256KWUnwrapper}. */
+export interface A256KWUnwrapperOptions {
+  /** Maximum AES-KW unwrap operations per unwrapper call. Positive safe integer; default 64. */
+  readonly maxAttempts?: number
+}
+
 /** Validated recipient data exposed to key-unwrapping adapters. */
 export interface RecipientInfo {
   /** Position in the envelope's recipient array. */

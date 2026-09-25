@@ -14,10 +14,10 @@ the export shape costs nothing — no downstream consumers exist.
 Implemented: `chunk-layout.ts`, `nonce.ts`, the error hierarchy, the `cose/` wire layer (strict CBOR
 parsing, tags 16/96, protected and unprotected headers, detached-ciphertext framing, `Enc_structure`,
 structural recipient validation), scheme-1 AES-256-GCM encryption and decryption in `aes-gcm.ts` (direct
-CEK, both tag 16 and tag 96), A256KW recipient wrapping on encryption, and the A256KW unwrap primitive.
-Not yet implemented: recipient-based decryption, the chunked scheme and streaming, range reads, and
-envelope inspection beyond decode. ECDH-ES+A256KW remains deferred; the code enforces its settled header
-placement but does not derive or unwrap its KEK.
+CEK, both tag 16 and tag 96), A256KW recipient wrapping on encryption, and the built-in A256KW
+unwrapper factory (`createA256KWUnwrapper`). Not yet implemented: `aesGcm.decryptWith`, the chunked
+scheme and streaming, range reads, and envelope inspection beyond decode. ECDH-ES+A256KW remains
+deferred; the code enforces its settled header placement but does not derive or unwrap its KEK.
 
 ## Scope discipline
 
@@ -69,8 +69,8 @@ exception is `test/public-surface.test.ts`, which tests the root barrel itself.
   is imported once per operation, extractable only when it must be wrapped.
 - Byte inputs handed to Web Crypto must be ArrayBuffer-backed; SharedArrayBuffer-backed views are
   rejected with the relevant input error.
-- Copy only data handed to caller code (e.g. the recipient view given to an unwrapper), so the callback
-  cannot alter the caller's encoded input.
+- Copy only data handed to caller code or retained beyond the call (e.g. the recipient view given to an
+  unwrapper; the kids `createA256KWUnwrapper` retains for later matching across calls).
 - Recipient key operations run sequentially; never start one Web Crypto operation per recipient at once.
 - Web Crypto calls live only in `src/internal/web-crypto.ts`, which owns error mapping; key-shape
   validation lives in `src/internal/keys.ts`.

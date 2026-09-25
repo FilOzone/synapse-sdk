@@ -32,13 +32,16 @@ const MINIMAL_INPUT: EncodeEnvelopeInput = {
  * unprotected map instead. `[h'', {1: -5, 4: key_identifier}, wrapped_cek]`
  * in the amendment's own notation.
  */
+// A256KW's ciphertext must be exactly 40 bytes (a 32-byte CEK plus RFC
+// 3394's 8-byte integrity block); this fixture's dummy wrapped key uses that
+// length so it is a well-formed A256KW recipient wherever it is reused.
 const A256KW_RECIPIENT: RecipientInput = {
   protectedBytes: new Uint8Array(0),
   unprotected: new Map<number, CborValue>([
     [1, ALG_A256KW],
     [4, Uint8Array.from([0xaa, 0xbb])], // kid
   ]),
-  ciphertext: Uint8Array.from([9, 9, 9, 9]),
+  ciphertext: new Uint8Array(40).fill(9),
 }
 
 // D8 60 (tag 96, needs a 1-byte-follows form since 96 >= 24)
@@ -46,8 +49,8 @@ const A256KW_RECIPIENT: RecipientInput = {
 // F6 (ciphertext: null) 81 (recipients: array/1)
 // 83 (recipient tuple/3) 40 (protected: h'', zero-length)
 // A2 01 24 04 42 AABB (unprotected: {1: -5, 4: h'aabb'})
-// 44 09090909 (ciphertext)
-const A256KW_ENVELOPE_TAG96_HEX = `d86084583c${MINIMAL_PROTECTED_HEADER_HEX}a0f6818340a201240442aabb4409090909`
+// 58 28 <40 bytes of 0x09> (ciphertext: 40-byte bstr, 1-byte-follows length form)
+const A256KW_ENVELOPE_TAG96_HEX = `d86084583c${MINIMAL_PROTECTED_HEADER_HEX}a0f6818340a201240442aabb5828${'09'.repeat(40)}`
 
 /**
  * ECDH-ES+A256KW recipient per FIP amendment 1: unlike A256KW, `alg` MUST
@@ -159,6 +162,17 @@ describe('encodeEnvelope', () => {
       assert.throws(() => encodeEnvelope({ ...MINIMAL_INPUT, recipients: [recipient] }), MalformedEnvelopeError)
     })
 
+    it('rejects an A256KW recipient ciphertext that is not exactly 40 bytes', () => {
+      for (const badLength of [39, 41]) {
+        const recipient: RecipientInput = {
+          protectedBytes: new Uint8Array(0),
+          unprotected: new Map<number, CborValue>([[1, ALG_A256KW]]),
+          ciphertext: new Uint8Array(badLength),
+        }
+        assert.throws(() => encodeEnvelope({ ...MINIMAL_INPUT, recipients: [recipient] }), MalformedEnvelopeError)
+      }
+    })
+
     it('rejects a recipient whose protected field or unprotected map is the wrong runtime type', () => {
       const badProtected = {
         protectedBytes: 'not bytes',
@@ -185,7 +199,7 @@ describe('encodeEnvelope', () => {
           [1, ALG_A256KW],
           ['x-app-hint', 'anything'],
         ]),
-        ciphertext: Uint8Array.from([9, 9, 9, 9]),
+        ciphertext: new Uint8Array(40).fill(9),
       }
       const decoded = decodeEnvelope(encodeEnvelope({ ...MINIMAL_INPUT, recipients: [recipient] }))
       assert.strictEqual(decoded.recipients[0].unprotected.get('x-app-hint'), 'anything')
@@ -233,7 +247,7 @@ describe('encodeEnvelope', () => {
           [1, ALG_A256KW],
           [100, 1.5],
         ]),
-        ciphertext: Uint8Array.from([9, 9, 9, 9]),
+        ciphertext: new Uint8Array(40).fill(9),
       }
       assert.throws(
         () => encodeEnvelope({ ...MINIMAL_INPUT, recipients: [recipientWithFloat] }),
@@ -294,7 +308,7 @@ describe('encodeEnvelope', () => {
           [1, ALG_A256KW],
           [100, value],
         ]),
-        ciphertext: Uint8Array.from([9, 9, 9, 9]),
+        ciphertext: new Uint8Array(40).fill(9),
       })
 
       const lastAccepted = nestedArray(250)

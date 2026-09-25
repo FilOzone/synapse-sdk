@@ -1,14 +1,9 @@
 /** Validate recipient inputs and build their COSE records. */
-import { MAX_ENVELOPE_SIZE } from '../cose/constants.ts'
+import { A256KW_WRAPPED_CEK_SIZE, MAX_ENVELOPE_SIZE } from '../cose/constants.ts'
 import type { RecipientInput } from '../cose/encode.ts'
 import { describeCborType } from '../cose/headers.ts'
 import { MalformedEnvelopeError } from '../errors.ts'
-import {
-  createA256KWRecipientRecord,
-  type PreparedA256KWRecipient,
-  parseA256KWRecipient,
-  WRAPPED_CEK_SIZE,
-} from './a256kw.ts'
+import { createA256KWRecipientRecord, type PreparedA256KWRecipient, parseA256KWRecipient } from './a256kw.ts'
 
 /**
  * Read and validate all recipient inputs. Omission selects COSE_Encrypt0; an
@@ -33,7 +28,7 @@ export function prepareRecipientInputs(value: unknown): readonly PreparedA256KWR
   for (let index = 0; index < value.length; index++) {
     const recipient = parseA256KWRecipient(value[index], `recipients[${index}]`, MAX_ENVELOPE_SIZE - minimumPayloadSize)
     recipients.push(recipient)
-    minimumPayloadSize += WRAPPED_CEK_SIZE + (recipient.kid?.length ?? 0)
+    minimumPayloadSize += A256KW_WRAPPED_CEK_SIZE + (recipient.kid?.length ?? 0)
   }
 
   return recipients

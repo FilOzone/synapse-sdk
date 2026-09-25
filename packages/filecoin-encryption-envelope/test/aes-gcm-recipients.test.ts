@@ -2,6 +2,7 @@ import assert from 'node:assert'
 import { decrypt, encrypt } from '../src/aes-gcm.ts'
 import { KEY_SIZE } from '../src/constants.ts'
 import {
+  A256KW_WRAPPED_CEK_SIZE,
   ALG_A256KW,
   ALG_ECDH_ES_A256KW,
   HEADER_ALG,
@@ -13,7 +14,7 @@ import {
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import { encStructure } from '../src/cose/enc-structure.ts'
 import { InvalidKeyError, MalformedEnvelopeError } from '../src/errors.ts'
-import { unwrapCek, WRAPPED_CEK_SIZE } from '../src/recipients/a256kw.ts'
+import { aesKwUnwrap, importAesKwKey } from '../src/internal/web-crypto.ts'
 import type { A256KWRecipient } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedRandomValues, HELLO, HELLO_VECTOR_HEX, withRandomValues } from './aes-gcm-fixtures.ts'
 import { hexToBytes, MINIMAL_PROTECTED_HEADER_HEX } from './cose-fixtures.ts'
@@ -32,6 +33,12 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
   const TAG96_HELLO_VECTOR_HEX =
     `d86084583c${MINIMAL_PROTECTED_HEADER_HEX}a0f6818340a201240442a1a25828${WRAPPED_UNDER_KEK_A}` +
     '2f67ba77aac8eb27d5b3f96ae7c50d40f2cdc7c20a'
+
+  /** Unwrap a wrapped CEK with a raw KEK, bypassing this package's recipient-level API. */
+  async function unwrapWithKek(wrappedCek: Uint8Array, kek: Uint8Array): Promise<Uint8Array | undefined> {
+    const kekKey = await importAesKwKey(new Uint8Array(kek), 'unwrapKey')
+    return aesKwUnwrap(new Uint8Array(wrappedCek), kekKey)
+  }
 
   function recipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipient {
     return kid === undefined
@@ -95,7 +102,7 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
 
     assert.deepStrictEqual(record.unprotected, new Map([[HEADER_ALG, ALG_A256KW]]))
     assert.strictEqual(record.kid, undefined)
-    assert.deepStrictEqual(await unwrapCek(record.ciphertext, KEK_A), FIXED_CEK)
+    assert.deepStrictEqual(await unwrapWithKek(record.ciphertext, KEK_A), FIXED_CEK)
   })
 
   it('wraps the same CEK for every recipient, in order, each under its own KEK only', async () => {
@@ -104,10 +111,10 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
 
     assert.deepStrictEqual(first.kid, KID_A)
     assert.deepStrictEqual(second.kid, KID_B)
-    assert.deepStrictEqual(await unwrapCek(first.ciphertext, KEK_A), FIXED_CEK)
-    assert.deepStrictEqual(await unwrapCek(second.ciphertext, KEK_B), FIXED_CEK)
-    assert.strictEqual(await unwrapCek(first.ciphertext, KEK_B), undefined)
-    assert.strictEqual(await unwrapCek(second.ciphertext, KEK_A), undefined)
+    assert.deepStrictEqual(await unwrapWithKek(first.ciphertext, KEK_A), FIXED_CEK)
+    assert.deepStrictEqual(await unwrapWithKek(second.ciphertext, KEK_B), FIXED_CEK)
+    assert.strictEqual(await unwrapWithKek(first.ciphertext, KEK_B), undefined)
+    assert.strictEqual(await unwrapWithKek(second.ciphertext, KEK_A), undefined)
   })
 
   it('authenticates content under the Encrypt context, not Encrypt0', async () => {
@@ -380,7 +387,7 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
   })
 
   it('rejects a recipient count whose wrapped CEKs alone cannot fit before cryptography', async () => {
-    const impossibleCount = Math.floor(MAX_ENVELOPE_SIZE / WRAPPED_CEK_SIZE) + 1
+    const impossibleCount = Math.floor(MAX_ENVELOPE_SIZE / A256KW_WRAPPED_CEK_SIZE) + 1
     const recipients = new Array<A256KWRecipient>(impossibleCount).fill(recipient(KEK_A))
 
     const calls = await countCryptoCalls(async () => {
@@ -390,12 +397,12 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
   })
 
   it('still enforces the exact MAX_ENVELOPE_SIZE ceiling once CBOR framing is added, even after the budget check passes', async () => {
-    // The pre-crypto budget check only sums WRAPPED_CEK_SIZE + kid.length; it
+    // The pre-crypto budget check only sums A256KW_WRAPPED_CEK_SIZE + kid.length; it
     // has no way to know the CBOR framing overhead (tags, array/map headers,
     // the protected header) that assembly adds on top. A kid sized to fill
     // the budget exactly therefore clears that check but yields an encoded
     // envelope a little over MAX_ENVELOPE_SIZE, which assembly must still catch.
-    const kid = new Uint8Array(MAX_ENVELOPE_SIZE - WRAPPED_CEK_SIZE)
+    const kid = new Uint8Array(MAX_ENVELOPE_SIZE - A256KW_WRAPPED_CEK_SIZE)
 
     const calls = await countCryptoCalls(async () => {
       await assert.rejects(encryptFor([recipient(KEK_A, kid)]), /exceeds the \d+-byte decode ceiling/)

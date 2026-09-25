@@ -27,13 +27,16 @@ const MINIMAL_INPUT: EncodeEnvelopeInput = {
 // alongside the recommended `kid`. Recipient *cryptography* is out of scope
 // for this package; the header shape is not — see the structural-validation
 // suite at the end of this file.
+// A256KW's ciphertext must be exactly 40 bytes (a 32-byte CEK plus RFC
+// 3394's 8-byte integrity block); this fixture's dummy wrapped key uses that
+// length so it is a well-formed A256KW recipient wherever it is reused.
 const RECIPIENT: RecipientInput = {
   protectedBytes: new Uint8Array(0),
   unprotected: new Map<number, CborValue>([
     [1, -5],
     [4, Uint8Array.from([0xaa, 0xbb])],
   ]),
-  ciphertext: Uint8Array.from([9, 9, 9, 9]),
+  ciphertext: new Uint8Array(40).fill(9),
 }
 
 /**
@@ -42,11 +45,13 @@ const RECIPIENT: RecipientInput = {
  * `encodeEnvelope`, because the encoder now applies the same recipient
  * rules — a test that went through it could only ever produce recipients
  * the decoder already accepts, which is the opposite of what these cases
- * need to prove.
+ * need to prove. `ciphertext` defaults to a 40-byte dummy wrap so callers
+ * exercising A256KW shapes get a well-formed one without asking for it.
  */
 function envelopeWithRawRecipient(
   recipientProtected: Uint8Array,
-  recipientUnprotected: Map<CborValue, CborValue>
+  recipientUnprotected: Map<CborValue, CborValue>,
+  ciphertext: Uint8Array = new Uint8Array(40).fill(9)
 ): Uint8Array {
   const protectedBytes = hexToBytes(MINIMAL_PROTECTED_HEADER_HEX)
   return cborEncode(
@@ -54,7 +59,7 @@ function envelopeWithRawRecipient(
       protectedBytes,
       new Map(),
       null,
-      [[recipientProtected, recipientUnprotected, Uint8Array.from([9, 9, 9, 9])]],
+      [[recipientProtected, recipientUnprotected, ciphertext]],
     ]),
     rfc8949EncodeOptions
   )
@@ -280,6 +285,28 @@ describe('COSE_recipient structural validation', () => {
     assert.strictEqual(decoded.recipients.length, 1)
     assert.strictEqual(decoded.recipients[0].protectedBytes.length, 0)
   })
+
+  it('rejects an A256KW recipient ciphertext shorter than 40 bytes', () => {
+    assert.throws(
+      () => decodeEnvelope(envelopeWithRawRecipient(new Uint8Array(0), new Map([[1, -5]]), new Uint8Array(39))),
+      MalformedEnvelopeError
+    )
+  })
+
+  it('rejects an A256KW recipient ciphertext longer than 40 bytes', () => {
+    assert.throws(
+      () => decodeEnvelope(envelopeWithRawRecipient(new Uint8Array(0), new Map([[1, -5]]), new Uint8Array(41))),
+      MalformedEnvelopeError
+    )
+  })
+
+  it('still decodes a non-A256KW recipient with a short ciphertext', () => {
+    const decoded = decodeEnvelope(
+      envelopeWithRawRecipient(new Uint8Array(0), new Map([[1, 'custom-wrap']]), new Uint8Array(2))
+    )
+    assert.strictEqual(decoded.recipients.length, 1)
+    assert.strictEqual(decoded.recipients[0].ciphertext.length, 2)
+  })
 })
 
 describe('decodeEnvelope', () => {
@@ -344,7 +371,16 @@ describe('decodeEnvelope', () => {
       const bytes = encodeEnvelope({ ...MINIMAL_INPUT, recipients: [RECIPIENT, secondRecipient] })
       const decoded = decodeEnvelope(bytes)
       assert.strictEqual(decoded.recipients.length, 2)
-      assert.deepStrictEqual(decoded.recipients[1].unprotected, secondRecipient.unprotected)
+      // Array.from, not deepStrictEqual on the Map directly: cborg can hand
+      // back a byte-string view whose runtime class is Node's Buffer rather
+      // than a bare Uint8Array for some encoded sizes (see the same note in
+      // cose-headers.test.ts), which deepStrictEqual treats as a type
+      // mismatch inside the Map's value despite identical bytes.
+      assert.strictEqual(decoded.recipients[1].unprotected.size, secondRecipient.unprotected.size)
+      assert.deepStrictEqual(
+        Array.from(decoded.recipients[1].unprotected.get(4) as Uint8Array),
+        Array.from(secondRecipient.unprotected.get(4) as Uint8Array)
+      )
     })
   })
 
@@ -520,10 +556,11 @@ describe('decodeEnvelope', () => {
       // Replace `81 <recipient tuple>` (array/1) with `80` (array/0, empty),
       // dropping the recipient tuple bytes that followed it. The tuple is
       // [protected: bstr h'' (40), unprotected: map {1:-5, 4: 2-byte kid}
-      // (a2 01 24 04 42 aabb, 7 bytes), ciphertext: bstr (44 09090909, 5
-      // bytes)], wrapped in its own array/3 marker (83) — 1 + 1 + 7 + 5 = 14
-      // bytes, plus the recipients array/1 marker (81) itself: 15 bytes.
-      const recipientsArrayStart = bytes.length - 15
+      // (a2 01 24 04 42 aabb, 7 bytes), ciphertext: 40-byte bstr (58 28 +
+      // 40 bytes, 42 bytes total)], wrapped in its own array/3 marker (83) —
+      // 1 + 1 + 7 + 42 = 51 bytes, plus the recipients array/1 marker (81)
+      // itself: 52 bytes.
+      const recipientsArrayStart = bytes.length - 52
       const withEmptyRecipients = Uint8Array.from([...bytes.subarray(0, recipientsArrayStart), 0x80])
       assert.throws(() => decodeEnvelope(withEmptyRecipients), MalformedEnvelopeError)
     })
