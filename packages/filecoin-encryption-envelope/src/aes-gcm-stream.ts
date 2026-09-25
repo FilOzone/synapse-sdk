@@ -10,7 +10,7 @@
 import { assertValidChunkSize, assertWithinObjectLimit, ciphertextLengthForPlaintext } from './chunk-layout.ts'
 import { ALG_CHUNKED_AES_256_GCM_STREAM, BASE_NONCE_SIZE, DEFAULT_CHUNK_SIZE, TAG_SIZE } from './constants.ts'
 import { encStructure } from './cose/enc-structure.ts'
-import { assemblePreparedEnvelope } from './cose/encode.ts'
+import { assemblePreparedEnvelope, type PreparedEnvelope, type RecipientInput } from './cose/encode.ts'
 import type { AppMetadata } from './cose/headers.ts'
 import { describeCborType, encodeProtectedHeader } from './cose/headers.ts'
 import { MalformedEnvelopeError } from './errors.ts'
@@ -18,6 +18,8 @@ import { createChunkFramer } from './internal/chunk-framer.ts'
 import { assertAes256Key } from './internal/keys.ts'
 import { aesGcmEncrypt, importAesGcmKey, randomBytes } from './internal/web-crypto.ts'
 import { deriveChunkNonce } from './nonce.ts'
+import { createRecipientRecords, prepareRecipientInputs } from './recipients/prepare.ts'
+import type { Recipient } from './recipients/types.ts'
 
 /** Options for one chunked AES-256-GCM STREAM encryption using a direct CEK. */
 export interface ChunkedEncryptOptions {
@@ -39,6 +41,12 @@ export interface ChunkedEncryptOptions {
    * and earlier output must be discarded. Omit if the length is not guaranteed.
    */
   contentLength?: number
+
+  /**
+   * Wrap the CEK for each recipient and write `COSE_Encrypt` (tag 96).
+   * Omit for `COSE_Encrypt0` (tag 16); an empty array is rejected.
+   */
+  recipients?: readonly Recipient[]
 }
 
 /**
@@ -50,11 +58,16 @@ export interface ChunkedEncryptOptions {
  * followed by one encrypted chunk at a time comes out.
  *
  * - Invalid options throw synchronously; the CEK is imported on the first read.
- * - `cek` and `appMetadata` are borrowed and must not change until `readable`
- *   closes or errors. Input blocks may be reused once their `write()` resolves.
+ * - Every buffer in `options` (the CEK, recipient KEKs and kids, metadata) is
+ *   borrowed and read as late as the first read: don't change or clear it
+ *   until `readable` closes or errors. Input blocks may be reused once their
+ *   `write()` resolves.
  * - The base nonce is always generated internally.
  * - The final chunk is emitted only after `writable` closes.
  * - If the stream errors, any output already read is incomplete and must be discarded.
+ * - With `recipients`, the CEK is wrapped on the first read too (it can't be
+ *   until the CEK is imported), so the `contentLength` size check also runs
+ *   there instead of synchronously -- still before any output.
  */
 export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Uint8Array, Uint8Array> {
   if (options === null || typeof options !== 'object') {
@@ -65,8 +78,16 @@ export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Ui
 
   // Read each field once so getters cannot return different values during
   // validation and encoding.
-  const { cek, chunkSize = DEFAULT_CHUNK_SIZE, contentType, appMetadata, contentLength } = options
+  const {
+    cek,
+    chunkSize = DEFAULT_CHUNK_SIZE,
+    contentType,
+    appMetadata,
+    contentLength,
+    recipients: recipientInputs,
+  } = options
   assertAes256Key(cek, 'CEK')
+  const recipients = prepareRecipientInputs(recipientInputs)
   assertValidChunkSize(chunkSize)
 
   // Validate the option directly to preserve its length-specific errors.
@@ -87,18 +108,22 @@ export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Ui
     plaintextLength: contentLength,
   })
 
-  // Without recipients, use COSE_Encrypt0 and one fixed AAD for every chunk.
-  const prepared = assemblePreparedEnvelope(protectedBytes)
-  const additionalData = encStructure(prepared.tag, prepared.protectedBytes)
-
-  // If the plaintext length is known, validate the complete encoded object
-  // before streaming begins.
-  if (expectedCiphertextLength !== undefined) {
-    assertWithinObjectLimit(prepared.bytes.length, expectedCiphertextLength)
+  // Assemble the envelope and, when the length is declared, check the whole
+  // object against the 64 GiB limit before any output.
+  function assembleChecked(records?: RecipientInput[]): PreparedEnvelope {
+    const envelope = assemblePreparedEnvelope(protectedBytes, records)
+    if (expectedCiphertextLength !== undefined) {
+      assertWithinObjectLimit(envelope.bytes.length, expectedCiphertextLength)
+    }
+    return envelope
   }
 
+  // Without recipients the envelope needs no key, so build it now. With
+  // recipients it waits for the first read, once the CEK can be wrapped.
+  const directEnvelope = recipients === undefined ? assembleChecked() : undefined
+
   const framer = createChunkFramer(chunkSize, contentLength)
-  let cekKey: CryptoKey | undefined
+  let keyed: { cekKey: CryptoKey; additionalData: Uint8Array<ArrayBuffer> } | undefined
   let chunkIndex = 0
   let emittedBytes = 0
 
@@ -106,17 +131,28 @@ export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Ui
     {
       async pull(controller) {
         try {
-          if (cekKey === undefined) {
-            // Defer key import until the first pull.
-            cekKey = await importAesGcmKey(cek, 'encrypt', false)
+          if (keyed === undefined) {
+            // First read: import the CEK (extractable only when wrapKey needs
+            // it), wrap it for each recipient, and emit the envelope. Failed
+            // input is checked before each key operation, so a cancel stops
+            // the work after at most the current Web Crypto call.
+            framer.throwIfFailed()
+            const cekKey = await importAesGcmKey(cek, 'encrypt', recipients !== undefined)
+            const records =
+              recipients === undefined
+                ? undefined
+                : await createRecipientRecords(cekKey, recipients, framer.throwIfFailed)
+            const envelope = directEnvelope ?? assembleChecked(records)
 
             // Do not emit the envelope if input has already failed.
             framer.throwIfFailed()
-            controller.enqueue(prepared.bytes)
-            emittedBytes = prepared.bytes.length
+            keyed = { cekKey, additionalData: encStructure(envelope.tag, envelope.protectedBytes) }
+            controller.enqueue(envelope.bytes)
+            emittedBytes = envelope.bytes.length
             return
           }
 
+          const { cekKey, additionalData } = keyed
           const { bytes, isLast } = await framer.next()
           assertWithinObjectLimit(emittedBytes, bytes.length + TAG_SIZE)
           const nonce = deriveChunkNonce(baseNonce, chunkIndex, isLast)
