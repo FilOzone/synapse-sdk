@@ -15,11 +15,6 @@ export class InvalidKeyError extends EnvelopeError {
   override name = 'InvalidKeyError'
 }
 
-/** Check a caught value's error name without relying on realm-specific prototypes. */
-export function hasErrorName(cause: unknown, name: string): boolean {
-  return cause !== null && typeof cause === 'object' && 'name' in cause && cause.name === name
-}
-
 /** Plaintext supplied to an encryption operation is not a byte string. */
 export class InvalidPlaintextError extends EnvelopeError {
   override name = 'InvalidPlaintextError'

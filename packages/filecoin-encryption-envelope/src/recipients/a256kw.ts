@@ -9,24 +9,16 @@ import { ALG_A256KW, HEADER_ALG, HEADER_KID } from '../cose/constants.ts'
 import type { RecipientInput } from '../cose/encode.ts'
 import type { CborValue } from '../cose/headers.ts'
 import { describeCborType } from '../cose/headers.ts'
-import { CryptoOperationError, hasErrorName, InvalidKeyError, MalformedEnvelopeError } from '../errors.ts'
+import { InvalidKeyError, MalformedEnvelopeError } from '../errors.ts'
+import { assertAes256Key } from '../internal/keys.ts'
+import { aesKwUnwrap, aesKwWrap, importAesGcmKey, importAesKwKey } from '../internal/web-crypto.ts'
 
 /** RFC 3394 adds one 8-byte integrity block, so a 32-byte CEK wraps to 40 bytes. */
 export const WRAPPED_CEK_SIZE = KEY_SIZE + 8
 
 function snapshotKey(value: unknown, name: string): Uint8Array<ArrayBuffer> {
-  if (!(value instanceof Uint8Array)) {
-    throw new InvalidKeyError(`Invalid ${name}: expected a Uint8Array, got ${describeCborType(value)}.`)
-  }
-  if (value.length !== KEY_SIZE) {
-    throw new InvalidKeyError(`Invalid ${name} length ${value.length}: expected exactly ${KEY_SIZE} bytes for AES-256.`)
-  }
-
-  const snapshot = new Uint8Array(value)
-  if (snapshot.every((byte) => byte === 0)) {
-    throw new InvalidKeyError(`Invalid ${name}: an all-zero 32-byte key is not permitted.`)
-  }
-  return snapshot
+  assertAes256Key(value, name)
+  return new Uint8Array(value)
 }
 
 /** A validated A256KW recipient holding private copies of its KEK and `kid`. */
@@ -89,37 +81,19 @@ export async function createA256KWRecipientRecord(
   }
 }
 
-async function importKek(kek: Uint8Array<ArrayBuffer>, usage: 'wrapKey' | 'unwrapKey'): Promise<CryptoKey> {
-  try {
-    return await globalThis.crypto.subtle.importKey('raw', kek, 'AES-KW', false, [usage])
-  } catch (cause) {
-    throw new CryptoOperationError(`Could not import the AES-256 KEK for ${usage}.`, { cause })
-  }
-}
-
 /** Wrap a CEK under a KEK. Both must be 32 bytes and not all-zero. */
 export async function wrapCek(cekInput: Uint8Array, kekInput: Uint8Array): Promise<Uint8Array> {
   const cek = snapshotKey(cekInput, 'CEK')
   let kek: Uint8Array<ArrayBuffer> | undefined
   try {
     kek = snapshotKey(kekInput, 'KEK')
-    const kekKey = await importKek(kek, 'wrapKey')
+    const kekKey = await importAesKwKey(kek, 'wrapKey')
 
     // Web Crypto wraps CryptoKeys, not bytes: the CEK must be extractable to
     // be wrapped, and needs one usage because an empty list is rejected.
-    let cekKey: CryptoKey
-    try {
-      cekKey = await globalThis.crypto.subtle.importKey('raw', cek, 'AES-GCM', true, ['encrypt'])
-    } catch (cause) {
-      throw new CryptoOperationError('Could not import the CEK for key wrapping.', { cause })
-    }
+    const cekKey = await importAesGcmKey(cek, 'encrypt', true)
 
-    try {
-      const wrappedCek = await globalThis.crypto.subtle.wrapKey('raw', cekKey, kekKey, 'AES-KW')
-      return new Uint8Array(wrappedCek)
-    } catch (cause) {
-      throw new CryptoOperationError('AES-256 key wrap failed.', { cause })
-    }
+    return await aesKwWrap(cekKey, kekKey)
   } finally {
     cek.fill(0)
     kek?.fill(0)
@@ -146,25 +120,11 @@ export async function unwrapCek(wrappedCek: Uint8Array, kekInput: Uint8Array): P
       )
     }
     const wrapped = new Uint8Array(wrappedCek)
-    const kekKey = await importKek(kek, 'unwrapKey')
+    const kekKey = await importAesKwKey(kek, 'unwrapKey')
 
-    let cekKey: CryptoKey
-    try {
-      // Extractable because the caller receives bytes, not a CryptoKey.
-      cekKey = await globalThis.crypto.subtle.unwrapKey('raw', wrapped, kekKey, 'AES-KW', 'AES-GCM', true, ['decrypt'])
-    } catch (cause) {
-      // RFC 3394's integrity check failing is reported as OperationError.
-      if (hasErrorName(cause, 'OperationError')) {
-        return undefined
-      }
-      throw new CryptoOperationError('AES-256 key unwrap failed before integrity could be checked.', { cause })
-    }
-
-    let cek: Uint8Array
-    try {
-      cek = new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', cekKey))
-    } catch (cause) {
-      throw new CryptoOperationError('Could not export the unwrapped CEK.', { cause })
+    const cek = await aesKwUnwrap(wrapped, kekKey)
+    if (cek === undefined) {
+      return undefined
     }
     if (cek.every((byte) => byte === 0)) {
       throw new InvalidKeyError('Invalid recovered CEK: an all-zero 32-byte key is not permitted.')

@@ -6,23 +6,22 @@
  * followed by detached ciphertext and its 16-byte authentication tag.
  * Decryption accepts that complete layout and a directly supplied CEK.
  */
-import { ALG_AES_256_GCM, KEY_SIZE, MAX_AES_GCM_PLAINTEXT_SIZE, NONCE_SIZE, TAG_SIZE } from './constants.ts'
+import { ALG_AES_256_GCM, MAX_AES_GCM_PLAINTEXT_SIZE, NONCE_SIZE, TAG_SIZE } from './constants.ts'
 import { decodeEnvelope } from './cose/decode.ts'
 import { encStructure } from './cose/enc-structure.ts'
 import { assembleEnvelope } from './cose/encode.ts'
 import type { CborValue } from './cose/headers.ts'
 import { describeCborType, encodeProtectedHeader } from './cose/headers.ts'
 import {
-  AuthenticationError,
   CryptoOperationError,
-  hasErrorName,
   InvalidCiphertextLengthError,
-  InvalidKeyError,
   InvalidPlaintextError,
   InvalidPlaintextLengthError,
   MalformedEnvelopeError,
   UnsupportedSchemeError,
 } from './errors.ts'
+import { assertAes256Key } from './internal/keys.ts'
+import { aesGcmDecrypt, aesGcmEncrypt, importAesGcmKey } from './internal/web-crypto.ts'
 import { type PreparedRecipientInputs, prepareRecipientInputs } from './recipients/prepare.ts'
 import type { Recipient } from './recipients/types.ts'
 
@@ -55,18 +54,8 @@ function snapshotPlaintext(value: unknown): Uint8Array<ArrayBuffer> {
 }
 
 function snapshotCek(value: unknown): Uint8Array<ArrayBuffer> {
-  if (!(value instanceof Uint8Array)) {
-    throw new InvalidKeyError(`Invalid CEK: expected a Uint8Array, got ${describeCborType(value)}.`)
-  }
-  if (value.length !== KEY_SIZE) {
-    throw new InvalidKeyError(`Invalid CEK length ${value.length}: expected exactly ${KEY_SIZE} bytes for AES-256.`)
-  }
-
-  const snapshot = new Uint8Array(value)
-  if (snapshot.every((byte) => byte === 0)) {
-    throw new InvalidKeyError('Invalid CEK: an all-zero 32-byte key is not permitted.')
-  }
-  return snapshot
+  assertAes256Key(value, 'CEK')
+  return new Uint8Array(value)
 }
 
 function generateIv(): Uint8Array<ArrayBuffer> {
@@ -77,18 +66,6 @@ function generateIv(): Uint8Array<ArrayBuffer> {
     throw new CryptoOperationError(`Could not generate the ${NONCE_SIZE}-byte AES-GCM IV.`, { cause })
   }
   return iv
-}
-
-type AesGcmUsage = 'encrypt' | 'decrypt'
-
-async function importKey(key: Uint8Array<ArrayBuffer>, usage: AesGcmUsage): Promise<CryptoKey> {
-  try {
-    return await globalThis.crypto.subtle.importKey('raw', key, 'AES-GCM', false, [usage])
-  } catch (cause) {
-    throw new CryptoOperationError(`Could not import the AES-256-GCM CEK for an AES-GCM ${usage} operation.`, {
-      cause,
-    })
-  }
 }
 
 function snapshotCiphertext(encoded: Uint8Array, envelopeLength: number): Uint8Array<ArrayBuffer> {
@@ -102,11 +79,10 @@ function snapshotCiphertext(encoded: Uint8Array, envelopeLength: number): Uint8A
   return new Uint8Array(encoded.subarray(envelopeLength))
 }
 
-function joinEnvelopeAndCiphertext(envelope: Uint8Array, ciphertext: ArrayBuffer): Uint8Array {
-  const ciphertextBytes = new Uint8Array(ciphertext)
-  const result = new Uint8Array(envelope.length + ciphertextBytes.length)
+function joinEnvelopeAndCiphertext(envelope: Uint8Array, ciphertext: Uint8Array): Uint8Array {
+  const result = new Uint8Array(envelope.length + ciphertext.length)
   result.set(envelope)
-  result.set(ciphertextBytes, envelope.length)
+  result.set(ciphertext, envelope.length)
   return result
 }
 
@@ -144,23 +120,8 @@ export async function encrypt(plaintext: Uint8Array, options: EncryptOptions): P
     // Fails on the envelope-size limit here, before any content encryption.
     const prepared = assembleEnvelope(protectedBytes, records)
     const additionalData = encStructure(prepared.tag, prepared.protectedBytes)
-    const key = await importKey(cek, 'encrypt')
-
-    let ciphertext: ArrayBuffer
-    try {
-      ciphertext = await globalThis.crypto.subtle.encrypt(
-        {
-          name: 'AES-GCM',
-          iv,
-          additionalData,
-          tagLength: 128,
-        },
-        key,
-        plaintextSnapshot
-      )
-    } catch (cause) {
-      throw new CryptoOperationError('AES-256-GCM encryption failed.', { cause })
-    }
+    const key = await importAesGcmKey(cek, 'encrypt', false)
+    const ciphertext = await aesGcmEncrypt(key, iv, additionalData, plaintextSnapshot)
 
     return joinEnvelopeAndCiphertext(prepared.bytes, ciphertext)
   } finally {
@@ -189,31 +150,8 @@ export async function decrypt(encoded: Uint8Array, cekInput: Uint8Array): Promis
     const ciphertext = snapshotCiphertext(encoded, decoded.envelopeLength)
     const iv = new Uint8Array(decoded.protectedHeader.iv)
     const additionalData = encStructure(decoded.tag, decoded.protectedHeader.bytes)
-    const key = await importKey(cek, 'decrypt')
-
-    try {
-      const plaintext = await globalThis.crypto.subtle.decrypt(
-        {
-          name: 'AES-GCM',
-          iv,
-          additionalData,
-          tagLength: 128,
-        },
-        key,
-        ciphertext
-      )
-      return new Uint8Array(plaintext)
-    } catch (cause) {
-      if (hasErrorName(cause, 'OperationError')) {
-        throw new AuthenticationError(
-          'AES-256-GCM authentication failed: the CEK is wrong or authenticated envelope data was changed.',
-          { cause }
-        )
-      }
-      throw new CryptoOperationError('AES-256-GCM decryption failed before authentication could be established.', {
-        cause,
-      })
-    }
+    const key = await importAesGcmKey(cek, 'decrypt', false)
+    return await aesGcmDecrypt(key, iv, additionalData, ciphertext)
   } finally {
     cek.fill(0)
   }
