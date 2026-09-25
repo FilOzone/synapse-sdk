@@ -14,7 +14,7 @@ import { InvalidNonceError } from './errors.ts'
  *
  * Returns a freshly allocated array; `baseNonce` is never mutated.
  */
-export function deriveChunkNonce(baseNonce: Uint8Array, chunkIndex: number, isLast: boolean): Uint8Array {
+export function deriveChunkNonce(baseNonce: Uint8Array, chunkIndex: number, isLast: boolean): Uint8Array<ArrayBuffer> {
   if (!(baseNonce instanceof Uint8Array)) {
     throw new InvalidNonceError(`Invalid base nonce: expected a Uint8Array, got ${typeof baseNonce}.`)
   }

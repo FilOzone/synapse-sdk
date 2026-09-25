@@ -16,14 +16,36 @@ import {
 } from './errors.ts'
 
 /**
- * Shared by the two public entry points below, which each have to validate
- * their own inputs: one definition so the range and the message cannot drift
- * apart between them.
+ * Shared by every entry point that takes a chunk size, in this module and in
+ * the chunked encryption stream: one definition so the range and the message
+ * cannot drift apart between them.
  */
-function assertValidChunkSize(chunkSize: number): void {
+export function assertValidChunkSize(chunkSize: number): void {
   if (!Number.isInteger(chunkSize) || chunkSize < MIN_CHUNK_SIZE || chunkSize > MAX_CHUNK_SIZE) {
     throw new InvalidChunkSizeError(
       `Invalid chunk size: ${chunkSize}. Must be an integer between ${MIN_CHUNK_SIZE} and ${MAX_CHUNK_SIZE} bytes.`
+    )
+  }
+}
+
+/**
+ * Assert that emitting one more chunk keeps the encoded object -- everything
+ * emitted so far, envelope included, plus this chunk's ciphertext and tag --
+ * within `MAX_ENCODED_OBJECT_SIZE`. Checked before encrypting each chunk, so
+ * the limit is enforced before the allocation it would otherwise justify.
+ *
+ * note: this alone keeps chunk count under `MAX_CHUNK_COUNT` too, but
+ * only because 64 GiB / (4 KiB + 16 bytes) is comfortably under 2^32 - 1 at
+ * today's `MIN_CHUNK_SIZE`. If either constant ever changes, add an explicit
+ * chunk-count check back here; `deriveChunkNonce`'s own index range is the
+ * last-resort backstop either way.
+ */
+export function assertWithinObjectLimit(emittedBytes: number, nextChunkCipherLength: number): void {
+  const total = emittedBytes + nextChunkCipherLength
+  if (total > MAX_ENCODED_OBJECT_SIZE) {
+    throw new InvalidPlaintextLengthError(
+      `Invalid chunked object: emitting the next chunk (${nextChunkCipherLength} bytes) would bring the encoded ` +
+        `object to ${total} bytes, exceeding the ${MAX_ENCODED_OBJECT_SIZE}-byte limit.`
     )
   }
 }
