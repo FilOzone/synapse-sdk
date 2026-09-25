@@ -84,6 +84,9 @@ export interface CborValueObject {
   [key: string]: CborValue
 }
 
+/** Opaque, string-keyed application metadata. Carried but never interpreted. */
+export type AppMetadata = Record<string, CborValue>
+
 /** A decoded profile value, optionally wrapped in a supported CBOR tag. */
 export type DecodedCborValue = CborValue | Tagged
 
@@ -98,7 +101,7 @@ export interface ProtectedHeaderFields {
   /** Exact plaintext length, when known before encoding. Chunked scheme only. */
   plaintextLength?: number
   /** Opaque authenticated metadata. This package carries but does not interpret it. */
-  appMetadata?: Record<string, CborValue>
+  appMetadata?: AppMetadata
 }
 
 /**
