@@ -317,11 +317,14 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
     try {
       await withRandomValues(observeRandomValues, async () => {
         await assert.rejects(
-          encryptFor([
-            recipient(KEK_A, KID_A),
-            recipient(KEK_B, KID_B),
-            { alg: ALG_ECDH_ES_A256KW, kek: new Uint8Array(KEK_A) },
-          ] as A256KWRecipient[]),
+          encrypt(new Uint8Array(HELLO), {
+            cek: new Uint8Array(FIXED_CEK),
+            recipients: [
+              recipient(KEK_A, KID_A),
+              recipient(KEK_B, KID_B),
+              { alg: ALG_ECDH_ES_A256KW, kek: new Uint8Array(KEK_A) },
+            ] as A256KWRecipient[],
+          }),
           MalformedEnvelopeError
         )
       })
@@ -357,7 +360,7 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
     assert.deepStrictEqual(reads, { alg: 1, kek: 1, kid: 1 })
   })
 
-  it('rejects a kid that cannot fit before copying keys or starting cryptography', async () => {
+  it('rejects a kid that cannot fit before starting cryptography', async () => {
     const calls = await countCryptoCalls(async () => {
       await assert.rejects(
         encryptFor([recipient(KEK_A, new Uint8Array(MAX_ENVELOPE_SIZE))]),
