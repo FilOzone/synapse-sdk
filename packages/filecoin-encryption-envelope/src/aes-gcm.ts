@@ -10,7 +10,7 @@ import { ALG_AES_256_GCM, MAX_AES_GCM_PLAINTEXT_SIZE, NONCE_SIZE, TAG_SIZE } fro
 import { decodeEnvelope } from './cose/decode.ts'
 import { encStructure } from './cose/enc-structure.ts'
 import { assemblePreparedEnvelope } from './cose/encode.ts'
-import type { CborValue } from './cose/headers.ts'
+import type { AppMetadata } from './cose/headers.ts'
 import { describeCborType, encodeProtectedHeader } from './cose/headers.ts'
 import {
   CryptoOperationError,
@@ -33,7 +33,7 @@ export interface EncryptOptions {
   cek: Uint8Array
   contentType?: string | number
   /** Authenticated application metadata carried without interpretation. */
-  appMetadata?: Record<string, CborValue>
+  appMetadata?: AppMetadata
   /**
    * Wrap the CEK for each recipient and write `COSE_Encrypt` (tag 96).
    * Omit for `COSE_Encrypt0` (tag 16); an empty array is rejected.
