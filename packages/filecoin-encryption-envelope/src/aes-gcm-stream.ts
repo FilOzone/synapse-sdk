@@ -244,6 +244,16 @@ function createDecryptStream(
   })
   let handoffSettled = false
 
+  // Rejects on the first failure, so a read waiting on caller code (an
+  // unwrapper that never settles) still ends when the stream fails.
+  let rejectFailure: ((reason: unknown) => void) | undefined
+  const failure = new Promise<never>((_resolve, reject) => {
+    rejectFailure = reject
+  })
+  failure.catch(() => {
+    // Only raced against key recovery; an unread stream must not surface this.
+  })
+
   /**
    * Used when the writable side is already failing on its own (the abort
    * signal, or a write()/close() throw, which auto-errors the stream it
@@ -255,6 +265,7 @@ function createDecryptStream(
       handoffSettled = true
       rejectHandoff?.(reason)
     }
+    rejectFailure?.(reason)
     input?.framer.cancel(reason)
   }
 
@@ -317,6 +328,12 @@ function createDecryptStream(
           const { plaintextLength } = decoded.protectedHeader
           if (plaintextLength !== undefined) {
             expectedTotal = decoded.envelopeLength + ciphertextLengthForPlaintext(plaintextLength, chunkSize)
+            if (expectedTotal > MAX_ENCODED_OBJECT_SIZE) {
+              throw new InvalidCiphertextLengthError(
+                `Invalid encoded object: the declared plaintext_length implies ${expectedTotal} bytes, exceeding ` +
+                  `the ${MAX_ENCODED_OBJECT_SIZE}-byte limit.`
+              )
+            }
             assertWithinDeclaredLength()
           }
 
@@ -376,7 +393,8 @@ function createDecryptStream(
             const { decoded, framer, chunkSize } = await handoff
             // Do not start key work for input that has already failed.
             framer.throwIfFailed()
-            const cekKey = await getCekKey(decoded)
+            // Caller code can take forever; a stream failure still ends this read.
+            const cekKey = await Promise.race([getCekKey(decoded), failure])
             keyed = {
               framer,
               cekKey,

@@ -371,3 +371,24 @@ describe('aesGcmStream.decryptWith', () => {
     })
   })
 })
+
+describe('aesGcmStream.decryptWith with an unwrapper that never settles', () => {
+  it('still ends a pending read when the writable is aborted', async () => {
+    const encoded = await encryptFull(deterministicPlaintext(100), [recipient(KEK_A)])
+    let called = false
+    const { writable, readable } = decryptWith(() => {
+      called = true
+      return new Promise<undefined>(() => {
+        // A KMS call that never answers.
+      })
+    })
+    const writer = writable.getWriter()
+    const read = readable.getReader().read()
+    await writer.write(encoded.subarray(0, decodeEnvelope(encoded).envelopeLength))
+    while (!called) await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const reason = new Error('abort while the unwrapper hangs')
+    await writer.abort(reason)
+    await assert.rejects(read, (err) => err === reason)
+  })
+})
