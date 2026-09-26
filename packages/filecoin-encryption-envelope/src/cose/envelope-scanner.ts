@@ -1,20 +1,17 @@
 /**
- * Finds where a streamed envelope ends, without decoding it.
+ * Finds the COSE envelope boundary in an arbitrarily chunked encoded object.
  *
- * A streaming reader receives the object in arbitrary blocks and has to know
- * where the envelope (one CBOR item) ends and detached ciphertext begins,
- * before it can hand the envelope to `decodeEnvelope`. Retrying
- * `decodeEnvelope` on a growing prefix can't tell "truncated" from
- * "malformed" and is quadratic (each retry re-parses everything seen so
- * far). Instead: a resumable scan over CBOR *structure* only -- heads, string
- * lengths, container counts -- that commits forward one head at a time and
- * never re-examines bytes it has already skipped past. Once it finds the
- * end, `decodeEnvelope` runs exactly once, on exactly the right bytes, for
- * every profile validation this package already does.
+ * The scanner incrementally walks the structure of the first CBOR item
+ * without decoding its values, so it can determine where the envelope ends
+ * and detached ciphertext begins. It advances only over newly available
+ * bytes and never reparses data it has already consumed.
  *
- * `scanEnvelopeStep` is the pure step, exported so a test can drive it
- * directly (and count byte reads). `createEnvelopeScanner` is the stateful
- * wrapper a reader actually uses.
+ * Once the boundary is found, `decodeEnvelope` runs exactly once on the
+ * complete envelope and performs the package's normal validation. Truncated
+ * input and malformed CBOR are reported separately.
+ *
+ * `scanEnvelopeStep` implements the stateless scanning step;
+ * `createEnvelopeScanner` provides the stateful streaming wrapper.
  */
 import { MalformedEnvelopeError } from '../errors.ts'
 import { MAX_APP_METADATA_DEPTH, MAX_ENVELOPE_SIZE } from './constants.ts'
@@ -36,7 +33,6 @@ export function createEnvelopeScanState(): EnvelopeScanState {
   return { cursor: 0, stack: [1] }
 }
 
-/** Pop any container whose remaining item count has reached zero, cascading outward. Mirrors `headers.ts`'s tokenizer. */
 function closeFinished(stack: number[]): void {
   for (;;) {
     const top = stack[stack.length - 1]
@@ -45,7 +41,6 @@ function closeFinished(stack: number[]): void {
   }
 }
 
-/** Count this head as one item consumed from its parent container, if any. Mirrors `headers.ts`'s tokenizer. */
 function decrementParent(stack: number[]): void {
   const top = stack[stack.length - 1]
   if (top !== undefined) {
@@ -54,15 +49,15 @@ function decrementParent(stack: number[]): void {
 }
 
 /**
- * Advance `state` as far as `data` (the bytes available so far) allows.
+ * Advances the incremental CBOR scan as far as the available bytes allow.
  *
- * Returns the envelope's byte length once `state.stack` empties, or
- * `undefined` if a complete structure can't be confirmed yet -- in which
- * case `state.cursor` is left at the start of whichever head is still
- * waiting on more bytes (at most 9 bytes: 1 head byte plus up to 8 length
- * bytes), so at most that much is ever re-read. Throws `MalformedEnvelopeError`
- * for anything this profile could never accept, without waiting for more
- * input first.
+ * Returns the byte length of the first complete top-level item, or `undefined`
+ * if more input is needed. When input is incomplete, `state.cursor` remains at
+ * the start of the unfinished item so only that item is reconsidered when more
+ * bytes arrive.
+ *
+ * Rejects CBOR structures, nesting, and sizes that this envelope profile does
+ * not permit. Full envelope validation is performed later by `decodeEnvelope`.
  */
 export function scanEnvelopeStep(data: ArrayLike<number>, state: EnvelopeScanState): number | undefined {
   for (;;) {
@@ -204,12 +199,10 @@ export interface EnvelopeScanner {
 }
 
 /**
- * Create a scanner: push blocks until it returns the decoded envelope and
- * the rest of that block. Envelope bytes are joined in the scanner's own
- * buffer (capped at `MAX_ENVELOPE_SIZE`), since an envelope can span many
- * blocks. Bytes after the envelope may land there as scratch but are never
- * exposed; `rest` is a view of the caller's block. `decodeEnvelope` copies
- * what it returns, so later changes to pushed blocks don't reach it.
+ * Decode one envelope across any number of input blocks, up to
+ * `MAX_ENVELOPE_SIZE` bytes. Until the envelope is complete, `push()` returns
+ * `undefined`. On completion it returns decoded fields independent of the
+ * caller's blocks, plus a `rest` view into the block that ended the envelope.
  */
 export function createEnvelopeScanner(): EnvelopeScanner {
   let buffer = new Uint8Array(1024)

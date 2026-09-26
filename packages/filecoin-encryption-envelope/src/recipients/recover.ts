@@ -1,4 +1,3 @@
-/** Shared CEK-recovery steps for `aesGcm.decryptWith` and the chunked stream's `decryptWith`. */
 import { TAG_ENCRYPT0 } from '../cose/constants.ts'
 import type { DecodedEnvelope } from '../cose/decode.ts'
 import { NoUsableRecipientError, RecipientUnwrapError } from '../errors.ts'
@@ -7,14 +6,12 @@ import { toRecipientInfo } from './info.ts'
 import type { Unwrapper } from './types.ts'
 
 /**
- * Recover a CEK from a decoded envelope's recipients via `unwrapper`.
+ * Recover and validate a CEK from a decoded envelope's recipients.
  *
- * Accepts only `COSE_Encrypt` (tag 96); a tag-16 envelope carries no
- * recipients and fails with `NoUsableRecipientError` without calling
- * `unwrapper`. Each recipient is copied into an isolated `RecipientInfo`
- * before reaching `unwrapper`. `unwrapper` is called at most once, with every
- * recipient in wire order; its resolved CEK is validated as an exactly
- * 32-byte, non-zero key before use.
+ * For tag 96, calls `unwrapper` once with isolated copies of every recipient
+ * in wire order. A tag-16 envelope or an unmatched recipient list fails with
+ * `NoUsableRecipientError`; an unwrapper failure becomes
+ * `RecipientUnwrapError`. The returned key must be a nonzero 32-byte CEK.
  */
 export async function recoverCek(decoded: DecodedEnvelope, unwrapper: Unwrapper): Promise<Uint8Array<ArrayBuffer>> {
   if (decoded.tag === TAG_ENCRYPT0) {
