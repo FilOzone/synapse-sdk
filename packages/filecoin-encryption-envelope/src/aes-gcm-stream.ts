@@ -32,7 +32,8 @@ import { assertAes256Key, assertArrayBufferBacked } from './internal/keys.ts'
 import { aesGcmDecrypt, aesGcmEncrypt, importAesGcmKey, randomBytes } from './internal/web-crypto.ts'
 import { deriveChunkNonce } from './nonce.ts'
 import { createRecipientRecords, prepareRecipientInputs } from './recipients/prepare.ts'
-import type { Recipient } from './recipients/types.ts'
+import { recoverCek } from './recipients/recover.ts'
+import type { Recipient, Unwrapper } from './recipients/types.ts'
 
 /** Options for one chunked AES-256-GCM STREAM encryption using a direct CEK. */
 export interface ChunkedEncryptOptions {
@@ -451,4 +452,24 @@ function createDecryptStream(
 export function decrypt(cek: Uint8Array): ReadableWritablePair<Uint8Array, Uint8Array> {
   assertAes256Key(cek, 'CEK')
   return createDecryptStream(() => importAesGcmKey(cek, 'decrypt', false))
+}
+
+/**
+ * Like `decrypt`, but recovers the CEK from the envelope's recipients through
+ * `unwrapper`.
+ *
+ * - Tag 96 only: a tag-16 object fails with `NoUsableRecipientError` without
+ *   calling `unwrapper`.
+ * - `unwrapper` is called once, with copies of every recipient in wire order;
+ *   the CEK it returns is validated before use.
+ * - Same discard-on-error rule as `decrypt`.
+ */
+export function decryptWith(unwrapper: Unwrapper): ReadableWritablePair<Uint8Array, Uint8Array> {
+  if (typeof unwrapper !== 'function') {
+    throw new MalformedEnvelopeError(`Invalid unwrapper: expected a function, got ${describeCborType(unwrapper)}.`)
+  }
+  return createDecryptStream(async (decoded) => {
+    const cek = await recoverCek(decoded, unwrapper)
+    return importAesGcmKey(cek, 'decrypt', false)
+  })
 }
