@@ -38,13 +38,16 @@ export function prepareRecipientInputs(value: unknown): readonly ParsedA256KWKey
  * Wrap the CEK for each recipient and build its COSE record, in order.
  * Sequential, one recipient at a time: the envelope-size limit is the only
  * list-size limit, so this must not start every Web Crypto operation at once.
+ * `checkpoint` runs before each wrap; throw from it to stop early.
  */
 export async function createRecipientRecords(
   cekKey: CryptoKey,
-  recipients: readonly ParsedA256KWKey[]
+  recipients: readonly ParsedA256KWKey[],
+  checkpoint?: () => void
 ): Promise<RecipientInput[]> {
   const records: RecipientInput[] = []
   for (const recipient of recipients) {
+    checkpoint?.()
     records.push(await createA256KWRecipientRecord(cekKey, recipient))
   }
   return records
