@@ -2,7 +2,7 @@ import assert from 'node:assert'
 import crypto from 'node:crypto'
 import { encrypt as encryptWholeObject } from '../src/aes-gcm.ts'
 import { type ChunkedEncryptOptions, decrypt, encrypt } from '../src/aes-gcm-stream.ts'
-import { KEY_SIZE, TAG_SIZE } from '../src/constants.ts'
+import { KEY_SIZE, MIN_CHUNK_SIZE, TAG_SIZE } from '../src/constants.ts'
 import { ALG_A256KW } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import { encStructure } from '../src/cose/enc-structure.ts'
@@ -673,5 +673,42 @@ describe('aesGcmStream.decrypt', () => {
       await assert.rejects(pending, MalformedEnvelopeError)
       await writeDone
     })
+  })
+})
+
+describe('aesGcmStream.decrypt declared total', () => {
+  /** Rewrite the 8-byte plaintext_length value inside an envelope; the envelope length is unchanged. */
+  function rewritePlaintextLength(envelope: Uint8Array, from: number, to: number): Uint8Array {
+    const head = (n: number) => {
+      const bytes = new Uint8Array(9)
+      bytes[0] = 0x1b
+      new DataView(bytes.buffer).setBigUint64(1, BigInt(n))
+      return bytes
+    }
+    const [needle, replacement] = [head(from), head(to)]
+    const out = new Uint8Array(envelope)
+    for (let i = 0; i + needle.length <= out.length; i++) {
+      if (needle.every((byte, j) => out[i + j] === byte)) {
+        out.set(replacement, i)
+        return out
+      }
+    }
+    throw new Error('test setup: plaintext_length not found')
+  }
+
+  it('rejects an envelope whose plaintext_length implies more than 64 GiB in total', async () => {
+    // The writer's hand-calculated boundary: at chunk size 4096 this P puts
+    // envelope (83 bytes) + ciphertext exactly on 2^36; P + 1 is one over.
+    const atLimit = 68_452_085_693
+    const writer = encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize: MIN_CHUNK_SIZE, contentLength: atLimit })
+    const envelope = (await writer.readable.getReader().read()).value as Uint8Array
+    assert.strictEqual(envelope.length, 83, 'fixture assumes an 83-byte envelope')
+
+    const accepted = decrypt(new Uint8Array(FIXED_CEK))
+    await assert.doesNotReject(accepted.writable.getWriter().write(envelope))
+
+    const over = decrypt(new Uint8Array(FIXED_CEK))
+    const overWrite = over.writable.getWriter().write(rewritePlaintextLength(envelope, atLimit, atLimit + 1))
+    await assert.rejects(overWrite, InvalidCiphertextLengthError)
   })
 })
