@@ -1,11 +1,7 @@
 /**
- * Chunked AES-256-GCM STREAM encryption (FEE scheme 2) using a caller-supplied
- * CEK. Plaintext is written to `writable`; `readable` outputs the encoded FEE
- * object: the envelope followed by detached, per-chunk-tagged ciphertext.
- *
- * `writable` uses the framer from `internal/chunk-framer.ts`, so its block
- * ownership rules apply to whatever is piped in. Each `readable` pull requests and
- * encrypts one chunk, keeping memory bounded regardless of source size.
+ * Chunked AES-256-GCM STREAM encryption and decryption (FEE scheme 2).
+ * Encryption emits an envelope followed by ciphertext chunks. Decryption
+ * consumes that format and releases plaintext after each chunk authenticates.
  */
 import {
   assertValidChunkSize,
@@ -64,24 +60,25 @@ export interface ChunkedEncryptOptions {
 }
 
 /**
- * Encrypt a plaintext stream using scheme 2 (chunked AES-256-GCM STREAM) and
- * a direct CEK.
+ * Creates a streaming encryptor using scheme 2
+ * (chunked AES-256-GCM STREAM) with a direct CEK.
  *
- * Returns a `{ writable, readable }` pair for
- * `source.pipeThrough(encrypt(options))`. Plaintext goes in; the FEE envelope
- * followed by one encrypted chunk at a time comes out.
+ * The writable side accepts plaintext blocks. The readable side emits the
+ * FEE envelope first, followed by one encrypted chunk at a time.
  *
- * - Invalid options throw synchronously. Key work happens on the first read:
- *   importing the CEK and, with `recipients`, wrapping it. With recipients the
- *   `contentLength` total-size check also waits for that read (the envelope
- *   size isn't known before), but still fails before any output.
- * - Every buffer in `options` (the CEK, recipient KEKs and kids, metadata) is
- *   borrowed and read as late as the first read: don't change or clear it
- *   until `readable` closes or errors. Input blocks may be reused once their
- *   `write()` resolves.
- * - The base nonce is always generated internally.
- * - The final chunk is emitted only after `writable` closes.
- * - If the stream errors, any output already read is incomplete and must be discarded.
+ * Validation that does not require cryptographic work is performed
+ * synchronously. CEK import, recipient key wrapping, and any size checks that
+ * depend on the final envelope are deferred until the readable side is first
+ * pulled, but complete before any output is emitted.
+ *
+ * Input buffers provided through `options` are borrowed and may be read until
+ * the readable side closes or errors, so they must not be modified or cleared
+ * during that time. Input blocks may be reused once their corresponding
+ * `write()` resolves.
+ *
+ * The base nonce is generated internally. The final encrypted chunk is emitted
+ * only after the writable side closes. If the stream fails, any output already
+ * consumed is incomplete and must be discarded.
  */
 export function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Uint8Array, Uint8Array> {
   if (options === null || typeof options !== 'object') {
@@ -212,14 +209,12 @@ function assertValidEncodedBlock(value: unknown): asserts value is Uint8Array<Ar
 }
 
 /**
- * Build the `{ writable, readable }` pair shared by `decrypt` and (later)
- * `decryptWith`. `getCekKey` is the only thing that differs between them:
- * given the decoded envelope, resolve the `CryptoKey` to decrypt with.
+ * Create a streaming decryption pipeline for an encoded FEE object.
  *
- * `writable` scans incoming blocks for the envelope (`cose/envelope-scanner.ts`),
- * then reuses `internal/chunk-framer.ts` -- configured for ciphertext chunks
- * (`chunk_size + TAG_SIZE`), not plaintext ones -- to reframe whatever
- * follows into fixed-size pieces. `readable` decrypts one piece per pull.
+ * The writable side decodes the envelope and frames the remaining ciphertext
+ * into chunks. The readable side resolves the CEK through `getCekKey`, then
+ * authenticates each chunk before releasing plaintext. Errors on either side
+ * propagate across the pair so pending reads or writes do not remain blocked.
  */
 function createDecryptStream(
   getCekKey: (decoded: DecodedEnvelope) => Promise<CryptoKey>
@@ -453,19 +448,13 @@ function createDecryptStream(
 /**
  * Decrypt a scheme-2 (chunked AES-256-GCM STREAM) object using a direct CEK.
  *
- * Returns a `{ writable, readable }` pair for
- * `source.pipeThrough(decrypt(cek))`. The encoded FEE object (envelope
- * followed by detached, per-chunk-tagged ciphertext) goes in; plaintext comes
- * out, one chunk at a time, each only once its own authentication tag verifies.
+ * Write the encoded object to `writable`; `readable` yields each plaintext
+ * chunk only after its authentication tag verifies. The pair can also be used
+ * with `source.pipeThrough(decrypt(cek))`.
  *
- * - `cek` is borrowed until `readable` settles (closes or errors); input
- *   blocks may be reused once their `write()` resolves.
- * - If the stream errors, discard everything already read: earlier chunks
- *   were individually authentic, but the object as a whole was not.
- *   Different truncations surface as different errors -- a torn final chunk
- *   as `AuthenticationError`, a length that doesn't add up as
- *   `InvalidCiphertextLengthError` -- but any error means reject the whole
- *   object, not just treat it as ending early.
+ * Keep `cek` unchanged until `readable` closes or errors. Input blocks may be
+ * reused once their `write()` resolves. If decryption fails, discard earlier
+ * plaintext: authentic chunks alone do not establish a complete object.
  */
 export function decrypt(cek: Uint8Array): ReadableWritablePair<Uint8Array, Uint8Array> {
   assertAes256Key(cek, 'CEK')
@@ -473,14 +462,12 @@ export function decrypt(cek: Uint8Array): ReadableWritablePair<Uint8Array, Uint8
 }
 
 /**
- * Like `decrypt`, but recovers the CEK from the envelope's recipients through
- * `unwrapper`.
+ * Decrypt a scheme-2 object using a CEK recovered by `unwrapper`.
  *
- * - Tag 96 only: a tag-16 object fails with `NoUsableRecipientError` without
- *   calling `unwrapper`.
- * - `unwrapper` is called once, with copies of every recipient in wire order;
- *   the CEK it returns is validated before use.
- * - Same discard-on-error rule as `decrypt`.
+ * For tag 96, the unwrapper is called once with isolated copies of all
+ * recipients in wire order. A tag-16 object has no recipients and fails
+ * without calling it. The returned CEK is validated before any chunk is
+ * decrypted. As with `decrypt`, discard plaintext already read if the stream fails.
  */
 export function decryptWith(unwrapper: Unwrapper): ReadableWritablePair<Uint8Array, Uint8Array> {
   if (typeof unwrapper !== 'function') {

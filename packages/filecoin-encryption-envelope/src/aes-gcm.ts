@@ -125,10 +125,9 @@ interface PreparedDecryption {
 }
 
 /**
- * Shared steps for both decryption entry points: input backing check, decode,
- * content-algorithm check, detached-ciphertext view, AAD, and IV. Neither
- * caller's remaining checks (CEK shape, recipient presence) belong here, since
- * `decrypt` and `decryptWith` order them differently against this common work.
+ * Validate and decode a scheme-1 object, returning the detached ciphertext
+ * and inputs needed for content authentication. The ciphertext remains a view
+ * into `encoded`; the caller must still supply or recover the CEK.
  */
 function prepareDecryption(encoded: Uint8Array): PreparedDecryption {
   if (encoded instanceof Uint8Array) {
