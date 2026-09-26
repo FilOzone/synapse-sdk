@@ -185,28 +185,6 @@ export function scanEnvelopeStep(data: ArrayLike<number>, state: EnvelopeScanSta
   }
 }
 
-/** A view over `prefix[0, filledLength)` followed by `extra[0, extraLength)`, without concatenating them. */
-function combinedView(
-  prefix: Uint8Array,
-  filledLength: number,
-  extra: Uint8Array,
-  extraLength: number
-): ArrayLike<number> {
-  const length = filledLength + extraLength
-  return new Proxy(
-    {},
-    {
-      get(_target, prop) {
-        if (prop === 'length') return length
-        if (typeof prop !== 'string') return undefined
-        const index = Number(prop)
-        if (!Number.isInteger(index) || index < 0 || index >= length) return undefined
-        return index < filledLength ? prefix[index] : extra[index - filledLength]
-      },
-    }
-  ) as ArrayLike<number>
-}
-
 export interface EnvelopeScanResult {
   decoded: DecodedEnvelope
   /** Bytes after the envelope: a view into whichever `push()` block supplied them, not a copy. */
@@ -226,11 +204,12 @@ export interface EnvelopeScanner {
 }
 
 /**
- * Create a scanner that buffers only what turns out to be envelope bytes --
- * never the ciphertext after it -- and decodes exactly once, on exactly the
- * right slice. Because that slice is copied into the scanner's own buffer,
- * the decoded result can't change if a caller later mutates a block it
- * already pushed.
+ * Create a scanner: push blocks until it returns the decoded envelope and
+ * the rest of that block. Envelope bytes are joined in the scanner's own
+ * buffer (capped at `MAX_ENVELOPE_SIZE`), since an envelope can span many
+ * blocks. Bytes after the envelope may land there as scratch but are never
+ * exposed; `rest` is a view of the caller's block. `decodeEnvelope` copies
+ * what it returns, so later changes to pushed blocks don't reach it.
  */
 export function createEnvelopeScanner(): EnvelopeScanner {
   let buffer = new Uint8Array(1024)
@@ -254,16 +233,13 @@ export function createEnvelopeScanner(): EnvelopeScanner {
 
     const filledBefore = filled
     // Never let the scan see more than the envelope's own size ceiling.
-    const extraLength = Math.max(0, Math.min(block.length, MAX_ENVELOPE_SIZE - filledBefore))
-    const view = combinedView(buffer, filledBefore, block, extraLength)
+    const extraLength = Math.min(block.length, MAX_ENVELOPE_SIZE - filledBefore)
+    ensureCapacity(filledBefore + extraLength)
+    buffer.set(block.subarray(0, extraLength), filledBefore)
 
-    const length = scanEnvelopeStep(view, state)
-
+    const length = scanEnvelopeStep(buffer.subarray(0, filledBefore + extraLength), state)
     if (length === undefined) {
-      // Not complete yet: everything offered so far might still be envelope,
-      // so it's all committed -- never the caller's job to know the split.
-      ensureCapacity(filledBefore + extraLength)
-      buffer.set(block.subarray(0, extraLength), filledBefore)
+      // Not complete yet: everything offered so far might still be envelope.
       filled = filledBefore + extraLength
       if (filled >= MAX_ENVELOPE_SIZE) {
         throw new MalformedEnvelopeError(`Malformed envelope: exceeds the ${MAX_ENVELOPE_SIZE}-byte envelope limit.`)
@@ -271,10 +247,8 @@ export function createEnvelopeScanner(): EnvelopeScanner {
       return undefined
     }
 
-    // Complete: only the confirmed envelope prefix of this block is copied in.
+    // Complete: anything past `length` in the buffer is unused scratch.
     const consumedFromBlock = length - filledBefore
-    ensureCapacity(length)
-    buffer.set(block.subarray(0, consumedFromBlock), filledBefore)
     filled = length
     completed = true
 
