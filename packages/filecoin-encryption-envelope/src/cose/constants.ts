@@ -7,6 +7,7 @@
  * FIP-1253: https://github.com/filecoin-project/FIPs/discussions/1253
  * Wire profile: docs/tech-spec.md
  */
+import { KEY_SIZE } from '../constants.ts'
 
 // ── COSE header labels ─────────────────────────────────────────────────────
 //
@@ -86,6 +87,13 @@ export const ALG_A256KW = -5
  * agreement *with* key wrap), not §6.3 (direct key agreement).
  */
 export const ALG_ECDH_ES_A256KW = -31
+
+/**
+ * Wire length of an A256KW-wrapped CEK: RFC 3394 adds one 8-byte integrity
+ * block to the 32-byte CEK. Any other ciphertext length for `alg = -5` is
+ * malformed recipient data, not a failed key match.
+ */
+export const A256KW_WRAPPED_CEK_SIZE = KEY_SIZE + 8
 
 // ── CBOR tags ────────────────────────────────────────────────────────────────
 

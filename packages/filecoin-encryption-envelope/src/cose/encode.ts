@@ -3,6 +3,12 @@
  * optional recipients into the wire-format COSE structure (docs/tech-spec.md,
  * "Wire profile" and "CDDL"). This module only shapes bytes — no AEAD, no
  * key wrap, no chunk framing; those live in layers above this one.
+ *
+ * Two paths: `prepareEnvelope`/`encodeEnvelope` validate arbitrary structured
+ * input and are the checked conformance encoder, used by wire-format tests to
+ * build fixtures and check encode/decode symmetry. `assemblePreparedEnvelope`
+ * skips that validation and assembles records the library already built and
+ * trusts; the AEAD layer uses it.
  */
 import { encode as cborEncode, rfc8949EncodeOptions, Tagged } from 'cborg'
 import { MalformedEnvelopeError } from '../errors.ts'
@@ -11,7 +17,8 @@ import type { EnvelopeTag } from './enc-structure.ts'
 import type { CborValue, ProtectedHeaderFields } from './headers.ts'
 import {
   assertAllowlistedValue,
-  assertValidRecipientHeaders,
+  assertRecipientCiphertext,
+  decodeRecipientHeaders,
   describeCborType,
   encodeProtectedHeader,
   encodeUnprotectedHeader,
@@ -47,18 +54,12 @@ export interface EncodeEnvelopeInput {
    * selects tag 16 (`COSE_Encrypt0`). An empty array is invalid rather than
    * being treated as `COSE_Encrypt0`, since it indicates a different caller intent.
    */
-  recipients?: RecipientInput[]
+  recipients?: readonly RecipientInput[]
 }
 
 /**
- * Result used by the AEAD layer while preparing detached ciphertext.
- *
- * This type and {@link prepareEnvelope} are intentionally omitted from the
- * public `cose` barrel. Callers that only shape COSE bytes use
- * {@link encodeEnvelope}; the AEAD layer also needs the exact protected bytes
- * placed in the envelope because `Enc_structure` must use those bytes.
- * Encoding again would re-read caller-owned header values, which can change
- * or return different values through getters.
+ * Result of assembling an envelope: its encoded bytes, the exact protected
+ * bytes placed inside it (needed verbatim for `Enc_structure`), and its tag.
  */
 export interface PreparedEnvelope {
   bytes: Uint8Array
@@ -67,20 +68,49 @@ export interface PreparedEnvelope {
 }
 
 /**
- * Encode an envelope and retain the protected bytes needed by the AEAD layer.
- *
- * The encoder enforces the same structural rules as `decodeEnvelope`, so it
- * cannot produce an envelope the decoder would reject. Protected header
- * rules are handled by `encodeProtectedHeader`.
+ * Validate arbitrary structured input and encode an envelope, retaining the
+ * protected bytes alongside the encoded bytes.
  */
 export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
   if (input === null || typeof input !== 'object') {
     throw new MalformedEnvelopeError(`Invalid envelope input: expected an object, got ${describeCborType(input)}.`)
   }
 
-  // Snapshot the fields so the values passed to CBOR are the same ones that were validated
+  // Read the fields once: a getter could otherwise answer differently for
+  // validation than for encoding.
   const { protectedHeader, recipients: recipientInputs } = input
+  const recipients = prepareRecipientRecords(recipientInputs)
+  return assemble(encodeProtectedHeader(protectedHeader), recipients)
+}
 
+/**
+ * Map already-built recipient records straight into COSE tuples, skipping
+ * `prepareRecipientRecords`'s validation. `records` omitted selects tag 16
+ * (`COSE_Encrypt0`); a non-empty list selects tag 96 (`COSE_Encrypt`).
+ */
+export function assemblePreparedEnvelope(
+  envelopeProtectedBytes: Uint8Array,
+  records: readonly RecipientInput[] = []
+): PreparedEnvelope {
+  const recipients: CborValue[][] = records.map(
+    ({ protectedBytes: recipientProtectedBytes, unprotected, ciphertext }) => [
+      recipientProtectedBytes,
+      unprotected,
+      ciphertext,
+    ]
+  )
+
+  return assemble(envelopeProtectedBytes, recipients)
+}
+
+/**
+ * Validate caller-supplied recipient records and convert them to
+ * `[protected, unprotected, ciphertext]` tuples. Omitted input yields `[]`
+ * (tag 16); an empty array is rejected. Each record must pass the same
+ * header rules `decodeEnvelope` applies, and its unprotected map must be
+ * encodable within the decoder's depth limit.
+ */
+function prepareRecipientRecords(recipientInputs: readonly RecipientInput[] | undefined): CborValue[][] {
   if (recipientInputs !== undefined) {
     if (!Array.isArray(recipientInputs)) {
       throw new MalformedEnvelopeError(
@@ -97,9 +127,10 @@ export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
 
   // Use an indexed loop to validate every position in the array. `.map` ignores
   // missing entries in sparse arrays, which could otherwise bypass validation.
+  const inputs = recipientInputs ?? []
   const recipients: CborValue[][] = []
-  for (let index = 0; index < (recipientInputs?.length ?? 0); index++) {
-    const recipient = (recipientInputs as RecipientInput[])[index]
+  for (let index = 0; index < inputs.length; index++) {
+    const recipient = inputs[index]
 
     if (recipient === null || typeof recipient !== 'object') {
       throw new MalformedEnvelopeError(
@@ -108,7 +139,7 @@ export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
     }
 
     const { protectedBytes, unprotected, ciphertext } = recipient
-    assertValidRecipientHeaders(protectedBytes, unprotected, `recipients[${index}]`)
+    const { alg } = decodeRecipientHeaders(protectedBytes, unprotected, `recipients[${index}]`)
 
     if (!(ciphertext instanceof Uint8Array)) {
       throw new MalformedEnvelopeError(
@@ -116,12 +147,15 @@ export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
           `${describeCborType(ciphertext)}.`
       )
     }
+    assertRecipientCiphertext(alg, ciphertext, `recipients[${index}]`)
 
     assertAllowlistedValue(unprotected, `recipients[${index}].unprotected`, RECIPIENT_ENCLOSING_DEPTH)
     recipients.push([protectedBytes, unprotected, ciphertext])
   }
+  return recipients
+}
 
-  const protectedBytes = encodeProtectedHeader(protectedHeader)
+function assemble(protectedBytes: Uint8Array, recipients: CborValue[][]): PreparedEnvelope {
   const unprotectedMap = encodeUnprotectedHeader()
   const tag = recipients.length === 0 ? TAG_ENCRYPT0 : TAG_ENCRYPT
 
@@ -140,8 +174,8 @@ export function prepareEnvelope(input: EncodeEnvelopeInput): PreparedEnvelope {
 }
 
 /**
- * Encode an envelope with detached ciphertext. The caller appends the
- * ciphertext separately. See docs/tech-spec.md, "Blob layout".
+ * `prepareEnvelope`, keeping only the encoded bytes. The caller appends the
+ * detached ciphertext separately. See docs/tech-spec.md, "Blob layout".
  */
 export function encodeEnvelope(input: EncodeEnvelopeInput): Uint8Array {
   return prepareEnvelope(input).bytes

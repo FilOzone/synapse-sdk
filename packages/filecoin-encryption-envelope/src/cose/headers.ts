@@ -40,6 +40,7 @@ import {
 } from '../constants.ts'
 import { CriticalHeaderError, MalformedEnvelopeError, UnsupportedSchemeError } from '../errors.ts'
 import {
+  A256KW_WRAPPED_CEK_SIZE,
   ALG_A256KW,
   ALG_ECDH_ES_A256KW,
   ENVELOPE_TYPE,
@@ -84,6 +85,9 @@ export interface CborValueObject {
   [key: string]: CborValue
 }
 
+/** Opaque, string-keyed application metadata. Carried but never interpreted. */
+export type AppMetadata = Record<string, CborValue>
+
 /** A decoded profile value, optionally wrapped in a supported CBOR tag. */
 export type DecodedCborValue = CborValue | Tagged
 
@@ -98,7 +102,7 @@ export interface ProtectedHeaderFields {
   /** Exact plaintext length, when known before encoding. Chunked scheme only. */
   plaintextLength?: number
   /** Opaque authenticated metadata. This package carries but does not interpret it. */
-  appMetadata?: Record<string, CborValue>
+  appMetadata?: AppMetadata
 }
 
 /**
@@ -118,6 +122,15 @@ export interface DecodedProtectedHeader extends ProtectedHeaderFields {
  */
 export type UnprotectedHeaderMap = Map<CborValue, CborValue>
 
+/** Validated logical fields from one recipient's protected and unprotected headers. */
+export interface DecodedRecipientHeaders {
+  /** Decoded protected map. Empty when the serialized protected field is `h''`. */
+  protected: Map<CborValue, CborValue>
+  alg: number | string
+  /** Key identifier from either header bucket, when present. */
+  kid?: Uint8Array
+}
+
 /**
  * Strict CBOR decoding for envelope data.
  *
@@ -126,7 +139,7 @@ export type UnprotectedHeaderMap = Map<CborValue, CborValue>
  * preserves integer map labels, while `retainStringBytes` allows
  * {@link createStrictTokenizer} to validate the original UTF-8.
  */
-export const DECODE_OPTIONS: DecodeOptions = {
+const DECODE_OPTIONS: DecodeOptions = {
   useMaps: true,
   strict: true,
   rejectDuplicateMapKeys: true,
@@ -320,7 +333,7 @@ export function describeCborType(value: unknown): string {
 }
 
 /** The IV length this profile requires for `alg`: 12 bytes (scheme 1) or 7 bytes (chunked base nonce). */
-export function ivLengthForAlg(alg: Alg): number {
+function ivLengthForAlg(alg: Alg): number {
   return alg === ALG_AES_256_GCM ? NONCE_SIZE : BASE_NONCE_SIZE
 }
 
@@ -998,11 +1011,11 @@ export function decodeProtectedHeader(
  * A protected recipient header is either `h''` or one serialized CBOR map.
  * A256KW specifically requires `h''`.
  */
-export function assertValidRecipientHeaders(
+export function decodeRecipientHeaders(
   protectedBytes: Uint8Array,
   unprotected: Map<CborValue, CborValue>,
   path: string
-): void {
+): DecodedRecipientHeaders {
   // Validate runtime types as well as TypeScript types so the encoder cannot
   // produce recipient shapes its decoder would reject.
   if (!(protectedBytes instanceof Uint8Array)) {
@@ -1050,16 +1063,20 @@ export function assertValidRecipientHeaders(
   }
 
   // `kid` (4) is a byte string in either recipient header bucket.
-  for (const [bucket, map] of [
-    ['protected', protectedMap],
-    ['unprotected', unprotected],
-  ] as const) {
-    const kid = map?.get(HEADER_KID)
-    if (kid !== undefined && !(kid instanceof Uint8Array)) {
-      throw new MalformedEnvelopeError(
-        `Invalid kid (4) in ${path}.${bucket}: expected a byte string, got ${describeCborType(kid)}.`
-      )
-    }
+  const protectedKid = protectedMap?.get(HEADER_KID)
+
+  if (protectedKid !== undefined && !(protectedKid instanceof Uint8Array)) {
+    throw new MalformedEnvelopeError(
+      `Invalid kid (4) in ${path}.protected: expected a byte string, got ${describeCborType(protectedKid)}.`
+    )
+  }
+
+  const unprotectedKid = unprotected?.get(HEADER_KID)
+
+  if (unprotectedKid !== undefined && !(unprotectedKid instanceof Uint8Array)) {
+    throw new MalformedEnvelopeError(
+      `Invalid kid (4) in ${path}.unprotected: expected a byte string, got ${describeCborType(unprotectedKid)}.`
+    )
   }
 
   if (protectedMap !== undefined) {
@@ -1077,9 +1094,9 @@ export function assertValidRecipientHeaders(
   if (alg === undefined) {
     throw new MalformedEnvelopeError(`Missing alg (1) in ${path}: every COSE_recipient must name its algorithm.`)
   }
-  if (typeof alg !== 'number' || !Number.isInteger(alg)) {
+  if (!((typeof alg === 'number' && Number.isInteger(alg)) || typeof alg === 'string')) {
     throw new MalformedEnvelopeError(
-      `Invalid alg (1) in ${path}: ${describeCborType(alg)}. Expected an integer algorithm identifier.`
+      `Invalid alg (1) in ${path}: ${describeCborType(alg)}. Expected an integer or text-string algorithm identifier.`
     )
   }
 
@@ -1103,6 +1120,28 @@ export function assertValidRecipientHeaders(
   if (alg === ALG_ECDH_ES_A256KW && !algInProtected) {
     throw new MalformedEnvelopeError(
       `Invalid ${path}: ECDH-ES+A256KW (${ALG_ECDH_ES_A256KW}) requires alg (1) in the protected map, not the unprotected one.`
+    )
+  }
+
+  const kid = protectedMap?.get(HEADER_KID) ?? unprotected.get(HEADER_KID)
+  return {
+    protected: protectedMap ?? new Map(),
+    alg,
+    ...(kid instanceof Uint8Array ? { kid } : {}),
+  }
+}
+
+/**
+ * Enforce algorithm-specific ciphertext length rules for one recipient.
+ * A256KW's ciphertext must be exactly {@link A256KW_WRAPPED_CEK_SIZE} bytes
+ * (a 32-byte CEK plus RFC 3394's 8-byte integrity block); any other length is
+ * malformed recipient data, not a failed key match. Other algorithms are not
+ * constrained here.
+ */
+export function assertRecipientCiphertext(alg: number | string, ciphertext: Uint8Array, path: string): void {
+  if (alg === ALG_A256KW && ciphertext.length !== A256KW_WRAPPED_CEK_SIZE) {
+    throw new MalformedEnvelopeError(
+      `Invalid ${path}.ciphertext: A256KW (${ALG_A256KW}) requires exactly ${A256KW_WRAPPED_CEK_SIZE} bytes, got ${ciphertext.length}.`
     )
   }
 }

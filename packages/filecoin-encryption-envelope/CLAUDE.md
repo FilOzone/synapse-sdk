@@ -11,12 +11,14 @@ wire format itself.
 Status: draft, unpublished (`version: 0.0.0`). Nothing here is a public API commitment yet, so breaking
 the export shape costs nothing — no downstream consumers exist.
 
-The implemented foundation is `chunk-layout.ts`, `nonce.ts`, the error hierarchy, and the `cose/`
-wire layer: strict CBOR parsing, tags 16/96, protected and unprotected headers, detached-ciphertext
-framing, `Enc_structure`, and structural recipient validation. Whole-object AES-GCM encryption,
-decryption, and CEK validation are implemented in `aes-gcm.ts`. Chunked AEAD, streaming, range reads,
-and A256KW wrap/unwrap are still planned. ECDH-ES+A256KW remains deferred; the code enforces its settled
-header placement but does not derive or unwrap its KEK.
+Implemented: `chunk-layout.ts`, `nonce.ts`, the error hierarchy, the `cose/` wire layer (strict CBOR
+parsing, tags 16/96, protected and unprotected headers, detached-ciphertext framing, `Enc_structure`,
+structural recipient validation), scheme-1 AES-256-GCM encryption and decryption in `aes-gcm.ts` (direct
+CEK, both tag 16 and tag 96), A256KW recipient wrapping on encryption, the built-in A256KW unwrapper
+factory (`createA256KWUnwrapper`), and recipient-based decryption through an unwrapper
+(`aesGcm.decryptWith`). Not yet implemented: the chunked scheme and streaming, range reads, and envelope
+inspection beyond decode. ECDH-ES+A256KW remains deferred; the code enforces its settled header
+placement but does not derive or unwrap its KEK.
 
 ## Scope discipline
 
@@ -30,29 +32,49 @@ anything that looks like it belongs to a different concern.
 
 Each concern gets its own file or, once it grows past one file, its own directory with an `index.ts`
 that defines that directory's public surface. Use `export *` when the whole module is public and
-explicit exports when helpers must stay internal, as `cose/index.ts` does for `headers.ts`. The
-package root `src/index.ts` re-exports every top-level module or directory **as a namespace**:
+explicit exports when helpers must stay internal, as `cose/index.ts` does for `headers.ts`.
+
+`src/index.ts` is the allowlist of this package's public interface: a module is public only if
+`src/index.ts` exports it. Shared implementation code lives under `src/internal/` and is never exported.
+Shared type-only exports at the root (currently `AppMetadata`, `CborValue`) are the one exception to
+"namespaces only" — a type carries no runtime shape, so it doesn't need one. Public constants are
+re-exported through the curated `src/public-constants.ts`, never `src/constants.ts` directly:
 
 ```ts
 export * as aesGcm from './aes-gcm.ts'
-export * as chunkLayout from './chunk-layout.ts'
-export * as constants from './constants.ts'
+export type { AppMetadata, CborValue } from './cose/headers.ts'
 export * as cose from './cose/index.ts'
 export * as errors from './errors.ts'
-export * as nonce from './nonce.ts'
+export * as constants from './public-constants.ts'
+export * as recipients from './recipients/index.ts'
 ```
 
-This mirrors `packages/synapse-core`'s convention exactly (see its `src/index.ts`) — namespace nearly
-everything, so a consumer writes `import * as fee from '@filoz/filecoin-encryption-envelope'` and
-`fee.cose.decodeEnvelope(...)`. When you add a new top-level file or directory, add one
-`export * as <camelCaseName> from './<path>'` line to `src/index.ts`, alphabetized. Do not flatten a new
-module's exports into the root namespace with a bare `export * from`. Inside `src/`, import the specific
-file that owns a value (`'../cose/headers.ts'`, for example); internal modules do not need to route
-through public barrels or pull in a whole namespace for one function.
+Inside `src/`, import the specific file that owns a value (`'../cose/headers.ts'`, for example);
+internal modules do not need to route through public barrels or pull in a whole namespace for one
+function.
 
 Tests import the specific file under test directly (`'../src/cose/headers.ts'`), never through
 `src/index.ts` — that keeps a test failure pointing at the module that actually changed, and it's also
-what makes the root barrel's export *shape* freely changeable without touching any test.
+what makes the root barrel's export *shape* freely changeable without touching any test. The one
+exception is `test/public-surface.test.ts`, which tests the root barrel itself.
+
+## Input ownership and validation
+
+- Public async operations borrow caller input; callers must not modify any input (plaintext, encoded
+  object, keys, recipient objects, metadata) until the promise settles. The library never modifies
+  caller input and does not detect mutation.
+- Validate once at each external seam (public functions, values returned by caller-supplied callbacks);
+  internal functions trust prepared values and do not re-validate.
+- Read each caller-object property once (getters can return different values per read).
+- Raw key bytes are validated, then imported to a `CryptoKey`; only `CryptoKey`s travel inward. The CEK
+  is imported once per operation, extractable only when it must be wrapped.
+- Byte inputs handed to Web Crypto must be ArrayBuffer-backed; SharedArrayBuffer-backed views are
+  rejected with the relevant input error.
+- Copy only data handed to caller code or retained beyond the call (e.g. the recipient view given to an
+  unwrapper; the kids `createA256KWUnwrapper` retains for later matching across calls).
+- Recipient key operations run sequentially; never start one Web Crypto operation per recipient at once.
+- Web Crypto calls live only in `src/internal/web-crypto.ts`, which owns error mapping; key-shape
+  validation lives in `src/internal/keys.ts`.
 
 ## Constants: shared root file vs. module-local file
 
@@ -71,6 +93,12 @@ chunk, chunk-count, object-size, and scheme-1 plaintext bounds. `chunk-layout.ts
 header validator, and the future AEAD layer must use the same values. `cose/constants.ts` holds header
 labels, CBOR tags, recipient algorithm IDs, `ENVELOPE_TYPE`, `MAX_ENVELOPE_SIZE`, and the CBOR nesting
 limit — values meaningful only while shaping or parsing COSE.
+
+`src/public-constants.ts` is a curated re-export list, not a second place to define values: it defines
+nothing itself, only re-exports names already defined in `src/constants.ts` or `cose/constants.ts`. A new
+constant is still placed by the shared-vs-module-local rule above regardless of whether it will end up
+public — being defined somewhere does not make a constant public; add it to `public-constants.ts` only
+when a caller actually needs it.
 
 ## Wire-format code conventions (`src/cose/`, and anything that follows it)
 

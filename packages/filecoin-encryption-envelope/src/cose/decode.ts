@@ -12,9 +12,10 @@ import { MalformedEnvelopeError } from '../errors.ts'
 import { MAX_ENVELOPE_SIZE, TAG_ENCRYPT, TAG_ENCRYPT0 } from './constants.ts'
 import type { CborValue, DecodedCborValue, DecodedProtectedHeader, UnprotectedHeaderMap } from './headers.ts'
 import {
-  assertValidRecipientHeaders,
+  assertRecipientCiphertext,
   decodeFirst,
   decodeProtectedHeader,
+  decodeRecipientHeaders,
   decodeUnprotectedHeader,
   describeCborType,
 } from './headers.ts'
@@ -43,7 +44,13 @@ export interface DecodedRecipient {
    * Header structure and placement have already been validated.
    */
   protectedBytes: Uint8Array
+  /** Decoded and validated protected map. Empty when `protectedBytes` is `h''`. */
+  protected: Map<CborValue, CborValue>
   unprotected: Map<CborValue, CborValue>
+  /** Recipient algorithm identifier from the validated header buckets. */
+  alg: number | string
+  /** Recipient key identifier, when present in either header bucket. */
+  kid?: Uint8Array
   /** Wrapped key material. */
   ciphertext: Uint8Array
 }
@@ -82,8 +89,17 @@ function parseBody<T>(schema: z.ZodType<T>, value: CborValue, context: string): 
   return result.data
 }
 
-function toRecipient([protectedBytes, unprotected, ciphertext]: RecipientTuple): DecodedRecipient {
-  return { protectedBytes, unprotected, ciphertext }
+function toRecipient([protectedBytes, unprotected, ciphertext]: RecipientTuple, index: number): DecodedRecipient {
+  const headers = decodeRecipientHeaders(protectedBytes, unprotected, `recipients[${index}]`)
+  assertRecipientCiphertext(headers.alg, ciphertext, `recipients[${index}]`)
+  return {
+    protectedBytes,
+    protected: headers.protected,
+    unprotected,
+    alg: headers.alg,
+    ...(headers.kid === undefined ? {} : { kid: headers.kid }),
+    ciphertext,
+  }
 }
 
 /**
@@ -134,14 +150,9 @@ export function decodeEnvelope(data: Uint8Array): DecodedEnvelope {
     )
     protectedBytes = parsedProtectedBytes
     unprotectedRaw = parsedUnprotected
+    // The schema validates each tuple's outer shape. `toRecipient` validates
+    // and retains its headers before key-unwrapping code can inspect it.
     recipients = recipientTuples.map(toRecipient)
-
-    // The schema validates the recipient tuple shape, but not its header
-    // contents. Validate each recipient before it can be considered for
-    // key unwrapping; only well-formed unsupported recipients may be skipped.
-    recipients.forEach((recipient, index) => {
-      assertValidRecipientHeaders(recipient.protectedBytes, recipient.unprotected, `recipients[${index}]`)
-    })
   } else {
     const context = 'tag 16 content must be [protected: bstr, unprotected: map, ciphertext: null]'
     const [parsedProtectedBytes, parsedUnprotected] = parseBody(TAG0_BODY_SCHEMA, decoded.value, context)
