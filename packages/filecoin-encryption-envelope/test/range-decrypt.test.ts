@@ -235,6 +235,37 @@ describe('decryptRange', () => {
   })
 
   describe('source path', () => {
+    it('decrypts correctly when the source reuses its block on the next pull', async () => {
+      // Legal source behaviour: once pulled again, a source may recycle the
+      // buffer it handed out. The last piece must be decrypted before the
+      // end-of-span read, or its ciphertext changes underneath it.
+      const plaintext = deterministicPlaintext(100)
+      const encoded = await encryptChunkedFull(plaintext)
+      const source: RandomAccessSource = {
+        size: encoded.length,
+        async openRange(offset, length) {
+          const shared = new Uint8Array(encoded.subarray(offset, offset + length))
+          let sent = false
+          return new ReadableStream<Uint8Array>(
+            {
+              pull(controller) {
+                if (sent) {
+                  shared.fill(0)
+                  controller.close()
+                } else {
+                  sent = true
+                  controller.enqueue(shared)
+                }
+              },
+            },
+            { highWaterMark: 0 }
+          )
+        },
+      }
+      const { bytes } = await decryptRangeBytes(source, new Uint8Array(FIXED_CEK), { offset: 0 })
+      assert.deepStrictEqual(bytes, plaintext)
+    })
+
     it('fetches the planned span even if the caller edits result.ciphertextSpan', async () => {
       const plaintext = deterministicPlaintext(10000)
       const encoded = await encryptChunkedFull(plaintext)

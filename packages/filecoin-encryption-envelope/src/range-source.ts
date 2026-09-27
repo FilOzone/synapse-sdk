@@ -120,6 +120,7 @@ export interface ExactRangeReader {
  */
 export function openExactRange(source: RandomAccessSource, offset: number, length: number): ExactRangeReader {
   let readerPromise: Promise<ReadableStreamDefaultReader<Uint8Array>> | undefined
+  let opened = false
   let received = 0
   let finished = false
 
@@ -133,6 +134,7 @@ export function openExactRange(source: RandomAccessSource, offset: number, lengt
               `${describeCborType(stream)}.`
           )
         }
+        opened = true
         return stream.getReader()
       })()
     }
@@ -189,11 +191,16 @@ export function openExactRange(source: RandomAccessSource, offset: number, lengt
     return value
   }
 
-  async function cancel(reason?: unknown): Promise<void> {
-    if (readerPromise === undefined) return
-    const reader = await readerPromise.catch(() => undefined)
+  function cancel(reason?: unknown): Promise<void> {
+    if (readerPromise === undefined) return Promise.resolve()
     // Nothing useful to report if the source fails to cancel.
-    await reader?.cancel(reason).catch(() => undefined)
+    const cancelled = readerPromise.then(
+      (reader) => reader.cancel(reason).catch(() => undefined),
+      () => undefined
+    )
+    // A pending openRange has no abort signal: don't let a hung open hang
+    // cancellation. Its stream is still cancelled whenever it arrives.
+    return opened ? cancelled : Promise.resolve()
   }
 
   return { read, cancel }

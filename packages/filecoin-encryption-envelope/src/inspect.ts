@@ -10,9 +10,10 @@
  * trustworthy until an AEAD tag over the relevant chunk verifies it.
  *
  * `ChunkedEnvelopeParams` only saves a re-read of the envelope: it must be
- * used against the same immutable object version it was read from. Using it
- * against a different version doesn't produce wrong plaintext -- it fails
- * authentication, same as any other mismatched key material. Params exist
+ * used against the same immutable object version it was read from. A
+ * mismatch isn't guaranteed to be caught: most fail authentication, but
+ * versions that differ only outside the protected header and the chunks read
+ * can still decrypt. Params exist
  * only in memory; persisting or restoring them is out of scope here.
  */
 import { ALG_AES_256_GCM } from './constants.ts'

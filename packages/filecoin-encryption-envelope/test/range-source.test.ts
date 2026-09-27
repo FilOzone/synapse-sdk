@@ -141,6 +141,34 @@ describe('toRandomAccessSource', () => {
 })
 
 describe('openExactRange', () => {
+  it('cancel does not wait for a pending openRange, and cancels its stream once it arrives', async () => {
+    let resolveOpen: ((stream: ReadableStream<Uint8Array>) => void) | undefined
+    let lateCancelled = false
+    const source: RandomAccessSource = {
+      size: 100,
+      openRange: () =>
+        new Promise((resolve) => {
+          resolveOpen = resolve
+        }),
+    }
+    const range = openExactRange(source, 0, 10)
+    const pendingRead = range.read()
+    pendingRead.catch(() => undefined)
+    await new Promise((resolve) => setTimeout(resolve, 0)) // openRange is now pending
+
+    await range.cancel(new Error('stop')) // must settle while the open hangs
+
+    resolveOpen?.(
+      new ReadableStream<Uint8Array>({
+        cancel() {
+          lateCancelled = true
+        },
+      })
+    )
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    assert.strictEqual(lateCancelled, true)
+  })
+
   function sourceReturning(
     blocks: Uint8Array[],
     openRangeOverride?: (offset: number, length: number) => Promise<ReadableStream<Uint8Array>>
