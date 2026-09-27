@@ -76,6 +76,11 @@ export class InvalidNonceError extends EnvelopeError {
   override name = 'InvalidNonceError'
 }
 
+/** A requested byte range cannot be served: malformed, out of bounds, or empty. HTTP 416 territory. */
+export class InvalidRangeError extends EnvelopeError {
+  override name = 'InvalidRangeError'
+}
+
 /**
  * A random-access source's `size` is invalid, or an opened range produced
  * fewer or more bytes than requested. A transport or source fault, not a bad
