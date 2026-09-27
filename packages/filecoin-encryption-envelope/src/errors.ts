@@ -77,6 +77,15 @@ export class InvalidNonceError extends EnvelopeError {
 }
 
 /**
+ * A random-access source's `size` is invalid, or an opened range produced
+ * fewer or more bytes than requested. A transport or source fault, not a bad
+ * ciphertext layout.
+ */
+export class InvalidSourceLengthError extends EnvelopeError {
+  override name = 'InvalidSourceLengthError'
+}
+
+/**
  * The envelope, or a value destined for one, does not match this package's
  * wire profile. Raised on both paths: by encode when a caller's input would
  * produce bytes this package could not read back, and by decode on anything
