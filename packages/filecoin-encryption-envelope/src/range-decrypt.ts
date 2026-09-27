@@ -64,7 +64,8 @@ function readParams(options: RangeDecryptOptions | undefined): ChunkedEnvelopePa
 function createPieceReader(reader: ExactRangeReader, stride: number) {
   let heldBlock: Uint8Array<ArrayBuffer> | undefined
   let heldOffset = 0
-  const scratch = new Uint8Array(stride)
+  // Allocated only once a piece spans blocks; contiguous sources never need it.
+  let scratch: Uint8Array<ArrayBuffer> | undefined
 
   async function nextBlock(): Promise<Uint8Array<ArrayBuffer>> {
     if (heldBlock !== undefined && heldOffset < heldBlock.length) return heldBlock
@@ -91,6 +92,7 @@ function createPieceReader(reader: ExactRangeReader, stride: number) {
         return view
       }
       const take = Math.min(available, pieceLength - filled)
+      scratch ??= new Uint8Array(stride)
       scratch.set(block.subarray(heldOffset, heldOffset + take), filled)
       filled += take
       heldOffset += take
@@ -144,6 +146,13 @@ function createRangeStream(
           const pieceLength = isLastPiece ? plan.lastChunkCipherLength : stride
           const piece = await opened.pieces.readPiece(pieceLength)
 
+          // The size-derived layout decides finality, never "last piece of this span".
+          // Decrypt before any further read: `piece` may be a view into a source
+          // block, which the source is free to reuse once we pull again.
+          const isFinalChunk = index === plan.chunkCount - 1
+          const nonce = deriveChunkNonce(keyed.baseNonce, index, isFinalChunk)
+          let plaintext = await aesGcmDecrypt(keyed.cekKey, nonce, keyed.additionalData, piece)
+
           if (isLastPiece) {
             // Confirms the source has nothing left beyond the planned span,
             // before this final piece's plaintext is ever released.
@@ -152,11 +161,6 @@ function createRangeStream(
               throw new InvalidSourceLengthError('Invalid range source: produced extra bytes beyond the planned span.')
             }
           }
-
-          // The size-derived layout decides finality, never "last piece of this span".
-          const isFinalChunk = index === plan.chunkCount - 1
-          const nonce = deriveChunkNonce(keyed.baseNonce, index, isFinalChunk)
-          let plaintext = await aesGcmDecrypt(keyed.cekKey, nonce, keyed.additionalData, piece)
 
           if (index === plan.firstChunk && plan.skip > 0) {
             plaintext = plaintext.subarray(plan.skip)
@@ -246,9 +250,9 @@ async function createRangeResult(
  *
  * `cek` is borrowed until this promise settles; `source` is borrowed until
  * `stream` closes or errors. Pass `options.params` from `parse()` on this
- * same object version to skip re-reading the envelope -- params from a
- * different version don't produce wrong plaintext, they fail authentication,
- * same as any other mismatched key material.
+ * same object version to skip re-reading the envelope. A mismatch isn't
+ * guaranteed to be caught: most fail authentication, but versions that differ
+ * only outside the protected header and the chunks read can still decrypt.
  *
  * Truncation: a declared `plaintext_length` catches a size mismatch before
  * any fetch. A range that includes the presumed final chunk catches

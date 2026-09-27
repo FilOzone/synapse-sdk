@@ -326,6 +326,24 @@ const rows: Row[] = [
 ]
 
 describe('planRange', () => {
+  it('reads offset and length once, so a getter cannot change them after validation', () => {
+    let offsetReads = 0
+    let lengthReads = 0
+    const range = {
+      get offset() {
+        return offsetReads++ === 0 ? 10 : Number.NaN
+      },
+      get length() {
+        return lengthReads++ === 0 ? 20 : Number.NaN
+      },
+    }
+    const plan = planRange({ sourceSize: 10000, headerLength: 0, chunkSize: 4096 }, range)
+    assert.strictEqual(offsetReads, 1)
+    assert.strictEqual(lengthReads, 1)
+    assert.strictEqual(plan.rangeLength, 20)
+    assert.strictEqual(plan.skip, 10)
+  })
+
   describe('table', () => {
     for (const { name, layout, range, expected } of rows) {
       it(name, () => {

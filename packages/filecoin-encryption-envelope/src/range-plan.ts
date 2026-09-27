@@ -65,7 +65,8 @@ export interface RangePlan {
   lastChunkCipherLength: number
 }
 
-function assertValidByteRange(range: unknown): asserts range is ByteRange {
+/** Validate `range`, reading each field once, and return that snapshot. */
+function readByteRange(range: unknown): ByteRange {
   if (range === null || typeof range !== 'object') {
     throw new InvalidRangeError(`Invalid range: expected an object, got ${describeCborType(range)}.`)
   }
@@ -85,6 +86,7 @@ function assertValidByteRange(range: unknown): asserts range is ByteRange {
       `Invalid range: a suffix offset (${offset}) takes no length; a suffix always runs to the end.`
     )
   }
+  return { offset, length }
 }
 
 /**
@@ -109,8 +111,8 @@ export function planRange(layoutInput: ChunkedRangeLayoutInput, range: unknown):
   }
   const total = layout.plaintextLength
 
-  assertValidByteRange(range)
-  const { offset, length } = range
+  // One snapshot: a getter must not answer differently after validation.
+  const { offset, length } = readByteRange(range)
 
   if (total === 0) {
     throw new InvalidRangeError('Invalid range: the object is empty; decrypt() handles an empty object directly.')
