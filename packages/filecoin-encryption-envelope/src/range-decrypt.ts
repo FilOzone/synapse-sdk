@@ -20,6 +20,8 @@ import {
   readEnvelope,
   toRandomAccessSource,
 } from './range-source.ts'
+import { recoverCek } from './recipients/recover.ts'
+import type { Unwrapper } from './recipients/types.ts'
 
 export interface RangeResult {
   /** Plaintext for the requested range, one authenticated chunk at a time. */
@@ -263,4 +265,30 @@ export async function decryptRange(
 ): Promise<RangeResult> {
   assertAes256Key(cek, 'CEK')
   return createRangeResult(source, range, options, () => importAesGcmKey(cek, 'decrypt', false))
+}
+
+/**
+ * Like `decryptRange`, but recovers the CEK from the envelope's recipients
+ * through `unwrapper`.
+ *
+ * - Tag 96 only: a tag-16 object fails with `NoUsableRecipientError` without
+ *   calling `unwrapper`.
+ * - `unwrapper` is called once, with copies of every recipient in wire order,
+ *   also when `options.params` skips the envelope read; its CEK is validated.
+ * - The range is planned first and the key recovered before the promise
+ *   settles, so recipient failures reject it, never the stream.
+ */
+export async function decryptRangeWith(
+  source: RandomAccessSource | Uint8Array,
+  unwrapper: Unwrapper,
+  range: ByteRange,
+  options?: RangeDecryptOptions
+): Promise<RangeResult> {
+  if (typeof unwrapper !== 'function') {
+    throw new MalformedEnvelopeError(`Invalid unwrapper: expected a function, got ${describeCborType(unwrapper)}.`)
+  }
+  return createRangeResult(source, range, options, async (decoded) => {
+    const cek = await recoverCek(decoded, unwrapper)
+    return importAesGcmKey(cek, 'decrypt', false)
+  })
 }
