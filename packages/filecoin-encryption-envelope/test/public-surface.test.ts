@@ -128,6 +128,7 @@ describe('public surface (src/index.ts)', () => {
       'InvalidNonceError',
       'InvalidPlaintextError',
       'InvalidPlaintextLengthError',
+      'InvalidSourceLengthError',
       'MalformedEnvelopeError',
       'NoUsableRecipientError',
       'RecipientAttemptLimitError',
