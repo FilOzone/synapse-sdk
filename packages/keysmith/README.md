@@ -87,8 +87,11 @@ To share a limited **scope** instead of a whole dataset:
 
 ```ts
 const sk = Keysmith.scopeKey(dk, 'invoices')
-const grant = await Keysmith.wrapTo(theirPublicKey, sk, { ...descriptor, node: 'scope:invoices' })
+const grant = await Keysmith.wrapTo(theirPublicKey, sk, Keysmith.grantDescriptor(ref, 'scope:invoices'))
 ```
+
+Build descriptors with `grantDescriptor()` rather than filling the structure by hand. It is authenticated as part of the grant signature
+so consistent canonicalization is important.
 
 The recipient reads `invoices` and nothing else, including pieces written after the grant.
 The grant's descriptor is authenticated, so it cannot be relabelled as another dataset or
@@ -140,6 +143,8 @@ With the wallet, the chain metadata, and the encrypted bkobs. Nothing else is re
 | `holdingOf(grant)` | Which level a grant carries, for `keyForEnvelope` |
 | `pieceMetadata(ref, { salt, scope? })` | What the envelope must record |
 | `commitment(secret)` / `COMMITMENT_KEY` | Non-secret check value for FWSS metadata |
+| `grantDescriptor(ref, node)` | Name what a grant unlocks: `'dataset'` or `'scope:<name>'` |
+| `grantDescriptor(ref, node)` | Name what a grant unlocks: `'dataset'` or `'scope:<name>'` |
 | `wrapTo(publicKey, key, descriptor)` | Wrap a node key for a recipient |
 | `unwrapWith(privateKey, grant)` | Open a grant |
 | `publicKeyOf(privateKey)` | Uncompressed secp256k1 public key |

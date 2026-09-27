@@ -11,13 +11,14 @@
  * @module
  */
 import { hkdf } from '@noble/hashes/hkdf'
-import { sha256 } from '@noble/hashes/sha256'
+import { sha256 } from '@noble/hashes/sha2'
 import type { Hex } from 'viem'
 import { bytesToHex, hexToBytes } from 'viem'
 import type {
   DatasetKeyMessage,
   DatasetRef,
   GrantDescriptor,
+  GrantNode,
   Holding,
   PieceMetadata,
   TypedDataSigner,
@@ -28,9 +29,17 @@ const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
 const HALF_N = N / 2n
 
 /**
- * Deliberately carries neither `chainId` nor `verifyingContract`: a redeployed
- * contract, or a wallet pointed at another network, must not orphan a
- * dataset's key.
+ * Note: Deliberately carries neither `chainId` nor `verifyingContract`:
+ * a redeployed contract, or a wallet pointed at another network, must
+ * not orphan a dataset's key. The binding those fields would give is not
+ * lost — `chainId` and `service` are fields of the message below, where
+ * they are signed just the same.
+ *
+ * **Never add a field here, and never zero-fill one.** The separator is
+ * hashed over the fields that are present, so `{name, version}` and
+ * `{name, version, chainId: 0, verifyingContract: 0x00…}` are different
+ * domains, different signatures, and different keys. Any change orphans
+ * every key ever derived, with no recovery path!
  */
 export const DOMAIN = { name: 'FOC Encryption', version: '1' } as const
 
@@ -154,14 +163,39 @@ export const scopeKey = (dk: Uint8Array, scope: string): Uint8Array => derive(dk
 /** The key for one piece. Never reused: FEE requires a fresh key per object. */
 export const pieceKey = (node: Uint8Array, salt: Hex): Uint8Array => derive(node, `${INFO.piece}${salt}`)
 
+/**
+ * Deterministic serialization for IDs.
+ * Essential because on-chain/off-chain values are used in signatures and
+ * must not drift or vary in rendering.
+ */
+const clientDataSetIdHex = (id: bigint): Hex => `0x${id.toString(16)}`
+
 /** What to record in a piece's envelope so that a reader can derive its key. */
 export function pieceMetadata(ref: DatasetRef, options: { salt: Hex; scope?: string }): PieceMetadata {
   return {
     'foc/v': 1,
-    'foc/cds': `0x${ref.clientDataSetId.toString(16)}`,
+    'foc/cds': clientDataSetIdHex(ref.clientDataSetId),
     'foc/epoch': ref.epoch ?? 0,
     ...(options.scope == null ? {} : { 'foc/scope': options.scope }),
     'foc/salt': options.salt,
+  }
+}
+
+/**
+ * The descriptor naming what a grant unlocks, ready for `wrapTo()`.
+ *
+ * Build descriptors with `grantDescriptor()` rather than filling the
+ * structure by hand. It is authenticated as part of the grant signature
+ * so consistent canonicalization is important.
+ */
+export function grantDescriptor(ref: DatasetRef, node: GrantNode): GrantDescriptor {
+  return {
+    v: 1,
+    node,
+    chainId: ref.chainId,
+    service: ref.service,
+    payer: ref.payer,
+    clientDataSetId: clientDataSetIdHex(ref.clientDataSetId),
   }
 }
 

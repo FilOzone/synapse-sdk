@@ -5,20 +5,6 @@
  * stored by this layer, nothing goes on chain but a 16-byte commitment, and a
  * wallet alone recovers everything.
  *
- * @example
- * ```ts
- * import * as Keysmith from '@filoz/keysmith'
- *
- * const ref = { chainId: 314, service: fwss, payer: account.address, clientDataSetId }
- * const secret = await Keysmith.datasetSecret(account, ref)
- * const dk = Keysmith.datasetKey(secret)
- *
- * const salt = Keysmith.newSalt()
- * const key = Keysmith.pieceKey(dk, salt)                        // hand to FEE
- * const metadata = Keysmith.pieceMetadata(ref, { salt })         // put in the envelope
- * const grant = await Keysmith.wrapTo(theirPublicKey, dk, descriptor)  // share it
- * ```
- *
  * @module
  */
 export {
@@ -29,6 +15,7 @@ export {
   datasetKey,
   datasetKeyMessage,
   datasetSecret,
+  grantDescriptor,
   holdingOf,
   keyForEnvelope,
   lowSrs,
@@ -43,6 +30,7 @@ export type {
   DatasetRef,
   Grant,
   GrantDescriptor,
+  GrantNode,
   Holding,
   PieceMetadata,
   TypedDataSigner,

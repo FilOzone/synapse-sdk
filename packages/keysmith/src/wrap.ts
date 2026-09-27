@@ -9,7 +9,7 @@
  */
 import { secp256k1 } from '@noble/curves/secp256k1'
 import { hkdf } from '@noble/hashes/hkdf'
-import { sha256 } from '@noble/hashes/sha256'
+import { sha256 } from '@noble/hashes/sha2'
 import type { Hex } from 'viem'
 import { bytesToHex, hexToBytes } from 'viem'
 import type { Grant, GrantDescriptor } from './types.ts'
@@ -28,7 +28,7 @@ export const publicKeyOf = (privateKey: Hex): Hex => bytesToHex(secp256k1.getPub
  * recipient's private key, so it can be delivered or stored anywhere.
  */
 export async function wrapTo(recipientPublicKey: Hex, key: Uint8Array, descriptor: GrantDescriptor): Promise<Grant> {
-  const ephemeral = secp256k1.utils.randomPrivateKey()
+  const ephemeral = secp256k1.utils.randomSecretKey()
   const epk = secp256k1.getPublicKey(ephemeral, false)
   const kek = wrapKek(sharedSecret(ephemeral, hexToBytes(recipientPublicKey)), epk)
   const iv = new Uint8Array(12)

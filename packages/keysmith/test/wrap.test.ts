@@ -1,6 +1,14 @@
 import assert from 'assert'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { datasetKey, datasetSecret, scopeKey } from '../src/derive.ts'
+import {
+  datasetKey,
+  datasetSecret,
+  grantDescriptor,
+  holdingOf,
+  newSalt,
+  pieceMetadata,
+  scopeKey,
+} from '../src/derive.ts'
 import type { DatasetRef, GrantDescriptor } from '../src/types.ts'
 import { publicKeyOf, unwrapWith, wrapTo } from '../src/wrap.ts'
 
@@ -11,14 +19,7 @@ const ref: DatasetRef = {
   payer: account.address,
   clientDataSetId: 42n,
 }
-const descriptor: GrantDescriptor = {
-  v: 1,
-  node: 'dataset',
-  chainId: ref.chainId,
-  service: ref.service,
-  payer: ref.payer,
-  clientDataSetId: '42',
-}
+const descriptor: GrantDescriptor = grantDescriptor(ref, 'dataset')
 
 describe('wrapTo / unwrapWith', () => {
   it('round-trips a dataset key to the named recipient', async () => {
@@ -51,7 +52,7 @@ describe('wrapTo / unwrapWith', () => {
     const recipient = generatePrivateKey()
     const grant = await wrapTo(publicKeyOf(recipient), dk, descriptor)
     await assert.rejects(unwrapWith(recipient, { ...grant, node: 'scope:payroll' }))
-    await assert.rejects(unwrapWith(recipient, { ...grant, clientDataSetId: '43' }))
+    await assert.rejects(unwrapWith(recipient, { ...grant, clientDataSetId: '0x2b' }))
   })
 
   it('does not care what order the descriptor was built in', async () => {
@@ -70,7 +71,7 @@ describe('wrapTo / unwrapWith', () => {
     const sk = scopeKey(dk, 'invoices')
     const recipient = generatePrivateKey()
 
-    const grant = await wrapTo(publicKeyOf(recipient), sk, { ...descriptor, node: 'scope:invoices' })
+    const grant = await wrapTo(publicKeyOf(recipient), sk, grantDescriptor(ref, 'scope:invoices'))
     const opened = await unwrapWith(recipient, grant)
     assert.deepEqual(opened, sk)
     assert.notDeepEqual(opened, dk)
@@ -81,5 +82,34 @@ describe('wrapTo / unwrapWith', () => {
     const recipient = generatePrivateKey()
     const grant = await wrapTo(publicKeyOf(recipient), dk, descriptor)
     await assert.rejects(unwrapWith(recipient, { ...grant, alg: 'RSA-OAEP' } as never), /Unsupported grant algorithm/)
+  })
+})
+
+describe('grantDescriptor', () => {
+  it('spells the id exactly as the envelope does', () => {
+    const descriptor = grantDescriptor(ref, 'dataset')
+    assert.equal(descriptor.clientDataSetId, '0x2a')
+    assert.equal(descriptor.clientDataSetId, pieceMetadata(ref, { salt: newSalt() })['foc/cds'])
+  })
+
+  it('carries what the descriptor is for, and nothing secret', () => {
+    assert.deepEqual(grantDescriptor(ref, 'scope:invoices'), {
+      v: 1,
+      node: 'scope:invoices',
+      chainId: ref.chainId,
+      service: ref.service,
+      payer: ref.payer,
+      clientDataSetId: '0x2a',
+    })
+  })
+
+  it('round-trips through a wrap, and holdingOf reads the level back', async () => {
+    const dk = datasetKey(await datasetSecret(account, ref))
+    const recipient = generatePrivateKey()
+    const descriptor = grantDescriptor(ref, 'scope:invoices')
+    const grant = await wrapTo(publicKeyOf(recipient), scopeKey(dk, 'invoices'), descriptor)
+
+    assert.deepEqual(await unwrapWith(recipient, grant), scopeKey(dk, 'invoices'))
+    assert.equal(holdingOf(grant), 'scope')
   })
 })

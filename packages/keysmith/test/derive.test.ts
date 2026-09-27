@@ -1,9 +1,10 @@
 import { secp256k1 } from '@noble/curves/secp256k1'
 import assert from 'assert'
-import { bytesToHex, hexToBytes } from 'viem'
+import { bytesToHex, hashDomain, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
   commitment,
+  DOMAIN,
   datasetKey,
   datasetKeyMessage,
   datasetSecret,
@@ -177,5 +178,48 @@ describe('identifiers', () => {
     assert.notEqual(newSalt(), newSalt())
     assert.notEqual(newClientDataSetId(), newClientDataSetId())
     assert.equal(hexToBytes(newSalt()).length, 16)
+  })
+})
+
+describe('EIP-712 domain', () => {
+  const EIP712Domain = [
+    { name: 'name', type: 'string' },
+    { name: 'version', type: 'string' },
+  ] as const
+  const separator = () => hashDomain({ domain: DOMAIN, types: { EIP712Domain } })
+
+  it('is pinned — changing it orphans every key ever derived', () => {
+    assert.deepEqual(DOMAIN, { name: 'FOC Encryption', version: '1' })
+    assert.equal(separator(), '0x547bad88c79d4d4f2d88253da28d0b6dd21bb4aa20bbfa20d2f05b55335697b2')
+  })
+
+  it('omits chainId and verifyingContract, and absent is not zero', () => {
+    assert.equal('chainId' in DOMAIN, false)
+    assert.equal('verifyingContract' in DOMAIN, false)
+
+    const zeroed = hashDomain({
+      domain: { ...DOMAIN, chainId: 0n, verifyingContract: '0x0000000000000000000000000000000000000000' },
+      types: {
+        EIP712Domain: [
+          ...EIP712Domain,
+          { name: 'chainId', type: 'uint256' },
+          { name: 'verifyingContract', type: 'address' },
+        ] as const,
+      },
+    })
+    assert.notEqual(zeroed, separator(), 'zero-filling the fields is a different domain, so a different key')
+  })
+
+  it('binds the chain and the service through the message instead', async () => {
+    const here = datasetKey(await datasetSecret(account, ref))
+    const anotherChain = datasetKey(await datasetSecret(account, { ...ref, chainId: 314 }))
+    const anotherService = datasetKey(
+      await datasetSecret(account, {
+        ...ref,
+        service: '0x00000000000000000000000000000000000000ff',
+      })
+    )
+    assert.notDeepEqual(here, anotherChain)
+    assert.notDeepEqual(here, anotherService)
   })
 })
