@@ -32,11 +32,50 @@ describe('public surface (src/index.ts)', () => {
       'constants',
       'cose',
       'decrypt',
+      'decryptRange',
+      'decryptRangeWith',
       'decryptWith',
       'encrypt',
       'errors',
+      'parse',
       'recipients',
     ])
+  })
+
+  it('parses and decrypts a range through the package root only, with a CEK and with a recipient', async () => {
+    const cek = Uint8Array.from({ length: KEY_SIZE }, (_, index) => index + 1)
+    const kek = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x80 + index)
+    const plaintext = Uint8Array.from({ length: MIN_CHUNK_SIZE * 2 + 100 }, (_, index) => index & 0xff)
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(plaintext)
+        controller.close()
+      },
+    })
+    const encoded: Uint8Array[] = []
+    for await (const chunk of source.pipeThrough(
+      fee.encrypt({ cek, chunkSize: MIN_CHUNK_SIZE, recipients: [{ alg: ALG_A256KW, kek }] })
+    )) {
+      encoded.push(chunk)
+    }
+    const object = concatBytes(...encoded)
+
+    const info = await fee.parse(object)
+    assert.strictEqual(info.scheme, 'chunked')
+    if (info.scheme !== 'chunked') return
+    const range = { offset: MIN_CHUNK_SIZE - 10, length: 20 } // crosses the first chunk boundary
+    const expected = plaintext.subarray(range.offset, range.offset + range.length)
+
+    const direct = await fee.decryptRange(object, cek, range, { params: info.params })
+    const directBytes: Uint8Array[] = []
+    for await (const chunk of direct.stream) directBytes.push(chunk)
+    assert.deepStrictEqual(concatBytes(...directBytes), expected)
+
+    const unwrapper = await fee.recipients.createA256KWUnwrapper([{ kek }])
+    const viaRecipient = await fee.decryptRangeWith(object, unwrapper, range)
+    const recipientBytes: Uint8Array[] = []
+    for await (const chunk of viaRecipient.stream) recipientBytes.push(chunk)
+    assert.deepStrictEqual(concatBytes(...recipientBytes), expected)
   })
 
   it('encrypt works through the package root with pipeThrough', async () => {

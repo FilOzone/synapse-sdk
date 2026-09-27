@@ -17,9 +17,11 @@ structural recipient validation), scheme-1 AES-256-GCM encryption and decryption
 CEK, both tag 16 and tag 96), A256KW recipient wrapping on encryption, the built-in A256KW unwrapper
 factory (`createA256KWUnwrapper`), and recipient-based decryption through an unwrapper
 (`aesGcm.decryptWith`), and chunked streaming encryption and decryption in `aes-gcm-stream.ts` (direct CEK
-or A256KW recipients, optional `plaintext_length`). Not yet implemented: range reads and envelope
-inspection beyond decode. ECDH-ES+A256KW remains deferred; the code enforces its settled header placement
-but does not derive or unwrap its KEK.
+or A256KW recipients, optional `plaintext_length`), unauthenticated envelope inspection (`parse`, in
+`inspect.ts`), and authenticated range reads from a `RandomAccessSource` (`decryptRange`,
+`decryptRangeWith`, in `range-decrypt.ts`). Not yet implemented: persisting and restoring cached
+`ChunkedEnvelopeParams` (they are in-memory only). ECDH-ES+A256KW remains deferred; the code enforces its
+settled header placement but does not derive or unwrap its KEK.
 
 ## Scope discipline
 
@@ -37,10 +39,10 @@ explicit exports when helpers must stay internal, as `cose/index.ts` does for `h
 
 `src/index.ts` is the allowlist of this package's public interface: a module is public only if
 `src/index.ts` exports it. Shared implementation code lives under `src/internal/` and is never exported.
-Two exceptions to "namespaces only": shared type-only exports (currently `AppMetadata`, `CborValue`),
-since a type carries no runtime shape, and the chunked streaming functions (`encrypt`, `decrypt`,
-`decryptWith`, and `encrypt`'s options type), which the tech spec makes the default path at the root
-while whole-object AES-GCM stays opt-in under `aesGcm`. Public constants are
+Two exceptions to "namespaces only": shared type-only exports (such as `AppMetadata`, `CborValue`),
+since a type carries no runtime shape, and the chunked-scheme functions (`encrypt`, `decrypt`,
+`decryptWith`, `parse`, `decryptRange`, `decryptRangeWith`, and their public types), which the tech spec
+makes the default path at the root while whole-object AES-GCM stays opt-in under `aesGcm`. Public constants are
 re-exported through the curated `src/public-constants.ts`, never `src/constants.ts` directly:
 
 ```ts
@@ -49,7 +51,11 @@ export { type ChunkedEncryptOptions, decrypt, decryptWith, encrypt } from './aes
 export type { AppMetadata, CborValue } from './cose/headers.ts'
 export * as cose from './cose/index.ts'
 export * as errors from './errors.ts'
+export { type ChunkedEnvelopeParams, type EnvelopeInfo, parse } from './inspect.ts'
 export * as constants from './public-constants.ts'
+export { decryptRange, decryptRangeWith, type RangeResult } from './range-decrypt.ts'
+export type { ByteRange } from './range-plan.ts'
+export type { RandomAccessSource } from './range-source.ts'
 export * as recipients from './recipients/index.ts'
 ```
 
