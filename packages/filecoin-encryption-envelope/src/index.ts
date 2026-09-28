@@ -19,9 +19,15 @@ export { type ChunkedEncryptOptions, decrypt, decryptWith, encrypt } from './aes
 export type { AppMetadata, CborValue } from './cose/headers.ts'
 export * as cose from './cose/index.ts'
 export * as errors from './errors.ts'
-export { type ChunkedEnvelopeParams, type EnvelopeInfo, parse } from './inspect.ts'
 export * as constants from './public-constants.ts'
-export { decryptRange, decryptRangeWith, type RangeResult } from './range-decrypt.ts'
-export type { ByteRange } from './range-plan.ts'
-export type { RandomAccessSource } from './range-source.ts'
+export {
+  type ByteRange,
+  type ChunkedEnvelopeParams,
+  decryptRange,
+  decryptRangeWith,
+  type EnvelopeInfo,
+  parse,
+  type RandomAccessSource,
+  type RangeResult,
+} from './range/index.ts'
 export * as recipients from './recipients/index.ts'

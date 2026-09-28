@@ -13,10 +13,10 @@ import {
   RecipientUnwrapError,
   UnsupportedSchemeError,
 } from '../src/errors.ts'
-import { parse } from '../src/inspect.ts'
-import { decryptRangeWith } from '../src/range-decrypt.ts'
-import type { ByteRange } from '../src/range-plan.ts'
-import type { RandomAccessSource } from '../src/range-source.ts'
+import { decryptRangeWith } from '../src/range/decrypt.ts'
+import { parse } from '../src/range/inspect.ts'
+import type { ByteRange } from '../src/range/plan.ts'
+import type { RandomAccessSource } from '../src/range/source.ts'
 import { createA256KWUnwrapper } from '../src/recipients/index.ts'
 import type { A256KWRecipient, RecipientInfo, Unwrapper } from '../src/recipients/types.ts'
 import { FIXED_CEK } from './aes-gcm-fixtures.ts'

@@ -6,19 +6,24 @@
  * source contract".
  */
 
-import { MAX_ENCODED_OBJECT_SIZE } from './constants.ts'
-import { MAX_ENVELOPE_SIZE } from './cose/constants.ts'
-import type { DecodedEnvelope } from './cose/decode.ts'
-import { createEnvelopeScanner } from './cose/envelope-scanner.ts'
-import { describeCborType } from './cose/headers.ts'
-import { InvalidSourceLengthError, MalformedEnvelopeError } from './errors.ts'
-import { assertArrayBufferBacked } from './internal/keys.ts'
+import { MAX_ENCODED_OBJECT_SIZE } from '../constants.ts'
+import { MAX_ENVELOPE_SIZE } from '../cose/constants.ts'
+import type { DecodedEnvelope } from '../cose/decode.ts'
+import { createEnvelopeScanner } from '../cose/envelope-scanner.ts'
+import { describeCborType } from '../cose/headers.ts'
+import { InvalidSourceLengthError, MalformedEnvelopeError } from '../errors.ts'
+import { assertArrayBufferBacked } from '../internal/keys.ts'
 
 /** One immutable encoded FEE object, readable by byte range. */
 export interface RandomAccessSource {
   /** Exact size of the encoded object: envelope plus detached ciphertext. */
   readonly size: number
-  /** Open the half-open byte range `[offset, offset + length)`. */
+  /**
+   * Open the half-open byte range `[offset, offset + length)`. The returned
+   * stream must produce exactly `length` bytes and then close; a short or long
+   * response is rejected rather than reinterpreted, and a stream error
+   * propagates unchanged.
+   */
   openRange(offset: number, length: number): Promise<ReadableStream<Uint8Array>>
 }
 
@@ -38,6 +43,8 @@ function assertValidSourceSize(size: unknown): asserts size is number {
  *
  * `size` and `openRange` are each read from `input` exactly once, so a
  * getter or a later mutation can't change what the rest of the library sees.
+ * A `Uint8Array` input is borrowed, not copied, until every range opened
+ * from it is fully read or cancelled.
  */
 export function toRandomAccessSource(input: unknown): RandomAccessSource {
   if (input instanceof Uint8Array) {
@@ -213,8 +220,9 @@ export function openExactRange(source: RandomAccessSource, offset: number, lengt
  * Probes contiguous, doubling spans starting at `[0, min(4096, size))`, each
  * capped so it never crosses `size` or the 1 MiB envelope limit. Every block
  * is fed to a fresh `createEnvelopeScanner()`; once it completes, the rest of
- * that span is cancelled without being read. A structural or profile error
- * fails immediately -- no further span is ever opened after one.
+ * that span is cancelled without being read. An envelope decode error, or a
+ * span of the wrong length (`InvalidSourceLengthError`), fails immediately --
+ * no further span is opened after one.
  */
 export async function readEnvelope(source: RandomAccessSource): Promise<DecodedEnvelope> {
   const scanner = createEnvelopeScanner()

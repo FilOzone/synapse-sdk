@@ -20,10 +20,10 @@
  *   It carries no `length`. An overlong suffix clamps to the whole object
  *   rather than failing.
  */
-import { chunkLayout } from './chunk-layout.ts'
-import { TAG_SIZE } from './constants.ts'
-import { describeCborType } from './cose/headers.ts'
-import { InvalidCiphertextLengthError, InvalidRangeError, InvalidSourceLengthError } from './errors.ts'
+import { chunkLayout } from '../chunk-layout.ts'
+import { TAG_SIZE } from '../constants.ts'
+import { describeCborType } from '../cose/headers.ts'
+import { InvalidCiphertextLengthError, InvalidRangeError, InvalidSourceLengthError } from '../errors.ts'
 
 /** A byte range over an object's plaintext, HTTP `Range`-header style. */
 export interface ByteRange {

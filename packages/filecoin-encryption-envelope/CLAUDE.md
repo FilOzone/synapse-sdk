@@ -17,9 +17,9 @@ structural recipient validation), scheme-1 AES-256-GCM encryption and decryption
 CEK, both tag 16 and tag 96), A256KW recipient wrapping on encryption, the built-in A256KW unwrapper
 factory (`createA256KWUnwrapper`), and recipient-based decryption through an unwrapper
 (`aesGcm.decryptWith`), and chunked streaming encryption and decryption in `aes-gcm-stream.ts` (direct CEK
-or A256KW recipients, optional `plaintext_length`), unauthenticated envelope inspection (`parse`, in
-`inspect.ts`), and authenticated range reads from a `RandomAccessSource` (`decryptRange`,
-`decryptRangeWith`, in `range-decrypt.ts`). Not yet implemented: persisting and restoring cached
+or A256KW recipients, optional `plaintext_length`), unauthenticated envelope inspection (`parse`) and
+authenticated range reads from a `RandomAccessSource` (`decryptRange`, `decryptRangeWith`), both under
+`range/`. Not yet implemented: persisting and restoring cached
 `ChunkedEnvelopeParams` (they are in-memory only). ECDH-ES+A256KW remains deferred; the code enforces its
 settled header placement but does not derive or unwrap its KEK.
 
@@ -51,11 +51,17 @@ export { type ChunkedEncryptOptions, decrypt, decryptWith, encrypt } from './aes
 export type { AppMetadata, CborValue } from './cose/headers.ts'
 export * as cose from './cose/index.ts'
 export * as errors from './errors.ts'
-export { type ChunkedEnvelopeParams, type EnvelopeInfo, parse } from './inspect.ts'
 export * as constants from './public-constants.ts'
-export { decryptRange, decryptRangeWith, type RangeResult } from './range-decrypt.ts'
-export type { ByteRange } from './range-plan.ts'
-export type { RandomAccessSource } from './range-source.ts'
+export {
+  type ByteRange,
+  type ChunkedEnvelopeParams,
+  decryptRange,
+  decryptRangeWith,
+  type EnvelopeInfo,
+  parse,
+  type RandomAccessSource,
+  type RangeResult,
+} from './range/index.ts'
 export * as recipients from './recipients/index.ts'
 ```
 

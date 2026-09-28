@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import { TAG_SIZE } from '../src/constants.ts'
 import { InvalidCiphertextLengthError, InvalidRangeError, InvalidSourceLengthError } from '../src/errors.ts'
-import { type ChunkedRangeLayoutInput, planRange, type RangePlan } from '../src/range-plan.ts'
+import { type ChunkedRangeLayoutInput, planRange, type RangePlan } from '../src/range/plan.ts'
 
 const HEADER_LENGTH = 200
 const CHUNK_SIZE = 4096
