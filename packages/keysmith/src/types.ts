@@ -19,6 +19,23 @@ export type DatasetKeyMessage = {
   epoch: number // For key rotation/re-encrypt in place
 } & Record<string, unknown>
 
+/** What `datasetKeys()` hands back. The signature it came from is never exposed. */
+export interface DatasetKeys {
+  dk: Uint8Array // The key for the whole dataset.
+  commitment: string // Non-secret check value for FWSS metadata, under `COMMITMENT_KEY`.
+}
+
+export interface DatasetKeysOptions {
+  /**
+   * @verifySigner@
+   * Whether to sign twice and compare, which catches a randomising signer
+   * before any data depends on it. Defaults to once per signer object: the
+   * first call costs two wallet prompts, later calls one. Pass `true` to check
+   * on every call, or `false` for a signer you have already vetted.
+   */
+  verifySigner?: boolean
+}
+
 /**
  * Anything that can sign EIP-712 typed data: a viem Account, a WalletClient, or
  * a session key. Keysmith itself never sees a private key.
@@ -45,7 +62,9 @@ export interface PieceMetadata {
 export type GrantNode = 'dataset' | `scope:${string}`
 
 /**
- * Names the node a grant unlocks. Authenticated, so it cannot be relabelled.
+ * Names the node a grant unlocks. Exactly these fields are authenticated, so a
+ * grant cannot be relabelled; anything else carried alongside a grant is
+ * informational and unauthenticated.
  *
  * `node` is a plain string rather than {@link GrantNode} because grants arrive
  * as JSON from elsewhere and must be validated at runtime, not assumed. Build
@@ -55,10 +74,10 @@ export interface GrantDescriptor {
   v: 1
   node: string // 'dataset', or 'scope:<name>'.
   chainId: number // eg 314 for Filecoin mainnet
-  service: Address // FWSS contract address on @chainId@
-  payer: Address // Dataset payer, as a proxy for owner
+  epoch: number // Which re-keying of the dataset this key belongs to
+  service: Address // FWSS contract address on @chainId@, lowercased
+  payer: Address // Dataset payer, as a proxy for owner, lowercased
   clientDataSetId: Hex // Client-chosen dataset ID, spelled as in `foc/cds`
-  [key: string]: unknown
 }
 
 /** A node key wrapped to one recipient. Safe to store or send anywhere. */

@@ -5,16 +5,27 @@
  * stored by this layer, nothing goes on chain but a 16-byte commitment, and a
  * wallet alone recovers everything.
  *
+ * @example
+ * ```ts
+ * import * as Keysmith from '@filoz/keysmith'
+ *
+ * const ref = { chainId: 314, service: fwss, payer: account.address, clientDataSetId }
+ * const { dk, commitment } = await Keysmith.datasetKeys(account, ref)
+ *
+ * const salt = Keysmith.newSalt()
+ * const key = Keysmith.pieceKey(dk, salt)                        // hand to FEE
+ * const metadata = Keysmith.pieceMetadata(ref, { salt })         // put in the envelope
+ * const grant = await Keysmith.wrapTo(theirPublicKey, dk, Keysmith.grantDescriptor(ref, 'dataset'))
+ * ```
+ *
  * @module
  */
 export {
   COMMITMENT_KEY,
-  commitment,
   DATASET_KEY_TYPES,
   DOMAIN,
-  datasetKey,
   datasetKeyMessage,
-  datasetSecret,
+  datasetKeys,
   grantDescriptor,
   holdingOf,
   keyForEnvelope,
@@ -24,9 +35,12 @@ export {
   pieceKey,
   pieceMetadata,
   scopeKey,
+  scopeName,
 } from './derive.ts'
 export type {
   DatasetKeyMessage,
+  DatasetKeys,
+  DatasetKeysOptions,
   DatasetRef,
   Grant,
   GrantDescriptor,

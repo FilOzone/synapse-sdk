@@ -12,10 +12,12 @@
  */
 import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha2'
-import type { Hex } from 'viem'
+import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes } from 'viem'
 import type {
   DatasetKeyMessage,
+  DatasetKeys,
+  DatasetKeysOptions,
   DatasetRef,
   GrantDescriptor,
   GrantNode,
@@ -39,7 +41,7 @@ const HALF_N = N / 2n
  * hashed over the fields that are present, so `{name, version}` and
  * `{name, version, chainId: 0, verifyingContract: 0x00…}` are different
  * domains, different signatures, and different keys. Any change orphans
- * every key ever derived, with no recovery path!
+ * every key ever derived, with no migration path. Pinned by a golden test.
  */
 export const DOMAIN = { name: 'FOC Encryption', version: '1' } as const
 
@@ -90,16 +92,27 @@ export function datasetKeyMessage(ref: DatasetRef): DatasetKeyMessage {
   }
 }
 
+/** Signers already shown to sign deterministically, so later calls cost one prompt. */
+const verifiedSigners = new WeakSet<object>()
+
 /**
- * Sign for one dataset and return the bytes every key below it derives from.
+ * Sign for one dataset and derive its key.
  *
- * Signs twice and compares: a signer that does not follow RFC 6979 would
- * produce a different key on every call, and this catches it before any data
- * depends on it.
+ * The signature is the root secret, and it never leaves this function: the
+ * caller gets the dataset key and the public commitment, and has nothing else
+ * to guard.
  *
- * @throws If the signer is not deterministic.
+ * On a signer's first use this signs twice and compares, which catches a
+ * randomising signer before any data depends on it, at the cost of a second
+ * wallet prompt. Later calls sign once. See {@link DatasetKeysOptions}.
+ *
+ * @throws If the signer is not deterministic, or does not produce an ECDSA signature.
  */
-export async function datasetSecret(signer: TypedDataSigner, ref: DatasetRef): Promise<Uint8Array> {
+export async function datasetKeys(
+  signer: TypedDataSigner,
+  ref: DatasetRef,
+  options: DatasetKeysOptions = {}
+): Promise<DatasetKeys> {
   const args = {
     domain: DOMAIN,
     types: DATASET_KEY_TYPES,
@@ -107,14 +120,21 @@ export async function datasetSecret(signer: TypedDataSigner, ref: DatasetRef): P
     message: datasetKeyMessage(ref),
   }
   const first = await signer.signTypedData(args)
-  const second = await signer.signTypedData(args)
-  if (first !== second) {
-    throw new Error(
-      'Signer is not deterministic (RFC 6979 expected), so it cannot root a dataset key. ' +
-        'Signing the same message twice produced different signatures.'
-    )
+  if (options.verifySigner ?? !verifiedSigners.has(signer)) {
+    const second = await signer.signTypedData(args)
+    if (first !== second) {
+      throw new Error(
+        'Signer is not deterministic (RFC 6979 expected), so it cannot root a dataset key. ' +
+          'Signing the same message twice produced different signatures.'
+      )
+    }
+    verifiedSigners.add(signer)
   }
-  return lowSrs(first)
+  const secret = lowSrs(first)
+  return {
+    dk: derive(secret, INFO.dataset),
+    commitment: `v1.${bytesToHex(derive(secret, INFO.commitment, 16)).slice(2)}`,
+  }
 }
 
 /**
@@ -123,45 +143,72 @@ export async function datasetSecret(signer: TypedDataSigner, ref: DatasetRef): P
  * Both `(r, s)` and `(r, n−s)` are valid signatures, so a signer returning the
  * high form would otherwise derive a different key for the same wallet. The
  * `v` byte is excluded because wallets report it as 0/1 or 27/28.
+ *
+ * Only a plain secp256k1 ECDSA signature is accepted. A contract account or
+ * smart wallet answers `signTypedData` with an ABI-encoded blob whose leading
+ * bytes are structure rather than secret; deriving from those would mint a
+ * key an attacker could enumerate, so anything that is not 64 or 65 bytes with
+ * `r, s ∈ [1, n−1]` is refused.
  */
 export function lowSrs(signature: Hex): Uint8Array {
   const raw = hexToBytes(signature)
-  if (raw.length < 64) {
-    throw new Error(`Expected a 64- or 65-byte signature, got ${raw.length} bytes`)
+  if (raw.length !== 64 && raw.length !== 65) {
+    throw new Error(
+      `Expected a 64- or 65-byte ECDSA signature, got ${raw.length} bytes. ` +
+        'Contract accounts and smart wallets return other encodings and cannot root a dataset key.'
+    )
   }
+  const r = BigInt(bytesToHex(raw.subarray(0, 32)))
   const s = BigInt(bytesToHex(raw.subarray(32, 64)))
-  if (s <= HALF_N) {
-    return raw.subarray(0, 64)
+  if (r < 1n || r >= N || s < 1n || s >= N) {
+    throw new Error('Signature r and s must lie in [1, n−1]; this is not a secp256k1 ECDSA signature.')
   }
+  const lowS = s > HALF_N ? N - s : s
   const out = new Uint8Array(64)
   out.set(raw.subarray(0, 32), 0)
-  out.set(hexToBytes(`0x${(N - s).toString(16).padStart(64, '0')}`), 32)
+  out.set(hexToBytes(`0x${lowS.toString(16).padStart(64, '0')}`), 32)
   return out
 }
-
-/** The key for one dataset. Opens every piece in it, and nothing else. */
-export const datasetKey = (secret: Uint8Array): Uint8Array => derive(secret, INFO.dataset)
-
-/**
- * A non-secret commitment to the dataset key, for FWSS data-set metadata.
- *
- * Written inside the `createDataSet` call that happens anyway. On recovery the
- * payer re-signs and compares, so a wrong wallet or a randomising signer is a
- * loud error rather than a silently wrong key. It reveals nothing: it is a
- * one-way function of the signature, and the signature is what an attacker
- * would need.
- */
-export const commitment = (secret: Uint8Array): string =>
-  `v1.${bytesToHex(derive(secret, INFO.commitment, 16)).slice(2)}`
 
 /**
  * The key for one section of a dataset. Opens every piece written into that
  * scope, and nothing outside it. The name is an HKDF input, never a secret.
  */
-export const scopeKey = (dk: Uint8Array, scope: string): Uint8Array => derive(dk, `${INFO.scope}${scope}`)
+export const scopeKey = (dk: Uint8Array, scope: string): Uint8Array => derive(dk, `${INFO.scope}${scopeName(scope)}`)
+
+/**
+ * A scope name in the one form it is derived from: Unicode NFC, non-empty,
+ * with no leading or trailing whitespace. Case is significant — `Invoices`
+ * and `invoices` are different scopes — so it is left alone rather than folded.
+ *
+ * @throws If the name is empty or padded with whitespace.
+ */
+export function scopeName(name: string): string {
+  const normalised = name.normalize('NFC')
+  if (normalised.length === 0 || normalised.trim() !== normalised) {
+    throw new Error(
+      `A scope name must be non-empty with no leading or trailing whitespace, got ${JSON.stringify(name)}`
+    )
+  }
+  return normalised
+}
+
+/** A grant node in canonical form: `dataset`, or `scope:` plus a canonical scope name. */
+export function canonicalNode(node: string): string {
+  if (node === 'dataset') {
+    return 'dataset'
+  }
+  if (node.startsWith('scope:')) {
+    return `scope:${scopeName(node.slice('scope:'.length))}`
+  }
+  throw new Error(`Unrecognised grant node: ${node}`)
+}
 
 /** The key for one piece. Never reused: FEE requires a fresh key per object. */
-export const pieceKey = (node: Uint8Array, salt: Hex): Uint8Array => derive(node, `${INFO.piece}${salt}`)
+export const pieceKey = (node: Uint8Array, salt: Hex): Uint8Array => derive(node, `${INFO.piece}${lowerHex(salt)}`)
+
+/** Salts are bytes, so only case is normalised — leading zeros are part of the value. */
+const lowerHex = (value: Hex): Hex => value.toLowerCase() as Hex
 
 /**
  * Deterministic serialization for IDs.
@@ -176,8 +223,8 @@ export function pieceMetadata(ref: DatasetRef, options: { salt: Hex; scope?: str
     'foc/v': 1,
     'foc/cds': clientDataSetIdHex(ref.clientDataSetId),
     'foc/epoch': ref.epoch ?? 0,
-    ...(options.scope == null ? {} : { 'foc/scope': options.scope }),
-    'foc/salt': options.salt,
+    ...(options.scope == null ? {} : { 'foc/scope': scopeName(options.scope) }),
+    'foc/salt': lowerHex(options.salt),
   }
 }
 
@@ -185,16 +232,18 @@ export function pieceMetadata(ref: DatasetRef, options: { salt: Hex; scope?: str
  * The descriptor naming what a grant unlocks, ready for `wrapTo()`.
  *
  * Build descriptors with `grantDescriptor()` rather than filling the
- * structure by hand. It is authenticated as part of the grant signature
- * so consistent canonicalization is important.
+ * structure by hand: the descriptor is authenticated as the grant's AAD and
+ * compared byte for byte, so addresses are lowercased and the id is spelled
+ * exactly as the envelope spells it.
  */
 export function grantDescriptor(ref: DatasetRef, node: GrantNode): GrantDescriptor {
   return {
     v: 1,
-    node,
+    node: canonicalNode(node) as GrantNode,
     chainId: ref.chainId,
-    service: ref.service,
-    payer: ref.payer,
+    epoch: ref.epoch ?? 0,
+    service: ref.service.toLowerCase() as Address,
+    payer: ref.payer.toLowerCase() as Address,
     clientDataSetId: clientDataSetIdHex(ref.clientDataSetId),
   }
 }
