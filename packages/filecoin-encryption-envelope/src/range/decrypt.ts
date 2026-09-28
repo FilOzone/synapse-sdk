@@ -3,25 +3,25 @@
  * only the chunks a byte range touches. See docs/tech-spec.md's
  * `decryptRange`/`RangeResult` block and "Random-access source contract".
  */
-import { ALG_CHUNKED_AES_256_GCM_STREAM, TAG_SIZE } from './constants.ts'
-import type { DecodedEnvelope } from './cose/decode.ts'
-import { encStructure } from './cose/enc-structure.ts'
-import { describeCborType } from './cose/headers.ts'
-import { InvalidSourceLengthError, MalformedEnvelopeError, UnsupportedSchemeError } from './errors.ts'
+import { ALG_CHUNKED_AES_256_GCM_STREAM, TAG_SIZE } from '../constants.ts'
+import type { DecodedEnvelope } from '../cose/decode.ts'
+import { encStructure } from '../cose/enc-structure.ts'
+import { describeCborType } from '../cose/headers.ts'
+import { InvalidSourceLengthError, MalformedEnvelopeError, UnsupportedSchemeError } from '../errors.ts'
+import { assertAes256Key } from '../internal/keys.ts'
+import { aesGcmDecrypt, importAesGcmKey } from '../internal/web-crypto.ts'
+import { deriveChunkNonce } from '../nonce.ts'
+import { recoverCek } from '../recipients/recover.ts'
+import type { Unwrapper } from '../recipients/types.ts'
 import { type ChunkedEnvelopeParams, paramsState } from './inspect.ts'
-import { assertAes256Key } from './internal/keys.ts'
-import { aesGcmDecrypt, importAesGcmKey } from './internal/web-crypto.ts'
-import { deriveChunkNonce } from './nonce.ts'
-import { type ByteRange, planRange, type RangePlan } from './range-plan.ts'
+import { type ByteRange, planRange, type RangePlan } from './plan.ts'
 import {
   type ExactRangeReader,
   openExactRange,
   type RandomAccessSource,
   readEnvelope,
   toRandomAccessSource,
-} from './range-source.ts'
-import { recoverCek } from './recipients/recover.ts'
-import type { Unwrapper } from './recipients/types.ts'
+} from './source.ts'
 
 export interface RangeResult {
   /** Plaintext for the requested range, one authenticated chunk at a time. */
@@ -46,6 +46,7 @@ interface RangeDecryptOptions {
 
 function readParams(options: RangeDecryptOptions | undefined): ChunkedEnvelopeParams | undefined {
   if (options === undefined) return undefined
+  // An array passes typeof 'object' but isn't a valid options shape.
   if (options === null || typeof options !== 'object' || Array.isArray(options)) {
     throw new MalformedEnvelopeError(
       `Invalid range decryption options: expected an object, got ${describeCborType(options)}.`
@@ -58,8 +59,8 @@ function readParams(options: RangeDecryptOptions | undefined): ChunkedEnvelopePa
 /**
  * Assemble one ciphertext piece at a time from `reader`: a zero-copy
  * `subarray` when a single block covers the whole piece, otherwise copied
- * into `scratch` (sized to the largest possible piece, one stride) across
- * blocks. Any unused tail of a block is held for the next piece.
+ * into a scratch buffer (sized to the largest possible piece, one stride)
+ * across blocks. Any unused tail of a block is held for the next piece.
  */
 function createPieceReader(reader: ExactRangeReader, stride: number) {
   let heldBlock: Uint8Array<ArrayBuffer> | undefined
@@ -111,7 +112,9 @@ function createPieceReader(reader: ExactRangeReader, stride: number) {
 
 interface KeyedRangePlan {
   cekKey: CryptoKey
+  /** The `Enc_structure` AAD, shared by every chunk in this range. */
   additionalData: Uint8Array<ArrayBuffer>
+  /** The envelope's IV; each chunk's nonce derives from this plus its index. */
   baseNonce: Uint8Array
 }
 
@@ -147,10 +150,10 @@ function createRangeStream(
           const piece = await opened.pieces.readPiece(pieceLength)
 
           // The size-derived layout decides finality, never "last piece of this span".
-          // Decrypt before any further read: `piece` may be a view into a source
-          // block, which the source is free to reuse once we pull again.
           const isFinalChunk = index === plan.chunkCount - 1
           const nonce = deriveChunkNonce(keyed.baseNonce, index, isFinalChunk)
+          // Decrypt before reading again: `piece` may be a view into a block
+          // the source could reuse or overwrite on the next read.
           let plaintext = await aesGcmDecrypt(keyed.cekKey, nonce, keyed.additionalData, piece)
 
           if (isLastPiece) {
@@ -191,8 +194,8 @@ function createRangeStream(
 }
 
 /**
- * Shared steps for `decryptRange` and (later) `decryptRangeWith`: resolve
- * the source and envelope, plan the range, resolve the key, and hand back a
+ * Shared steps for `decryptRange` and `decryptRangeWith`: resolve the source
+ * and envelope, plan the range, resolve the key, and hand back a
  * `RangeResult` before any ciphertext is opened.
  */
 async function createRangeResult(

@@ -13,16 +13,16 @@
  * used against the same immutable object version it was read from. A
  * mismatch isn't guaranteed to be caught: most fail authentication, but
  * versions that differ only outside the protected header and the chunks read
- * can still decrypt. Params exist
- * only in memory; persisting or restoring them is out of scope here.
+ * can still decrypt. Params exist only in memory; persisting or restoring
+ * them is out of scope here.
  */
-import { ALG_AES_256_GCM } from './constants.ts'
-import type { DecodedEnvelope } from './cose/decode.ts'
-import type { AppMetadata } from './cose/headers.ts'
-import { MalformedEnvelopeError } from './errors.ts'
-import { type RandomAccessSource, readEnvelope, toRandomAccessSource } from './range-source.ts'
-import { toRecipientInfo } from './recipients/info.ts'
-import type { RecipientInfo } from './recipients/types.ts'
+import { ALG_AES_256_GCM } from '../constants.ts'
+import type { DecodedEnvelope } from '../cose/decode.ts'
+import type { AppMetadata } from '../cose/headers.ts'
+import { MalformedEnvelopeError } from '../errors.ts'
+import { toRecipientInfo } from '../recipients/info.ts'
+import type { RecipientInfo } from '../recipients/types.ts'
+import { type RandomAccessSource, readEnvelope, toRandomAccessSource } from './source.ts'
 
 /** Cached values from one chunked envelope's protected header, for range decryption to reuse. */
 export interface ChunkedEnvelopeParams {
@@ -45,7 +45,7 @@ export type EnvelopeInfo =
   | (EnvelopeInfoBase & { scheme: 'aes-gcm' })
   | (EnvelopeInfoBase & { scheme: 'chunked'; params: ChunkedEnvelopeParams })
 
-/** What range decryption needs back from a `ChunkedEnvelopeParams` it did not just create. */
+/** The decoded envelope a `ChunkedEnvelopeParams` was created from. */
 export interface ParamsState {
   decoded: DecodedEnvelope
 }
@@ -59,8 +59,8 @@ export interface ParamsState {
 const paramsRegistry = new WeakMap<object, ParamsState>()
 
 /**
- * Look up the state behind a `ChunkedEnvelopeParams`. Internal: exported for
- * range decryption in this package, not part of the public surface.
+ * Look up the decoded envelope behind a `ChunkedEnvelopeParams`, for range
+ * decryption to reuse instead of decoding again.
  */
 export function paramsState(params: unknown): ParamsState {
   const state = typeof params === 'object' && params !== null ? paramsRegistry.get(params) : undefined

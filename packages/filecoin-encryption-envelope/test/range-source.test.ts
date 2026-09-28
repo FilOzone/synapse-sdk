@@ -4,7 +4,7 @@ import { MAX_ENCODED_OBJECT_SIZE } from '../src/constants.ts'
 import { MAX_ENVELOPE_SIZE } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import { InvalidSourceLengthError, MalformedEnvelopeError } from '../src/errors.ts'
-import { openExactRange, type RandomAccessSource, readEnvelope, toRandomAccessSource } from '../src/range-source.ts'
+import { openExactRange, type RandomAccessSource, readEnvelope, toRandomAccessSource } from '../src/range/source.ts'
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks, sourceOf } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes } from './cose-fixtures.ts'
@@ -143,30 +143,38 @@ describe('toRandomAccessSource', () => {
 describe('openExactRange', () => {
   it('cancel does not wait for a pending openRange, and cancels its stream once it arrives', async () => {
     let resolveOpen: ((stream: ReadableStream<Uint8Array>) => void) | undefined
-    let lateCancelled = false
+    let signalOpenCalled: (() => void) | undefined
+    const openCalled = new Promise<void>((resolve) => {
+      signalOpenCalled = resolve
+    })
     const source: RandomAccessSource = {
       size: 100,
       openRange: () =>
         new Promise((resolve) => {
           resolveOpen = resolve
+          signalOpenCalled?.()
         }),
     }
     const range = openExactRange(source, 0, 10)
     const pendingRead = range.read()
-    pendingRead.catch(() => undefined)
-    await new Promise((resolve) => setTimeout(resolve, 0)) // openRange is now pending
+    await openCalled // openRange is now pending
 
     await range.cancel(new Error('stop')) // must settle while the open hangs
 
+    let signalLateCancel: (() => void) | undefined
+    const lateCancelled = new Promise<void>((resolve) => {
+      signalLateCancel = resolve
+    })
     resolveOpen?.(
       new ReadableStream<Uint8Array>({
         cancel() {
-          lateCancelled = true
+          signalLateCancel?.()
         },
       })
     )
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    assert.strictEqual(lateCancelled, true)
+    await lateCancelled // the late stream is released, not leaked
+    // The read that was waiting on the open ends too, instead of hanging.
+    await assert.rejects(pendingRead, InvalidSourceLengthError)
   })
 
   function sourceReturning(

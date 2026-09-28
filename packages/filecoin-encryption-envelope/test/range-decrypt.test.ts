@@ -13,10 +13,10 @@ import {
   MalformedEnvelopeError,
   UnsupportedSchemeError,
 } from '../src/errors.ts'
-import { parse } from '../src/inspect.ts'
-import { decryptRange } from '../src/range-decrypt.ts'
-import { type ByteRange, planRange } from '../src/range-plan.ts'
-import type { RandomAccessSource } from '../src/range-source.ts'
+import { decryptRange } from '../src/range/decrypt.ts'
+import { parse } from '../src/range/inspect.ts'
+import { type ByteRange, planRange } from '../src/range/plan.ts'
+import type { RandomAccessSource } from '../src/range/source.ts'
 import type { A256KWRecipient } from '../src/recipients/types.ts'
 import { FIXED_CEK } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks, sourceOf } from './aes-gcm-stream-fixtures.ts'
