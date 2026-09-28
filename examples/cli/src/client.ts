@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { basename, dirname } from 'node:path'
 import * as p from '@clack/prompts'
 import type { AccountClient, ReadClient } from '@filoz/synapse-core'
@@ -22,9 +22,13 @@ function privateKeyFromConfig() {
   const keystoreDir = dirname(keystore)
   const keystoreName = basename(keystore)
   try {
-    const extraction = execSync(
-      `cast w dk -k ${keystoreDir} ${keystoreName}`
-    ).toString()
+    const extraction = execFileSync('cast', [
+      'w',
+      'dk',
+      '-k',
+      keystoreDir,
+      keystoreName,
+    ]).toString()
     const foundAt = extraction.search(/0x[a-fA-F0-9]{64}/)
     if (foundAt === -1) {
       p.log.error('Failed to retrieve private key')

@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.10.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.9.1...synapse-core-v0.10.0) (2026-09-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **synapse-core:** PdpDataSet.provider and Piece.url can now be null. Callers must check these fields before using them.
+
+### Bug Fixes
+
+* remove the temporary 40-piece batch limit ([#975](https://github.com/FilOzone/synapse-sdk/issues/975)) ([e03a00c](https://github.com/FilOzone/synapse-sdk/commit/e03a00cb7abd64fdba9bd7227a33b41fff2e30b2))
+* **synapse-core:** handle inactive PDP providers ([44fee17](https://github.com/FilOzone/synapse-sdk/commit/44fee17978cc5da1790919e226ce7cb9c1e46ab5))
+
+
+### Chores
+
+* fix root lint command issues and clean up unused exports ([#980](https://github.com/FilOzone/synapse-sdk/issues/980)) ([28bd4b2](https://github.com/FilOzone/synapse-sdk/commit/28bd4b2486dd85560a8b9ff8c8fdb384722f8bda))
+
 ## [0.9.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.9.0...synapse-core-v0.9.1) (2026-09-22)
 
 

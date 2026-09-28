@@ -7,7 +7,7 @@
  * - Expanded: tree node bytes (32 × leaf count)
  */
 
-import { EXPANDED_BYTES_PER_NODE, EXPANDED_BYTES_PER_QUAD, LEAFS_PER_QUAD, PADDED_BYTES_PER_QUAD } from './constants.ts'
+import { EXPANDED_BYTES_PER_NODE, LEAFS_PER_QUAD, PADDED_BYTES_PER_QUAD } from './constants.ts'
 import { log2Ceil } from './uint64.ts'
 
 // === Unpadded ===
@@ -29,15 +29,8 @@ export function unpaddedToPadding(size: bigint): bigint {
 /**
  * Padded size that a raw payload will round up to.
  */
-export function unpaddedToPadded(size: bigint): bigint {
+function unpaddedToPadded(size: bigint): bigint {
   return unpaddedToQuads(size) * PADDED_BYTES_PER_QUAD
-}
-
-/**
- * Expanded (tree) size that a raw payload will round up to.
- */
-export function unpaddedToExpanded(size: bigint): bigint {
-  return unpaddedToQuads(size) * EXPANDED_BYTES_PER_QUAD
 }
 
 /**
@@ -59,7 +52,7 @@ function unpaddedToQuads(size: bigint): bigint {
 /**
  * Padded size from tree height.
  */
-export function paddedFromHeight(height: number): bigint {
+function paddedFromHeight(height: number): bigint {
   // Second-layer node count = quad count (each quad → 4 leaves → 1 second-layer node).
   const quads = 2n ** BigInt(height - 2)
   return quads * PADDED_BYTES_PER_QUAD

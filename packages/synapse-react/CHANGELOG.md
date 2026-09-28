@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.4.0...synapse-react-v0.5.0) (2026-09-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **synapse-core:** PdpDataSet.provider and Piece.url can now be null. Callers must check these fields before using them.
+
+### Bug Fixes
+
+* **synapse-core:** handle inactive PDP providers ([44fee17](https://github.com/FilOzone/synapse-sdk/commit/44fee17978cc5da1790919e226ce7cb9c1e46ab5))
+
+
+### Chores
+
+* fix root lint command issues and clean up unused exports ([#980](https://github.com/FilOzone/synapse-sdk/issues/980)) ([28bd4b2](https://github.com/FilOzone/synapse-sdk/commit/28bd4b2486dd85560a8b9ff8c8fdb384722f8bda))
+
 ## [0.4.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.3.1...synapse-react-v0.4.0) (2026-09-03)
 
 
