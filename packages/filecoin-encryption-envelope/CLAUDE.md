@@ -17,11 +17,12 @@ structural recipient validation), scheme-1 AES-256-GCM encryption and decryption
 CEK, both tag 16 and tag 96), A256KW recipient wrapping on encryption, the built-in A256KW unwrapper
 factory (`createA256KWUnwrapper`), and recipient-based decryption through an unwrapper
 (`aesGcm.decryptWith`), and chunked streaming encryption and decryption in `aes-gcm-stream.ts` (direct CEK
-or A256KW recipients, optional `plaintext_length`), unauthenticated envelope inspection (`parse`) and
-authenticated range reads from a `RandomAccessSource` (`decryptRange`, `decryptRangeWith`), both under
-`range/`. Not yet implemented: persisting and restoring cached
-`ChunkedEnvelopeParams` (they are in-memory only). ECDH-ES+A256KW remains deferred; the code enforces its
-settled header placement but does not derive or unwrap its KEK.
+or A256KW recipients, optional `plaintext_length`; `decrypt` also accepts a `KeyResolver` that derives the
+CEK from the decoded envelope), unauthenticated envelope inspection (`parse`) and authenticated range
+reads from a `RandomAccessSource` (`decryptRange`, `decryptRangeWith`), both under `range/`. Not yet
+implemented: persisting and restoring cached `ChunkedEnvelopeParams` (they are in-memory only).
+ECDH-ES+A256KW remains deferred; the code enforces its settled header placement but does not derive or
+unwrap its KEK.
 
 ## Scope discipline
 
@@ -47,7 +48,7 @@ re-exported through the curated `src/public-constants.ts`, never `src/constants.
 
 ```ts
 export * as aesGcm from './aes-gcm.ts'
-export { type ChunkedEncryptOptions, decrypt, decryptWith, encrypt } from './aes-gcm-stream.ts'
+export { type ChunkedEncryptOptions, decrypt, decryptWith, encrypt, type KeyResolver } from './aes-gcm-stream.ts'
 export type { AppMetadata, CborValue } from './cose/headers.ts'
 export * as cose from './cose/index.ts'
 export * as errors from './errors.ts'
