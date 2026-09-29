@@ -1,7 +1,8 @@
-# Filecoin Encryption Envelope — technical specification
+# Filecoin Encryption Envelope — library implementation guide
 
-Implementation of [FIP #1253](https://github.com/filecoin-project/FIPs/discussions/1253): a COSE
-container pairing a self-describing metadata envelope with detached ciphertext.
+This guide records the library's wire profile, public API, limits, and security contracts for
+implementing [FIP #1253](https://github.com/filecoin-project/FIPs/discussions/1253). An encoded
+object is a COSE metadata envelope followed by detached ciphertext.
 
 Status: draft. Nothing is published; the wire profile below is not yet frozen.
 
@@ -21,16 +22,6 @@ length and rejects an all-zero value, but does not generate or derive the CEK, i
 or track its use across encryption attempts. Key secrecy and reuse management belong to the caller;
 see [CEK responsibilities](#cek-responsibilities).
 
-Application CEK derivation is outside this package. A KDF used by a recipient key-agreement
-algorithm would be inside it, producing a key-encryption key (KEK) that wraps the supplied CEK —
-but no such algorithm is supported yet; see [Algorithms](#algorithms) on the deferred `-31`
-profile.
-
-Application metadata is **semantically** opaque: we carry it, authenticate it, and never interpret
-what it means. Its CBOR structure is not opaque — the library validates shape, permitted value
-types, key types, nesting depth and cycles against an allowlist, and rejects anything outside it.
-See [`app_metadata`: current library restrictions](#app_metadata-current-library-restrictions).
-
 ## Blob layout
 
 ```mermaid
@@ -48,7 +39,7 @@ CBOR is self-delimiting, so a reader decodes the envelope off the front of the s
 remaining byte is ciphertext. No length prefix, no framing. For the chunked scheme the ciphertext
 is fixed-stride, which is what makes range reads arithmetic rather than an index lookup:
 
-```
+```text
 one chunk on the wire = [ ciphertext (chunk_size bytes) ‖ tag (16 bytes) ]
 
 [chunk₀][chunk₁][chunk₂] … [chunkₙ]
@@ -64,7 +55,7 @@ chunk `i` begins at `envelope_len + i × (chunk_size + 16)`.
 ## Wire profile
 
 This profile follows FIP-1253 **plus the changes proposed in
-[`filecoin-encryption-envelope-fip-amendments.md`](./filecoin-encryption-envelope-fip-amendments.md)**,
+[`Proposed amendments to the Filecoin Encryption Envelope`](https://app.notion.com/p/filecoindev/Proposed-amendments-to-the-Filecoin-Encryption-Envelope-FIP-6b8dc41950c18363af1d01bf788d5c84?source=copy_link)**,
 adopting all of them.
 
 Those amendments have been reviewed by the FIP author but are **not yet adopted into the FIP**, so
@@ -87,15 +78,13 @@ chunk tag.
 | -65789 | `plaintext_length` | uint | no | chunked only; exact plaintext byte count, see below |
 | -65792 | `app_metadata` | map | no | string-keyed, opaque to this library |
 
-`iv` (label 5) MUST appear here and MUST NOT appear in the unprotected map. COSE permits either
-placement, and an earlier draft of this profile claimed the IV *had* to be unprotected because a
-decryptor needs it before it can verify anything. That reasoning was wrong: protected headers are
-plaintext on the wire, so a decryptor reads the IV out of them just as easily. Placing it here folds the IV into the serialized protected bytes and
-therefore into the content AAD.
+`iv` (label 5) MUST appear here and MUST NOT appear in the unprotected map. Protected headers remain
+readable on the wire, and this placement includes the IV in the content AAD. Partial IV (label 6)
+is rejected in either content-header map; this profile does not reconstruct nonces from it.
 
 ### Unprotected header
 
-Not covered by the AEAD. **The v1 encoder emits no content unprotected parameters**, so the map it
+Not covered by the AEAD. **The encoder emits no content unprotected parameters**, so the map it
 writes is empty — which is a statement about the encoder, not a closed door: decoders accept
 unknown non-critical parameters here, as described under COSE processing below.
 
@@ -134,7 +123,7 @@ explicitly, because leaving them to whichever parser is chosen would change inte
 encoded in more bytes than it needs. Both are rejected on decode, not merely avoided on encode.
 
 Unknown **non-critical** parameters are accepted and ignored after their CBOR passes this library's
-parser rules. Version 1 rejects CBOR floats anywhere in an envelope, including inside an unknown
+parser rules. This profile rejects CBOR floats anywhere in an envelope, including inside an unknown
 parameter. A parameter named by `crit` that this profile does not understand is rejected, and
 `crit` itself must be protected.
 
@@ -143,13 +132,13 @@ recipients array MUST NOT be empty — a caller passing `recipients: []` is an e
 for tag 16, since the two express different intents and silently reinterpreting one as the other
 hides a mistake. Nested recipient layers are outside this profile.
 
-Only A256KW (`-5`) is supported; see [Algorithms](#algorithms) on the deferred `-31`
-profile. For A256KW the recipient's protected field is `h''` (zero-length, *not* an encoded empty
+Only A256KW (`-5`) has built-in key recovery. For A256KW the recipient's protected field is `h''`
+(zero-length, *not* an encoded empty
 map — the two differ by one byte and are commonly confused), `alg = -5` lives in the unprotected
 map, and `kid` (label 4, a byte string) is recommended wherever a decryptor may hold more than one
 key, since without it the only way to find the right recipient is to attempt every unwrap.
 
-### `app_metadata`: current library restrictions
+### `app_metadata`
 
 `app_metadata` is **semantically** opaque — the library carries and authenticates it and never
 interprets what it means — but its structure is not. Every value inside it, at any depth, is checked
@@ -158,25 +147,17 @@ against an **allowlist**: a well-formed Unicode string, a safe integer, a boolea
 string) and no two keys equal by content, or a plain object with string keys. Anything else is
 rejected — `undefined`, `bigint`, symbols, functions, `Date` and other class instances, sparse
 arrays, compound map keys, and whatever nobody has thought of yet. Nesting is capped at 256 levels
-and cycles are rejected, both with package errors rather than a stack overflow. The exact rules and
-their edge cases live in `src/cose/headers.ts` and its tests, which state them more precisely than
-prose can.
+and cycles are rejected with package errors.
 
-**These are library restrictions, not COSE requirements and not adopted FIP rules.** Two of them
-have a reason worth keeping out of the code, because a future reader is otherwise likely to relax
-them:
+**These are library restrictions, not COSE requirements and not adopted FIP rules.**
 
-- **Numbers are integers only, for now.** Every non-integer would have to travel as a CBOR float,
-  and this profile's decoder rejects CBOR floats outright. That rejection is a consequence of the
-  current decoder design rather than anything FEE or COSE requires: a float `3.0` and an integer `3`
-  decode to the same JavaScript number, so a float encoding could otherwise shadow an
-  integer-valued header such as `alg`. Lifting this is tracked under [Deferred
-  work](#deferred-work).
+- **Numbers are integers only.** Every non-integer would travel as a CBOR float, which this profile
+  rejects. JavaScript represents a float `3.0` and an integer `3` with the same value, so accepting
+  both could let a float encoding stand in for an integer-valued header such as `alg`.
 - **The allowlist is deliberately an allowlist.** Naming what is permitted, rather than what is
   forbidden, is what makes a shape nobody anticipated a rejection rather than a gap.
 
-Both rules are enforced on **encode and decode alike**, from one shared validator. Splitting them
-across two code paths is what let the encoder drift into emitting values its own decoder refused.
+Both rules apply to encode and decode.
 
 ### Algorithms
 
@@ -201,8 +182,8 @@ CEK + recipient key material  -- recipient alg --> wrapped CEK in a recipient re
 | `3` | Scheme 1 | AES-256-GCM encrypts the whole plaintext in one operation | no |
 | `-65793` | Scheme 2 | Chunked AES-256-GCM with STREAM encrypts each chunk separately | yes |
 
-Scheme 1 must be selected explicitly through the one-shot `encryptAesGcm` API. Choosing it forfeits
-streaming and range decryption, so it is never a default and never inferred.
+Scheme 1 must be selected explicitly through the one-shot `aesGcm.encrypt` function. Choosing it
+forfeits streaming and range decryption, so it is never a default and never inferred.
 
 #### Recipient key distribution
 
@@ -212,22 +193,37 @@ recipient record:
 | `alg` | Operation | Library support |
 | --- | --- | --- |
 | `-5` | A256KW wraps the CEK with a previously shared 256-bit key-encryption key (KEK) | supported |
-| `-31` | ECDH-ES+A256KW derives a KEK through elliptic-curve key agreement, then wraps the CEK with A256KW | deferred |
+| `-31` | ECDH-ES+A256KW derives a KEK through elliptic-curve key agreement, then wraps the CEK with A256KW | no built-in key recovery |
 
 With A256KW (`-5`), the sender and recipient already have the same KEK. The sender wraps the CEK,
-and a recipient holding that KEK can unwrap it. A256KW is the only recipient algorithm this version
-can use to recover a CEK.
+and a recipient holding that KEK can unwrap it. A256KW is the only recipient algorithm with built-in
+key recovery. AES-KW is deterministic: recipients using the same KEK to wrap the same CEK have
+identical wrapped-key bytes, which reveals that the KEK is shared.
 
-A `COSE_Encrypt` envelope may contain recipients using different algorithms. The library MUST skip a **well-formed** recipient whose algorithm it does not support and continue looking for a supported one; a recipient that is not a well-formed `COSE_recipient` is rejected rather than skipped. Decryption fails if no supported recipient can provide the CEK.
+An A256KW recipient's ciphertext is exactly 40 bytes: RFC 3394 adds one 8-byte integrity block to the
+32-byte CEK. Any other length is malformed recipient data, not a failed key match, and is rejected on
+both the encode and decode paths.
 
-**`-31` (ECDH-ES+A256KW) is deferred.** Supporting it requires more than the algorithm identifier and wrapped key. The profile must also define the curve, public-key encoding and validation, ephemeral-key requirements, salt and party information, and the remaining `COSE_KDF_Context` inputs. Without these rules, implementations may derive different KEKs and fail to unwrap the CEK.
+A `COSE_Encrypt` envelope may contain recipients using different algorithms. The built-in A256KW
+unwrapper skips well-formed recipients it does not support and continues looking. A custom unwrapper
+receives all well-formed recipients and may support other algorithms. Malformed recipients are
+rejected before either unwrapper runs. Decryption fails if none can provide the CEK.
+
+**The library does not implement `-31` (ECDH-ES+A256KW) key recovery.** Interoperable support requires more than the
+algorithm identifier and wrapped key. A future profile must define the curve, public-key encoding
+and validation, ephemeral-key requirements, salt and party information, and the remaining
+`COSE_KDF_Context` inputs. Without these rules, implementations may derive different KEKs and fail
+to unwrap the CEK.
 
 Note the relevant reference for `-31` is RFC 9053 §6.4 (key agreement **with** key wrap), not §6.3
-(direct key agreement) — a distinction to get right when that profile is written.
+(direct key agreement).
+
+Recipient `alg` values retain COSE's `int / tstr` shape. Built-in recovery recognizes only numeric
+A256KW (`-5`); a custom unwrapper may handle another well-formed integer or text identifier.
 
 ### Nonce generation
 
-For each new whole-object encryption invocation, the library MUST generate a fresh random IV using
+For each encryption call, the library MUST generate a fresh random IV using
 `crypto.getRandomValues`: 12 bytes for scheme 1, or a 7-byte base nonce for the chunked scheme.
 The encryption API MUST NOT accept a caller-supplied IV or base nonce. Failure to obtain randomness
 MUST fail encryption; there is no deterministic fallback.
@@ -236,14 +232,15 @@ All chunks within one invocation share the supplied CEK and base nonce. The libr
 different full nonce for each chunk as shown below. Decryption uses the IV stored in the envelope.
 Retransmitting existing encrypted bytes is not a new encryption invocation and draws no new nonce.
 
-**Why callers cannot override the nonce.** This profile requires a fresh CEK for every encryption,
-but the library cannot tell whether a caller has reused one. It therefore generates the nonce too.
-Allowing both values to come from the caller could repeat a key/nonce pair, breaking confidentiality
-and integrity.
+**Why callers cannot override the nonce.** A fresh CEK for every encryption is recommended, but the
+library cannot tell whether a caller has reused one. The library therefore generates the nonce and
+offers no nonce override. This prevents a caller from directly supplying the same key/nonce pair.
+It cannot prevent random nonce collisions when the same CEK is reused across separate encryption
+attempts.
 
 ### Per-chunk nonce
 
-```
+```text
 nonce (12) = base_nonce (7) ‖ chunk_index (4, big-endian) ‖ last_flag (1)
 last_flag  = 0x01 on the final chunk, 0x00 otherwise
 ```
@@ -274,7 +271,7 @@ the total plaintext size. A reader needs all of it before decrypting anything, b
 nonce includes the last-chunk flag. Two numbers already give the lot — the blob size and the chunk
 size.
 
-```
+```text
 ciphertext_size = blob_size − envelope_len
 stride          = chunk_size + 16
 
@@ -290,17 +287,16 @@ size" into "check it against a value a CEK holder committed to."
 
 #### Why a length and not a count
 
-An earlier draft stored an authenticated `chunk_count` instead. A count commits only to how many
-chunks there are, so it detects truncation **only when the chunk count changes**. Remove 32 bytes
-from a 100-byte final chunk and the derived count is unchanged, the declared count still matches,
-and a range read over an earlier chunk authenticates cleanly. A length has no such blind spot: any
-byte added or removed changes the expected total.
+A committed chunk count alone detects truncation only when the number of chunks changes. Remove 32 bytes from a
+100-byte final chunk and the count stays the same; a range over an earlier chunk still authenticates.
+An authenticated length commits to the exact size, so any added or removed byte changes the expected
+total.
 
 #### Encoding
 
 With `P = plaintext_length` and `S = chunk_size`:
 
-```
+```text
 N = max(1, ceil(P / S))     ← the max matters: ceil(0 / S) is 0, and empty input is one chunk
 C = P + 16 × N              ← expected detached ciphertext length
 ```
@@ -339,16 +335,9 @@ exactly one valid `P`.
 Like every other header field, `P` is readable before it is trustworthy. It becomes authenticated
 only once a chunk tag over the protected header verifies.
 
-**Placement is what makes it work.** Take an object of 100 chunks served as 50:
-
-- **Not stored.** A range read over the first 40 chunks succeeds. Nothing reveals the object is short.
-- **Stored unprotected.** The header disagrees with the blob, so we reject — until an attacker edits
-  the field to match, which costs nothing.
-- **Stored protected.** Editing it changes the AAD, so every chunk tag fails.
-
-The third case is the entire argument for the protected header, and it is what both existing
-implementations give up by keeping their count unprotected. It also makes the field's **absence**
-trustworthy: an attacker cannot strip it to escape the check, because removing it changes the AAD.
+The field must be protected. Otherwise an attacker could change it to match a shortened blob.
+Protected placement also makes the field's absence trustworthy: removing it changes the AAD and
+causes authentication to fail.
 
 #### What it still does not give you
 
@@ -375,14 +364,8 @@ form](#one-final-chunk-form): `C = P + 16 × N` is exact only because each plain
 legal representation. If that rule were relaxed, an exact-multiple plaintext would have two valid
 ciphertext lengths and this check would reject one of them.
 
-Two rules the implementation must not get backwards:
-
-- **Derive the layout from the blob size; compare the declared value against it.** Never the
-  reverse. The TypeScript demo trusts its declared count and derives only as a fallback, which lets
-  a rewritten header change which chunk is treated as last.
-- **The label is new on purpose.** `-65791` stays defined as `chunk_count` wherever existing
-  experimental formats use it; reusing it for a different quantity would make two incompatible
-  meanings indistinguishable on the wire.
+Derive the layout from the blob size and compare the declared value against it, never the reverse.
+The authenticated header must not decide which observed chunk is treated as last.
 
 ### One final-chunk form
 
@@ -400,67 +383,100 @@ At the wire-format level, chunk count stays between 1 and `2^32 − 1`, indices 
 and the counter must not wrap. This library's lower operational limit is defined under
 [Limits](#limits).
 
-## Library profile decisions
-
-This document specifies the library's draft behavior, not amendments adopted by the FIP. A proposal there does not
-change this library's requirements until we explicitly incorporate the decision here.
-
-The wire-format choices in this guide follow the amendments: the FIP's `typ` value and protected
-`chunk_size`, a protected IV, one final-chunk form, and optional protected `plaintext_length` at
-`-65789`.
-
-The amendments leave some library policy open or do not cover it. Version 1 rejects Partial IV,
-CBOR floats and non-minimal integer encodings. It also applies the metadata allowlist, a 1 MiB
-envelope ceiling, a 256-level nesting cap, safe-integer lengths and offsets, and supports only
-A256KW recipients. These choices narrow what the library accepts without assigning a new meaning
-to existing wire values. Each restriction is described where it applies.
-
-Amendment 2 leaves CEK reuse policy to key management. This library requires a fresh CEK for every
-whole-object encryption; the contract is defined under [CEK responsibilities](#cek-responsibilities).
-
 ## Public interface
 
 ```ts
-// ── chunked encryption ──────────────────────────────────────────────────────
-function encrypt(options: ChunkedEncryptOptions): TransformStream<Uint8Array, Uint8Array>
+// ── recipient key distribution, exported as fee.recipients ─────────────────
+namespace recipients {
+  interface A256KWRecipient {
+    readonly alg: typeof constants.ALG_A256KW // -5
+    readonly kek: Uint8Array             // exactly 32 bytes, not all-zero
+    readonly kid?: Uint8Array            // written to unprotected label 4
+  }
+
+  type Recipient = A256KWRecipient
+
+  interface RecipientInfo {
+    readonly index: number            // position in the wire recipient array
+    readonly alg: number | string
+    readonly kid?: Uint8Array
+    readonly protectedBytes: Uint8Array
+    readonly protected: ReadonlyMap<number | string, cose.CborValue>
+    readonly unprotected: ReadonlyMap<number | string, cose.CborValue>
+    readonly wrappedKey: Uint8Array
+  }
+
+  type Unwrapper = (
+    recipients: readonly RecipientInfo[]
+  ) => Promise<Uint8Array | undefined>
+
+  interface A256KWKey {
+    readonly kek: Uint8Array             // exactly 32 bytes, not all-zero
+    readonly kid?: Uint8Array
+  }
+
+  interface A256KWUnwrapperOptions {
+    readonly maxAttempts?: number        // positive safe integer; default 64
+  }
+
+  function createA256KWUnwrapper(
+    keys: readonly A256KWKey[],
+    options?: A256KWUnwrapperOptions
+  ): Promise<Unwrapper>
+}
+
+// ── chunked encryption, exported at the root as fee.encrypt ─────────────────
+// Use as source.pipeThrough(fee.encrypt(options)).
+function encrypt(options: ChunkedEncryptOptions): ReadableWritablePair<Uint8Array, Uint8Array>
 
 interface ChunkedEncryptOptions {
   cek: Uint8Array                   // exactly 32 bytes, not all-zero
   chunkSize?: number                // 4 KiB … 16 MiB, default 256 KiB
   contentType?: string | number     // tstr / uint; a number must be a non-negative safe integer
-  appMetadata?: Record<string, unknown>
-  recipients?: Recipient[]          // non-empty ⇒ COSE_Encrypt (tag 96); [] is rejected
+  appMetadata?: AppMetadata
+  recipients?: readonly recipients.Recipient[] // non-empty ⇒ COSE_Encrypt (tag 96); [] is rejected
   contentLength?: number            // writes plaintext_length, verified against
                                     // bytes consumed
 }
 
-// ── chunked decryption ──────────────────────────────────────────────────────
-function decrypt(cek: Uint8Array): TransformStream<Uint8Array, Uint8Array>
-function decryptWith(unwrapper: Unwrapper): TransformStream<Uint8Array, Uint8Array>
+// ── chunked decryption, exported at the root as fee.decrypt / fee.decryptWith
+// Use as encrypted.pipeThrough(fee.decrypt(cek)).
+function decrypt(key: Uint8Array | KeyResolver): ReadableWritablePair<Uint8Array, Uint8Array>
+function decryptWith(unwrapper: recipients.Unwrapper): ReadableWritablePair<Uint8Array, Uint8Array>
 
-// ── whole-object AES-GCM (scheme 1) ─────────────────────────────────────────
-function encryptAesGcm(
-  plaintext: Uint8Array,
-  options: AesGcmEncryptOptions
-): Promise<Uint8Array>
+// Derives or fetches the CEK from the decoded envelope, e.g. from a salt and
+// scope in appMetadata. Called at most once, after the envelope decodes and
+// before any chunk is decrypted, with the same EnvelopeInfo parse() returns.
+// That info is unauthenticated: check it (an allowed scope, say) before
+// fetching a key. A returned key is borrowed until the stream settles. A
+// resolver failure becomes KeyResolutionError; an invalid key, InvalidKeyError.
+type KeyResolver = (info: EnvelopeInfo) => Promise<Uint8Array> | Uint8Array
 
-interface AesGcmEncryptOptions {
-  cek: Uint8Array
-  contentType?: string | number
-  appMetadata?: Record<string, unknown>
-  recipients?: Recipient[]
+// ── whole-object AES-GCM (scheme 1), exported as fee.aesGcm ─────────────────
+namespace aesGcm {
+  interface EncryptOptions {
+    cek: Uint8Array
+    contentType?: string | number
+    appMetadata?: AppMetadata
+    recipients?: readonly recipients.Recipient[]
+  }
+
+  function encrypt(
+    plaintext: Uint8Array,
+    options: EncryptOptions
+  ): Promise<Uint8Array>
+
+  function decrypt(encoded: Uint8Array, cek: Uint8Array): Promise<Uint8Array>
+  function decryptWith(encoded: Uint8Array, unwrapper: recipients.Unwrapper): Promise<Uint8Array>
 }
 
-function decryptAesGcm(envelope: Uint8Array, cek: Uint8Array): Promise<Uint8Array>
-function decryptAesGcmWith(envelope: Uint8Array, unwrapper: Unwrapper): Promise<Uint8Array>
-
-// ── inspection, no key required ─────────────────────────────────────────────
+// ── inspection, no key required, exported at the root as fee.parse ──────────
 function parse(source: Uint8Array | RandomAccessSource): Promise<EnvelopeInfo>
 
 interface EnvelopeInfoBase {
   contentType?: string | number     // tstr / uint; a number must be a non-negative safe integer
-  appMetadata?: Record<string, unknown>
-  recipients: RecipientInfo[]
+  appMetadata?: AppMetadata
+  recipients: recipients.RecipientInfo[]
 }
 
 // Only chunked envelopes expose cached parameters because only they support
@@ -469,7 +485,7 @@ type EnvelopeInfo =
   | (EnvelopeInfoBase & { scheme: 'aes-gcm' })
   | (EnvelopeInfoBase & { scheme: 'chunked'; params: ChunkedEnvelopeParams })
 
-// ── range decryption ────────────────────────────────────────────────────────
+// ── range decryption, exported at the root ──────────────────────────────────
 function decryptRange(
   source: RandomAccessSource | Uint8Array,
   cek: Uint8Array,
@@ -477,8 +493,19 @@ function decryptRange(
   options?: { params?: ChunkedEnvelopeParams }
 ): Promise<RangeResult>
 
+// Same, recovering the CEK through an unwrapper (tag 96 only), like decryptWith.
+function decryptRangeWith(
+  source: RandomAccessSource | Uint8Array,
+  unwrapper: recipients.Unwrapper,
+  range: ByteRange,
+  options?: { params?: ChunkedEnvelopeParams }
+): Promise<RangeResult>
+
 interface ByteRange {
   offset: number      // negative ⇒ suffix, e.g. -1024 is the last 1024 bytes
+                      // HTTP-like: an empty range, an offset at or past the end, and any
+                      // range on an empty object are rejected; an overlong end or suffix
+                      // is clamped
   length?: number     // omitted ⇒ to end of plaintext
 }
 
@@ -512,13 +539,59 @@ interface ChunkedEnvelopeParams {
   readonly plaintextLength?: number
 }
 
-// ── standalone key wrapping (no envelope) ───────────────────────────────────
-function wrapKey(cek: Uint8Array, recipient: Recipient): Promise<Uint8Array>   // COSE_recipient
-function unwrapKey(coseRecipient: Uint8Array, unwrapper: Unwrapper): Promise<Uint8Array>
+// ── also exported ───────────────────────────────────────────────────────────
+// fee.cose.decodeEnvelope   decode-only envelope parsing
+// fee.constants             curated public constants (algorithm ids, limits)
+// KeyResolver, AppMetadata, CborValue and the interfaces above as root types
 ```
 
 The streaming `encrypt`, `decrypt`, and `decryptWith` functions accept only the chunked scheme. The
-one-shot AES-GCM functions accept only scheme 1 and reject a chunked envelope.
+one-shot `aesGcm` functions accept only scheme 1 and reject a chunked envelope.
+
+`aesGcm.decrypt` accepts `COSE_Encrypt0` (tag 16) and `COSE_Encrypt` (tag 96) when the caller supplies
+the CEK. The envelope tag selects the AAD context. `aesGcm.decryptWith` obtains the CEK from a
+recipient record.
+
+An unwrapper receives all structurally valid recipients in wire order. The recipient view is an
+isolated snapshot: clearing `kid`, `wrappedKey`, protected bytes, or nested parameters cannot modify
+the caller's encoded envelope or the decoder's retained maps. This matters for adapters that clear
+temporary key material after use.
+
+Returning `undefined` means no recipient could provide a CEK. Throwing aborts key recovery and is
+reported as `RecipientUnwrapError`, with the original error as its cause. Work performed inside a
+custom unwrapper, including its own retry or attempt policy, belongs to that adapter. A built-in
+algorithm helper owns the limits for cryptographic operations it performs itself.
+
+`recipients.createA256KWUnwrapper` builds the built-in A256KW helper. It imports every KEK once, before
+the returned promise settles; callers may clear their KEK bytes after it settles. Each call to the
+resulting unwrapper tries candidates in wire order: for a recipient carrying a `kid`, keys whose `kid`
+matches exactly are tried before kid-less (wildcard) keys, and a key with a different `kid` is never
+tried; a kid-less recipient tries every key. A recipient using an algorithm other than A256KW is skipped
+without counting an attempt. Attempts are capped per call by `maxAttempts` (default 64); exceeding the
+cap throws `RecipientAttemptLimitError`, which `decryptWith` surfaces as `RecipientUnwrapError` with
+that error as its cause.
+
+Every `decryptWith` form validates a returned CEK as exactly 32 bytes and non-zero before using it. A
+tag-16 envelope has no recipients, so `decryptWith` fails with `NoUsableRecipientError` without calling
+the unwrapper; it is not an unsupported content scheme.
+
+### Input ownership
+
+Operations borrow caller inputs while they may still read them. Callers MUST NOT modify plaintext,
+encoded bytes, keys, recipient objects, or metadata until the returned promise settles. The library
+does not modify caller-owned inputs or retain key bytes after the operation settles; callers may
+clear their keys afterward. Values retained
+beyond a call or passed to an unwrapper are copied where needed. Byte inputs passed to Web Crypto
+MUST be backed by an ordinary `ArrayBuffer`; a `SharedArrayBuffer`-backed view is rejected with the
+relevant input error.
+
+Streaming operations follow the same rule, with the stream in place of the promise: option buffers
+(CEK, recipient KEKs and kids, metadata) stay borrowed until the returned stream closes or errors, and
+may be read as late as its first read. A source block may be reused once its `write()` resolves. A key
+returned by a `KeyResolver` is borrowed the same way as a directly passed one.
+
+Range reads split the two: the CEK is borrowed until the `decryptRange` promise settles, since the key
+is imported before it resolves, and the source is borrowed until the result stream closes or errors.
 
 ### Random-access source contract
 
@@ -533,12 +606,21 @@ arguments MUST be non-negative safe integers and their sum MUST NOT exceed `size
 stream MUST produce exactly `length` bytes and then close, or fail. The library checks the byte
 count and rejects a short or oversized response rather than interpreting it as a different layout.
 
-When envelope parameters are not supplied from a validated cache, the library reads a bounded
-prefix at offset zero and grows that probe only when the CBOR item is incomplete, up to the 1 MiB
-envelope limit. After calculating the requested chunk span, it opens that one contiguous span and
-authenticates one chunk at a time. This gives a remote adapter one range request while keeping the
-decryptor's memory bounded by one chunk. A `Uint8Array` input is adapted internally to the same
-interface.
+When envelope parameters are not supplied from cached params, the library reads contiguous spans from
+offset zero, doubling from 4 KiB up to the 1 MiB envelope limit, and never re-reads bytes it already
+has. It cancels the rest of a span once the envelope completes, and a structural error stops it before
+another span is opened. After calculating the requested chunk span, it opens that one contiguous span
+on the result stream's first read and authenticates one chunk at a time. This gives a remote adapter
+one ciphertext range request (reading an uncached envelope may take a few more, all contiguous), and
+keeps chunk framing bounded by one chunk; the envelope buffer and the source's own blocks are extra. A
+`Uint8Array` input is adapted internally to the same interface.
+
+A response with extra bytes after the requested length is rejected before the last chunk's plaintext
+is released. Errors from the source's own stream propagate unchanged, and a failure while reading an
+opened range cancels that stream. An `openRange` that fails before returning a stream has nothing to
+cancel. Cancelling a range read never waits on a pending `openRange`; a stream that arrives
+after cancellation is cancelled too. Stopping a hung open itself is left to the adapter, for example
+with a fetch timeout.
 
 The source contract provides consistent layout input; it does not authenticate the source. The
 library still treats `size` and returned bytes as untrusted, validates all derived offsets, and
@@ -548,57 +630,61 @@ releases plaintext only after the corresponding AES-GCM tag verifies.
 
 Cached parameters let a store skip reading a chunked envelope before each range request. They
 contain no CEK and expose only values already visible in the encoded envelope. Scheme 1 has no
-cached parameter type because it does not support range decryption. The exact runtime
-representation, construction mechanism, and serialized shape are implementation choices.
+cached parameter type because it does not support range decryption. `parse` creates them, and they
+live in memory only: persisting and restoring them is not implemented.
+
+Params must be used with the same immutable object version they came from. A mismatch is not
+guaranteed to be caught: most fail authentication, but versions that differ only outside the
+protected header and the chunks read can still decrypt.
 
 The implementation must guarantee:
 
-- **Protected parameters are derived from the stored `Enc_structure`, never from a separately
-  supplied copy.** `chunkSize` and `plaintextLength` come from the protected bytes. `headerLength`
-  cannot — it measures the whole envelope, framing and recipients included. A fresh parse derives
-  it from the envelope. A restored cached value is range-checked, but confirming that it matches a
-  particular object requires reading that object's envelope.
-- **Range decryption accepts only parameters created by the library or restored through its
-  validating path.** An object that merely has the same public fields is not trusted.
-- **Persisted parameters are untrusted input.** Any persistence format is versioned. Restoration
-  rejects unsupported versions and limits, copies mutable byte data, and revalidates the
-  `Enc_structure` and protected headers as a fresh envelope parse would.
+- **Protected parameters come from the decoded envelope's original protected bytes, not a separate
+  caller-supplied copy.** The library retains that envelope for range reads and builds their AAD from
+  its original protected byte string, without re-encoding it. `chunkSize` and `plaintextLength`
+  come from its protected header; `headerLength` measures the whole envelope, including framing and
+  recipients. Checking that cached parameters belong to a particular object requires reading that
+  object's envelope.
+- **Range decryption accepts only library-created parameters.** A look-alike object with the same
+  public fields is rejected.
+- **If parameters are persisted, restoration treats them as untrusted input.** Its format must be
+  versioned; restoration must reject unsupported versions and limits, copy retained mutable bytes,
+  and validate protected headers as a fresh parse would.
 
 ## Streaming
 
 ```mermaid
 flowchart LR
-    S["source<br/>ReadableStream"] --> T["encrypt()<br/>TransformStream"] --> D["sink<br/>(upload / disk)"]
+    S["source<br/>ReadableStream"] --> T["encrypt()<br/>writable → readable"] --> D["sink<br/>(upload / disk)"]
 ```
 
-**Only the chunked scheme is bounded by chunk size.** Its encrypt and whole-object decrypt hold
-**two** chunks, because a chunk's nonce depends on whether it is the last one, which is unknown
-until the following read returns. Range decryption needs no lookahead — layout comes from the blob
-size up front — so it holds one. At the 256 KiB default that is 512 KiB and 256 KiB, flat, for any
-input size.
+**Only the chunked scheme has chunk-bounded content processing.** Encryption and whole-object
+decryption hold about two chunks for final-chunk lookahead. Range decryption frames one chunk at a
+time because the object's size establishes the layout up front. At the 256 KiB default, that is
+about 512 KiB and 256 KiB of chunk buffering, respectively. Decryption also buffers the envelope
+(up to 1 MiB); caller-provided input blocks and Web Crypto allocations are additional. Output is
+produced as the consumer reads it, so a slow sink slows the source. The streaming reader releases
+plaintext only after its chunk tag verifies and determines finality from the end of input, never
+from the header.
 
 **Scheme 1 is a one-shot operation.** Its API accepts and returns `Uint8Array` rather than presenting
 a stream that secretly buffers the whole object. It authenticates the entire ciphertext under one
 tag, `crypto.subtle.decrypt` requires the complete ciphertext, and plaintext cannot be released
 before that tag verifies.
 
-Version 1 limits scheme-1 plaintext to **64 MiB**. This is a conservative library limit, not a COSE
+This profile limits scheme-1 plaintext to **64 MiB**. This is a conservative library limit, not a COSE
 or NIST limit. [NIST's per-message GCM bound](https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-38d.pdf)
 is just under 64 GiB, but that cryptographic bound does not mean a browser or Node.js process can
 safely buffer an object of that size. A whole-object operation may hold its input, output, and Web
 Crypto's internal buffers at the same time, and actual allocation limits vary by runtime. The cap
 gives callers predictable behavior while keeping scheme 1 useful for small objects; larger objects
-use the chunked scheme. This operational limit may change in a later release after cross-runtime
-memory tests. Raising it accepts inputs that older releases rejected, while starting too high and
-later lowering it would break existing callers.
+use the chunked scheme.
 
 A stream that fails part-way leaves whatever it already emitted incomplete. The sink must discard
 it: partial output is not a shorter valid object.
 
-Runtime requirements: `crypto.subtle`, `crypto.getRandomValues`, `TransformStream`,
-`ReadableStream`. No `Buffer`, `fs`, `path`, or `process`; no Node built-ins anywhere. The monorepo
-requires Node >= 22; the code itself needs only globals stable since Node 18, and runs unmodified
-in browsers.
+Runtime requirements: `crypto.subtle`, `crypto.getRandomValues`, `ReadableStream`,
+`WritableStream`. No `Buffer`, `fs`, `path`, or `process`; no Node built-ins anywhere.
 
 ## Security properties
 
@@ -615,6 +701,14 @@ read early MAY steer bounded parsing and retrieval; they MUST NOT be treated as 
 library does not interpret application metadata, and a caller must not act on it before a tag
 verifies.
 
+A `KeyResolver` runs on this unauthenticated info, so a crafted envelope chooses which key it looks
+up. The tag still protects the plaintext, but a resolver should check the info (an allowed scope, for
+example) before fetching or deriving a key.
+
+**Authentication failures are intentionally indistinguishable.** The library cannot tell whether
+the CEK was wrong or the protected headers, ciphertext, or authentication tag were changed. These
+cases produce the same authentication error.
+
 **An authenticated plaintext CID is still only a claim.** If `app_metadata` carries a CID, a
 successful tag proves a CEK holder wrote that value — not that it describes the plaintext. Checking
 that the decrypted bytes actually hash to it is a separate step the caller must perform.
@@ -629,32 +723,25 @@ produced the object, that the sender was authorised, or that a CEK holder could 
 different, equally valid envelope. Applications needing sender authentication or authorisation need
 a mechanism defined outside this format.
 
-**A range read authenticates only the chunks it touches.** *Without* `plaintext_length`, truncation
-detection depends on the final chunk's `last_flag`, so a range that stops short of the end cannot
-detect that the object was cut.
-`includesFinalChunk` reports only whether the requested span *includes* that chunk; the `last_flag`
-check completes later, when the chunk is read from the stream and its tag verifies. To check deliberately, read the last byte with a
-suffix range; if it authenticates, that chunk really was final at encryption time.
+**A range read authenticates only the chunks it touches.** Without `plaintext_length`, a range
+short of the final chunk cannot detect truncation. `includesFinalChunk` says the range will read the
+presumed final chunk; its `last_flag` is checked only when that chunk's tag verifies. A one-byte
+suffix range makes that check for a nonempty object.
 
-When `RandomAccessSource` supplies the exact size for the same immutable object version, an
-authenticated `plaintext_length` closes the *length* half of this gap once one chunk tag has
-verified the protected header: a blob of the wrong size disagrees with the committed length, and
-editing the committed length fails every tag. It does not close the *availability* half — an early
-range cannot prove that the remote source possesses bytes it has not served — and the field is
-absent for objects encrypted from a stream of unknown length.
-
-STREAM itself binds an object's *end*, via the final chunk's `last_flag`, never its length. So for
-an object with no committed length, a truncated prefix stays indistinguishable from a genuinely
-shorter object until someone reads the presumed-final chunk.
+With `plaintext_length`, range decryption compares the committed length with the source size before
+fetching any ciphertext, and fails on a mismatch. The first chunk tag that verifies then confirms the
+header the comparison used. This detects a length mismatch, not whether the source will serve unread
+bytes. See [`plaintext_length` and truncation](#plaintext_length-and-truncation).
 
 **Metadata is public.** Algorithm, parameters, content type, application metadata and the number
 and type of recipients are all readable without any key.
 
 ### CEK responsibilities
 
-The caller — either the application or a separate key-management library — supplies the CEK. Each
-new whole-object encryption MUST receive a new secret CEK. Re-encrypting the same plaintext,
-including a retry, needs a new CEK. Sending the existing encrypted bytes again does not.
+The caller — either the application or a separate key-management library — supplies the CEK. A new
+secret CEK for each whole-object encryption is RECOMMENDED. A key-management profile may instead
+reuse a derived CEK, but it owns the rules for repeated encryption, nonce use, and per-key limits.
+Sending existing encrypted bytes again is not a new encryption.
 
 FEE checks that the CEK is exactly 32 bytes and not all-zero, including after recipient unwrapping.
 It does not generate application CEKs or track their use, so it cannot tell whether a valid-looking
@@ -667,13 +754,13 @@ as described under [Nonce generation](#nonce-generation).
 
 | | |
 | --- | --- |
-| CEK | exactly 32 bytes, all-zero rejected, fresh for each whole-object encryption invocation |
+| CEK | exactly 32 bytes and all-zero rejected; freshness and reuse are caller-managed |
 | Chunk size | every integer from 4 KiB through 16 MiB is supported; default 256 KiB |
 | Chunk count | between 1 and 2³² − 1; the 64 GiB object limit binds first |
 | Chunked object | encoded envelope plus detached ciphertext must not exceed 64 GiB |
 | Scheme 1 | 64 MiB plaintext; one-shot API |
 | Envelope | 1 MiB decode ceiling; no separate collection item-count limit |
-| Chunked streaming memory | 2 × chunk size (encrypt, whole-object decrypt), 1 × (range) |
+| Chunked streaming memory | ≈ 2 × chunk size for encrypt and whole-object decrypt, 1 × for range; reads also buffer up to 1 MiB for the envelope, plus external buffers |
 
 The 64 GiB chunked limit applies to the complete encoded object: envelope plus detached ciphertext,
 including every 16-byte chunk tag. Encryption fails before emitting a chunk that would cross the
@@ -684,11 +771,13 @@ metadata, that reported size remains untrusted until an AEAD tag authenticates t
 headers.
 
 The chunk-count limit comes from the format's 32-bit chunk index. Chunk indices start at zero, end
-at `chunk_count - 1`, and never wrap. With a fresh CEK for one object, Scheme 2 chooses one random
-base nonce and derives the chunks' 12-byte AES-GCM nonces deterministically from that base, the
-index, and the final flag. The chunks are not separate random-IV choices, so the random-IV
-invocation limit in [SP 800-38D §8.3](https://doi.org/10.6028/NIST.SP.800-38D) is not used as the
-chunk-count limit.
+at `chunk_count - 1`, and never wrap. Scheme 2 makes one random base-nonce choice for an object and
+derives the chunks' 12-byte AES-GCM nonces from that base, the index, and the final flag. The chunks
+are not separate random-IV choices, so the random-IV invocation limit in
+[SP 800-38D §8.3](https://doi.org/10.6028/NIST.SP.800-38D) is not used as the chunk-count limit. If a
+CEK is reused across encryption attempts, the key-management profile MUST define and enforce how
+many attempts may use that CEK. The library generates each base nonce but cannot track CEK use
+across separate calls.
 
 In practice the object and chunk-size limits bind much earlier. A 64 GiB encoded object holds about
 16,711,935 chunks at the 4 KiB minimum, 262,128 at the 256 KiB default, and 4,095 at 16 MiB. If the
@@ -707,42 +796,3 @@ arithmetic keeps working and yields the wrong byte range instead of an error.
 
 The operational 64 GiB object ceiling is far below the safe-integer boundary. The larger arithmetic
 rules still matter when rejecting envelopes whose declared values describe unsupported layouts.
-`bigint` arithmetic is deferred — it would have to define how those values cross into `fetch` and
-`ReadableStream`, neither of which accepts one, for object sizes this library refuses.
-
-## Deferred work
-
-- Multiple plaintext ranges in one call, including HTTP multipart-range integration. Version 1
-  accepts one contiguous plaintext range per call.
-- Whether to add a second decode profile for `go-fee`-format blobs. Deferred until such blobs exist;
-  `typ` is a clean discriminator, so it can be added without disturbing anything.
-- Cross-implementation test vectors. Out of scope for now, and blocked on `go-fee` adopting the FIP
-  profile regardless.
-- **TODO — finite floating-point metadata values.** Support finite floating-point metadata values.
-  Define representation and exceptional-value rules, preserve integer-only field validation, and add
-  matching encoder/decoder tests. Evaluate whether cborg's tokenizer API or upstream improvements
-  simplify implementation.
-
-## Appendix: interoperability with go-fee (non-normative)
-
-Checked on 2026-09-23 against local `go-fee` revision `f89e5c0` (`version.json`: `v0.1.0`). This is
-an orientation snapshot, not a requirement, and nothing in this profile depends on it.
-
-`go-fee`'s README names the TypeScript demo, not the FIP, as its source of truth for the wire
-format. We follow the FIP instead, so our envelopes and `go-fee`'s are **mutually unreadable**
-until it adopts these values.
-
-| Field | Library profile | go-fee | Effect |
-| --- | --- | --- | --- |
-| `typ` | `application/vnd.filecoin-encryption+cose` | `application/vnd.foc-envelope+cose` | rejects our envelope outright |
-| `chunk_size` | `-1`, protected | `-65790`, unprotected | cannot work out the chunk layout |
-| `app_metadata` | `-65792`, protected | not implemented | nothing to lose; must be added either way |
-| length commitment | `plaintext_length` at `-65789`, protected | `chunk_count` at `-65791`, unprotected | ours detects sub-chunk truncation; theirs detects neither that nor a matching edit |
-| Scheme 1 (`alg 3`) | planned for v1 | not implemented | included in this library profile only |
-| All-zero CEK | rejected | not checked | we are stricter; the FIP says MUST |
-| Chunk bounds | enforced | enforced | agree |
-| Wrap algorithms | `-5` only; `-31` deferred | `-5` and `-31` | go-fee is ahead here until our `-31` profile is written |
-
-`go-fee` also changed its ECDH-ES derivation from Concat-KDF to RFC 9053 HKDF-SHA-256 after
-`v0.1.0`, and **both write `alg -31`** with nothing on the wire to distinguish them. Envelopes from
-the two versions do not interoperate.
