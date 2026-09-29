@@ -88,14 +88,10 @@ function createChunkedParams(decoded: DecodedEnvelope): ChunkedEnvelopeParams {
 }
 
 /**
- * Inspect an encoded FEE object without a key: scheme, content type,
- * application metadata, and recipients. Unauthenticated -- see above.
- *
- * Reads only as much of `source` as it takes to find the envelope boundary
- * (see `readEnvelope`), never the detached ciphertext.
+ * Build the `EnvelopeInfo` for an already-decoded envelope: scheme, content
+ * type, application metadata, and recipients. Unauthenticated -- see above.
  */
-export async function parse(source: Uint8Array | RandomAccessSource): Promise<EnvelopeInfo> {
-  const decoded = await readEnvelope(toRandomAccessSource(source))
+export function toEnvelopeInfo(decoded: DecodedEnvelope): EnvelopeInfo {
   const { alg, contentType, appMetadata } = decoded.protectedHeader
 
   const base: EnvelopeInfoBase = {
@@ -109,4 +105,16 @@ export async function parse(source: Uint8Array | RandomAccessSource): Promise<En
   }
   // decodeEnvelope accepts only ALG_AES_256_GCM or the chunked alg.
   return { ...base, scheme: 'chunked', params: createChunkedParams(decoded) }
+}
+
+/**
+ * Inspect an encoded FEE object without a key: scheme, content type,
+ * application metadata, and recipients. Unauthenticated -- see above.
+ *
+ * Reads only as much of `source` as it takes to find the envelope boundary
+ * (see `readEnvelope`), never the detached ciphertext.
+ */
+export async function parse(source: Uint8Array | RandomAccessSource): Promise<EnvelopeInfo> {
+  const decoded = await readEnvelope(toRandomAccessSource(source))
+  return toEnvelopeInfo(decoded)
 }

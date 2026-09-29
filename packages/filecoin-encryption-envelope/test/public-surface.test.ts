@@ -169,6 +169,7 @@ describe('public surface (src/index.ts)', () => {
       'InvalidPlaintextLengthError',
       'InvalidRangeError',
       'InvalidSourceLengthError',
+      'KeyResolutionError',
       'MalformedEnvelopeError',
       'NoUsableRecipientError',
       'RecipientAttemptLimitError',

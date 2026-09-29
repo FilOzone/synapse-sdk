@@ -15,7 +15,7 @@
  * @module filecoin-encryption-envelope
  */
 export * as aesGcm from './aes-gcm.ts'
-export { type ChunkedEncryptOptions, decrypt, decryptWith, encrypt } from './aes-gcm-stream.ts'
+export { type ChunkedEncryptOptions, decrypt, decryptWith, encrypt, type KeyResolver } from './aes-gcm-stream.ts'
 export type { AppMetadata, CborValue } from './cose/headers.ts'
 export * as cose from './cose/index.ts'
 export * as errors from './errors.ts'

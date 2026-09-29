@@ -48,6 +48,11 @@ export class RecipientAttemptLimitError extends EnvelopeError {
   override name = 'RecipientAttemptLimitError'
 }
 
+/** A `KeyResolver` threw or rejected instead of returning a CEK. */
+export class KeyResolutionError extends EnvelopeError {
+  override name = 'KeyResolutionError'
+}
+
 /** `chunkSize` is not an integer within `[MIN_CHUNK_SIZE, MAX_CHUNK_SIZE]`. */
 export class InvalidChunkSizeError extends EnvelopeError {
   override name = 'InvalidChunkSizeError'

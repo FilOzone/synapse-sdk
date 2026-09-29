@@ -1,7 +1,10 @@
 /**
- * Chunked AES-256-GCM STREAM encryption and decryption (FEE scheme 2).
- * Encryption emits an envelope followed by ciphertext chunks. Decryption
- * consumes that format and releases plaintext after each chunk authenticates.
+ * Streaming encryption and decryption for FEE scheme 2
+ * (chunked AES-256-GCM STREAM).
+ *
+ * Encryption emits a FEE envelope followed by authenticated ciphertext chunks.
+ * Decryption consumes that format and releases each plaintext chunk only after
+ * its authentication tag has been verified.
  */
 import {
   assertValidChunkSize,
@@ -22,11 +25,17 @@ import { assemblePreparedEnvelope, type PreparedEnvelope, type RecipientInput } 
 import { createEnvelopeScanner } from './cose/envelope-scanner.ts'
 import type { AppMetadata } from './cose/headers.ts'
 import { describeCborType, encodeProtectedHeader } from './cose/headers.ts'
-import { InvalidCiphertextLengthError, MalformedEnvelopeError, UnsupportedSchemeError } from './errors.ts'
+import {
+  InvalidCiphertextLengthError,
+  KeyResolutionError,
+  MalformedEnvelopeError,
+  UnsupportedSchemeError,
+} from './errors.ts'
 import { type ChunkFramer, createChunkFramer } from './internal/chunk-framer.ts'
 import { assertAes256Key, assertArrayBufferBacked } from './internal/keys.ts'
 import { aesGcmDecrypt, aesGcmEncrypt, importAesGcmKey, randomBytes } from './internal/web-crypto.ts'
 import { deriveChunkNonce } from './nonce.ts'
+import { type EnvelopeInfo, toEnvelopeInfo } from './range/inspect.ts'
 import { createRecipientRecords, prepareRecipientInputs } from './recipients/prepare.ts'
 import { recoverCek } from './recipients/recover.ts'
 import type { Recipient, Unwrapper } from './recipients/types.ts'
@@ -45,16 +54,18 @@ export interface ChunkedEncryptOptions {
   appMetadata?: AppMetadata
 
   /**
-   * Exact plaintext length, if known up front. Stored in the authenticated
-   * `plaintext_length` header. Exceeding it fails the write; closing before
-   * reaching it fails the close. In either case, no final chunk is emitted
-   * and earlier output must be discarded. Omit if the length is not guaranteed.
+   * Exact plaintext length, if known up front.
+   *
+   * Stored in the authenticated `plaintext_length` header. Exceeding it fails
+   * the write; closing before reaching it fails the close. In either case, no
+   * final chunk is emitted and earlier output must be discarded. Omit if the
+   * length is not guaranteed.
    */
   contentLength?: number
 
   /**
-   * Wrap the CEK for each recipient and write `COSE_Encrypt` (tag 96).
-   * Omit for `COSE_Encrypt0` (tag 16); an empty array is rejected.
+   * Recipients for CEK wrapping. When present, produces `COSE_Encrypt` (tag 96);
+   * when omitted, produces `COSE_Encrypt0` (tag 16). An empty array is invalid.
    */
   recipients?: readonly Recipient[]
 }
@@ -445,20 +456,49 @@ function createDecryptStream(
   return { writable, readable }
 }
 
+/** Derives or fetches the CEK for a chunked object, given its `EnvelopeInfo`. Called once, after the envelope decodes. */
+export type KeyResolver = (info: EnvelopeInfo) => Promise<Uint8Array> | Uint8Array
+
 /**
- * Decrypt a scheme-2 (chunked AES-256-GCM STREAM) object using a direct CEK.
+ * Creates a streaming decryptor for a scheme-2 object using either a direct
+ * CEK or a `KeyResolver`.
  *
- * Write the encoded object to `writable`; `readable` yields each plaintext
- * chunk only after its authentication tag verifies. The pair can also be used
- * with `source.pipeThrough(decrypt(cek))`.
+ * The writable side accepts the encoded object. The readable side emits each
+ * plaintext chunk only after its authentication tag has been verified.
  *
- * Keep `cek` unchanged until `readable` closes or errors. Input blocks may be
- * reused once their `write()` resolves. If decryption fails, discard earlier
- * plaintext: authentic chunks alone do not establish a complete object.
+ * A `KeyResolver` is called at most once, after the envelope is decoded and
+ * before any ciphertext is decrypted. It receives the same `EnvelopeInfo`
+ * reported by `parse`. The resolver is not called if the stream fails before
+ * that point or the readable side is never consumed.
+ *
+ * `EnvelopeInfo` is derived from unauthenticated envelope data, so a resolver
+ * must treat it as untrusted input when deciding which key to derive or fetch.
+ * Plaintext remains protected by the AEAD authentication performed afterward.
+ *
+ * Resolver failures are wrapped in `KeyResolutionError`; an invalid resolved
+ * key is rejected as an invalid CEK.
+ *
+ * Input blocks may be reused once their corresponding `write()` resolves.
+ * If decryption later fails, any plaintext already emitted belongs to an
+ * incomplete object and must be discarded.
  */
-export function decrypt(cek: Uint8Array): ReadableWritablePair<Uint8Array, Uint8Array> {
-  assertAes256Key(cek, 'CEK')
-  return createDecryptStream(() => importAesGcmKey(cek, 'decrypt', false))
+export function decrypt(key: Uint8Array | KeyResolver): ReadableWritablePair<Uint8Array, Uint8Array> {
+  if (typeof key === 'function') {
+    return createDecryptStream(async (decoded) => {
+      // Built outside the try: only the resolver's own failures are KeyResolutionError.
+      const info = toEnvelopeInfo(decoded)
+      let resolved: Uint8Array
+      try {
+        resolved = await key(info)
+      } catch (cause) {
+        throw new KeyResolutionError('Key resolution failed.', { cause })
+      }
+      assertAes256Key(resolved, 'resolved CEK')
+      return importAesGcmKey(resolved, 'decrypt', false)
+    })
+  }
+  assertAes256Key(key, 'CEK')
+  return createDecryptStream(() => importAesGcmKey(key, 'decrypt', false))
 }
 
 /**
