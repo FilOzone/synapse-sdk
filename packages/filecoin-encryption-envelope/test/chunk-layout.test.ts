@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { chunkCountForPlaintext, chunkLayout, ciphertextLengthForPlaintext } from '../src/chunk-layout.ts'
 import { MAX_CHUNK_COUNT, MAX_CHUNK_SIZE, MAX_ENCODED_OBJECT_SIZE, MIN_CHUNK_SIZE, TAG_SIZE } from '../src/constants.ts'
 import {

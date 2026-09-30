@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { decryptWith, encrypt } from '../src/aes-gcm-stream.ts'
 import { ALG_CHUNKED_AES_256_GCM_STREAM, KEY_SIZE } from '../src/constants.ts'
 import { ALG_A256KW, HEADER_ALG } from '../src/cose/constants.ts'
@@ -19,7 +19,7 @@ import { toRecipientInfo } from '../src/recipients/info.ts'
 import type { A256KWRecipient, RecipientInfo, Unwrapper } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks } from './aes-gcm-stream-fixtures.ts'
-import { concatBytes, FIXTURE_BASE_NONCE_7 } from './cose-fixtures.ts'
+import { concatBytes, FIXTURE_BASE_NONCE_7, hasSharedArrayBuffer } from './cose-fixtures.ts'
 
 const CHUNK_SIZE = 4096
 
@@ -261,7 +261,11 @@ describe('aesGcmStream.decryptWith', () => {
       ['not a Uint8Array', 'nope'],
       ['31 bytes', new Uint8Array(KEY_SIZE - 1)],
       ['all-zero', new Uint8Array(KEY_SIZE)],
-      ['SharedArrayBuffer-backed', new Uint8Array(new SharedArrayBuffer(KEY_SIZE))],
+      // Omitted, not just skipped: constructing a SharedArrayBuffer at all
+      // throws where the global doesn't exist (a non-isolated browser page).
+      ...(hasSharedArrayBuffer
+        ? ([['SharedArrayBuffer-backed', new Uint8Array(new SharedArrayBuffer(KEY_SIZE))]] as Array<[string, unknown]>)
+        : []),
     ]
 
     for (const [label, badCek] of invalidCeks) {

@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { type ChunkedEncryptOptions, encrypt } from '../src/aes-gcm-stream.ts'
 import { MAX_ENCODED_OBJECT_SIZE } from '../src/constants.ts'
 import { MAX_ENVELOPE_SIZE } from '../src/cose/constants.ts'
@@ -7,7 +7,7 @@ import { InvalidSourceLengthError, MalformedEnvelopeError } from '../src/errors.
 import { openExactRange, type RandomAccessSource, readEnvelope, toRandomAccessSource } from '../src/range/source.ts'
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks, sourceOf } from './aes-gcm-stream-fixtures.ts'
-import { concatBytes } from './cose-fixtures.ts'
+import { concatBytes, hasSharedArrayBuffer } from './cose-fixtures.ts'
 
 /** Encrypt via the production writer and drive it to completion. */
 async function encryptFull(plaintext: Uint8Array, extra: Partial<ChunkedEncryptOptions> = {}): Promise<Uint8Array> {
@@ -47,7 +47,7 @@ describe('toRandomAccessSource', () => {
       assert.strictEqual(chunk.buffer, bytes.buffer)
     })
 
-    it('rejects a SharedArrayBuffer-backed input', () => {
+    ;(hasSharedArrayBuffer ? it : it.skip)('rejects a SharedArrayBuffer-backed input', () => {
       const shared = new Uint8Array(new SharedArrayBuffer(10))
       assert.throws(() => toRandomAccessSource(shared), MalformedEnvelopeError)
     })

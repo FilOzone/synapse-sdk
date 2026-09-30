@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { encode as cborEncode, rfc8949EncodeOptions, Tagged } from 'cborg'
 import { ALG_AES_256_GCM, ALG_CHUNKED_AES_256_GCM_STREAM } from '../src/constants.ts'
 import { ENVELOPE_TYPE, MAX_ENVELOPE_SIZE, TAG_ENCRYPT, TAG_ENCRYPT0 } from '../src/cose/constants.ts'

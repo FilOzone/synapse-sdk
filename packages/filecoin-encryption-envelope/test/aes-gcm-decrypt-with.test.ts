@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { decryptWith, encrypt } from '../src/aes-gcm.ts'
 import { ALG_AES_256_GCM, ALG_CHUNKED_AES_256_GCM_STREAM, KEY_SIZE, TAG_SIZE } from '../src/constants.ts'
 import { ALG_A256KW, HEADER_ALG } from '../src/cose/constants.ts'
@@ -19,7 +19,7 @@ import { aesKwWrap, importAesGcmKey, importAesKwKey } from '../src/internal/web-
 import { createA256KWUnwrapper } from '../src/recipients/a256kw.ts'
 import type { A256KWRecipient, RecipientInfo, Unwrapper } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedRandomValues, HELLO, withRandomValues } from './aes-gcm-fixtures.ts'
-import { concatBytes, FIXTURE_BASE_NONCE_7, FIXTURE_IV_12 } from './cose-fixtures.ts'
+import { concatBytes, FIXTURE_BASE_NONCE_7, FIXTURE_IV_12, hasSharedArrayBuffer } from './cose-fixtures.ts'
 
 const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x40 + index)
 const KEK_B = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x80 + index)
@@ -195,15 +195,18 @@ describe('aesGcm.decryptWith', () => {
       await assert.rejects(decryptWith(encoded, 'nope' as unknown as Unwrapper), MalformedEnvelopeError)
     })
 
-    it('rejects a SharedArrayBuffer-backed encoded envelope, without calling the unwrapper', async () => {
-      const encoded = await encryptFor([recipient(KEK_A, KID_A)])
-      const shared = new Uint8Array(new SharedArrayBuffer(encoded.length))
-      shared.set(encoded)
-      const { unwrapper, assertNeverCalled } = neverCalledUnwrapper()
+    ;(hasSharedArrayBuffer ? it : it.skip)(
+      'rejects a SharedArrayBuffer-backed encoded envelope, without calling the unwrapper',
+      async () => {
+        const encoded = await encryptFor([recipient(KEK_A, KID_A)])
+        const shared = new Uint8Array(new SharedArrayBuffer(encoded.length))
+        shared.set(encoded)
+        const { unwrapper, assertNeverCalled } = neverCalledUnwrapper()
 
-      await assert.rejects(decryptWith(shared, unwrapper), MalformedEnvelopeError)
-      assertNeverCalled()
-    })
+        await assert.rejects(decryptWith(shared, unwrapper), MalformedEnvelopeError)
+        assertNeverCalled()
+      }
+    )
 
     it('rejects an A256KW recipient with a wrong ciphertext length, without calling the unwrapper', async () => {
       const badRecipient: RecipientInput = {
@@ -264,7 +267,11 @@ describe('aesGcm.decryptWith', () => {
       ['not a Uint8Array', 'nope'],
       ['31 bytes', new Uint8Array(KEY_SIZE - 1)],
       ['all-zero', new Uint8Array(KEY_SIZE)],
-      ['SharedArrayBuffer-backed', new Uint8Array(new SharedArrayBuffer(KEY_SIZE))],
+      // Omitted, not just skipped: constructing a SharedArrayBuffer at all
+      // throws where the global doesn't exist (a non-isolated browser page).
+      ...(hasSharedArrayBuffer
+        ? ([['SharedArrayBuffer-backed', new Uint8Array(new SharedArrayBuffer(KEY_SIZE))]] as Array<[string, unknown]>)
+        : []),
     ]
 
     for (const [label, badCek] of invalidCeks) {
