@@ -1,6 +1,6 @@
 /**
  * Authenticated range decryption for the chunked scheme: fetch and decrypt
- * only the chunks a byte range touches. See docs/tech-spec.md's
+ * only the chunks a byte range touches. See docs/implementation-guide.md's
  * `decryptRange`/`RangeResult` block and "Random-access source contract".
  */
 import { ALG_CHUNKED_AES_256_GCM_STREAM, TAG_SIZE } from '../constants.ts'

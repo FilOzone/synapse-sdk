@@ -5,7 +5,7 @@
  * `cose/constants.ts`; `CLAUDE.md` has the rule for choosing between them.
  *
  * FIP-1253: https://github.com/filecoin-project/FIPs/discussions/1253
- * Wire profile and rationale: docs/tech-spec.md
+ * Wire profile and rationale: docs/implementation-guide.md
  */
 
 // ── Algorithms ──────────────────────────────────────────────────────────────

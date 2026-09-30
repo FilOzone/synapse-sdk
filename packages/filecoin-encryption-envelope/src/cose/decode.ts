@@ -4,7 +4,7 @@
  * Decoding does not authenticate the envelope. AEAD verification happens
  * in the layer above and covers the protected header bytes and ciphertext,
  * not the unprotected header or recipient list.
- * See docs/tech-spec.md, "Security properties".
+ * See docs/implementation-guide.md, "Security properties".
  */
 import { Tagged } from 'cborg'
 import * as z from 'zod'

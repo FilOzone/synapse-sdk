@@ -1,6 +1,6 @@
 /**
  * Envelope encode: assembles the protected header, unprotected header, and
- * optional recipients into the wire-format COSE structure (docs/tech-spec.md,
+ * optional recipients into the wire-format COSE structure (docs/implementation-guide.md,
  * "Wire profile" and "CDDL"). This module only shapes bytes — no AEAD, no
  * key wrap, no chunk framing; those live in layers above this one.
  *
@@ -175,7 +175,7 @@ function assemble(protectedBytes: Uint8Array, recipients: CborValue[][]): Prepar
 
 /**
  * `prepareEnvelope`, keeping only the encoded bytes. The caller appends the
- * detached ciphertext separately. See docs/tech-spec.md, "Blob layout".
+ * detached ciphertext separately. See docs/implementation-guide.md, "Blob layout".
  */
 export function encodeEnvelope(input: EncodeEnvelopeInput): Uint8Array {
   return prepareEnvelope(input).bytes

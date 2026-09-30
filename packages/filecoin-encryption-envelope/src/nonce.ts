@@ -3,7 +3,7 @@
  *
  * The nonce is the only thing binding a chunk to its position, which is what
  * detects reordering, insertion and truncation — every chunk shares the same
- * AAD, see docs/tech-spec.md, "Per-chunk nonce".
+ * AAD, see docs/implementation-guide.md, "Per-chunk nonce".
  */
 import { BASE_NONCE_SIZE, MAX_CHUNK_COUNT, NONCE_SIZE } from './constants.ts'
 import { InvalidNonceError } from './errors.ts'

@@ -2,7 +2,7 @@
  * Turn a caller's byte range into an exact ciphertext span and chunk plan for
  * the chunked scheme. Pure arithmetic: no I/O, no crypto, no streams -- every
  * input is a plain number already in hand (from a decoded envelope, or from
- * library-created cached params). See docs/tech-spec.md, "Random-access
+ * library-created cached params). See docs/implementation-guide.md, "Random-access
  * source contract" and its `RandomAccessSource`/`decryptRange` API block.
  *
  * Semantics (HTTP-like):

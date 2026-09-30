@@ -3,7 +3,7 @@
 TypeScript implementation of [FIP-1253](https://github.com/filecoin-project/FIPs/discussions/1253): a
 COSE container pairing a self-describing metadata envelope with detached ciphertext.
 
-**Read `docs/tech-spec.md` first.** It is the authoritative wire format, AAD construction, chunk-layout
+**Read `docs/implementation-guide.md` first.** It is the authoritative wire format, AAD construction, chunk-layout
 math, and rationale for every deliberate divergence from the FIP text. This file is
 about *how to work in this package* — conventions, module layout, and decisions already made — not the
 wire format itself.
@@ -29,7 +29,7 @@ unwrap its KEK.
 The package owns: envelope format (encode/decode), AEAD and AAD construction, chunk layout and
 positional nonce derivation, key wrapping, and authenticated range decryption. This describes the final
 package boundary, not what is already implemented. It does **not** own: where the CEK came from, key
-derivation, storage/retrieval/HTTP, or any UX. See `docs/tech-spec.md`'s "Scope" table before adding
+derivation, storage/retrieval/HTTP, or any UX. See `docs/implementation-guide.md`'s "Scope" table before adding
 anything that looks like it belongs to a different concern.
 
 ## Module layout and exports
@@ -42,7 +42,7 @@ explicit exports when helpers must stay internal, as `cose/index.ts` does for `h
 `src/index.ts` exports it. Shared implementation code lives under `src/internal/` and is never exported.
 Two exceptions to "namespaces only": shared type-only exports (such as `AppMetadata`, `CborValue`),
 since a type carries no runtime shape, and the chunked-scheme functions (`encrypt`, `decrypt`,
-`decryptWith`, `parse`, `decryptRange`, `decryptRangeWith`, and their public types), which the tech spec
+`decryptWith`, `parse`, `decryptRange`, `decryptRangeWith`, and their public types), which the guide
 makes the default path at the root while whole-object AES-GCM stays opt-in under `aesGcm`. Public constants are
 re-exported through the curated `src/public-constants.ts`, never `src/constants.ts` directly:
 
@@ -98,7 +98,7 @@ exception is `test/public-surface.test.ts`, which tests the root barrel itself.
 ## Constants: shared root file vs. module-local file
 
 A constant goes in the package-level `src/constants.ts` when **more than one module needs the exact same
-value, including a module that doesn't exist yet but is already designed** (see docs/tech-spec.md's API
+value, including a module that doesn't exist yet but is already designed** (see docs/implementation-guide.md's API
 section — a documented, not-yet-built consumer counts). It goes in `<module>/constants.ts` (e.g.
 `src/cose/constants.ts`) when **only that module uses it, and nothing concrete on the horizon will need
 it elsewhere**. This is the same rule `packages/synapse-core` follows — compare its `utils/constants.ts`
@@ -125,7 +125,7 @@ when a caller actually needs it.
   bytes that feed an AAD or a signature (`DecodedProtectedHeader.bytes`, in particular) returns the
   literal protected byte string read from the input, not `encode(decodedValue)`. A re-encode is not
   guaranteed byte-identical to what a different encoder wrote (integer width, key order), and this
-  class of bug is the exact one called out in `docs/tech-spec.md`'s AAD section.
+  class of bug is the exact one called out in `docs/implementation-guide.md`'s AAD section.
 - **Use the hardened decode helpers in `cose/headers.ts`.** `decodeExact` handles serialized protected
   maps; `decodeFirst` handles an envelope prefix followed by detached ciphertext. Both build the strict
   tokenizer internally and apply the same decoded-tree allowlist. Do not call cborg's bare `decode` or
@@ -156,7 +156,7 @@ when a caller actually needs it.
   bytes needs the same bound-before-you-parse shape, not a post-hoc length check.
 - **Decode is a security boundary; every field is hostile until an AEAD tag verifies it.** Reject
   duplicate map keys, non-minimal integer encodings, indefinite-length items, wrong array lengths, wrong
-  CBOR tags, and anything not matching the exact profile in `docs/tech-spec.md` — no silent coercion, no
+  CBOR tags, and anything not matching the exact profile in `docs/implementation-guide.md` — no silent coercion, no
   defaulting a missing required field. Every rejection throws an appropriate `EnvelopeError`
   subclass, such as `MalformedEnvelopeError`, `UnsupportedSchemeError`, or `CriticalHeaderError`
   (`src/errors.ts`), naming the header label (in wire vocabulary: `alg (1)`, `chunk_size (-1)`) and
@@ -187,7 +187,7 @@ Do **not** reach for it for:
   `if` is clearer than a discriminated union or `.refine()` here.
 - **Replacing your own error messages.** When a zod schema *is* used, treat it as a boolean predicate
   (`schema.safeParse(x).success`) for a single-field check, and keep the hand-written message that names
-  the header label and the actual value — that is what `docs/tech-spec.md`'s "every rejection must say
+  the header label and the actual value — that is what `docs/implementation-guide.md`'s "every rejection must say
   which field failed" rule requires, and zod's own generic issue text doesn't know the wire vocabulary.
   For the `cose/decode.ts` tuple schemas (which validate a whole structural shape, not one field),
   `z.prettifyError(result.error)` folded into a contextual message is fine — see `parseBody()`.
@@ -215,15 +215,17 @@ field/value and what was expected. Pass `{ cause }` when wrapping a cborg or zod
 
 No semicolons, single quotes, kebab-case filenames, never `!` (use explicit checks), relative imports
 carry `.ts`, `import type` for type-only imports (`verbatimModuleSyntax`), no enums / no parameter
-properties (`erasableSyntaxOnly`), no Node built-ins anywhere in `src/` (`Buffer`, `fs`, `path`,
-`process` — this package must run unmodified in a browser; tests may use `node:assert` and other Node
-built-ins freely, since only `src/` ships to browsers).
+properties (`erasableSyntaxOnly`), no Node built-ins anywhere in `src/` or `test/` (`Buffer`, `fs`, `path`,
+`process`, `node:*` imports — this package must run unmodified in a browser, and the test suite now runs
+in a real browser too, so tests need the same discipline as `src/`).
 
 ## Testing
 
-Mocha + `node:assert`, with focused test modules (`test/cose-*.test.ts` for the COSE layer).
-`test/cose-fixtures.ts` holds shared hex/byte-building helpers and hand-derived byte constants — add to
-it rather than duplicating a hand-derived vector across files.
+playwright-test, run in both Node and a real browser (`pnpm test` runs `test:node` then `test:browser`),
+with focused test modules (`test/cose-*.test.ts` for the COSE layer). Use `import assert from 'assert'`,
+never `node:assert` — the bundled `assert` package works in both environments. `test/cose-fixtures.ts`
+holds shared hex/byte-building helpers and hand-derived byte constants — add to it rather than
+duplicating a hand-derived vector across files.
 
 For anything that produces wire bytes, round-trip tests are necessary but not sufficient (they pass even
 when encode and decode share the same bug). Always pair them with:

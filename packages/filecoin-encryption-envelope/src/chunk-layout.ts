@@ -5,7 +5,7 @@
  * one is, and the total plaintext size — before decrypting anything, because
  * a chunk's nonce depends on whether it is the last one (see nonce.ts). Two
  * numbers give you the lot: the ciphertext length and the chunk size. See
- * docs/tech-spec.md, "`plaintext_length` and truncation".
+ * docs/implementation-guide.md, "`plaintext_length` and truncation".
  */
 import { MAX_CHUNK_COUNT, MAX_CHUNK_SIZE, MAX_ENCODED_OBJECT_SIZE, MIN_CHUNK_SIZE, TAG_SIZE } from './constants.ts'
 import {
@@ -62,7 +62,7 @@ export interface ChunkLayout {
  * chunk size — never the reverse. A declared `plaintext_length` header is
  * checked against what this function derives, not the other way around, or a
  * rewritten header could change which chunk is treated as last and a
- * truncated object would go undetected (docs/tech-spec.md,
+ * truncated object would go undetected (docs/implementation-guide.md,
  * "`plaintext_length` and truncation").
  *
  * Exactly one ciphertext length represents any given plaintext length; the
