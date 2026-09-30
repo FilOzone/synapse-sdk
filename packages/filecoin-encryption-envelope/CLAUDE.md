@@ -72,8 +72,10 @@ function.
 
 Tests import the specific file under test directly (`'../src/cose/headers.ts'`), never through
 `src/index.ts` — that keeps a test failure pointing at the module that actually changed, and it's also
-what makes the root barrel's export *shape* freely changeable without touching any test. The one
-exception is `test/public-surface.test.ts`, which tests the root barrel itself.
+what makes the root barrel's export *shape* freely changeable without touching any test. The two
+exceptions are `test/public-surface.test.ts`, which tests the root barrel itself, and
+`test/key-resolver-flow.test.ts`, an integration test that exercises the public API the way a real
+consumer would.
 
 ## Input ownership and validation
 

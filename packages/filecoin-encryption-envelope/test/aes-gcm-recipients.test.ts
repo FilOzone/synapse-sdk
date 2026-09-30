@@ -18,6 +18,7 @@ import { aesKwUnwrap, importAesKwKey } from '../src/internal/web-crypto.ts'
 import type { A256KWRecipient } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedRandomValues, HELLO, HELLO_VECTOR_HEX, withRandomValues } from './aes-gcm-fixtures.ts'
 import { hasSharedArrayBuffer, hexToBytes, MINIMAL_PROTECTED_HEADER_HEX } from './cose-fixtures.ts'
+import { a256kwRecipient as recipient } from './helpers.ts'
 
 describe('aesGcm.encrypt with A256KW recipients', () => {
   const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x40 + index)
@@ -38,12 +39,6 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
   async function unwrapWithKek(wrappedCek: Uint8Array, kek: Uint8Array): Promise<Uint8Array | undefined> {
     const kekKey = await importAesKwKey(new Uint8Array(kek), 'unwrapKey')
     return aesKwUnwrap(new Uint8Array(wrappedCek), kekKey)
-  }
-
-  function recipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipient {
-    return kid === undefined
-      ? { alg: ALG_A256KW, kek: new Uint8Array(kek) }
-      : { alg: ALG_A256KW, kek: new Uint8Array(kek), kid: new Uint8Array(kid) }
   }
 
   function encryptFor(recipients: readonly A256KWRecipient[], plaintext: Uint8Array = HELLO) {

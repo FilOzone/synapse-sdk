@@ -1,24 +1,17 @@
 import assert from 'assert'
 import { type ChunkedEncryptOptions, decrypt, encrypt, type KeyResolver } from '../src/aes-gcm-stream.ts'
 import { KEY_SIZE, MIN_CHUNK_SIZE } from '../src/constants.ts'
-import { ALG_A256KW } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import { AuthenticationError, InvalidKeyError, KeyResolutionError } from '../src/errors.ts'
 import { type EnvelopeInfo, parse } from '../src/range/inspect.ts'
-import type { A256KWRecipient } from '../src/recipients/types.ts'
 import { deterministicPlaintext, readAllChunks } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes } from './cose-fixtures.ts'
+import { a256kwRecipient as recipient } from './helpers.ts'
 
 const CHUNK_SIZE = MIN_CHUNK_SIZE
 
 function testKey(fill: number): Uint8Array {
   return Uint8Array.from({ length: KEY_SIZE }, (_, index) => fill + index)
-}
-
-function recipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipient {
-  return kid === undefined
-    ? { alg: ALG_A256KW, kek: new Uint8Array(kek) }
-    : { alg: ALG_A256KW, kek: new Uint8Array(kek), kid: new Uint8Array(kid) }
 }
 
 /** Encrypt via the production writer and drive it to completion. */

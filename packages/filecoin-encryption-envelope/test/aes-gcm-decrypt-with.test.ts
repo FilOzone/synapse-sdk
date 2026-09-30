@@ -20,17 +20,12 @@ import { createA256KWUnwrapper } from '../src/recipients/a256kw.ts'
 import type { A256KWRecipient, RecipientInfo, Unwrapper } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedRandomValues, HELLO, withRandomValues } from './aes-gcm-fixtures.ts'
 import { concatBytes, FIXTURE_BASE_NONCE_7, FIXTURE_IV_12, hasSharedArrayBuffer } from './cose-fixtures.ts'
+import { a256kwRecipient as recipient } from './helpers.ts'
 
 const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x40 + index)
 const KEK_B = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x80 + index)
 const KID_A = Uint8Array.from([0xa1, 0xa2])
 const KID_B = Uint8Array.from([0xb1])
-
-function recipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipient {
-  return kid === undefined
-    ? { alg: ALG_A256KW, kek: new Uint8Array(kek) }
-    : { alg: ALG_A256KW, kek: new Uint8Array(kek), kid: new Uint8Array(kid) }
-}
 
 function encryptFor(recipients: readonly A256KWRecipient[], plaintext: Uint8Array = HELLO) {
   return withRandomValues(fixedRandomValues, () =>
