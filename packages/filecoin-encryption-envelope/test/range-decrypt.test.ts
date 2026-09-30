@@ -2,7 +2,6 @@ import assert from 'assert'
 import { encrypt as encryptWholeObject } from '../src/aes-gcm.ts'
 import { type ChunkedEncryptOptions, encrypt } from '../src/aes-gcm-stream.ts'
 import { KEY_SIZE, MIN_CHUNK_SIZE, TAG_SIZE } from '../src/constants.ts'
-import { ALG_A256KW } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import {
   AuthenticationError,
@@ -17,35 +16,22 @@ import { decryptRange } from '../src/range/decrypt.ts'
 import { parse } from '../src/range/inspect.ts'
 import { type ByteRange, planRange } from '../src/range/plan.ts'
 import type { RandomAccessSource } from '../src/range/source.ts'
-import type { A256KWRecipient } from '../src/recipients/types.ts'
 import { FIXED_CEK } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks, sourceOf } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes } from './cose-fixtures.ts'
+import { pipeBytes, a256kwRecipient as recipient, recordingSource } from './helpers.ts'
 
 const CHUNK_SIZE = MIN_CHUNK_SIZE
 const STRIDE = CHUNK_SIZE + TAG_SIZE
 const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, i) => 0x40 + i)
 const KID_A = Uint8Array.from([0xa1, 0xa2])
 
-function recipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipient {
-  return kid === undefined
-    ? { alg: ALG_A256KW, kek: new Uint8Array(kek) }
-    : { alg: ALG_A256KW, kek: new Uint8Array(kek), kid: new Uint8Array(kid) }
-}
-
 /** Encrypt via the chunked writer and drive it to completion. */
 async function encryptChunkedFull(
   plaintext: Uint8Array,
   extra: Partial<ChunkedEncryptOptions> = {}
 ): Promise<Uint8Array> {
-  const { writable, readable } = encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize: CHUNK_SIZE, ...extra })
-  const writer = writable.getWriter()
-  const writeDone = writer.write(plaintext)
-  const closeDone = writer.close()
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return concatBytes(...chunks)
+  return pipeBytes(encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize: CHUNK_SIZE, ...extra }), plaintext)
 }
 
 /** The plaintext bytes `range` describes, computed from the documented semantics only -- not from planRange. */
@@ -67,38 +53,6 @@ async function decryptRangeBytes(
   const result = await decryptRange(source, cek, range, options)
   const bytes = concatBytes(...(await readAllChunks(result.stream)))
   return { result, bytes }
-}
-
-/** A `RandomAccessSource` that records every `openRange` call. */
-function recordingSource(bytes: Uint8Array): {
-  source: RandomAccessSource
-  calls: Array<{ offset: number; length: number }>
-} {
-  const calls: Array<{ offset: number; length: number }> = []
-  const blockSize = 64
-  const source: RandomAccessSource = {
-    size: bytes.length,
-    async openRange(offset, length) {
-      calls.push({ offset, length })
-      const slice = bytes.subarray(offset, offset + length)
-      let pos = 0
-      return new ReadableStream<Uint8Array>(
-        {
-          pull(controller) {
-            if (pos >= slice.length) {
-              controller.close()
-              return
-            }
-            const end = Math.min(pos + blockSize, slice.length)
-            controller.enqueue(slice.subarray(pos, end))
-            pos = end
-          },
-        },
-        { highWaterMark: 0 }
-      )
-    },
-  }
-  return { source, calls }
 }
 
 /** Delivers any requested range split into fixed-size blocks. */

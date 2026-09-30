@@ -12,6 +12,7 @@ import type { A256KWRecipient } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { decryptChunkedOutput, deterministicPlaintext, readAllChunks, readChunk } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes, hexToBytes } from './cose-fixtures.ts'
+import { a256kwRecipient as recipient } from './helpers.ts'
 
 const CHUNK_SIZE = 4096
 
@@ -20,12 +21,6 @@ describe('aesGcmStream.encrypt with A256KW recipients', () => {
   const KEK_B = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x80 + index)
   const KID_A = Uint8Array.from([0xa1, 0xa2])
   const KID_B = Uint8Array.from([0xb1])
-
-  function recipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipient {
-    return kid === undefined
-      ? { alg: ALG_A256KW, kek: new Uint8Array(kek) }
-      : { alg: ALG_A256KW, kek: new Uint8Array(kek), kid: new Uint8Array(kid) }
-  }
 
   /** Encrypt via the stream, drive it to completion, and return the full encoded object. */
   async function encryptFull(

@@ -1,7 +1,7 @@
 import assert from 'assert'
 import { decryptWith, encrypt } from '../src/aes-gcm-stream.ts'
 import { ALG_CHUNKED_AES_256_GCM_STREAM, KEY_SIZE } from '../src/constants.ts'
-import { ALG_A256KW, HEADER_ALG } from '../src/cose/constants.ts'
+import { HEADER_ALG } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import { encStructure } from '../src/cose/enc-structure.ts'
 import { assemblePreparedEnvelope, type RecipientInput } from '../src/cose/encode.ts'
@@ -20,6 +20,7 @@ import type { A256KWRecipient, RecipientInfo, Unwrapper } from '../src/recipient
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes, FIXTURE_BASE_NONCE_7, hasSharedArrayBuffer } from './cose-fixtures.ts'
+import { a256kwRecipient as recipient } from './helpers.ts'
 
 const CHUNK_SIZE = 4096
 
@@ -27,12 +28,6 @@ const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x40 + index)
 const KEK_B = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x80 + index)
 const KID_A = Uint8Array.from([0xa1, 0xa2])
 const KID_B = Uint8Array.from([0xb1])
-
-function recipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipient {
-  return kid === undefined
-    ? { alg: ALG_A256KW, kek: new Uint8Array(kek) }
-    : { alg: ALG_A256KW, kek: new Uint8Array(kek), kid: new Uint8Array(kid) }
-}
 
 /** Encrypt via the production writer, optionally with recipients, and drive it to completion. */
 async function encryptFull(plaintext: Uint8Array, recipients?: readonly A256KWRecipient[]): Promise<Uint8Array> {
