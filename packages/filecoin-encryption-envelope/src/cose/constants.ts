@@ -2,7 +2,7 @@
  * Values only meaningful while shaping or parsing the COSE structure itself:
  * header labels, key-wrap algorithm IDs, CBOR tags, the envelope `typ`, and
  * the two decode limits. Size bounds shared with the chunk arithmetic live
- * in `../constants.ts`; `CLAUDE.md` has the rule for choosing between them.
+ * in `../constants.ts`.
  *
  * FIP-1253: https://github.com/filecoin-project/FIPs/discussions/1253
  * Wire profile: docs/implementation-guide.md

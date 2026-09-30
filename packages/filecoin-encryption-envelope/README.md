@@ -167,7 +167,7 @@ const resolver: fee.KeyResolver = async (info) => {
 await encryptedSource.pipeThrough(fee.decrypt(resolver)).pipeTo(plaintextSink)
 ```
 
-The resolver runs once, before any chunk is decrypted. Its checks control
+The resolver runs at most once, before any chunk is decrypted. Its checks control
 which key may be requested; they do not authenticate the metadata. For a range
 read, call `parse(source)`, validate its metadata, derive the CEK, then pass
 that key and `info.params` to `decryptRange()`.
@@ -179,7 +179,9 @@ that key and `info.params` to `decryptRange()`.
   secret, unpredictable, or fresh.
 - Streaming options, including keys and metadata, are borrowed until the stream
   closes or errors. Do not modify or clear them while it is running. A plaintext
-  block may be reused once its `write()` resolves.
+  block may be reused once its `write()` resolves. For a range read, the CEK is
+  borrowed until the `decryptRange()` promise settles, and the source until the
+  result stream closes or errors.
 - Application metadata is visible without a key. Its values are authenticated
   only after a content tag verifies. Content tags do not authenticate the
   recipient list or establish sender identity.
