@@ -19,7 +19,7 @@ import type { RandomAccessSource } from '../src/range/source.ts'
 import { FIXED_CEK } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks, sourceOf } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes } from './cose-fixtures.ts'
-import { pipeBytes, a256kwRecipient as recipient, recordingSource } from './helpers.ts'
+import { expectedSlice, pipeBytes, a256kwRecipient as recipient, recordingSource } from './helpers.ts'
 
 const CHUNK_SIZE = MIN_CHUNK_SIZE
 const STRIDE = CHUNK_SIZE + TAG_SIZE
@@ -32,16 +32,6 @@ async function encryptChunkedFull(
   extra: Partial<ChunkedEncryptOptions> = {}
 ): Promise<Uint8Array> {
   return pipeBytes(encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize: CHUNK_SIZE, ...extra }), plaintext)
-}
-
-/** The plaintext bytes `range` describes, computed from the documented semantics only -- not from planRange. */
-function expectedSlice(fullPlaintext: Uint8Array, range: ByteRange): Uint8Array {
-  const total = fullPlaintext.length
-  if (range.offset < 0) {
-    return fullPlaintext.subarray(Math.max(0, total + range.offset))
-  }
-  const end = range.length === undefined ? total : Math.min(total, range.offset + range.length)
-  return fullPlaintext.subarray(range.offset, end)
 }
 
 async function decryptRangeBytes(

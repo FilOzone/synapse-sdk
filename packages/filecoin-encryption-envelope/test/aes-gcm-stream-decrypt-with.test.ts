@@ -20,7 +20,7 @@ import type { A256KWRecipient, RecipientInfo, Unwrapper } from '../src/recipient
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes, FIXTURE_BASE_NONCE_7, hasSharedArrayBuffer } from './cose-fixtures.ts'
-import { a256kwRecipient as recipient } from './helpers.ts'
+import { neverCalledUnwrapper, pipeBytes, a256kwRecipient as recipient } from './helpers.ts'
 
 const CHUNK_SIZE = 4096
 
@@ -31,50 +31,15 @@ const KID_B = Uint8Array.from([0xb1])
 
 /** Encrypt via the production writer, optionally with recipients, and drive it to completion. */
 async function encryptFull(plaintext: Uint8Array, recipients?: readonly A256KWRecipient[]): Promise<Uint8Array> {
-  const { writable, readable } = await withRandomValues(fixedBaseNonceRandomValues, async () =>
+  const pair = await withRandomValues(fixedBaseNonceRandomValues, async () =>
     encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize: CHUNK_SIZE, recipients })
   )
-  const writer = writable.getWriter()
-  const writeDone = writer.write(plaintext)
-  const closeDone = writer.close()
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return concatBytes(...chunks)
+  return pipeBytes(pair, plaintext)
 }
 
 /** Drive decryptWith() to completion (or rejection) with `encoded` delivered in one write. */
-async function decryptWithChunks(encoded: Uint8Array, unwrapper: Unwrapper): Promise<Uint8Array<ArrayBuffer>[]> {
-  const { writable, readable } = decryptWith(unwrapper)
-  const writer = writable.getWriter()
-  const writeDone = writer.write(encoded)
-  const closeDone = writer.close()
-  writeDone.catch(() => {
-    // Surfaced via readAllChunks below either way; avoid an unhandled rejection.
-  })
-  closeDone.catch(() => {
-    // Same: an incomplete/invalid object rejects close(), read already reports it.
-  })
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return chunks
-}
-
 async function decryptWithBytes(encoded: Uint8Array, unwrapper: Unwrapper): Promise<Uint8Array> {
-  return concatBytes(...(await decryptWithChunks(encoded, unwrapper)))
-}
-
-/** Fails the test if the wrapped unwrapper is ever invoked. */
-function neverCalledUnwrapper(): { unwrapper: Unwrapper; assertNeverCalled: () => void } {
-  let calls = 0
-  return {
-    unwrapper: async () => {
-      calls++
-      return undefined
-    },
-    assertNeverCalled: () => assert.strictEqual(calls, 0),
-  }
+  return pipeBytes(decryptWith(unwrapper), encoded)
 }
 
 /**

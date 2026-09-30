@@ -20,7 +20,7 @@ import { createA256KWUnwrapper } from '../src/recipients/a256kw.ts'
 import type { A256KWRecipient, RecipientInfo, Unwrapper } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedRandomValues, HELLO, withRandomValues } from './aes-gcm-fixtures.ts'
 import { concatBytes, FIXTURE_BASE_NONCE_7, FIXTURE_IV_12, hasSharedArrayBuffer } from './cose-fixtures.ts'
-import { a256kwRecipient as recipient } from './helpers.ts'
+import { findBytes, neverCalledUnwrapper, a256kwRecipient as recipient } from './helpers.ts'
 
 const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x40 + index)
 const KEK_B = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x80 + index)
@@ -31,18 +31,6 @@ function encryptFor(recipients: readonly A256KWRecipient[], plaintext: Uint8Arra
   return withRandomValues(fixedRandomValues, () =>
     encrypt(new Uint8Array(plaintext), { cek: new Uint8Array(FIXED_CEK), recipients })
   )
-}
-
-function findBytes(haystack: Uint8Array, needle: Uint8Array): number {
-  outer: for (let offset = 0; offset <= haystack.length - needle.length; offset++) {
-    for (let index = 0; index < needle.length; index++) {
-      if (haystack[offset + index] !== needle[index]) {
-        continue outer
-      }
-    }
-    return offset
-  }
-  return -1
 }
 
 /** Build a tag-96 envelope through the checked encoder, so malformed recipients are rejected up front. */
@@ -68,18 +56,6 @@ async function buildTag96EnvelopeUnchecked(plaintext: Uint8Array, cek: Uint8Arra
     new Uint8Array(plaintext)
   )
   return concatBytes(prepared.bytes, new Uint8Array(ciphertext))
-}
-
-/** A never-settling assertion helper: fails the test if `fn` is ever invoked. */
-function neverCalledUnwrapper(): { unwrapper: Unwrapper; assertNeverCalled: () => void } {
-  let calls = 0
-  return {
-    unwrapper: async () => {
-      calls++
-      return undefined
-    },
-    assertNeverCalled: () => assert.strictEqual(calls, 0),
-  }
 }
 
 describe('aesGcm.decryptWith', () => {

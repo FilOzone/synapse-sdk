@@ -33,6 +33,7 @@ import {
   hexToBytes,
   toNullProto,
 } from './cose-fixtures.ts'
+import { findBytes } from './helpers.ts'
 
 const TEST_RECIPIENT: RecipientInput = {
   protectedBytes: new Uint8Array(0),
@@ -44,18 +45,6 @@ const UNSUPPORTED_RECIPIENT: RecipientInput = {
   protectedBytes: new Uint8Array(0),
   unprotected: new Map([[1, -999]]),
   ciphertext: new Uint8Array(40),
-}
-
-function findBytes(haystack: Uint8Array, needle: Uint8Array): number {
-  outer: for (let offset = 0; offset <= haystack.length - needle.length; offset++) {
-    for (let index = 0; index < needle.length; index++) {
-      if (haystack[offset + index] !== needle[index]) {
-        continue outer
-      }
-    }
-    return offset
-  }
-  return -1
 }
 
 async function decryptWithWebCrypto(encoded: Uint8Array, cek: Uint8Array): Promise<Uint8Array> {

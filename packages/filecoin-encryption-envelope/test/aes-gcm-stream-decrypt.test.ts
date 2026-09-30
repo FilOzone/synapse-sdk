@@ -15,6 +15,7 @@ import {
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks, sourceOf } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes, FIXTURE_BASE_NONCE_7, hasSharedArrayBuffer, hexToBytes } from './cose-fixtures.ts'
+import { findBytes, pipeBytes, pipeChunks } from './helpers.ts'
 
 const CHUNK_SIZE = 4096
 
@@ -69,38 +70,19 @@ async function buildObject(
 
 /** Encrypt via the production writer and drive it to completion. */
 async function encryptFull(plaintext: Uint8Array, extra: Partial<ChunkedEncryptOptions> = {}): Promise<Uint8Array> {
-  const { writable, readable } = await withRandomValues(fixedBaseNonceRandomValues, async () =>
+  const pair = await withRandomValues(fixedBaseNonceRandomValues, async () =>
     encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize: CHUNK_SIZE, ...extra })
   )
-  const writer = writable.getWriter()
-  const writeDone = writer.write(plaintext)
-  const closeDone = writer.close()
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return concatBytes(...chunks)
+  return pipeBytes(pair, plaintext)
 }
 
 /** Drive decrypt() to completion (or rejection) with `encoded` delivered in one write. */
 async function decryptChunks(encoded: Uint8Array, cek: Uint8Array = FIXED_CEK): Promise<Uint8Array<ArrayBuffer>[]> {
-  const { writable, readable } = decrypt(new Uint8Array(cek))
-  const writer = writable.getWriter()
-  const writeDone = writer.write(encoded)
-  const closeDone = writer.close()
-  writeDone.catch(() => {
-    // Surfaced via readAllChunks below either way; avoid an unhandled rejection.
-  })
-  closeDone.catch(() => {
-    // Same: an incomplete/invalid object rejects close(), read already reports it.
-  })
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return chunks
+  return pipeChunks(decrypt(new Uint8Array(cek)), encoded)
 }
 
 async function decryptBytes(encoded: Uint8Array, cek: Uint8Array = FIXED_CEK): Promise<Uint8Array> {
-  return concatBytes(...(await decryptChunks(encoded, cek)))
+  return pipeBytes(decrypt(new Uint8Array(cek)), encoded)
 }
 
 /** Read until the stream rejects (or ends), capturing every chunk that arrived first. */
@@ -129,16 +111,6 @@ async function decryptUntilFailure(
     error = cause
   }
   return { chunks, error }
-}
-
-function findSubsequence(haystack: Uint8Array, needle: Uint8Array): number {
-  outer: for (let i = 0; i <= haystack.length - needle.length; i++) {
-    for (let j = 0; j < needle.length; j++) {
-      if (haystack[i + j] !== needle[j]) continue outer
-    }
-    return i
-  }
-  throw new Error('test helper: subsequence not found')
 }
 
 describe('aesGcmStream.decrypt', () => {
@@ -259,7 +231,7 @@ describe('aesGcmStream.decrypt', () => {
     it('rejects a changed protected-header byte with AuthenticationError', async () => {
       const encoded = await encryptFull(deterministicPlaintext(10))
       const decodedEnvelope = decodeEnvelope(encoded)
-      const ivOffset = findSubsequence(encoded, decodedEnvelope.protectedHeader.iv)
+      const ivOffset = findBytes(encoded, decodedEnvelope.protectedHeader.iv)
       const tampered = Uint8Array.from(encoded)
       tampered[ivOffset] ^= 0xff
       await assert.rejects(decryptBytes(tampered), AuthenticationError)
