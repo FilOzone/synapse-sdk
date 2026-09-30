@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { TAG_SIZE } from '../src/constants.ts'
 import { InvalidCiphertextLengthError, InvalidRangeError, InvalidSourceLengthError } from '../src/errors.ts'
 import { type ChunkedRangeLayoutInput, planRange, type RangePlan } from '../src/range/plan.ts'

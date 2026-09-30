@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { BASE_NONCE_SIZE, KEY_SIZE, NONCE_SIZE } from '../src/constants.ts'
 import { FIXTURE_BASE_NONCE_7, FIXTURE_IV_12, MINIMAL_ENVELOPE_TAG16_HEX } from './cose-fixtures.ts'
 

@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { TAG_ENCRYPT, TAG_ENCRYPT0 } from '../src/cose/constants.ts'
 import { encStructure } from '../src/cose/enc-structure.ts'
 import { MalformedEnvelopeError } from '../src/errors.ts'

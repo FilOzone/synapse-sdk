@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { encrypt } from '../src/aes-gcm-stream.ts'
 import { KEY_SIZE, MIN_CHUNK_SIZE, TAG_SIZE } from '../src/constants.ts'
 import { ALG_A256KW, HEADER_ALG, TAG_ENCRYPT, TAG_ENCRYPT0 } from '../src/cose/constants.ts'

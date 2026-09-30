@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { KEY_SIZE } from '../src/constants.ts'
 import { CryptoOperationError } from '../src/errors.ts'
 import { aesKwUnwrap, aesKwWrap, importAesGcmKey, importAesKwKey } from '../src/internal/web-crypto.ts'
