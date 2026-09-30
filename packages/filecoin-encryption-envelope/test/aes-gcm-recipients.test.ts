@@ -31,9 +31,7 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
   // Hand-encoded after the protected header: {} · null · array(1) ·
   // [h'', {1: -5, 4: h'a1a2'}, bstr(40)] · 5 ciphertext bytes · 16-byte tag.
   const WRAPPED_UNDER_KEK_A = '9ba74ec0a3394a43baa95548a2d07bd4ac4f6ead62c4dd166837dcc58680468653db29b899a7668d'
-  const TAG96_HELLO_VECTOR_HEX =
-    `d86084583c${MINIMAL_PROTECTED_HEADER_HEX}a0f6818340a201240442a1a25828${WRAPPED_UNDER_KEK_A}` +
-    '2f67ba77aac8eb27d5b3f96ae7c50d40f2cdc7c20a'
+  const TAG96_HELLO_VECTOR_HEX = `d86084583c${MINIMAL_PROTECTED_HEADER_HEX}a0f6818340a201240442a1a25828${WRAPPED_UNDER_KEK_A}2f67ba77aac8eb27d5b3f96ae7c50d40f2cdc7c20a`
 
   /** Unwrap a wrapped CEK with a raw KEK, bypassing this package's recipient-level API. */
   async function unwrapWithKek(wrappedCek: Uint8Array, kek: Uint8Array): Promise<Uint8Array | undefined> {

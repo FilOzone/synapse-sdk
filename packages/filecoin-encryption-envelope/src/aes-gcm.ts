@@ -59,8 +59,7 @@ function sliceCiphertext(encoded: Uint8Array, envelopeLength: number): Uint8Arra
   const ciphertextLength = encoded.length - envelopeLength
   if (ciphertextLength < TAG_SIZE || ciphertextLength > MAX_AES_GCM_CIPHERTEXT_SIZE) {
     throw new InvalidCiphertextLengthError(
-      `Invalid AES-GCM ciphertext length ${ciphertextLength}: expected between ${TAG_SIZE} and ` +
-        `${MAX_AES_GCM_CIPHERTEXT_SIZE} bytes, including the ${TAG_SIZE}-byte authentication tag.`
+      `Invalid AES-GCM ciphertext length ${ciphertextLength}: expected between ${TAG_SIZE} and ${MAX_AES_GCM_CIPHERTEXT_SIZE} bytes, including the ${TAG_SIZE}-byte authentication tag.`
     )
   }
   return encoded.subarray(envelopeLength) as Uint8Array<ArrayBuffer>

@@ -119,8 +119,7 @@ function prepareRecipientRecords(recipientInputs: readonly RecipientInput[] | un
     }
     if (recipientInputs.length === 0) {
       throw new MalformedEnvelopeError(
-        'Invalid recipients: an empty array is not a request for COSE_Encrypt0. Omit the field entirely to encode ' +
-          `tag ${TAG_ENCRYPT0}, or supply at least one recipient to encode tag ${TAG_ENCRYPT}.`
+        `Invalid recipients: an empty array is not a request for COSE_Encrypt0. Omit the field entirely to encode tag ${TAG_ENCRYPT0}, or supply at least one recipient to encode tag ${TAG_ENCRYPT}.`
       )
     }
   }
@@ -143,8 +142,7 @@ function prepareRecipientRecords(recipientInputs: readonly RecipientInput[] | un
 
     if (!(ciphertext instanceof Uint8Array)) {
       throw new MalformedEnvelopeError(
-        `Invalid recipients[${index}].ciphertext: expected a byte string of wrapped key material, got ` +
-          `${describeCborType(ciphertext)}.`
+        `Invalid recipients[${index}].ciphertext: expected a byte string of wrapped key material, got ${describeCborType(ciphertext)}.`
       )
     }
     assertRecipientCiphertext(alg, ciphertext, `recipients[${index}]`)

@@ -105,8 +105,7 @@ export function planRange(layoutInput: ChunkedRangeLayoutInput, range: unknown):
   const layout = chunkLayout(sourceSize - headerLength, chunkSize)
   if (declaredPlaintextLength !== undefined && layout.plaintextLength !== declaredPlaintextLength) {
     throw new InvalidCiphertextLengthError(
-      `Invalid encoded object: the ciphertext implies a plaintext of ${layout.plaintextLength} bytes, ` +
-        `but the declared plaintext_length is ${declaredPlaintextLength}.`
+      `Invalid encoded object: the ciphertext implies a plaintext of ${layout.plaintextLength} bytes, but the declared plaintext_length is ${declaredPlaintextLength}.`
     )
   }
   const total = layout.plaintextLength

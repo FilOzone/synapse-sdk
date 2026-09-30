@@ -44,8 +44,7 @@ export function assertWithinObjectLimit(emittedBytes: number, nextChunkCipherLen
   const total = emittedBytes + nextChunkCipherLength
   if (total > MAX_ENCODED_OBJECT_SIZE) {
     throw new InvalidPlaintextLengthError(
-      `Invalid chunked object: emitting the next chunk (${nextChunkCipherLength} bytes) would bring the encoded ` +
-        `object to ${total} bytes, exceeding the ${MAX_ENCODED_OBJECT_SIZE}-byte limit.`
+      `Invalid chunked object: emitting the next chunk (${nextChunkCipherLength} bytes) would bring the encoded object to ${total} bytes, exceeding the ${MAX_ENCODED_OBJECT_SIZE}-byte limit.`
     )
   }
 }
@@ -78,8 +77,7 @@ export function chunkLayout(ciphertextLength: number, chunkSize: number): ChunkL
   // Necessary, not sufficient — see MAX_ENCODED_OBJECT_SIZE.
   if (ciphertextLength > MAX_ENCODED_OBJECT_SIZE) {
     throw new InvalidCiphertextLengthError(
-      `Invalid ciphertext length: ${ciphertextLength}. The detached ciphertext alone exceeds the ` +
-        `${MAX_ENCODED_OBJECT_SIZE}-byte encoded-object limit, which also has to cover the envelope.`
+      `Invalid ciphertext length: ${ciphertextLength}. The detached ciphertext alone exceeds the ${MAX_ENCODED_OBJECT_SIZE}-byte encoded-object limit, which also has to cover the envelope.`
     )
   }
 
@@ -99,9 +97,7 @@ export function chunkLayout(ciphertextLength: number, chunkSize: number): ChunkL
     // chunk. Valid CBOR, valid tags, and still rejected — it is the second
     // representation of a plaintext the `k`-chunk form already encodes.
     throw new InvalidCiphertextLengthError(
-      `Invalid ciphertext length: ${ciphertextLength}. With chunk size ${chunkSize} (stride ${stride}), the final ` +
-        `chunk would be ${TAG_SIZE} bytes of tag and no plaintext, following ${q} full chunk(s). A tag-only ` +
-        'final chunk is valid only as the sole chunk of an empty object.'
+      `Invalid ciphertext length: ${ciphertextLength}. With chunk size ${chunkSize} (stride ${stride}), the final chunk would be ${TAG_SIZE} bytes of tag and no plaintext, following ${q} full chunk(s). A tag-only final chunk is valid only as the sole chunk of an empty object.`
     )
   } else if (r > TAG_SIZE) {
     // A short final chunk, carrying at least one plaintext byte plus its tag.
@@ -115,9 +111,7 @@ export function chunkLayout(ciphertextLength: number, chunkSize: number): ChunkL
     // Either no ciphertext at all (r === 0, q === 0) or a remainder too
     // small to contain a tag (1..15 bytes) — neither is a valid final chunk.
     throw new InvalidCiphertextLengthError(
-      `Invalid ciphertext length: ${ciphertextLength}. With chunk size ${chunkSize} (stride ${stride}), the final ` +
-        `chunk would be ${r} bytes, which cannot hold a ${TAG_SIZE}-byte tag. Expected a nonzero multiple of ` +
-        `${stride}, a remainder above ${TAG_SIZE}, or exactly ${TAG_SIZE} bytes in total for an empty object.`
+      `Invalid ciphertext length: ${ciphertextLength}. With chunk size ${chunkSize} (stride ${stride}), the final chunk would be ${r} bytes, which cannot hold a ${TAG_SIZE}-byte tag. Expected a nonzero multiple of ${stride}, a remainder above ${TAG_SIZE}, or exactly ${TAG_SIZE} bytes in total for an empty object.`
     )
   }
 
@@ -177,9 +171,7 @@ export function ciphertextLengthForPlaintext(plaintextLength: number, chunkSize:
   // Necessary, not sufficient — see MAX_ENCODED_OBJECT_SIZE.
   if (ciphertextLength > MAX_ENCODED_OBJECT_SIZE) {
     throw new InvalidPlaintextLengthError(
-      `Invalid plaintext length: ${plaintextLength}. The detached ciphertext it implies (${ciphertextLength} ` +
-        `bytes) alone exceeds the ${MAX_ENCODED_OBJECT_SIZE}-byte encoded-object limit, which also has to ` +
-        'cover the envelope.'
+      `Invalid plaintext length: ${plaintextLength}. The detached ciphertext it implies (${ciphertextLength} bytes) alone exceeds the ${MAX_ENCODED_OBJECT_SIZE}-byte encoded-object limit, which also has to cover the envelope.`
     )
   }
   return ciphertextLength
