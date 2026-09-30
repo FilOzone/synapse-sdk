@@ -133,8 +133,7 @@ export function scanEnvelopeStep(data: ArrayLike<number>, state: EnvelopeScanSta
       // them -- their content has no bearing on structure.
       if (value > remainingBudget) {
         throw new MalformedEnvelopeError(
-          `Malformed envelope: a ${major === 2 ? 'byte' : 'text'} string of ${value} bytes exceeds the ` +
-            `${MAX_ENVELOPE_SIZE}-byte envelope budget.`
+          `Malformed envelope: a ${major === 2 ? 'byte' : 'text'} string of ${value} bytes exceeds the ${MAX_ENVELOPE_SIZE}-byte envelope budget.`
         )
       }
       const stringEnd = nextPos + value

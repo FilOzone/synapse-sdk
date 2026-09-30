@@ -278,8 +278,7 @@ function createDecryptStream(
   function assertWithinDeclaredLength(): void {
     if (expectedTotal !== undefined && receivedTotal > expectedTotal) {
       throw new InvalidCiphertextLengthError(
-        `Invalid encoded object: received ${receivedTotal} bytes, but the declared plaintext_length implies a ` +
-          `total of at most ${expectedTotal} bytes.`
+        `Invalid encoded object: received ${receivedTotal} bytes, but the declared plaintext_length implies a total of at most ${expectedTotal} bytes.`
       )
     }
   }
@@ -336,8 +335,7 @@ function createDecryptStream(
             expectedTotal = decoded.envelopeLength + ciphertextLengthForPlaintext(plaintextLength, chunkSize)
             if (expectedTotal > MAX_ENCODED_OBJECT_SIZE) {
               throw new InvalidCiphertextLengthError(
-                `Invalid encoded object: the declared plaintext_length implies ${expectedTotal} bytes, exceeding ` +
-                  `the ${MAX_ENCODED_OBJECT_SIZE}-byte limit.`
+                `Invalid encoded object: the declared plaintext_length implies ${expectedTotal} bytes, exceeding the ${MAX_ENCODED_OBJECT_SIZE}-byte limit.`
               )
             }
             assertWithinDeclaredLength()
@@ -422,8 +420,7 @@ function createDecryptStream(
             const layout = chunkLayout(receivedCiphertext, chunkSize)
             if (plaintextLength !== undefined && layout.plaintextLength !== plaintextLength) {
               throw new InvalidCiphertextLengthError(
-                `Invalid encoded object: the ciphertext implies a plaintext of ${layout.plaintextLength} bytes, ` +
-                  `but the declared plaintext_length is ${plaintextLength}.`
+                `Invalid encoded object: the ciphertext implies a plaintext of ${layout.plaintextLength} bytes, but the declared plaintext_length is ${plaintextLength}.`
               )
             }
           }

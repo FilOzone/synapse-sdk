@@ -44,8 +44,7 @@ export function parseA256KWRecipient(value: unknown, path: string, remainingPayl
   const minimumPayloadSize = A256KW_WRAPPED_CEK_SIZE + (kid?.length ?? 0)
   if (minimumPayloadSize > remainingPayloadBudget) {
     throw new MalformedEnvelopeError(
-      `Invalid ${path}: its wrapped CEK and kid require at least ${minimumPayloadSize} bytes, ` +
-        `exceeding the ${remainingPayloadBudget}-byte remaining envelope budget.`
+      `Invalid ${path}: its wrapped CEK and kid require at least ${minimumPayloadSize} bytes, exceeding the ${remainingPayloadBudget}-byte remaining envelope budget.`
     )
   }
   assertAes256Key(kek, `${path}.kek`)

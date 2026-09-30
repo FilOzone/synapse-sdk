@@ -360,8 +360,7 @@ function assertContentTypeValid(
   // unpaired surrogates with U+FFFD. Same rule as app_metadata strings.
   if (typeof contentType === 'string' && !contentType.isWellFormed()) {
     throw new MalformedEnvelopeError(
-      `Invalid content_type (3): ${JSON.stringify(contentType)} contains an unpaired UTF-16 surrogate half — ` +
-        'not well-formed Unicode. Encoding it would silently substitute U+FFFD.'
+      `Invalid content_type (3): ${JSON.stringify(contentType)} contains an unpaired UTF-16 surrogate half — not well-formed Unicode. Encoding it would silently substitute U+FFFD.`
     )
   }
 }
@@ -501,8 +500,7 @@ function assertNoUnencodableProperties(
   if (symbols.length > 0 || extra.length > 0) {
     const named = [...extra, ...symbols.map(String)].join(', ')
     throw new MalformedEnvelopeError(
-      `Invalid ${path}: a ${kind} carrying extra own properties (${named}) is not permitted. CBOR does not ` +
-        'encode them, so they would be silently dropped.'
+      `Invalid ${path}: a ${kind} carrying extra own properties (${named}) is not permitted. CBOR does not encode them, so they would be silently dropped.`
     )
   }
 }
@@ -517,8 +515,7 @@ function assertNoHiddenKeys(value: object, path: string): void {
   const symbols = Object.getOwnPropertySymbols(value)
   if (symbols.length > 0) {
     throw new MalformedEnvelopeError(
-      `Invalid ${path}: symbol-keyed properties (${symbols.map(String).join(', ')}) are not a permitted ` +
-        'shape this profile can encode. CBOR has no symbol keys, and encoding would silently drop them.'
+      `Invalid ${path}: symbol-keyed properties (${symbols.map(String).join(', ')}) are not a permitted shape this profile can encode. CBOR has no symbol keys, and encoding would silently drop them.`
     )
   }
   const nonEnumerable = Object.getOwnPropertyNames(value).filter(
@@ -526,8 +523,7 @@ function assertNoHiddenKeys(value: object, path: string): void {
   )
   if (nonEnumerable.length > 0) {
     throw new MalformedEnvelopeError(
-      `Invalid ${path}: non-enumerable properties (${nonEnumerable.join(', ')}) are not permitted. Encoding ` +
-        'walks enumerable own properties, so these would be silently dropped.'
+      `Invalid ${path}: non-enumerable properties (${nonEnumerable.join(', ')}) are not permitted. Encoding walks enumerable own properties, so these would be silently dropped.`
     )
   }
 }
@@ -561,8 +557,7 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
   const enterContainer = (): void => {
     if (depth + 1 > MAX_APP_METADATA_DEPTH) {
       throw new MalformedEnvelopeError(
-        `Invalid ${path}: nesting exceeds this library's depth limit of ${MAX_APP_METADATA_DEPTH} levels. This is ` +
-          'a library resource limit protecting against unbounded recursion, not a COSE or FIP format rule.'
+        `Invalid ${path}: nesting exceeds this library's depth limit of ${MAX_APP_METADATA_DEPTH} levels. This is a library resource limit protecting against unbounded recursion, not a COSE or FIP format rule.`
       )
     }
   }
@@ -570,8 +565,7 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
   if (typeof value === 'string') {
     if (!value.isWellFormed()) {
       throw new MalformedEnvelopeError(
-        `Invalid ${path}: string contains an unpaired UTF-16 surrogate half — not well-formed Unicode, and this ` +
-          'library will not silently corrupt it into U+FFFD by encoding it anyway.'
+        `Invalid ${path}: string contains an unpaired UTF-16 surrogate half — not well-formed Unicode, and this library will not silently corrupt it into U+FFFD by encoding it anyway.`
       )
     }
     return
@@ -582,9 +576,7 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
       return
     }
     throw new MalformedEnvelopeError(
-      `Invalid ${path}: ${describeCborType(value)} ${String(value)}. This library currently accepts only ` +
-        'safe-integer numbers in profile values — a library restriction, not a COSE requirement or an adopted FIP ' +
-        'rule. NaN, Infinity, -Infinity, fractional numbers, and -0 are all rejected.'
+      `Invalid ${path}: ${describeCborType(value)} ${String(value)}. This library currently accepts only safe-integer numbers in profile values — a library restriction, not a COSE requirement or an adopted FIP rule. NaN, Infinity, -Infinity, fractional numbers, and -0 are all rejected.`
     )
   }
 
@@ -634,8 +626,7 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
     for (const key of value.keys()) {
       if (!isAllowlistedMapKey(key)) {
         throw new MalformedEnvelopeError(
-          `Invalid ${path} map key: ${describeCborType(key)}. Map keys must be a well-formed string, a safe ` +
-            'integer, or a byte string — arrays and maps are not permitted as keys.'
+          `Invalid ${path} map key: ${describeCborType(key)}. Map keys must be a well-formed string, a safe integer, or a byte string — arrays and maps are not permitted as keys.`
         )
       }
       if (typeof key === 'string' && !key.isWellFormed()) {
@@ -649,8 +640,7 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
       const identity = mapKeyIdentity(key)
       if (seenKeys.has(identity)) {
         throw new MalformedEnvelopeError(
-          `Invalid ${path}: duplicate map key by content (${identity}). A JS Map compares byte-string keys by ` +
-            'identity, not content, so two byte-equal keys would otherwise be silently retained as separate entries.'
+          `Invalid ${path}: duplicate map key by content (${identity}). A JS Map compares byte-string keys by identity, not content, so two byte-equal keys would otherwise be silently retained as separate entries.`
         )
       }
       seenKeys.add(identity)
@@ -729,8 +719,7 @@ function assertValidAppMetadata(entries: Record<string, CborValue>): void {
   // non-record values such as arrays or maps to bypass entry validation.
   if (entries === null || typeof entries !== 'object' || !isPlainObject(entries)) {
     throw new MalformedEnvelopeError(
-      `Invalid app_metadata (-65792): expected a plain object with string keys, got ${describeCborType(entries)}. ` +
-        'A Map, an array, a typed array, or any other class instance is not a valid app_metadata root.'
+      `Invalid app_metadata (-65792): expected a plain object with string keys, got ${describeCborType(entries)}. A Map, an array, a typed array, or any other class instance is not a valid app_metadata root.`
     )
   }
   assertNoHiddenKeys(entries, 'app_metadata (-65792)')
@@ -738,8 +727,7 @@ function assertValidAppMetadata(entries: Record<string, CborValue>): void {
   for (const [key, value] of Object.entries(entries)) {
     if (!key.isWellFormed()) {
       throw new MalformedEnvelopeError(
-        `Invalid app_metadata (-65792) key ${JSON.stringify(key)}: contains an unpaired UTF-16 surrogate half — ` +
-          'not well-formed Unicode. Every string in app_metadata, keys included, must be well-formed before encoding.'
+        `Invalid app_metadata (-65792) key ${JSON.stringify(key)}: contains an unpaired UTF-16 surrogate half — not well-formed Unicode. Every string in app_metadata, keys included, must be well-formed before encoding.`
       )
     }
     assertAllowlistedValue(value, `app_metadata.${key}`, APP_METADATA_ENCLOSING_DEPTH)
@@ -788,8 +776,7 @@ function assertValidLabels(map: Map<CborValue, CborValue>, location: string): vo
 function assertNoPartialIv(map: Map<CborValue, CborValue>, location: 'protected' | 'unprotected'): void {
   if (map.has(HEADER_PARTIAL_IV)) {
     throw new MalformedEnvelopeError(
-      `Invalid Partial IV (6) in the ${location} header: not supported by this profile — the base nonce and iv ` +
-        'are not COSE Partial IV reconstruction.'
+      `Invalid Partial IV (6) in the ${location} header: not supported by this profile — the base nonce and iv are not COSE Partial IV reconstruction.`
     )
   }
 }
@@ -855,8 +842,7 @@ function assertCritSatisfiedBy(
   )
   if (unsatisfied.length > 0) {
     throw new CriticalHeaderError(
-      `Unsupported critical headers (crit, label 2) in ${location}: [${unsatisfied.map(String).join(', ')}]. ` +
-        'Every crit label must be understood by this profile and actually present in the same protected map.'
+      `Unsupported critical headers (crit, label 2) in ${location}: [${unsatisfied.map(String).join(', ')}]. Every crit label must be understood by this profile and actually present in the same protected map.`
     )
   }
 }
@@ -874,8 +860,7 @@ function assertNoLabelOverlap(
   for (const key of protectedMap.keys()) {
     if (unprotectedMap.has(key)) {
       throw new MalformedEnvelopeError(
-        `Invalid header: label ${String(key)} appears in both the protected and unprotected maps. This profile ` +
-          'rejects a label duplicated across buckets instead of preferring the protected value.'
+        `Invalid header: label ${String(key)} appears in both the protected and unprotected maps. This profile rejects a label duplicated across buckets instead of preferring the protected value.`
       )
     }
   }
@@ -1175,8 +1160,7 @@ export function decodeUnprotectedHeader(value: CborValue): UnprotectedHeaderMap 
   assertAllowlistedValue(value, 'unprotected header', UNPROTECTED_ENCLOSING_DEPTH)
   if (value.has(HEADER_IV)) {
     throw new MalformedEnvelopeError(
-      'Invalid iv (5) in the unprotected header: this profile requires the IV in the protected header, so that ' +
-        'it is covered by the content AAD (FIP amendment 3).'
+      'Invalid iv (5) in the unprotected header: this profile requires the IV in the protected header, so that it is covered by the content AAD (FIP amendment 3).'
     )
   }
   return value

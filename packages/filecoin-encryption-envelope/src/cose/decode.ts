@@ -124,8 +124,7 @@ export function decodeEnvelope(data: Uint8Array): DecodedEnvelope {
     })
   } catch (cause) {
     throw new MalformedEnvelopeError(
-      `Malformed envelope: could not decode a COSE_Encrypt0 (tag ${TAG_ENCRYPT0}) or COSE_Encrypt (tag ${TAG_ENCRYPT}) ` +
-        `structure within the first ${MAX_ENVELOPE_SIZE} bytes.`,
+      `Malformed envelope: could not decode a COSE_Encrypt0 (tag ${TAG_ENCRYPT0}) or COSE_Encrypt (tag ${TAG_ENCRYPT}) structure within the first ${MAX_ENVELOPE_SIZE} bytes.`,
       { cause }
     )
   }

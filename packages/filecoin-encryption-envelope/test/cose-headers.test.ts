@@ -68,8 +68,7 @@ describe('encodeProtectedHeader / decodeProtectedHeader', () => {
       // The label is 0x3a-prefixed because -65789 needs the 4-byte negint
       // form: n = 65789 - 1 = 65788 = 0x000100fc.
       const expected =
-        'a5013a000101000547000102030405061078286170706c69636174696f6e2f766e642e66696c65636f696e2d' +
-        '656e6372797074696f6e2b636f7365201910003a000100fc192710'
+        'a5013a000101000547000102030405061078286170706c69636174696f6e2f766e642e66696c65636f696e2d656e6372797074696f6e2b636f7365201910003a000100fc192710'
       const bytes = encodeProtectedHeader({
         alg: ALG_CHUNKED_AES_256_GCM_STREAM,
         iv: FIXTURE_BASE_NONCE_7,
