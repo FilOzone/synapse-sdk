@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { MAX_CHUNK_COUNT, NONCE_SIZE } from '../src/constants.ts'
 import { InvalidNonceError } from '../src/errors.ts'
 import { deriveChunkNonce } from '../src/nonce.ts'

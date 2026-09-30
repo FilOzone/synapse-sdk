@@ -93,3 +93,20 @@ jobs:
         run: pnpm install
       - name: Run synapse-core tests
         run: pnpm -r --filter @filoz/synapse-core run test
+
+  test-filecoin-encryption-envelope:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+      - name: Use Node.js lts/*
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - name: Install Dependencies
+        run: pnpm install
+      - name: Run filecoin-encryption-envelope tests
+        run: pnpm -r --filter @filoz/filecoin-encryption-envelope run test

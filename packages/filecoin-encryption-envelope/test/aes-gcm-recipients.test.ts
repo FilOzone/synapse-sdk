@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { decrypt, encrypt } from '../src/aes-gcm.ts'
 import { KEY_SIZE } from '../src/constants.ts'
 import {
@@ -17,7 +17,7 @@ import { InvalidKeyError, MalformedEnvelopeError } from '../src/errors.ts'
 import { aesKwUnwrap, importAesKwKey } from '../src/internal/web-crypto.ts'
 import type { A256KWRecipient } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedRandomValues, HELLO, HELLO_VECTOR_HEX, withRandomValues } from './aes-gcm-fixtures.ts'
-import { hexToBytes, MINIMAL_PROTECTED_HEADER_HEX } from './cose-fixtures.ts'
+import { hasSharedArrayBuffer, hexToBytes, MINIMAL_PROTECTED_HEADER_HEX } from './cose-fixtures.ts'
 
 describe('aesGcm.encrypt with A256KW recipients', () => {
   const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x40 + index)
@@ -196,18 +196,21 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
     }
   })
 
-  it('rejects a SharedArrayBuffer-backed recipient KEK before wrapping or encrypting', async () => {
-    const badKek = new Uint8Array(new SharedArrayBuffer(KEY_SIZE))
-    badKek.set(KEK_B)
+  ;(hasSharedArrayBuffer ? it : it.skip)(
+    'rejects a SharedArrayBuffer-backed recipient KEK before wrapping or encrypting',
+    async () => {
+      const badKek = new Uint8Array(new SharedArrayBuffer(KEY_SIZE))
+      badKek.set(KEK_B)
 
-    const calls = await countCryptoCalls(async () => {
-      await assert.rejects(
-        encryptFor([recipient(KEK_A, KID_A), { alg: ALG_A256KW, kek: badKek }]),
-        (error: unknown) => error instanceof InvalidKeyError && error.message.includes('recipients[1].kek')
-      )
-    })
-    assert.deepStrictEqual(calls, { wrapKey: 0, encrypt: 0 })
-  })
+      const calls = await countCryptoCalls(async () => {
+        await assert.rejects(
+          encryptFor([recipient(KEK_A, KID_A), { alg: ALG_A256KW, kek: badKek }]),
+          (error: unknown) => error instanceof InvalidKeyError && error.message.includes('recipients[1].kek')
+        )
+      })
+      assert.deepStrictEqual(calls, { wrapKey: 0, encrypt: 0 })
+    }
+  )
 
   it('imports the CEK once and each recipient KEK once, by algorithm', async () => {
     const subtle = globalThis.crypto.subtle

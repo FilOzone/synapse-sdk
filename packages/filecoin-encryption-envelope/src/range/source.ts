@@ -2,7 +2,7 @@
  * Random-access byte sources for range decryption: the `RandomAccessSource`
  * contract, adapting a plain `Uint8Array` or a caller object to it, reading
  * exactly one requested range, and reading a chunked envelope from one
- * without loading the whole object. See docs/tech-spec.md, "Random-access
+ * without loading the whole object. See docs/implementation-guide.md, "Random-access
  * source contract".
  */
 

@@ -3,7 +3,7 @@
  * draining `readable`, and a from-scratch decrypt for round-trip checks. Not
  * a test file itself (mocha only picks up test/**\/*.test.ts).
  */
-import assert from 'node:assert'
+import assert from 'assert'
 import { chunkLayout } from '../src/chunk-layout.ts'
 import { TAG_SIZE } from '../src/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'

@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { ALG_AES_256_GCM, ALG_CHUNKED_AES_256_GCM_STREAM, MAX_CHUNK_SIZE, MIN_CHUNK_SIZE } from '../src/constants.ts'
 import {
   ALG_A256KW,

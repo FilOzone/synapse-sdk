@@ -1,6 +1,7 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { InvalidPlaintextError, InvalidPlaintextLengthError } from '../src/errors.ts'
 import { createChunkFramer, type FramedChunk } from '../src/internal/chunk-framer.ts'
+import { hasSharedArrayBuffer } from './cose-fixtures.ts'
 
 /** Split `data` into consecutive blocks of the given sizes, which must sum to `data.length`. */
 function splitInto(data: Uint8Array, sizes: number[]): Uint8Array[] {
@@ -215,14 +216,17 @@ describe('createChunkFramer', () => {
     await assert.rejects(framer.next(), InvalidPlaintextError)
   })
 
-  it('rejects a SharedArrayBuffer-backed block and makes next() reject with the same error', async () => {
-    const framer = createChunkFramer(4)
-    const writer = framer.writable.getWriter()
-    const view = new Uint8Array(new SharedArrayBuffer(4))
+  ;(hasSharedArrayBuffer ? it : it.skip)(
+    'rejects a SharedArrayBuffer-backed block and makes next() reject with the same error',
+    async () => {
+      const framer = createChunkFramer(4)
+      const writer = framer.writable.getWriter()
+      const view = new Uint8Array(new SharedArrayBuffer(4))
 
-    await assert.rejects(writer.write(view), InvalidPlaintextError)
-    await assert.rejects(framer.next(), InvalidPlaintextError)
-  })
+      await assert.rejects(writer.write(view), InvalidPlaintextError)
+      await assert.rejects(framer.next(), InvalidPlaintextError)
+    }
+  )
 
   it('rejects a pending next() when the writable is aborted', async () => {
     const framer = createChunkFramer(4)

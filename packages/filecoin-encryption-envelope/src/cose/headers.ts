@@ -1,6 +1,6 @@
 /**
  * COSE protected and unprotected header encoding and decoding for this
- * envelope's wire profile (docs/tech-spec.md, "Wire profile" and "CDDL").
+ * envelope's wire profile (docs/implementation-guide.md, "Wire profile" and "CDDL").
  *
  * Protected headers are CBOR maps carried as byte strings. Decoding preserves
  * the exact bytes in {@link DecodedProtectedHeader.bytes}; they must not be
