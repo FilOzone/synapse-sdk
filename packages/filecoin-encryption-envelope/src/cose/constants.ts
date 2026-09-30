@@ -5,7 +5,7 @@
  * in `../constants.ts`; `CLAUDE.md` has the rule for choosing between them.
  *
  * FIP-1253: https://github.com/filecoin-project/FIPs/discussions/1253
- * Wire profile: docs/tech-spec.md
+ * Wire profile: docs/implementation-guide.md
  */
 import { KEY_SIZE } from '../constants.ts'
 
@@ -46,8 +46,7 @@ export const HEADER_IV = 5
  * not Partial IV reconstruction either; the missing bytes are the chunk
  * index and last-chunk flag, not shared context.
  *
- * A library decision, not an amendment: docs/tech-spec.md, "Library profile
- * decisions".
+ * A library decision: docs/implementation-guide.md, "Protected header".
  */
 export const HEADER_PARTIAL_IV = 6
 /** `typ`, RFC 9052 §3.1. Must equal {@link ENVELOPE_TYPE}. */
@@ -68,7 +67,7 @@ export const HEADER_CHUNK_SIZE = -1
  * neither edit it to match a short object nor strip it to escape the
  * comparison, since both change the AAD and fail every chunk tag.
  *
- * Do not renumber this to `-65791`: see docs/tech-spec.md,
+ * Do not renumber this to `-65791`: see docs/implementation-guide.md,
  * "`plaintext_length` and truncation".
  */
 export const HEADER_PLAINTEXT_LENGTH = -65789

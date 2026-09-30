@@ -2,7 +2,7 @@
  * Unauthenticated envelope inspection. `parse()` reads just enough of a
  * source to report scheme, headers, and recipients, and -- for the chunked
  * scheme -- caches parameters range decryption can reuse instead of
- * re-reading the envelope. See docs/tech-spec.md's `parse`/`EnvelopeInfo`/
+ * re-reading the envelope. See docs/implementation-guide.md's `parse`/`EnvelopeInfo`/
  * `ChunkedEnvelopeParams` block and "Cached chunked-envelope parameters".
  *
  * Nothing here is authenticated. Content type, application metadata,
