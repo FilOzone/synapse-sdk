@@ -7,7 +7,7 @@ import type { AppMetadata, ByteRange, KeyResolver } from '../src/index.ts'
 import * as fee from '../src/index.ts'
 import { deterministicPlaintext, readAllChunks } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes, hexToBytes } from './cose-fixtures.ts'
-import { pipeBytes, recordingSource } from './helpers.ts'
+import { expectedSlice, pipeBytes, recordingSource } from './helpers.ts'
 
 const { MIN_CHUNK_SIZE } = fee.constants
 
@@ -23,16 +23,6 @@ async function decryptFull(encoded: Uint8Array, key: Parameters<typeof fee.decry
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
-/** The plaintext bytes `range` describes, from the documented semantics only -- not from planRange. */
-function expectedSlice(fullPlaintext: Uint8Array, range: ByteRange): Uint8Array {
-  const total = fullPlaintext.length
-  if (range.offset < 0) {
-    return fullPlaintext.subarray(Math.max(0, total + range.offset))
-  }
-  const end = range.length === undefined ? total : Math.min(total, range.offset + range.length)
-  return fullPlaintext.subarray(range.offset, end)
 }
 
 interface FakeKeyLibrary {
@@ -111,6 +101,8 @@ describe('key resolver flow (tag 16, through the public API)', () => {
           const decrypted = await decryptFull(encoded, lib.resolver)
           assert.deepStrictEqual(decrypted, plaintext)
           assert.strictEqual(lib.calls.resolver, 1)
+          // One derivation when encrypting, one through the resolver while decrypting.
+          assert.strictEqual(lib.calls.derive, 2)
         })
       }
     }

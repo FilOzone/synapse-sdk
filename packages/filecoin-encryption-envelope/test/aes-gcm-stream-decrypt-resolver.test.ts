@@ -4,9 +4,9 @@ import { KEY_SIZE, MIN_CHUNK_SIZE } from '../src/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import { AuthenticationError, InvalidKeyError, KeyResolutionError } from '../src/errors.ts'
 import { type EnvelopeInfo, parse } from '../src/range/inspect.ts'
-import { deterministicPlaintext, readAllChunks } from './aes-gcm-stream-fixtures.ts'
+import { deterministicPlaintext } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes } from './cose-fixtures.ts'
-import { a256kwRecipient as recipient } from './helpers.ts'
+import { findBytes, pipeBytes, a256kwRecipient as recipient } from './helpers.ts'
 
 const CHUNK_SIZE = MIN_CHUNK_SIZE
 
@@ -20,36 +20,11 @@ async function encryptFull(
   cek: Uint8Array,
   extra: Partial<ChunkedEncryptOptions> = {}
 ): Promise<Uint8Array> {
-  const { writable, readable } = encrypt({ cek: new Uint8Array(cek), chunkSize: CHUNK_SIZE, ...extra })
-  const writer = writable.getWriter()
-  const writeDone = writer.write(plaintext)
-  const closeDone = writer.close()
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return concatBytes(...chunks)
-}
-
-/** Drive decrypt() to completion (or rejection) with `encoded` delivered in one write. */
-async function decryptChunks(encoded: Uint8Array, key: Uint8Array | KeyResolver): Promise<Uint8Array<ArrayBuffer>[]> {
-  const { writable, readable } = decrypt(key)
-  const writer = writable.getWriter()
-  const writeDone = writer.write(encoded)
-  const closeDone = writer.close()
-  writeDone.catch(() => {
-    // Surfaced via readAllChunks below either way; avoid an unhandled rejection.
-  })
-  closeDone.catch(() => {
-    // Same: an incomplete/invalid object rejects close(), read already reports it.
-  })
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return chunks
+  return pipeBytes(encrypt({ cek: new Uint8Array(cek), chunkSize: CHUNK_SIZE, ...extra }), plaintext)
 }
 
 async function decryptBytes(encoded: Uint8Array, key: Uint8Array | KeyResolver): Promise<Uint8Array> {
-  return concatBytes(...(await decryptChunks(encoded, key)))
+  return pipeBytes(decrypt(key), encoded)
 }
 
 /** A deterministic stand-in for a KMS-derived key: SHA-256 of salt || scope. */
@@ -62,16 +37,6 @@ async function deriveKeyFromMetadata(appMetadata: Record<string, unknown> | unde
   const material = concatBytes(salt, new TextEncoder().encode(scope)) as Uint8Array<ArrayBuffer>
   const digest = await globalThis.crypto.subtle.digest('SHA-256', material)
   return new Uint8Array(digest)
-}
-
-function findBytes(haystack: Uint8Array, needle: Uint8Array): number {
-  outer: for (let offset = 0; offset <= haystack.length - needle.length; offset++) {
-    for (let index = 0; index < needle.length; index++) {
-      if (haystack[offset + index] !== needle[index]) continue outer
-    }
-    return offset
-  }
-  throw new Error('test helper: subsequence not found')
 }
 
 describe('aesGcmStream.decrypt with a KeyResolver', () => {

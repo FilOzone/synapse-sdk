@@ -22,7 +22,13 @@ import type { RecipientInfo, Unwrapper } from '../src/recipients/types.ts'
 import { FIXED_CEK } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks, sourceOf } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes } from './cose-fixtures.ts'
-import { pipeBytes, a256kwRecipient as recipient, recordingSource } from './helpers.ts'
+import {
+  expectedSlice,
+  neverCalledUnwrapper,
+  pipeBytes,
+  a256kwRecipient as recipient,
+  recordingSource,
+} from './helpers.ts'
 
 const CHUNK_SIZE = MIN_CHUNK_SIZE
 const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, i) => 0x40 + i)
@@ -37,16 +43,6 @@ async function encryptChunkedFull(
   return pipeBytes(encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize: CHUNK_SIZE, ...extra }), plaintext)
 }
 
-/** The plaintext bytes `range` describes, computed from the documented semantics only. */
-function expectedSlice(fullPlaintext: Uint8Array, range: ByteRange): Uint8Array {
-  const total = fullPlaintext.length
-  if (range.offset < 0) {
-    return fullPlaintext.subarray(Math.max(0, total + range.offset))
-  }
-  const end = range.length === undefined ? total : Math.min(total, range.offset + range.length)
-  return fullPlaintext.subarray(range.offset, end)
-}
-
 async function decryptRangeWithBytes(
   source: RandomAccessSource | Uint8Array,
   unwrapper: Unwrapper,
@@ -56,18 +52,6 @@ async function decryptRangeWithBytes(
   const result = await decryptRangeWith(source, unwrapper, range, options)
   const bytes = concatBytes(...(await readAllChunks(result.stream)))
   return { result, bytes }
-}
-
-/** Fails the test if the wrapped unwrapper is ever invoked. */
-function neverCalledUnwrapper(): { unwrapper: Unwrapper; assertNeverCalled: () => void } {
-  let calls = 0
-  return {
-    unwrapper: async () => {
-      calls++
-      return undefined
-    },
-    assertNeverCalled: () => assert.strictEqual(calls, 0),
-  }
 }
 
 const RANGE_SCENARIOS: Array<{ name: string; range: ByteRange }> = [

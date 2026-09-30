@@ -1,7 +1,8 @@
 /** Small fixtures and stream plumbing shared across test suites. */
+import assert from 'assert'
 import { ALG_A256KW } from '../src/cose/constants.ts'
-import type { RandomAccessSource } from '../src/index.ts'
-import type { A256KWRecipient } from '../src/recipients/types.ts'
+import type { ByteRange, RandomAccessSource } from '../src/index.ts'
+import type { A256KWRecipient, Unwrapper } from '../src/recipients/types.ts'
 import { readAllChunks } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes } from './cose-fixtures.ts'
 
@@ -12,11 +13,16 @@ export function a256kwRecipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipi
     : { alg: ALG_A256KW, kek: new Uint8Array(kek), kid: new Uint8Array(kid) }
 }
 
-/** Write one block, close the pair, and collect its output bytes. */
-export async function pipeBytes(
+/**
+ * Write one block, close the pair, and collect the readable side's chunks.
+ * `write()`/`close()` rejections are caught here so they never become
+ * unhandled rejections -- a failure still surfaces through the awaited read,
+ * which every caller already checks.
+ */
+export async function pipeChunks(
   pair: ReadableWritablePair<Uint8Array, Uint8Array>,
   input: Uint8Array
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>[]> {
   const writer = pair.writable.getWriter()
   const writeDone = writer.write(input)
   const closeDone = writer.close()
@@ -29,7 +35,48 @@ export async function pipeBytes(
   const chunks = await readAllChunks(pair.readable)
   await writeDone
   await closeDone
-  return concatBytes(...chunks)
+  return chunks
+}
+
+/** Like `pipeChunks`, but concatenated into one `Uint8Array`. */
+export async function pipeBytes(
+  pair: ReadableWritablePair<Uint8Array, Uint8Array>,
+  input: Uint8Array
+): Promise<Uint8Array> {
+  return concatBytes(...(await pipeChunks(pair, input)))
+}
+
+/** An `Unwrapper` that fails the test if it's ever invoked. */
+export function neverCalledUnwrapper(): { unwrapper: Unwrapper; assertNeverCalled: () => void } {
+  let calls = 0
+  return {
+    unwrapper: async () => {
+      calls++
+      return undefined
+    },
+    assertNeverCalled: () => assert.strictEqual(calls, 0),
+  }
+}
+
+/** The offset of the first occurrence of `needle` in `haystack`. Throws if `haystack` never contains it. */
+export function findBytes(haystack: Uint8Array, needle: Uint8Array): number {
+  outer: for (let offset = 0; offset <= haystack.length - needle.length; offset++) {
+    for (let index = 0; index < needle.length; index++) {
+      if (haystack[offset + index] !== needle[index]) continue outer
+    }
+    return offset
+  }
+  throw new Error('test helper: subsequence not found')
+}
+
+/** The plaintext bytes `range` describes, from the documented semantics only -- not from planRange. */
+export function expectedSlice(fullPlaintext: Uint8Array, range: ByteRange): Uint8Array {
+  const total = fullPlaintext.length
+  if (range.offset < 0) {
+    return fullPlaintext.subarray(Math.max(0, total + range.offset))
+  }
+  const end = range.length === undefined ? total : Math.min(total, range.offset + range.length)
+  return fullPlaintext.subarray(range.offset, end)
 }
 
 /**
