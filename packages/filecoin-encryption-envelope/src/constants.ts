@@ -1,8 +1,8 @@
 /**
  * Constants shared beyond `cose/`: the two scheme identifiers and the size
  * bounds that `chunk-layout.ts`, `nonce.ts` and `cose/headers.ts` must all
- * agree on byte-for-byte. Labels, tags and other COSE-only values live in
- * `cose/constants.ts`; `CLAUDE.md` has the rule for choosing between them.
+ * agree on byte-for-byte. Labels, tags and other COSE values live in
+ * `cose/constants.ts`.
  *
  * FIP-1253: https://github.com/filecoin-project/FIPs/discussions/1253
  * Wire profile and rationale: docs/implementation-guide.md
