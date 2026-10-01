@@ -515,8 +515,8 @@ describe('encodeProtectedHeader / decodeProtectedHeader', () => {
     it('rejects a nested app_metadata map key that is a boolean on decode too (scalar-keys-only, both sides)', () => {
       // Previously lenient on decode: the old assertNoDuplicateByteStringKeys
       // only ever inspected Uint8Array keys, so a boolean key sailed through
-      // unexamined. The shared assertValidAppMetadata now runs the same
-      // scalar-key policy on both sides (defect 4) — app_metadata ->
+      // unexamined. The decoded-value walk now applies the same scalar-key
+      // policy on both sides (defect 4) — app_metadata ->
       // { "outer": { true: 1 } }, hand-built since a boolean-keyed map
       // cannot be expressed through the encode-side Record<string, unknown> API.
       const raw = buildProtectedHeader(
@@ -637,6 +637,78 @@ describe('encodeProtectedHeader / decodeProtectedHeader', () => {
         0x62 // value: "b"
       )
       assert.throws(() => decodeProtectedHeader(raw), MalformedEnvelopeError)
+    })
+
+    it('compares byte-string map keys beyond the error-label prefix', () => {
+      const prefix = [1, 2, 3, 4, 5, 6, 7, 8]
+      const keys = new Map<CborValue, CborValue>([
+        [Uint8Array.from([...prefix, 1]), 'first'],
+        [Uint8Array.from([...prefix, 2]), 'second'],
+      ])
+      const encoded = encodeProtectedHeader({
+        alg: ALG_AES_256_GCM,
+        iv: FIXTURE_IV_12,
+        appMetadata: { keys },
+      })
+      assert.doesNotThrow(() => decodeProtectedHeader(encoded))
+
+      keys.set(Uint8Array.from([...prefix, 1]), 'duplicate')
+      assert.throws(
+        () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { keys } }),
+        MalformedEnvelopeError
+      )
+    })
+
+    it('keeps duplicate byte-key errors bounded for large keys', () => {
+      const key = new Uint8Array(4096)
+      const keys = new Map<CborValue, CborValue>([
+        [key, 'first'],
+        [key.slice(), 'duplicate'],
+      ])
+      const encoded = encodeProtectedHeader({
+        alg: ALG_AES_256_GCM,
+        iv: FIXTURE_IV_12,
+        appMetadata: { keys: new Map([[key, 'first']]) },
+      })
+      assert.doesNotThrow(() => decodeProtectedHeader(encoded))
+
+      assert.throws(
+        () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { keys } }),
+        (error: unknown) => error instanceof MalformedEnvelopeError && error.message.length < 256
+      )
+    })
+
+    it('does not enumerate decoded byte-string or array indices', () => {
+      const encoded = encodeProtectedHeader({
+        alg: ALG_AES_256_GCM,
+        iv: FIXTURE_IV_12,
+        appMetadata: {
+          bytes: new Uint8Array(8192),
+          values: Array(2048).fill(null),
+          keys: new Map([[new Uint8Array(8192), 'value']]),
+        },
+      })
+      const getOwnPropertyNames = Object.getOwnPropertyNames
+      const ownKeys = Reflect.ownKeys
+      try {
+        Object.getOwnPropertyNames = ((value: object) => {
+          if (value instanceof Uint8Array && value.length >= 8192) {
+            throw new Error('decoded byte-string indices were enumerated')
+          }
+          return getOwnPropertyNames(value)
+        }) as typeof Object.getOwnPropertyNames
+        Reflect.ownKeys = (value: object) => {
+          if (Array.isArray(value) && value.length >= 2048) {
+            throw new Error('decoded array indices were enumerated')
+          }
+          return ownKeys(value)
+        }
+
+        assert.doesNotThrow(() => decodeProtectedHeader(encoded))
+      } finally {
+        Object.getOwnPropertyNames = getOwnPropertyNames
+        Reflect.ownKeys = ownKeys
+      }
     })
 
     it('decodes an app_metadata key of "__proto__" as an own property without polluting the prototype', () => {
@@ -923,6 +995,20 @@ describe('app_metadata', () => {
           `for ${label}`
         )
       }
+    })
+
+    it('rejects an extra property on a byte-string map key', () => {
+      const key = Uint8Array.from([1, 2])
+      ;(key as unknown as Record<string, string>).extra = 'lost'
+      assert.throws(
+        () =>
+          encodeProtectedHeader({
+            alg: ALG_AES_256_GCM,
+            iv: FIXTURE_IV_12,
+            appMetadata: { keys: new Map([[key, 'value']]) },
+          }),
+        MalformedEnvelopeError
+      )
     })
 
     it('rejects digit-only properties that are not actual container elements', () => {

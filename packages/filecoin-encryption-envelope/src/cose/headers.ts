@@ -12,8 +12,8 @@
  * - {@link createStrictTokenizer} is decode-only. It inspects the wire bytes
  *   to reject representations whose distinction is lost after decoding, such
  *   as integer-valued floats and invalid or BOM-stripped UTF-8.
- * - {@link assertAllowlistedValue} validates decoded and caller-supplied trees,
- *   allowing only the CBOR shapes supported by this profile.
+ * - The value walker checks profile shapes on both paths. Caller-supplied
+ *   values also get JavaScript-property checks before encoding.
  *
  * This ensures everything accepted by `encodeEnvelope` can be read by
  * `decodeEnvelope`, while still allowing other valid profile encodings.
@@ -39,6 +39,7 @@ import {
   NONCE_SIZE,
 } from '../constants.ts'
 import { CriticalHeaderError, MalformedEnvelopeError, UnsupportedSchemeError } from '../errors.ts'
+import { bytesEqual } from '../internal/bytes.ts'
 import {
   A256KW_WRAPPED_CEK_SIZE,
   ALG_A256KW,
@@ -241,7 +242,7 @@ export function decodeExact(data: Uint8Array): CborValue {
     ...DECODE_OPTIONS,
     tokenizer: createStrictTokenizer(data, DECODE_OPTIONS),
   })
-  assertAllowlistedValue(value, 'decoded CBOR value')
+  assertDecodedValue(value, 'decoded CBOR value')
   return value
 }
 
@@ -261,9 +262,9 @@ export function decodeFirst(data: Uint8Array, extra?: Pick<DecodeOptions, 'tags'
   // The top-level tag contributes one enclosing level. Protected-header byte
   // strings remain opaque here and are validated separately by `decodeExact`.
   if (value instanceof Tagged) {
-    assertAllowlistedValue(value.value, `CBOR tag ${value.tag} value`, 1)
+    assertDecodedValue(value.value, `CBOR tag ${value.tag} value`, 1)
   } else {
-    assertAllowlistedValue(value, 'decoded CBOR value')
+    assertDecodedValue(value, 'decoded CBOR value')
   }
   return [value, remainder]
 }
@@ -445,7 +446,7 @@ function assertPlaintextLengthValid(
   }
 }
 
-/** Render bytes as hex for content-based map-key comparison. */
+/** Render a short byte-key prefix for validation errors. */
 function bytesToHex(bytes: Uint8Array): string {
   let hex = ''
   for (const byte of bytes) {
@@ -459,14 +460,19 @@ function isAllowlistedMapKey(key: unknown): key is string | number | Uint8Array 
   return typeof key === 'string' || typeof key === 'number' || key instanceof Uint8Array
 }
 
-/**
- * Content-based identity for map keys.
- *
- * `Map` compares `Uint8Array` keys by object identity, so byte-equal keys
- * need an explicit representation. The type prefix keeps `"1"` distinct from `1`.
- */
-function mapKeyIdentity(key: string | number | Uint8Array): string {
-  return key instanceof Uint8Array ? `bytes:${bytesToHex(key)}` : `${typeof key}:${String(key)}`
+/** Keep byte-key paths bounded even when a key fills most of the envelope. */
+function byteKeyLabel(key: Uint8Array): string {
+  return `bytes(${key.length}):${bytesToHex(key.subarray(0, 8))}${key.length > 8 ? '…' : ''}`
+}
+
+/** Sort byte keys so equal-content keys are adjacent without hex encoding. */
+function compareByteKeys(a: Uint8Array, b: Uint8Array): number {
+  const length = Math.min(a.length, b.length)
+  for (let index = 0; index < length; index++) {
+    const difference = (a[index] as number) - (b[index] as number)
+    if (difference !== 0) return difference
+  }
+  return a.length - b.length
 }
 
 /** True for plain or null-prototype objects, excluding class instances. */
@@ -545,13 +551,14 @@ function assertNoAccessors(value: object, path: string): void {
   }
 }
 
-/**
- * Recursive implementation of {@link assertAllowlistedValue}.
- *
- * `seen` tracks the current path to detect cycles, while `depth` bounds
- * deeply nested but acyclic values.
- */
-function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object>, depth: number): void {
+/** Validate CBOR shapes, checking JavaScript-only properties only on caller input. */
+function walkAllowlistedValue(
+  value: unknown,
+  path: string,
+  seen: WeakSet<object>,
+  depth: number,
+  source: 'decoded' | 'caller'
+): void {
   // Charge the container itself against the nesting limit, matching the
   // decoder's tokenizer.
   const enterContainer = (): void => {
@@ -585,44 +592,54 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
   }
 
   if (value instanceof Uint8Array) {
-    assertNoUnencodableProperties(value, (key) => isElementIndex(key, value.length), 'a byte string', path)
+    if (source === 'caller') {
+      assertNoUnencodableProperties(value, (key) => isElementIndex(key, value.length), 'a byte string', path)
+    }
     return
   }
 
   if (Array.isArray(value)) {
-    assertNoUnencodableProperties(
-      value,
-      (key) => key === 'length' || isElementIndex(key, value.length),
-      'an array',
-      path
-    )
+    if (source === 'caller') {
+      assertNoUnencodableProperties(
+        value,
+        (key) => key === 'length' || isElementIndex(key, value.length),
+        'an array',
+        path
+      )
+    }
     enterContainer()
     if (seen.has(value)) {
       throw new MalformedEnvelopeError(`Invalid ${path}: cyclic structure detected.`)
     }
-    assertNoAccessors(value, path)
-    for (let index = 0; index < value.length; index++) {
-      if (!Object.hasOwn(value, index)) {
-        throw new MalformedEnvelopeError(
-          `Invalid ${path}[${index}]: sparse array (missing element) has no CBOR representation.`
-        )
+    if (source === 'caller') {
+      assertNoAccessors(value, path)
+      for (let index = 0; index < value.length; index++) {
+        if (!Object.hasOwn(value, index)) {
+          throw new MalformedEnvelopeError(
+            `Invalid ${path}[${index}]: sparse array (missing element) has no CBOR representation.`
+          )
+        }
       }
     }
     seen.add(value)
     for (let index = 0; index < value.length; index++) {
-      walkAllowlistedValue(value[index], `${path}[${index}]`, seen, depth + 1)
+      walkAllowlistedValue(value[index], `${path}[${index}]`, seen, depth + 1, source)
     }
     seen.delete(value)
     return
   }
 
   if (value instanceof Map) {
-    assertNoUnencodableProperties(value, () => false, 'a Map', path)
+    if (source === 'caller') {
+      assertNoUnencodableProperties(value, () => false, 'a Map', path)
+    }
     enterContainer()
     if (seen.has(value)) {
       throw new MalformedEnvelopeError(`Invalid ${path}: cyclic structure detected.`)
     }
-    const seenKeys = new Set<string>()
+    // Maps compare byte-string keys by object identity. Group by length and
+    // compare contents so distinct objects cannot encode the same CBOR key.
+    const byteKeysByLength = new Map<number, Uint8Array[]>()
     for (const key of value.keys()) {
       if (!isAllowlistedMapKey(key)) {
         throw new MalformedEnvelopeError(
@@ -637,19 +654,34 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
           `Invalid ${path} map key ${String(key)}: expected a safe integer, excluding -0.`
         )
       }
-      const identity = mapKeyIdentity(key)
-      if (seenKeys.has(identity)) {
-        throw new MalformedEnvelopeError(
-          `Invalid ${path}: duplicate map key by content (${identity}). A JS Map compares byte-string keys by identity, not content, so two byte-equal keys would otherwise be silently retained as separate entries.`
-        )
+      if (key instanceof Uint8Array) {
+        if (source === 'caller') {
+          assertNoUnencodableProperties(key, (name) => isElementIndex(name, key.length), 'a byte string', path)
+        }
+        const group = byteKeysByLength.get(key.length)
+        if (group === undefined) {
+          byteKeysByLength.set(key.length, [key])
+        } else {
+          group.push(key)
+        }
       }
-      seenKeys.add(identity)
+    }
+    for (const group of byteKeysByLength.values()) {
+      if (group.length < 2) continue
+      group.sort(compareByteKeys)
+      for (let index = 1; index < group.length; index++) {
+        const left = group[index - 1]
+        const right = group[index]
+        if (left !== undefined && right !== undefined && bytesEqual(left, right)) {
+          throw new MalformedEnvelopeError(`Invalid ${path}: duplicate map key by content (${byteKeyLabel(right)}).`)
+        }
+      }
     }
     seen.add(value)
     for (const [key, entryValue] of value) {
       // Map keys were validated above; use a stable representation in error paths.
-      const label = key instanceof Uint8Array ? `bytes:${bytesToHex(key)}` : String(key)
-      walkAllowlistedValue(entryValue, `${path}[${label}]`, seen, depth + 1)
+      const label = key instanceof Uint8Array ? byteKeyLabel(key) : String(key)
+      walkAllowlistedValue(entryValue, `${path}[${label}]`, seen, depth + 1, source)
     }
     seen.delete(value)
     return
@@ -666,13 +698,15 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
       throw new MalformedEnvelopeError(`Invalid ${path}: cyclic structure detected.`)
     }
     seen.add(value)
-    assertNoHiddenKeys(value, path)
-    assertNoAccessors(value, path)
+    if (source === 'caller') {
+      assertNoHiddenKeys(value, path)
+      assertNoAccessors(value, path)
+    }
     for (const [key, entryValue] of Object.entries(value)) {
       if (!key.isWellFormed()) {
         throw new MalformedEnvelopeError(`Invalid ${path}.${key}: object key is not well-formed Unicode.`)
       }
-      walkAllowlistedValue(entryValue, `${path}.${key}`, seen, depth + 1)
+      walkAllowlistedValue(entryValue, `${path}.${key}`, seen, depth + 1, source)
     }
     seen.delete(value)
     return
@@ -695,7 +729,12 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
  * remain the caller's responsibility.
  */
 export function assertAllowlistedValue(value: unknown, path: string, enclosingDepth = 0): void {
-  walkAllowlistedValue(value, path, new WeakSet<object>(), enclosingDepth)
+  walkAllowlistedValue(value, path, new WeakSet<object>(), enclosingDepth, 'caller')
+}
+
+/** Validate decoded CBOR shapes without inspecting JavaScript-only properties. */
+function assertDecodedValue(value: unknown, path: string, enclosingDepth = 0): void {
+  walkAllowlistedValue(value, path, new WeakSet<object>(), enclosingDepth, 'decoded')
 }
 
 /**
@@ -703,12 +742,6 @@ export function assertAllowlistedValue(value: unknown, path: string, enclosingDe
  * protected-header map → `app_metadata` map.
  */
 const APP_METADATA_ENCLOSING_DEPTH = 2
-
-/**
- * Existing container depth before entering the content unprotected map:
- * envelope tag → envelope array.
- */
-const UNPROTECTED_ENCLOSING_DEPTH = 2
 
 /**
  * Validate `app_metadata`: a plain object with well-formed string keys and
@@ -753,7 +786,6 @@ function decodeAppMetadata(value: CborValue): Record<string, CborValue> {
     }
     result[key] = entryValue
   }
-  assertValidAppMetadata(result)
   return result
 }
 
@@ -1140,11 +1172,12 @@ export function encodeUnprotectedHeader(): UnprotectedHeaderMap {
 }
 
 /**
- * Validate and return the content unprotected header.
+ * Validate and return the content unprotected header of a decoded envelope.
  *
- * Unknown non-critical parameters are allowed. `crit`, Partial IV, and IV
- * are rejected; cross-bucket label duplication is checked when the protected
- * header is decoded.
+ * Expects a value tree already checked by `decodeFirst`.
+ * Unknown non-critical parameters are allowed. `crit`,
+ * Partial IV, and IV are rejected; cross-bucket label duplication is checked
+ * when the protected header is decoded.
  */
 export function decodeUnprotectedHeader(value: CborValue): UnprotectedHeaderMap {
   if (!(value instanceof Map)) {
@@ -1155,9 +1188,6 @@ export function decodeUnprotectedHeader(value: CborValue): UnprotectedHeaderMap 
   assertValidLabels(value, 'unprotected')
   assertNoPartialIv(value, 'unprotected')
   assertCritHeaderSatisfied(value, 'unprotected')
-  // Envelope decoding already validates this tree. Keep the check here because
-  // this exported helper may also receive a decoded map directly.
-  assertAllowlistedValue(value, 'unprotected header', UNPROTECTED_ENCLOSING_DEPTH)
   if (value.has(HEADER_IV)) {
     throw new MalformedEnvelopeError(
       'Invalid iv (5) in the unprotected header: this profile requires the IV in the protected header, so that it is covered by the content AAD (FIP amendment 3).'
