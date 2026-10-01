@@ -490,21 +490,32 @@ describe('planRange', () => {
       }
     }
 
+    /**
+     * Compares plans cheaply, running the slow `deepStrictEqual` only on a
+     * mismatch for a readable diff. The browser `assert` package's
+     * `deepStrictEqual` is too slow for tens of thousands of calls.
+     */
+    function assertSamePlan(actual: RangePlan, expected: RangePlan, label: () => string): void {
+      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+        assert.deepStrictEqual(actual, expected, label())
+      }
+    }
+
     it('matches a chunk-by-chunk walk across many offsets, lengths, and suffixes', () => {
       for (let offset = 0; offset < total; offset++) {
         for (const length of [undefined, 1, 3, total, total + 1000]) {
-          assert.deepStrictEqual(
+          assertSamePlan(
             planRange(layout, { offset, length }),
             naivePlan(offset, length),
-            `offset=${offset} length=${length}`
+            () => `offset=${offset} length=${length}`
           )
         }
       }
       for (let suffix = 1; suffix <= total; suffix++) {
-        assert.deepStrictEqual(planRange(layout, { offset: -suffix }), naivePlan(-suffix), `suffix=-${suffix}`)
+        assertSamePlan(planRange(layout, { offset: -suffix }), naivePlan(-suffix), () => `suffix=-${suffix}`)
       }
       for (const suffix of [total + 1, total + 100, 10000]) {
-        assert.deepStrictEqual(planRange(layout, { offset: -suffix }), naivePlan(-suffix), `suffix=-${suffix}`)
+        assertSamePlan(planRange(layout, { offset: -suffix }), naivePlan(-suffix), () => `suffix=-${suffix}`)
       }
     })
   })
