@@ -10,6 +10,7 @@ import type { RecipientInput } from '../cose/encode.ts'
 import type { CborValue } from '../cose/headers.ts'
 import { describeCborType } from '../cose/headers.ts'
 import { MalformedEnvelopeError, RecipientAttemptLimitError } from '../errors.ts'
+import { bytesEqual } from '../internal/bytes.ts'
 import { assertAes256Key } from '../internal/keys.ts'
 import { aesKwUnwrap, aesKwWrap, importAesKwKey } from '../internal/web-crypto.ts'
 import type { A256KWKey, A256KWUnwrapperOptions, RecipientInfo, Unwrapper } from './types.ts'
@@ -107,10 +108,6 @@ function parseMaxAttempts(options: unknown): number {
     )
   }
   return maxAttempts
-}
-
-function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
-  return a.length === b.length && a.every((byte, index) => byte === b[index])
 }
 
 /**
