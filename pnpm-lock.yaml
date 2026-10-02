@@ -321,6 +321,43 @@ importers:
         specifier: 4.0.2
         version: 4.0.2
 
+  packages/keysmith:
+    dependencies:
+      '@noble/curves':
+        specifier: ^1.9.7
+        version: 1.9.7
+      '@noble/hashes':
+        specifier: ^1.8.0
+        version: 1.8.0
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 'catalog:'
+        version: 2.5.9
+      '@types/assert':
+        specifier: ^1.5.11
+        version: 1.5.11
+      '@types/mocha':
+        specifier: 'catalog:'
+        version: 10.0.10
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.2.0
+      assert:
+        specifier: ^2.1.0
+        version: 2.1.0
+      mocha:
+        specifier: 'catalog:'
+        version: 11.8.0
+      playwright-test:
+        specifier: ^14.1.12
+        version: 14.1.15
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      viem:
+        specifier: 'catalog:'
+        version: 2.55.19(typescript@6.0.3)(zod@4.4.3)
+
   packages/synapse-core:
     dependencies:
       dnum:
@@ -9350,7 +9387,7 @@ snapshots:
 
   '@scure/bip32@1.7.0':
     dependencies:
-      '@noble/curves': 1.9.1
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
 
@@ -9721,7 +9758,7 @@ snapshots:
 
   '@types/sax@1.2.7':
     dependencies:
-      '@types/node': 24.13.3
+      '@types/node': 26.2.0
 
   '@types/set-cookie-parser@2.4.10':
     dependencies:

@@ -1,0 +1,121 @@
+{
+  "name": "@filoz/keysmith",
+  "version": "0.0.1",
+  "description": "Deterministic per-dataset key derivation for Filecoin Onchain Cloud",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilOzone/synapse-sdk.git"
+  },
+  "keywords": [
+    "filecoin",
+    "synapse",
+    "encryption",
+    "key derivation",
+    "filecoin onchain cloud",
+    "web3"
+  ],
+  "license": "Apache-2.0 OR MIT",
+  "bugs": {
+    "url": "https://github.com/FilOzone/synapse-sdk/issues"
+  },
+  "homepage": "https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "module": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "dist/src",
+    "dist/src/**/*.d.ts",
+    "dist/src/**/*.d.ts.map"
+  ],
+  "scripts": {
+    "build": "wireit",
+    "test": "wireit",
+    "test:node": "wireit",
+    "test:browser": "wireit",
+    "lint": "wireit",
+    "lint:fix": "biome check --fix ."
+  },
+  "wireit": {
+    "build": {
+      "command": "tsc --build --pretty",
+      "clean": "if-file-deleted",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "test": {
+      "command": "pnpm run test:node && pnpm run test:browser",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts"
+      ],
+      "output": [],
+      "dependencies": [
+        "lint"
+      ]
+    },
+    "test:node": {
+      "command": "playwright-test \"test/**/*.test.ts\" --mode node",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts"
+      ],
+      "output": []
+    },
+    "test:browser": {
+      "command": "playwright-test \"test/**/*.test.ts\"",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts"
+      ],
+      "output": []
+    },
+    "lint": {
+      "command": "biome check .",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../biome.json"
+      ],
+      "output": [],
+      "dependencies": [
+        "build"
+      ]
+    }
+  },
+  "dependencies": {
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0"
+  },
+  "peerDependencies": {
+    "viem": "2.x"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@types/assert": "^1.5.11",
+    "@types/mocha": "catalog:",
+    "@types/node": "catalog:",
+    "assert": "^2.1.0",
+    "mocha": "catalog:",
+    "playwright-test": "^14.1.12",
+    "typescript": "catalog:",
+    "viem": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
