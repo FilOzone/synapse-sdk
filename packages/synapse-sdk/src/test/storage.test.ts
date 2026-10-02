@@ -4,7 +4,7 @@ import { AddPiecesBatchTooLargeError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { calculate, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
-import { addPiecesFits, NetworkError } from '@filoz/synapse-core/sp'
+import { AbortError, addPiecesFits, NetworkError } from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -1584,6 +1584,62 @@ describe('StorageService', () => {
       } catch (error: any) {
         assert.include(error.message, 'Failed to commit pieces on-chain')
       }
+    })
+
+    it('should abort the commit confirmation wait when the signal fires (batching disabled)', async () => {
+      const testData = new Uint8Array(127).fill(42)
+      const testPieceCID = (await Piece.calculate(testData)).toString()
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+      let statusPolls = 0
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        Mocks.pdp.postPieceUploadsHandler(mockUuid, pdpOptions),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid, pdpOptions),
+        Mocks.pdp.finalizePieceUploadHandler(mockUuid, undefined, pdpOptions),
+        Mocks.pdp.findPieceHandler(testPieceCID, true, pdpOptions),
+        http.post('https://pdp.example.com/pdp/data-sets/:id/pieces', ({ params }) => {
+          return new HttpResponse(null, {
+            status: 201,
+            headers: { Location: `/pdp/data-sets/${params.id}/pieces/added/${mockTxHash}` },
+          })
+        }),
+        http.get('https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash', () => {
+          statusPolls++
+          return HttpResponse.json({
+            txHash: mockTxHash,
+            txStatus: 'pending',
+            dataSetId: 1,
+            pieceCount: 1,
+            addMessageOk: null,
+            piecesAdded: false,
+          })
+        })
+      )
+      // Batching shares one commit across uploads, so exercise the direct commit path.
+      const synapse = new Synapse({ client, source: null, pieceBatching: false })
+      const warmStorageService = new WarmStorageService({ client })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
+
+      const controller = new AbortController()
+      const start = Date.now()
+      try {
+        await service.upload(testData, {
+          signal: controller.signal,
+          onPiecesAdded: () => {
+            setTimeout(() => controller.abort(), 50)
+          },
+        })
+        assert.fail('Should have thrown abort error')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to commit pieces on-chain')
+        assert.instanceOf(error.cause, AbortError)
+      }
+      assert.isAbove(statusPolls, 0)
+      assert.isBelow(Date.now() - start, 5000)
     })
   })
 

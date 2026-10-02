@@ -975,7 +975,7 @@ export class StorageContext {
    * @returns Transaction hash, confirmed pieceIds, dataSetId, and whether a new data set was created
    */
   async commit(options: CommitOptions): Promise<CommitResult> {
-    const { pieces, extraData } = options
+    const { pieces, extraData, signal } = options
 
     // Validate message size and metadata early, before any chain reads or signing
     this.assertPiecesFitMessage(pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata })))
@@ -1001,10 +1001,11 @@ export class StorageContext {
           pieces: pieceInputs,
           serviceURL: this._pdpEndpoint,
           extraData,
+          signal,
         })
         options.onSubmitted?.(addPiecesResult.txHash as Hex)
 
-        const confirmation = await SP.waitForAddPieces(addPiecesResult)
+        const confirmation = await SP.waitForAddPieces({ statusUrl: addPiecesResult.statusUrl, signal })
         const confirmedPieceIds = confirmation.confirmedPieceIds
 
         return {
@@ -1026,10 +1027,11 @@ export class StorageContext {
         metadata: this._dataSetMetadata,
         serviceURL: this._pdpEndpoint,
         extraData,
+        signal,
       })
       options.onSubmitted?.(result.txHash as Hex)
 
-      const confirmation = await SP.waitForCreateDataSetAddPieces(result)
+      const confirmation = await SP.waitForCreateDataSetAddPieces({ statusUrl: result.statusUrl, signal })
       this._dataSetId = confirmation.dataSetId
 
       return {
@@ -1136,6 +1138,7 @@ export class StorageContext {
     // Commit phase
     const commitResult = await this.commit({
       pieces: [{ pieceCid: storeResult.pieceCid, pieceMetadata: options?.pieceMetadata }],
+      signal: options?.signal,
       onSubmitted: (txHash) =>
         options?.onPiecesAdded?.(txHash, this._provider.id, [{ pieceCid: storeResult.pieceCid }]),
     })
