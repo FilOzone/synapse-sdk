@@ -644,6 +644,8 @@ export interface CommitOptions {
   pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>
   /** Pre-built signed extraData (avoids re-signing) */
   extraData?: Hex
+  /** Optional AbortSignal to cancel the commit requests and the confirmation wait */
+  signal?: AbortSignal
   /**
    * Called when the commit transaction is submitted (before on-chain confirmation).
    * The hash is Curio's Location wait key and is not guaranteed to be the final

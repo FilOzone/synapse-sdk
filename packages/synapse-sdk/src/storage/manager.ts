@@ -273,6 +273,7 @@ export class StorageManager {
       const result = await ctx.commit({
         pieces: pieceInputs,
         extraData: extraDataMap.get(ctx),
+        signal: options?.signal,
         onSubmitted: (txHash) =>
           safeInvoke(options?.callbacks?.onPiecesAdded, txHash, ctx.provider.id, [{ pieceCid: storeResult.pieceCid }]),
       })
