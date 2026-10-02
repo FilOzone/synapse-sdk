@@ -57,11 +57,12 @@ export const MAX_ENCODED_OBJECT_SIZE = 68719476736 // 64 GiB
  *
  * Memory sets this number, not cryptography: NIST allows nearly 64 GiB per
  * GCM message. But scheme 1 cannot stream — one tag covers the whole
- * ciphertext, so decrypting holds the input, the output and Web Crypto's
- * internal copy at the same time, roughly 3x the plaintext. Runtime
- * allocation ceilings differ and cannot be queried, so this sits well under
- * all of them. Larger objects use the chunked scheme, which is flat in
- * memory.
+ * ciphertext. Encryption snapshots the input before its first asynchronous
+ * step, Web Crypto allocates its result, and the envelope join allocates the
+ * final object. Including caller-owned and internal buffers, peak memory may
+ * approach 5x the plaintext. Runtime allocation ceilings differ and cannot
+ * be queried, so this sits well under all of them. Larger objects use the
+ * chunked scheme, which is flat in memory.
  *
  * Raise it only with measurements, and never lower it: raising accepts
  * inputs older versions rejected, lowering breaks callers that work today.
