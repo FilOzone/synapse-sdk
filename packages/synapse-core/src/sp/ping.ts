@@ -8,6 +8,8 @@ export namespace ping {
   export type OptionsType = {
     /** Total timeout for the ping request and its retries, in milliseconds. Defaults to 8 seconds. */
     timeout?: number
+    /** The signal to abort the request. */
+    signal?: AbortSignal
   }
   export type OutputType = Response
   export type ErrorType = AbortError | HttpError | NetworkError | TimeoutError
@@ -19,7 +21,7 @@ export namespace ping {
  * GET /pdp/ping
  *
  * @param serviceURL - The service URL of the PDP API.
- * @param options - Optional timeout configuration.
+ * @param options - Optional timeout and abort signal.
  * @returns Response {@link ping.OutputType}
  * @throws Errors {@link ping.ErrorType}
  */
@@ -29,6 +31,7 @@ export async function ping(serviceURL: string, options: ping.OptionsType = {}): 
       retries: RETRY_COUNT,
       minTimeout: RETRY_DELAY,
     },
+    signal: options.signal,
     timeout: options.timeout ?? DEFAULT_TIMEOUT,
   })
   if (response.error) {
