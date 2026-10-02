@@ -22,7 +22,8 @@ This page describes the available Synapse packages and how to choose the one tha
 - **Payments**: Deposits, withdrawals, operator approvals ([Payments Operations Guide →](/developer-guides/payments/payment-operations/))
 - **Storage**: Upload and download files to storage providers ([Storage Operations Guide →](/developer-guides/storage/storage-operations/))
 - **Provider Discovery**: Query registered storage providers and products
-- **Session Keys**: Delegate signing authority for automated workflows
+- **Session Keys**: Delegate signing authority for automated workflows ([Session Keys Guide →](/developer-guides/access-control/session-keys/))
+- **Programmable ACLs**: Delegate write authorization to your own contract — passkey/WebAuthn or custom policy ([Programmable ACLs Guide →](/developer-guides/access-control/programmable-acls/))
 
 [**Synapse SDK Guide →**](/developer-guides/synapse/)
 
