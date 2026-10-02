@@ -1,13 +1,12 @@
 import type { DataSetWithPieces, UseProvidersResult } from '@filoz/synapse-react'
 import { useDeletePiece } from '@filoz/synapse-react'
-import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Globe, Info, Trash } from 'lucide-react'
+import { CloudDownload, File, Globe, Info, Trash } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { toastError } from '@/lib/utils.ts'
 import { ButtonLoading } from '../custom-ui/button-loading.tsx'
 import { ExplorerLink } from '../explorer-link.tsx'
 import { PDPDatasetLink, PDPPieceLink, PDPProviderLink } from '../pdp-link.tsx'
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar.tsx'
 import { Button } from '../ui/button.tsx'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item.tsx'
 import { Skeleton } from '../ui/skeleton.tsx'
@@ -22,34 +21,6 @@ export function DataSetsSection({
   providers?: UseProvidersResult
 }) {
   const providerWithDataSets = providers?.filter((p) => dataSets?.some((d) => d.providerId === p.id))
-
-  const imagesMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-  const videosMimeTypes = ['video/mp4', 'video/quicktime', 'video/webm']
-  const audioMimeTypes = ['audio/mpeg', 'audio/ogg', 'audio/wav']
-  const documentsMimeTypes = [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'image/svg+xml',
-    'text/markdown',
-  ]
-  const codeMimeTypes = [
-    'text/plain',
-    'text/html',
-    'text/css',
-    'text/javascript',
-    'application/json',
-    'application/xml',
-    'application/x-www-form-urlencoded',
-    'application/x-yaml',
-    'application/x-toml',
-    'application/x-ini',
-    'application/x-toml',
-  ]
 
   const [deletingPiece, setDeletingPiece] = useState<bigint | null>(null)
   const { mutate: deletePiece, isPending: isDeletingPiece } = useDeletePiece({
@@ -123,43 +94,14 @@ export function DataSetsSection({
 
                   {dataSet.pieces.map((piece) => (
                     <Item key={`${piece.id}-${dataSet.dataSetId}`} size="default" variant="muted">
-                      <ItemMedia
-                        variant={
-                          imagesMimeTypes.includes(piece.metadata.type)
-                            ? 'image'
-                            : piece.metadata.type
-                              ? 'icon'
-                              : 'default'
-                        }
-                      >
-                        {imagesMimeTypes.includes(piece.metadata.type) ? (
-                          <img
-                            alt={piece.metadata.name || piece.cid.toString()}
-                            className="object-cover"
-                            height={48}
-                            src={piece.url ?? undefined}
-                            width={48}
-                          />
-                        ) : videosMimeTypes.includes(piece.metadata.type) ? (
-                          <FilePlay className="w-10" />
-                        ) : audioMimeTypes.includes(piece.metadata.type) ? (
-                          <FileAudio className="w-10" />
-                        ) : documentsMimeTypes.includes(piece.metadata.type) ? (
-                          <FileText className="w-10" />
-                        ) : codeMimeTypes.includes(piece.metadata.type) ? (
-                          <FileCode className="w-10" />
-                        ) : (
-                          <Avatar className="size-10">
-                            <AvatarImage src={piece.url ?? undefined} />
-                            <AvatarFallback>NA</AvatarFallback>
-                          </Avatar>
-                        )}
+                      <ItemMedia variant="icon">
+                        <File className="w-10" />
                       </ItemMedia>
                       <ItemContent>
                         <ItemTitle className="break-all">
-                          <PDPPieceLink cid={piece.cid.toString()} name={piece.metadata.name} />
+                          <PDPPieceLink cid={piece.cid.toString()} />
                         </ItemTitle>
-                        <ItemDescription>{piece.metadata.type}</ItemDescription>
+                        <ItemDescription>Piece #{piece.id.toString()}</ItemDescription>
                       </ItemContent>
                       <ItemActions>
                         <Button
