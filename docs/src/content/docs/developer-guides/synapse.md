@@ -143,13 +143,11 @@ These limits are enforced by the blockchain contracts. The SDK will validate met
 
 Upload size limits:
 
-- **Minimum**: 127 bytes (required for PieceCID calculation)
-- **Maximum**: ~1 GiB (1,065,353,216 bytes)
+- **Minimum**: 127 bytes (128 bytes padded, required for PieceCID calculation)
+- **Maximum**: ~63.5 GiB (68,182,605,824 bytes, 64 GiB padded)
 
 :::note
-These limits are defined in the SDK constants (`SIZE_CONSTANTS.MIN_UPLOAD_SIZE` and `SIZE_CONSTANTS.MAX_UPLOAD_SIZE`). Future versions will support larger files through chunking and aggregate PieceCIDs.
-
-See [this issue](https://github.com/FilOzone/synapse-sdk/issues/110) for details.
+These limits are defined in the SDK constants (`SIZE_CONSTANTS.MIN_UPLOAD_SIZE` and `SIZE_CONSTANTS.MAX_UPLOAD_SIZE`). The maximum accounts for fr32 padding, so a 64 GiB raw payload exceeds the limit. Use streaming input (`ReadableStream` or `AsyncIterable`) for large uploads.
 :::
 
 ### PieceCID
