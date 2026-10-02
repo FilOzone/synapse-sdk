@@ -224,9 +224,7 @@ export class StorageContext {
       throw createError(
         'StorageContext',
         context,
-        `Data size ${sizeBytes} bytes exceeds maximum allowed size of ${
-          SIZE_CONSTANTS.MAX_UPLOAD_SIZE
-        } bytes (${Math.floor(SIZE_CONSTANTS.MAX_UPLOAD_SIZE / 1024 / 1024)} MiB)`
+        `Data size ${sizeBytes} bytes exceeds maximum allowed size of ${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes (64 GiB padded)`
       )
     }
   }
