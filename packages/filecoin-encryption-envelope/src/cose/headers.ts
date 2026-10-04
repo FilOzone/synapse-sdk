@@ -56,6 +56,7 @@ import {
   HEADER_PLAINTEXT_LENGTH,
   HEADER_TYP,
   MAX_APP_METADATA_DEPTH,
+  MAX_VALUE_LENGTH,
 } from './constants.ts'
 
 /** One of the two content-encryption schemes supported by this package. */
@@ -65,8 +66,7 @@ export type Alg = typeof ALG_AES_256_GCM | typeof ALG_CHUNKED_AES_256_GCM_STREAM
  * CBOR values supported by this profile.
  *
  * Decoding produces `Map` for CBOR maps, while `appMetadata` may use plain
- * objects when encoding. One type for both allows decoded values to be passed
- * back to the encoder.
+ * objects when encoding.
  */
 export type CborValue =
   | string
@@ -455,6 +455,48 @@ function bytesToHex(bytes: Uint8Array): string {
   return hex
 }
 
+// ── Intrinsic length/size readers ───────────────────────────────────────────
+//
+// A Uint8Array or Map subclass can override its own `length`/`size` getter.
+// Reading through the intrinsic prototype descriptor instead of the value's
+// own accessor keeps the length check below from running caller code.
+
+/** The intrinsic getter for `key` on `target`; present in every supported runtime. */
+function intrinsicGetter(target: object, key: string): () => number {
+  const getter = Object.getOwnPropertyDescriptor(target, key)?.get
+  if (getter === undefined) {
+    throw new Error(`Missing intrinsic ${key} getter.`)
+  }
+  return getter
+}
+
+const typedArrayLengthGetter = intrinsicGetter(Object.getPrototypeOf(Uint8Array.prototype), 'length')
+const mapSizeGetter = intrinsicGetter(Map.prototype, 'size')
+
+/** `value.length`, read through the intrinsic `%TypedArray%.prototype` getter. */
+function intrinsicByteLength(value: Uint8Array): number {
+  return Reflect.apply(typedArrayLengthGetter, value, [])
+}
+
+/** `value.size`, read through the intrinsic `Map.prototype` getter. */
+function intrinsicMapSize(value: Map<unknown, unknown>): number {
+  return Reflect.apply(mapSizeGetter, value, [])
+}
+
+
+/**
+ * Reject `Uint8Array` and `Map` subclasses. Their overrides can make cborg
+ * encode different data from what validation checked.
+ */
+function assertBuiltInInstance(value: object, kind: 'Uint8Array' | 'Map', path: string): void {
+  const prototype = kind === 'Uint8Array' ? Uint8Array.prototype : Map.prototype
+  if (Object.getPrototypeOf(value) !== prototype) {
+    throw new MalformedEnvelopeError(
+      `Invalid ${path}: a ${kind} subclass${kind === 'Uint8Array' ? ", such as Node's Buffer," : ''} is not permitted because it can encode different content from what was validated. Pass a plain ${kind}, for example new ${kind}(value).`
+    )
+  }
+}
+
 /** Map-key types supported by this profile. */
 function isAllowlistedMapKey(key: unknown): key is string | number | Uint8Array {
   return typeof key === 'string' || typeof key === 'number' || key instanceof Uint8Array
@@ -593,12 +635,26 @@ function walkAllowlistedValue(
 
   if (value instanceof Uint8Array) {
     if (source === 'caller') {
-      assertNoUnencodableProperties(value, (key) => isElementIndex(key, value.length), 'a byte string', path)
+      assertBuiltInInstance(value, 'Uint8Array', path)
+    }
+    const length = intrinsicByteLength(value)
+    if (length > MAX_VALUE_LENGTH) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}: byte string length ${length} exceeds this library's limit of ${MAX_VALUE_LENGTH} bytes.`
+      )
+    }
+    if (source === 'caller') {
+      assertNoUnencodableProperties(value, (key) => isElementIndex(key, length), 'a byte string', path)
     }
     return
   }
 
   if (Array.isArray(value)) {
+    if (value.length > MAX_VALUE_LENGTH) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}: array length ${value.length} exceeds this library's limit of ${MAX_VALUE_LENGTH} elements.`
+      )
+    }
     if (source === 'caller') {
       assertNoUnencodableProperties(
         value,
@@ -631,6 +687,15 @@ function walkAllowlistedValue(
 
   if (value instanceof Map) {
     if (source === 'caller') {
+      assertBuiltInInstance(value, 'Map', path)
+    }
+    const size = intrinsicMapSize(value)
+    if (size > MAX_VALUE_LENGTH) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}: Map size ${size} exceeds this library's limit of ${MAX_VALUE_LENGTH} entries.`
+      )
+    }
+    if (source === 'caller') {
       assertNoUnencodableProperties(value, () => false, 'a Map', path)
     }
     enterContainer()
@@ -656,11 +721,20 @@ function walkAllowlistedValue(
       }
       if (key instanceof Uint8Array) {
         if (source === 'caller') {
-          assertNoUnencodableProperties(key, (name) => isElementIndex(name, key.length), 'a byte string', path)
+          assertBuiltInInstance(key, 'Uint8Array', `${path} map key`)
         }
-        const group = byteKeysByLength.get(key.length)
+        const keyLength = intrinsicByteLength(key)
+        if (keyLength > MAX_VALUE_LENGTH) {
+          throw new MalformedEnvelopeError(
+            `Invalid ${path} map key: byte string length ${keyLength} exceeds this library's limit of ${MAX_VALUE_LENGTH} bytes.`
+          )
+        }
+        if (source === 'caller') {
+          assertNoUnencodableProperties(key, (name) => isElementIndex(name, keyLength), 'a byte string', path)
+        }
+        const group = byteKeysByLength.get(keyLength)
         if (group === undefined) {
-          byteKeysByLength.set(key.length, [key])
+          byteKeysByLength.set(keyLength, [key])
         } else {
           group.push(key)
         }
@@ -718,15 +792,14 @@ function walkAllowlistedValue(
 }
 
 /**
- * Validate a value against the profile's CBOR allowlist.
+ * Validate caller-supplied data before CBOR encoding.
  *
- * Supports well-formed strings, safe integers except `-0`, booleans, `null`,
- * byte strings, dense arrays, maps with supported unique keys, and plain
- * objects. `path` identifies nested values in validation errors.
+ * Rejects unsupported values, properties CBOR would omit, accessors, and
+ * `Uint8Array` or `Map` subclasses. `path` labels errors, while
+ * `enclosingDepth` counts the containers around `value`.
  *
- * Validation and encoding are separate passes. Accessors and hidden
- * properties are rejected, but deliberately unstable values such as proxies
- * remain the caller's responsibility.
+ * Validation does not copy the input. The caller must keep it unchanged
+ * until encoding finishes.
  */
 export function assertAllowlistedValue(value: unknown, path: string, enclosingDepth = 0): void {
   walkAllowlistedValue(value, path, new WeakSet<object>(), enclosingDepth, 'caller')
