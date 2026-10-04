@@ -120,6 +120,13 @@ export const ENVELOPE_TYPE = 'application/vnd.filecoin-encryption+cose'
 export const MAX_ENVELOPE_SIZE = 1048576 // 1 MiB
 
 /**
+ * Early-rejection threshold for array elements, map entries, and byte-string bytes.
+ * A value longer than the 1 MiB envelope cannot fit, so reject it before
+ * inspecting its JavaScript properties.
+ */
+export const MAX_VALUE_LENGTH = MAX_ENVELOPE_SIZE
+
+/**
  * How deep the allowlist walk in `headers.ts` will descend into an
  * `app_metadata` value or a recipient's unprotected map, on encode and
  * decode alike.

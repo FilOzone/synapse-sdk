@@ -6,9 +6,10 @@ import {
   MAX_ENCODED_OBJECT_SIZE,
   MIN_CHUNK_SIZE,
 } from '../src/constants.ts'
-import { ENVELOPE_TYPE, MAX_APP_METADATA_DEPTH } from '../src/cose/constants.ts'
+import { ENVELOPE_TYPE, MAX_APP_METADATA_DEPTH, MAX_VALUE_LENGTH } from '../src/cose/constants.ts'
 import type { CborValue, ProtectedHeaderFields } from '../src/cose/headers.ts'
 import {
+  decodeExact,
   decodeProtectedHeader,
   decodeUnprotectedHeader,
   encodeProtectedHeader,
@@ -899,6 +900,64 @@ describe('app_metadata', () => {
         () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { x: sparse } }),
         (error: unknown) => error instanceof MalformedEnvelopeError && error.message.includes('app_metadata.x[1]')
       )
+    })
+
+    it('rejects an oversized sparse array by length, before the sparse-element scan runs', () => {
+      // `new Array(n)` is maximally sparse but allocates no elements, so this
+      // stays cheap even at MAX_VALUE_LENGTH + 1. If the length check ran
+      // after the sparse scan, this would fail with the sparse-array message
+      // instead.
+      const oversized = new Array(MAX_VALUE_LENGTH + 1)
+      assert.throws(
+        () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { x: oversized } }),
+        (error: unknown) =>
+          error instanceof MalformedEnvelopeError && error.message.includes("exceeds this library's limit")
+      )
+    })
+
+    it('rejects an oversized byte string by length', () => {
+      const oversized = new Uint8Array(MAX_VALUE_LENGTH + 1)
+      assert.throws(
+        () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { x: oversized } }),
+        (error: unknown) =>
+          error instanceof MalformedEnvelopeError && error.message.includes("exceeds this library's limit")
+      )
+    })
+
+    it('rejects Uint8Array and Map subclasses, which could encode different content', () => {
+      // cborg encodes through the overridable length, size, and iteration.
+      class ShortBytes extends Uint8Array {
+        override get length(): number {
+          return 0
+        }
+      }
+      class EmptyMap extends Map<CborValue, CborValue> {
+        override get size(): number {
+          return 0
+        }
+      }
+      // Rejected even without overrides, the way Node's Buffer would be.
+      class PlainSubclass extends Uint8Array {}
+      const cases: [string, CborValue][] = [
+        ['Uint8Array', new ShortBytes([1, 2, 3])],
+        ['Map', new EmptyMap([['k', 1]])],
+        ['Uint8Array', new PlainSubclass([1, 2, 3])],
+        ['Uint8Array', new Map([[new PlainSubclass([1]), 1]])],
+      ]
+      for (const [kind, value] of cases) {
+        assert.throws(
+          () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { x: value } }),
+          (error: unknown) => error instanceof MalformedEnvelopeError && error.message.includes(`a ${kind} subclass`)
+        )
+      }
+    })
+
+    it('accepts decoded byte strings that share a subclass with the input bytes', () => {
+      // Decoding a Node Buffer yields Buffer slices; decoded values must not
+      // be held to the caller-input rule.
+      class InputBytes extends Uint8Array {}
+      const decoded = decodeExact(new InputBytes([0x43, 1, 2, 3]))
+      assert.deepStrictEqual(Array.from(decoded as Uint8Array), [1, 2, 3])
     })
 
     it('rejects a symbol-keyed property rather than silently dropping it', () => {

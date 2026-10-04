@@ -52,7 +52,9 @@ function rawTag16Envelope(protectedBytes: Uint8Array): Uint8Array {
 
 /** Build a tag-16 envelope of exactly `targetSize` bytes by tuning an app_metadata padding byte string. */
 function envelopeOfExactSize(targetSize: number): Uint8Array {
-  let n = targetSize
+  // Start below the target: a pad as long as the whole envelope is rejected
+  // by the per-value length limit before its size can be measured.
+  let n = targetSize - 64
   for (let attempt = 0; attempt < 10; attempt++) {
     const protectedBytes = encodeProtectedHeader({
       alg: ALG_AES_256_GCM,

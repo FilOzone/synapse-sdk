@@ -142,12 +142,13 @@ key, since without it the only way to find the right recipient is to attempt eve
 
 `app_metadata` is **semantically** opaque — the library carries and authenticates it and never
 interprets what it means — but its structure is not. Every value inside it, at any depth, is checked
-against an **allowlist**: a well-formed Unicode string, a safe integer, a boolean, `null`, a
-`Uint8Array`, a dense array of those, a `Map` with scalar keys (string, safe integer, or byte
+against an **allowlist**: a well-formed Unicode string, a safe integer, a boolean, `null`, a plain
+`Uint8Array`, a dense array of those, a plain `Map` with scalar keys (string, safe integer, or byte
 string) and no two keys equal by content, or a plain object with string keys. Anything else is
-rejected — `undefined`, `bigint`, symbols, functions, `Date` and other class instances, sparse
-arrays, compound map keys, and whatever nobody has thought of yet. Nesting is capped at 256 levels
-and cycles are rejected with package errors.
+rejected — `undefined`, `bigint`, symbols, functions, `Date` and other class instances, subclasses
+of `Uint8Array` or `Map` (including Node's `Buffer`), sparse arrays, compound map keys, and whatever
+nobody has thought of yet. Nesting is capped at 256 levels and cycles are rejected with package
+errors.
 
 **These are library restrictions, not COSE requirements and not adopted FIP rules.**
 
