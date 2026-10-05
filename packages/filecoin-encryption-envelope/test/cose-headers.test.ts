@@ -898,7 +898,10 @@ describe('app_metadata', () => {
       // sparse[1] is a hole, not `undefined` written to the slot.
       assert.throws(
         () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { x: sparse } }),
-        (error: unknown) => error instanceof MalformedEnvelopeError && error.message.includes('app_metadata.x[1]')
+        (error: unknown) =>
+          error instanceof MalformedEnvelopeError &&
+          error.message.includes('app_metadata.x[1]') &&
+          error.message.includes('sparse array')
       )
     })
 
@@ -1050,7 +1053,9 @@ describe('app_metadata', () => {
       ] as Array<[string, CborValue]>) {
         assert.throws(
           () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { value } }),
-          MalformedEnvelopeError,
+          (error: unknown) =>
+            error instanceof MalformedEnvelopeError &&
+            error.message.includes(`extra own property (extra) on this ${label}`),
           `for ${label}`
         )
       }
