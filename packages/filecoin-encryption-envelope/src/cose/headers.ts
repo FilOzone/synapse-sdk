@@ -483,7 +483,6 @@ function intrinsicMapSize(value: Map<unknown, unknown>): number {
   return Reflect.apply(mapSizeGetter, value, [])
 }
 
-
 /**
  * Reject `Uint8Array` and `Map` subclasses. Their overrides can make cborg
  * encode different data from what validation checked.
@@ -523,71 +522,67 @@ function isPlainObject(value: object): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null
 }
 
-/** Canonical non-negative integer property name. */
-const INDEX_KEY = /^(0|[1-9][0-9]*)$/
-
-/** True when `key` identifies an element within this container. */
-function isElementIndex(key: string, length: number): boolean {
-  return INDEX_KEY.test(key) && Number(key) < length
-}
+/** Containers whose own keys must be element indices, plus `length` on arrays. */
+type IndexedKind = 'array' | 'byte string' | 'Map'
 
 /**
- * Reject own properties that CBOR encoding would silently omit.
- *
- * Arrays, maps, and byte strings may carry extra JavaScript properties that
- * are not represented in their CBOR encoding.
+ * Reject own keys beyond the `expected` element keys; CBOR would silently
+ * drop them. Own keys list integer indices first (ECMA-262
+ * OrdinaryOwnPropertyKeys), so the first extra key is at position
+ * `expected`. That order only affects which key the error names.
  */
-function assertNoUnencodableProperties(
-  value: object,
-  isExpected: (key: string) => boolean,
-  kind: string,
-  path: string
-): void {
-  const symbols = Object.getOwnPropertySymbols(value)
-  const extra = Object.getOwnPropertyNames(value).filter((key) => !isExpected(key))
-  if (symbols.length > 0 || extra.length > 0) {
-    const named = [...extra, ...symbols.map(String)].join(', ')
+function assertNoExtraKeys(value: object, expected: number, kind: IndexedKind, path: string): void {
+  const keys = Reflect.ownKeys(value)
+  if (keys.length > expected) {
     throw new MalformedEnvelopeError(
-      `Invalid ${path}: a ${kind} carrying extra own properties (${named}) is not permitted. CBOR does not encode them, so they would be silently dropped.`
+      `Invalid ${path}: extra own property (${String(keys[expected])}) on this ${kind} is not permitted. CBOR does not encode it, so it would be silently dropped.`
     )
   }
 }
 
 /**
- * Reject symbol and non-enumerable properties on plain objects.
- *
- * They are not visited by `Object.entries` and would therefore be silently
- * omitted during validation and encoding.
+ * Require dense data elements plus `length` and nothing else. A getter could
+ * answer differently between validation and encoding.
  */
-function assertNoHiddenKeys(value: object, path: string): void {
-  const symbols = Object.getOwnPropertySymbols(value)
-  if (symbols.length > 0) {
-    throw new MalformedEnvelopeError(
-      `Invalid ${path}: symbol-keyed properties (${symbols.map(String).join(', ')}) are not a permitted shape this profile can encode. CBOR has no symbol keys, and encoding would silently drop them.`
-    )
-  }
-  const nonEnumerable = Object.getOwnPropertyNames(value).filter(
-    (key) => !Object.prototype.propertyIsEnumerable.call(value, key)
-  )
-  if (nonEnumerable.length > 0) {
-    throw new MalformedEnvelopeError(
-      `Invalid ${path}: non-enumerable properties (${nonEnumerable.join(', ')}) are not permitted. Encoding walks enumerable own properties, so these would be silently dropped.`
-    )
-  }
-}
-
-/**
- * Reject accessor properties before reading caller-supplied CBOR values.
- *
- * Validation and encoding are separate passes, so a getter could return
- * different values between them. Metadata is restricted to data properties.
- */
-function assertNoAccessors(value: object, path: string): void {
-  for (const key of Reflect.ownKeys(value)) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)
-    if (descriptor !== undefined && !Object.hasOwn(descriptor, 'value')) {
+function assertArrayProperties(array: readonly unknown[], path: string): void {
+  for (let index = 0; index < array.length; index++) {
+    const descriptor = Object.getOwnPropertyDescriptor(array, index)
+    if (descriptor === undefined) {
       throw new MalformedEnvelopeError(
-        `Invalid ${path}.${String(key)}: getter and setter properties are not permitted in caller-supplied CBOR values.`
+        `Invalid ${path}[${index}]: sparse array (missing element) has no CBOR representation.`
+      )
+    }
+    if (!Object.hasOwn(descriptor, 'value')) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}[${index}]: getter and setter properties are not permitted in caller-supplied CBOR values.`
+      )
+    }
+  }
+  // Dense, so the own keys are every index plus `length`.
+  assertNoExtraKeys(array, array.length + 1, 'array', path)
+}
+
+/**
+ * Require enumerable, string-keyed data properties. `Object.entries` skips
+ * symbol and non-enumerable keys, and a getter could answer differently
+ * between validation and encoding.
+ */
+function assertPlainObjectProperties(value: object, path: string): void {
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key === 'symbol') {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}: symbol-keyed property ${String(key)} is not a permitted shape this profile can encode. CBOR has no symbol keys, and encoding would silently drop it.`
+      )
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key)
+    if (descriptor?.enumerable !== true) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}: non-enumerable property ${key} is not permitted. Encoding walks enumerable own properties, so it would be silently dropped.`
+      )
+    }
+    if (!Object.hasOwn(descriptor, 'value')) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}.${key}: getter and setter properties are not permitted in caller-supplied CBOR values.`
       )
     }
   }
@@ -644,7 +639,7 @@ function walkAllowlistedValue(
       )
     }
     if (source === 'caller') {
-      assertNoUnencodableProperties(value, (key) => isElementIndex(key, length), 'a byte string', path)
+      assertNoExtraKeys(value, length, 'byte string', path)
     }
     return
   }
@@ -656,26 +651,11 @@ function walkAllowlistedValue(
       )
     }
     if (source === 'caller') {
-      assertNoUnencodableProperties(
-        value,
-        (key) => key === 'length' || isElementIndex(key, value.length),
-        'an array',
-        path
-      )
+      assertArrayProperties(value, path)
     }
     enterContainer()
     if (seen.has(value)) {
       throw new MalformedEnvelopeError(`Invalid ${path}: cyclic structure detected.`)
-    }
-    if (source === 'caller') {
-      assertNoAccessors(value, path)
-      for (let index = 0; index < value.length; index++) {
-        if (!Object.hasOwn(value, index)) {
-          throw new MalformedEnvelopeError(
-            `Invalid ${path}[${index}]: sparse array (missing element) has no CBOR representation.`
-          )
-        }
-      }
     }
     seen.add(value)
     for (let index = 0; index < value.length; index++) {
@@ -696,7 +676,7 @@ function walkAllowlistedValue(
       )
     }
     if (source === 'caller') {
-      assertNoUnencodableProperties(value, () => false, 'a Map', path)
+      assertNoExtraKeys(value, 0, 'Map', path)
     }
     enterContainer()
     if (seen.has(value)) {
@@ -730,7 +710,7 @@ function walkAllowlistedValue(
           )
         }
         if (source === 'caller') {
-          assertNoUnencodableProperties(key, (name) => isElementIndex(name, keyLength), 'a byte string', path)
+          assertNoExtraKeys(key, keyLength, 'byte string', path)
         }
         const group = byteKeysByLength.get(keyLength)
         if (group === undefined) {
@@ -773,8 +753,7 @@ function walkAllowlistedValue(
     }
     seen.add(value)
     if (source === 'caller') {
-      assertNoHiddenKeys(value, path)
-      assertNoAccessors(value, path)
+      assertPlainObjectProperties(value, path)
     }
     for (const [key, entryValue] of Object.entries(value)) {
       if (!key.isWellFormed()) {
@@ -828,8 +807,7 @@ function assertValidAppMetadata(entries: Record<string, CborValue>): void {
       `Invalid app_metadata (-65792): expected a plain object with string keys, got ${describeCborType(entries)}. A Map, an array, a typed array, or any other class instance is not a valid app_metadata root.`
     )
   }
-  assertNoHiddenKeys(entries, 'app_metadata (-65792)')
-  assertNoAccessors(entries, 'app_metadata (-65792)')
+  assertPlainObjectProperties(entries, 'app_metadata (-65792)')
   for (const [key, value] of Object.entries(entries)) {
     if (!key.isWellFormed()) {
       throw new MalformedEnvelopeError(
