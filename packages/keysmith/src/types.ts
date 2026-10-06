@@ -1,31 +1,34 @@
 import type { Address, Hex } from 'viem'
 
-/** Identifies the dataset a key belongs to */
-export interface DatasetRef {
-  chainId: number // eg 314 for Filecoin mainnet
-  service: Address // FWSS contract address on @chainId@
-  payer: Address // Dataset payer, as a proxy for owner
-  clientDataSetId: bigint // Client-chosen dataset ID
+/**
+ * Identifies the keyspace a key belongs to.
+ *
+ * A keyspace is Keysmith's own namespace, chosen by the client and carried in
+ * every envelope. It is deliberately independent of FWSS: replication and
+ * repair put copies of a piece into other datasets, on other providers,
+ * sometimes paid for by other accounts, and the piece must still open.
+ */
+export interface KeyspaceRef {
+  owner: Address // The wallet that roots this keyspace and signs for it
+  keyspace: Hex // 16 random bytes; names the key namespace, independent of any dataset
   epoch?: number // For key rotation/re-encrypt in place
 }
 
-/** The EIP-712 message a payer signs to start the derivation tree */
-export type DatasetKeyMessage = {
+/** The EIP-712 message an owner signs to start the derivation tree */
+export type KeyspaceKeyMessage = {
   purpose: string
-  chainId: bigint // eg 314 for Filecoin mainnet
-  service: Address // FWSS contract address on @chainId@
-  payer: Address // Dataset payer, as a proxy for owner
-  clientDataSetId: bigint // Client-chosen dataset ID
+  owner: Address // The wallet that roots this keyspace
+  keyspace: Hex // bytes16, canonical lowercase hex
   epoch: number // For key rotation/re-encrypt in place
 } & Record<string, unknown>
 
-/** What `datasetKeys()` hands back. The signature it came from is never exposed. */
-export interface DatasetKeys {
-  dk: Uint8Array // The key for the whole dataset.
+/** What `keyspaceKeys()` hands back. The signature it came from is never exposed. */
+export interface KeyspaceKeys {
+  kk: Uint8Array // The key for the whole keyspace.
   commitment: string // Non-secret check value for FWSS metadata, under `COMMITMENT_KEY`.
 }
 
-export interface DatasetKeysOptions {
+export interface KeyspaceKeysOptions {
   /**
    * @verifySigner@
    * Whether to sign twice and compare, which catches a randomising signer
@@ -44,22 +47,22 @@ export interface TypedDataSigner {
   signTypedData: (args: {
     domain: { readonly name: string; readonly version: string }
     types: Record<string, readonly { readonly name: string; readonly type: string }[]>
-    primaryType: 'DatasetKey'
-    message: DatasetKeyMessage
+    primaryType: 'KeyspaceKey'
+    message: KeyspaceKeyMessage
   }) => Promise<Hex>
 }
 
-/** FEE envelope entries to enable key derivation/recovery */
+/** FEE envelope entries to enable key derivation/recovery, wherever the piece ends up */
 export interface PieceMetadata {
-  'foc/v': number
-  'foc/cds': Hex
+  'foc/v': 2
+  'foc/ks': Hex // The keyspace this piece's key belongs to
   'foc/epoch': number // Key rotation counter
-  'foc/scope'?: string // Creates sharable 'subfolders' within a dataset
+  'foc/role'?: string // A role path, `super-secret/secret`: that role and every ancestor can read the piece
   'foc/salt': Hex // Because there is such a thing as _too much_ determinism :-)
 }
 
-/** What a grant may unlock: the whole dataset, or one scope of it. */
-export type GrantNode = 'dataset' | `scope:${string}`
+/** What a grant may unlock: the whole keyspace, or one role within it. */
+export type GrantNode = 'keyspace' | `role:${string}`
 
 /**
  * Names the node a grant unlocks. Exactly these fields are authenticated, so a
@@ -71,13 +74,11 @@ export type GrantNode = 'dataset' | `scope:${string}`
  * one with `grantDescriptor()` and the narrow type applies.
  */
 export interface GrantDescriptor {
-  v: 1
-  node: string // 'dataset', or 'scope:<name>'.
-  chainId: number // eg 314 for Filecoin mainnet
-  epoch: number // Which re-keying of the dataset this key belongs to
-  service: Address // FWSS contract address on @chainId@, lowercased
-  payer: Address // Dataset payer, as a proxy for owner, lowercased
-  clientDataSetId: Hex // Client-chosen dataset ID, spelled as in `foc/cds`
+  v: 2
+  node: string // 'keyspace', or 'role:<name>'.
+  owner: Address // The wallet that roots the keyspace, lowercased
+  keyspace: Hex // Spelled as in `foc/ks`
+  epoch: number // Which re-keying of the keyspace this key belongs to
 }
 
 /** A node key wrapped to one recipient. Safe to store or send anywhere. */
@@ -88,5 +89,12 @@ export interface Grant extends GrantDescriptor {
   ct: Hex // Wrapped key: ciphertext ‖ tag
 }
 
-/** Which node the caller holds when deriving a piece key. */
-export type Holding = 'dataset' | 'scope'
+/** Which node the caller holds when deriving a piece key: the keyspace, or a role by its path. */
+export type Holding = 'keyspace' | { role: string }
+
+/** What `writeTarget()` hands a delegate: everything needed to write one piece. */
+export interface WriteTarget {
+  ref: KeyspaceRef // For pieceMetadata(): the keyspace and epoch the grant names
+  role?: string // The role path to label the piece with; absent for an unlabelled piece
+  key: Uint8Array // The node key to derive the piece key from: pieceKey(key, salt)
+}

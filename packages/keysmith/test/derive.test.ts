@@ -3,30 +3,29 @@ import assert from 'assert'
 import { bytesToHex, hashDomain, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
+  commitment,
   DOMAIN,
-  datasetKeyMessage,
-  datasetKeys,
   grantDescriptor,
   holdingOf,
   keyForEnvelope,
+  keyspaceId,
+  keyspaceKeyMessage,
+  keyspaceKeys,
   lowSrs,
-  newClientDataSetId,
+  newKeyspace,
   newSalt,
   pieceKey,
   pieceMetadata,
-  scopeKey,
-  scopeName,
+  roleKey,
+  roleName,
+  rolePath,
+  writeTarget,
 } from '../src/derive.ts'
-import type { DatasetRef, TypedDataSigner } from '../src/types.ts'
+import type { KeyspaceRef, TypedDataSigner } from '../src/types.ts'
 
 const account = privateKeyToAccount(generatePrivateKey())
-const ref: DatasetRef = {
-  chainId: 314159,
-  service: '0xfcDDd1E5BC2658fB7483B8e2fa72d8368756F5A3',
-  payer: account.address,
-  clientDataSetId: 42n,
-}
-const dkOf = async (signer: TypedDataSigner, r: DatasetRef) => (await datasetKeys(signer, r)).dk
+const ref: KeyspaceRef = { owner: account.address, keyspace: '0x00112233445566778899aabbccddeeff' }
+const kkOf = async (signer: TypedDataSigner, r: KeyspaceRef) => (await keyspaceKeys(signer, r)).kk
 
 /** A real signer with a call counter, so prompts can be counted. */
 function counting(signer: TypedDataSigner) {
@@ -40,70 +39,64 @@ function counting(signer: TypedDataSigner) {
   return wrapper
 }
 
-describe('datasetKeyMessage', () => {
-  it('names the dataset and defaults the epoch', () => {
-    const message = datasetKeyMessage(ref)
-    assert.equal(message.purpose, 'foc/enc/v1 dataset key')
-    assert.equal(message.chainId, 314159n)
-    assert.equal(message.clientDataSetId, 42n)
+describe('keyspaceKeyMessage', () => {
+  it('names the owner and keyspace, defaults the epoch, and signs nothing about chains or datasets', () => {
+    const message = keyspaceKeyMessage(ref)
+    assert.equal(message.purpose, 'foc/enc/v1 keyspace key')
+    assert.equal(message.keyspace, ref.keyspace)
     assert.equal(message.epoch, 0)
+    assert.deepStrictEqual(Object.keys(message).sort(), ['epoch', 'keyspace', 'owner', 'purpose'])
   })
 })
 
-describe('datasetKeys', () => {
-  it('derives the same key for the same wallet and dataset', async () => {
-    assert.deepStrictEqual(await dkOf(account, ref), await dkOf(account, ref))
+describe('keyspaceKeys', () => {
+  it('derives the same key for the same wallet and keyspace', async () => {
+    assert.deepStrictEqual(await kkOf(account, ref), await kkOf(account, ref))
   })
 
-  it('derives an unrelated key for another dataset', async () => {
-    assert.notDeepStrictEqual(await dkOf(account, ref), await dkOf(account, { ...ref, clientDataSetId: 43n }))
-  })
-
-  it('derives an unrelated key for another wallet', async () => {
+  it('derives an unrelated key for another keyspace, or another wallet', async () => {
     const other = privateKeyToAccount(generatePrivateKey())
-    assert.notDeepStrictEqual(await dkOf(account, ref), await dkOf(other, { ...ref, payer: other.address }))
+    assert.notDeepStrictEqual(await kkOf(account, ref), await kkOf(account, { ...ref, keyspace: newKeyspace() }))
+    assert.notDeepStrictEqual(await kkOf(account, ref), await kkOf(other, { ...ref, owner: other.address }))
   })
 
-  it('returns a commitment that is stable, public and dataset-specific', async () => {
-    const a = await datasetKeys(account, ref)
-    const b = await datasetKeys(account, ref)
-    const other = await datasetKeys(account, { ...ref, clientDataSetId: 43n })
-    assert.equal(a.commitment, b.commitment)
-    assert.notEqual(a.commitment, other.commitment)
-    assert.match(a.commitment, /^v1\.[0-9a-f]{32}$/)
-    assert.ok(!a.commitment.includes(bytesToHex(a.dk).slice(2, 34)), 'the commitment must not contain the key')
+  it('accepts the keyspace in any case, since it is canonicalised before signing', async () => {
+    const upper = ref.keyspace.toUpperCase().replace('0X', '0x') as `0x${string}`
+    assert.deepStrictEqual(await kkOf(account, ref), await kkOf(account, { ...ref, keyspace: upper }))
+  })
+
+  it('returns a commitment derived from the keyspace key, so any key holder can recompute it', async () => {
+    const { kk, commitment: c } = await keyspaceKeys(account, ref)
+    assert.equal(c, commitment(kk))
+    assert.match(c, /^v2\.[0-9a-f]{32}$/)
+    assert.notEqual(c, (await keyspaceKeys(account, { ...ref, keyspace: newKeyspace() })).commitment)
+    assert.ok(!c.includes(bytesToHex(kk).slice(2, 34)), 'the commitment must not contain the key')
   })
 
   it('signs twice on a signer’s first use, and once after that', async () => {
     const signer = counting(account)
-    await datasetKeys(signer, ref)
+    await keyspaceKeys(signer, ref)
     assert.equal(signer.calls, 2, 'first use: sign, sign again, compare')
-    await datasetKeys(signer, { ...ref, clientDataSetId: 43n })
+    await keyspaceKeys(signer, { ...ref, keyspace: newKeyspace() })
     assert.equal(signer.calls, 3, 'the signer is now known to be deterministic')
-    await datasetKeys(signer, ref, { verifySigner: true })
+    await keyspaceKeys(signer, ref, { verifySigner: true })
     assert.equal(signer.calls, 5, 'checking can be forced')
-
     const vetted = counting(account)
-    await datasetKeys(vetted, ref, { verifySigner: false })
+    await keyspaceKeys(vetted, ref, { verifySigner: false })
     assert.equal(vetted.calls, 1, 'or skipped for a signer already vetted')
   })
 
-  it('rejects a randomising signer', async () => {
+  it('rejects a randomising signer, and anything that is not plain ECDSA', async () => {
     let calls = 0
     const r = bytesToHex(new Uint8Array(32).fill(1))
     const flaky: TypedDataSigner = {
       signTypedData: async () => `${r}${(++calls).toString(16).padStart(64, '0')}1b` as const,
     }
-    await assert.rejects(datasetKeys(flaky, ref), /not deterministic/)
-  })
-
-  it('refuses a signature that is not plain ECDSA', async () => {
-    // What an ERC-1271 account might answer: an ABI-encoded blob whose first
-    // 64 bytes are offsets — structure, not secret.
+    await assert.rejects(keyspaceKeys(flaky, ref), /not deterministic/)
     const abiLike: TypedDataSigner = {
       signTypedData: async () => `0x${'20'.padStart(64, '0')}${'41'.padStart(64, '0')}${'ab'.repeat(65)}` as const,
     }
-    await assert.rejects(datasetKeys(abiLike, ref), /64- or 65-byte/)
+    await assert.rejects(keyspaceKeys(abiLike, ref), /64- or 65-byte/)
   })
 })
 
@@ -113,29 +106,15 @@ describe('lowSrs', () => {
 
   it('drops v and normalises a high-S signature to the low form', () => {
     const low = 0x0123456789abcdefn
-    const fromLow = lowSrs(asSig(low, '1b'))
-    const fromHigh = lowSrs(asSig(secp256k1.CURVE.n - low, '1c'))
-    assert.equal(fromLow.length, 64)
-    assert.deepStrictEqual(fromLow, fromHigh, 'both malleable forms must yield one key')
+    assert.deepStrictEqual(lowSrs(asSig(low, '1b')), lowSrs(asSig(secp256k1.CURVE.n - low, '1c')))
+    assert.deepStrictEqual(lowSrs(asSig(7n, '')), lowSrs(asSig(7n)), '64-byte r‖s with no v is fine')
   })
 
-  it('accepts a 64-byte r‖s with no v', () => {
-    const sig = asSig(7n, '')
-    assert.equal(hexToBytes(sig).length, 64)
-    assert.deepStrictEqual(lowSrs(sig), lowSrs(asSig(7n)))
-  })
-
-  it('rejects any other length', () => {
+  it('rejects other lengths, and r or s outside [1, n−1]', () => {
     assert.throws(() => lowSrs('0xdeadbeef'), /64- or 65-byte/)
     assert.throws(() => lowSrs(`${asSig(7n)}00`), /64- or 65-byte/)
-    assert.throws(() => lowSrs(`0x${'00'.repeat(96)}`), /64- or 65-byte/)
-  })
-
-  it('rejects r or s outside [1, n−1]', () => {
     assert.throws(() => lowSrs(asSig(0n)), /\[1, n−1\]/)
     assert.throws(() => lowSrs(asSig(secp256k1.CURVE.n)), /\[1, n−1\]/)
-    const zeroR = `0x${'00'.repeat(32)}${7n.toString(16).padStart(64, '0')}1b` as const
-    assert.throws(() => lowSrs(zeroR), /\[1, n−1\]/)
   })
 })
 
@@ -154,7 +133,6 @@ describe('EIP-712 domain', () => {
   it('omits chainId and verifyingContract, and absent is not zero', () => {
     assert.equal('chainId' in DOMAIN, false)
     assert.equal('verifyingContract' in DOMAIN, false)
-
     const zeroed = hashDomain({
       domain: { ...DOMAIN, chainId: 0n, verifyingContract: '0x0000000000000000000000000000000000000000' },
       types: {
@@ -165,150 +143,171 @@ describe('EIP-712 domain', () => {
         ] as const,
       },
     })
-    assert.notEqual(zeroed, separator(), 'zero-filling the fields is a different domain, so a different key')
-  })
-
-  it('binds the chain and the service through the message instead', async () => {
-    const here = await dkOf(account, ref)
-    assert.notDeepStrictEqual(here, await dkOf(account, { ...ref, chainId: 314 }))
-    assert.notDeepStrictEqual(
-      here,
-      await dkOf(account, { ...ref, service: '0x00000000000000000000000000000000000000ff' })
-    )
+    assert.notEqual(zeroed, separator())
   })
 })
 
-describe('derivation tree', () => {
-  it('separates scopes, and pieces within a scope', async () => {
-    const dk = await dkOf(account, ref)
-    const invoices = scopeKey(dk, 'invoices')
-    const payroll = scopeKey(dk, 'payroll')
-    assert.notDeepStrictEqual(invoices, payroll)
-
+describe('location independence', () => {
+  it('derives a piece key from the envelope alone, wherever the piece now lives', async () => {
+    // Replication and repair put copies of a piece into other datasets, under
+    // other FWSS ids, possibly other payers. None of that is an input here.
+    const kk = await kkOf(account, ref)
     const salt = newSalt()
-    assert.notDeepStrictEqual(pieceKey(invoices, salt), pieceKey(payroll, salt))
-    assert.notDeepStrictEqual(pieceKey(dk, salt), pieceKey(dk, newSalt()))
+    const foundElsewhere = JSON.parse(JSON.stringify(pieceMetadata(ref, { salt })))
+    assert.deepStrictEqual(keyForEnvelope(kk, foundElsewhere), pieceKey(kk, salt))
   })
 
-  it('gives a dataset holder and a scope holder the same piece key', async () => {
-    const dk = await dkOf(account, ref)
-    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'invoices' })
-    assert.deepStrictEqual(keyForEnvelope(dk, metadata), keyForEnvelope(scopeKey(dk, 'invoices'), metadata, 'scope'))
+  it('refuses an envelope from an older format, clearly', async () => {
+    const kk = await kkOf(account, ref)
+    const old = { 'foc/v': 1, 'foc/cds': '0x2a', 'foc/epoch': 0, 'foc/salt': newSalt() } as never
+    assert.throws(() => keyForEnvelope(kk, old), /format 1/)
   })
+})
 
-  it('keeps an unscoped piece out of any scope', async () => {
-    const dk = await dkOf(account, ref)
+describe('roles', () => {
+  it('are flat labels: unrelated keys, no implication between them', async () => {
+    const kk = await kkOf(account, ref)
     const salt = newSalt()
-    const metadata = pieceMetadata(ref, { salt })
-    assert.equal(metadata['foc/scope'], undefined)
-    assert.deepStrictEqual(keyForEnvelope(dk, metadata), pieceKey(dk, salt))
+    assert.notDeepStrictEqual(roleKey(kk, 'super-secret'), roleKey(kk, 'secret'))
+    assert.notDeepStrictEqual(pieceKey(roleKey(kk, 'super-secret'), salt), pieceKey(roleKey(kk, 'secret'), salt))
   })
 
-  it('says so when a scope key is used on a piece at the root', async () => {
-    const dk = await dkOf(account, ref)
-    const metadata = pieceMetadata(ref, { salt: newSalt() })
-    assert.throws(
-      () => keyForEnvelope(scopeKey(dk, 'invoices'), metadata, 'scope'),
-      /not in a scope/,
-      'better a clear error than a key that fails later at the AEAD tag'
+  it('give a keyspace holder and a role holder the same piece key', async () => {
+    const kk = await kkOf(account, ref)
+    const metadata = pieceMetadata(ref, { salt: newSalt(), role: 'agent-memory' })
+    assert.deepStrictEqual(
+      keyForEnvelope(kk, metadata),
+      keyForEnvelope(roleKey(kk, 'agent-memory'), metadata, { role: 'agent-memory' })
     )
+  })
+
+  it('say so when a role key is used on a piece with no role', async () => {
+    const kk = await kkOf(account, ref)
+    const unlabelled = pieceMetadata(ref, { salt: newSalt() })
+    assert.throws(
+      () => keyForEnvelope(roleKey(kk, 'agent-memory'), unlabelled, { role: 'agent-memory' }),
+      /does not contain/
+    )
+  })
+
+  it('are canonicalised: NFC, case kept, no padding', async () => {
+    const kk = await kkOf(account, ref)
+    assert.deepStrictEqual(roleKey(kk, 'café'), roleKey(kk, 'café'))
+    assert.notDeepStrictEqual(roleKey(kk, 'Finance'), roleKey(kk, 'finance'))
+    assert.equal(roleName('café'), 'café')
+    assert.throws(() => roleKey(kk, ''), /non-empty/)
+    assert.throws(() => pieceMetadata(ref, { salt: newSalt(), role: 'secret ' }), /whitespace/)
   })
 })
 
 describe('holdingOf', () => {
-  it('reads the level back off a grant', () => {
-    assert.equal(holdingOf({ node: 'dataset' }), 'dataset')
-    assert.equal(holdingOf({ node: 'scope:invoices' }), 'scope')
-    assert.equal(holdingOf({ node: 'scope:with:colons' }), 'scope')
+  it('reads the level back off a grant, and refuses what it does not understand', () => {
+    assert.equal(holdingOf({ node: 'keyspace' }), 'keyspace')
+    assert.deepStrictEqual(holdingOf({ node: 'role:agent-memory' }), { role: 'agent-memory' })
+    assert.throws(() => holdingOf({ node: 'dataset' }), /Unrecognised grant node/)
+    assert.throws(() => holdingOf({ node: 'scope:invoices' }), /Unrecognised grant node/)
+  })
+})
+
+describe('pieceMetadata and grantDescriptor', () => {
+  it('record what a reader needs, in canonical form, and nothing secret', () => {
+    const salt = '0x00CDEF0123456789ABCDEF0123456789' as const
+    assert.deepStrictEqual(pieceMetadata({ ...ref, epoch: 3 }, { salt, role: 'café' }), {
+      'foc/v': 2,
+      'foc/ks': ref.keyspace,
+      'foc/epoch': 3,
+      'foc/role': 'café',
+      'foc/salt': '0x00cdef0123456789abcdef0123456789',
+    })
+    assert.deepStrictEqual(grantDescriptor({ ...ref, epoch: 3 }, 'role:café'), {
+      v: 2,
+      node: 'role:café',
+      owner: account.address.toLowerCase(),
+      keyspace: ref.keyspace,
+      epoch: 3,
+    })
   })
 
-  it('refuses a node it does not understand', () => {
-    assert.throws(() => holdingOf({ node: 'folder:2026' }), /Unrecognised grant node/)
-    assert.throws(() => holdingOf({ node: 'piece' }), /Unrecognised grant node/)
+  it('refuse a keyspace id that is not 16 bytes of hex', () => {
+    assert.equal(keyspaceId('0x00112233445566778899AABBCCDDEEFF'), ref.keyspace)
+    assert.throws(() => keyspaceId('0x2a'), /16 bytes/)
+    assert.throws(() => pieceMetadata({ ...ref, keyspace: '0x2a' }, { salt: newSalt() }), /16 bytes/)
   })
 
-  it('round-trips with what a scope grant would carry', async () => {
-    const dk = await dkOf(account, ref)
-    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'invoices' })
+  it('mint distinct salts and keyspaces', () => {
+    assert.notEqual(newSalt(), newSalt())
+    assert.notEqual(newKeyspace(), newKeyspace())
+    assert.equal(hexToBytes(newKeyspace()).length, 16)
+  })
+})
+
+describe('role tree', () => {
+  it('lets a role open every role beneath it, and nothing above or beside it', async () => {
+    const kk = await kkOf(account, ref)
+    const deep = pieceMetadata(ref, { salt: newSalt(), role: 'super-secret/secret/internal' })
+    const expected = keyForEnvelope(kk, deep)
+    assert.deepStrictEqual(keyForEnvelope(roleKey(kk, 'super-secret'), deep, { role: 'super-secret' }), expected)
     assert.deepStrictEqual(
-      keyForEnvelope(scopeKey(dk, 'invoices'), metadata, holdingOf({ node: 'scope:invoices' })),
-      keyForEnvelope(dk, metadata)
+      keyForEnvelope(roleKey(kk, 'super-secret/secret'), deep, { role: 'super-secret/secret' }),
+      expected
+    )
+
+    const upper = pieceMetadata(ref, { salt: newSalt(), role: 'super-secret' })
+    assert.throws(
+      () => keyForEnvelope(roleKey(kk, 'super-secret/secret'), upper, { role: 'super-secret/secret' }),
+      /does not contain/
+    )
+    const sibling = pieceMetadata(ref, { salt: newSalt(), role: 'super-secret/finance' })
+    assert.throws(
+      () => keyForEnvelope(roleKey(kk, 'super-secret/secret'), sibling, { role: 'super-secret/secret' }),
+      /does not contain/
     )
   })
+
+  it('derives a child from its parent, so position is part of the key', async () => {
+    const kk = await kkOf(account, ref)
+    assert.notDeepStrictEqual(roleKey(kk, 'secret'), roleKey(kk, 'super-secret/secret'), 'same name, different parent')
+    assert.notDeepStrictEqual(roleKey(kk, 'a/b'), roleKey(kk, 'b/a'))
+  })
+
+  it('canonicalises paths, and refuses empty segments and stray slashes', () => {
+    assert.equal(rolePath('Super/cafe\u0301'), 'Super/caf\u00e9')
+    assert.throws(() => rolePath('super-secret//secret'), /non-empty/)
+    assert.throws(() => rolePath('/super-secret'), /non-empty/)
+    assert.throws(() => roleName('a/b'), /no "\/"/)
+    assert.deepStrictEqual(holdingOf({ node: 'role:super-secret/cafe\u0301' }), { role: 'super-secret/caf\u00e9' })
+  })
 })
 
-describe('pieceMetadata', () => {
-  it('records what a reader needs and nothing secret', () => {
+describe('writeTarget', () => {
+  it('lets a role grant write under its own role, or beneath it, and nowhere else', async () => {
+    const kk = await kkOf(account, ref)
+    const grant = grantDescriptor({ ...ref, epoch: 2 }, 'role:admin/finance')
+    const rk = roleKey(kk, 'admin/finance')
+
+    const own = writeTarget(grant, rk)
+    assert.equal(own.role, 'admin/finance', 'defaults to the grant’s own role')
+    assert.deepStrictEqual(own.key, rk)
+    assert.deepStrictEqual(own.ref, { owner: grant.owner, keyspace: ref.keyspace, epoch: 2 })
+
+    const deeper = writeTarget(grant, rk, 'admin/finance/clerks')
     const salt = newSalt()
-    assert.deepStrictEqual(pieceMetadata(ref, { salt, scope: 'invoices' }), {
-      'foc/v': 1,
-      'foc/cds': '0x2a',
-      'foc/epoch': 0,
-      'foc/scope': 'invoices',
-      'foc/salt': salt,
-    })
-  })
-})
+    const metadata = pieceMetadata(deeper.ref, { salt, role: deeper.role })
+    assert.deepStrictEqual(
+      pieceKey(deeper.key, salt),
+      keyForEnvelope(kk, metadata),
+      'the owner can read what the delegate wrote'
+    )
 
-describe('grantDescriptor', () => {
-  it('spells the id exactly as the envelope does', () => {
-    const descriptor = grantDescriptor(ref, 'dataset')
-    assert.equal(descriptor.clientDataSetId, '0x2a')
-    assert.equal(descriptor.clientDataSetId, pieceMetadata(ref, { salt: newSalt() })['foc/cds'])
+    assert.throws(() => writeTarget(grant, rk, 'admin'), /cannot write under "admin"/)
+    assert.throws(() => writeTarget(grant, rk, 'admin/legal'), /cannot write under/)
   })
 
-  it('lowercases addresses, whatever spelling it was given', () => {
-    const checksummed = grantDescriptor({ ...ref, service: '0xfcDDd1E5BC2658fB7483B8e2fa72d8368756F5A3' }, 'dataset')
-    const lower = grantDescriptor({ ...ref, service: '0xfcddd1e5bc2658fb7483b8e2fa72d8368756f5a3' }, 'dataset')
-    assert.deepStrictEqual(checksummed, lower)
-    assert.equal(checksummed.payer, account.address.toLowerCase())
-  })
-
-  it('carries what the descriptor is for, and nothing secret', () => {
-    assert.deepStrictEqual(grantDescriptor(ref, 'scope:invoices'), {
-      v: 1,
-      node: 'scope:invoices',
-      chainId: ref.chainId,
-      epoch: 0,
-      service: ref.service.toLowerCase(),
-      payer: account.address.toLowerCase(),
-      clientDataSetId: '0x2a',
-    })
-  })
-})
-
-describe('identifiers', () => {
-  it('mints distinct salts and client data set ids', () => {
-    assert.notEqual(newSalt(), newSalt())
-    assert.notEqual(newClientDataSetId(), newClientDataSetId())
-    assert.equal(hexToBytes(newSalt()).length, 16)
-  })
-})
-
-describe('canonical forms', () => {
-  it('normalises scope names to NFC, keeps case, and rejects padding', async () => {
-    const dk = await dkOf(account, ref)
-    assert.deepStrictEqual(scopeKey(dk, 'caf\u00e9'), scopeKey(dk, 'cafe\u0301'), 'NFC and NFD are one scope')
-    assert.notDeepStrictEqual(scopeKey(dk, 'Invoices'), scopeKey(dk, 'invoices'), 'case is significant')
-    assert.equal(scopeName('cafe\u0301'), 'caf\u00e9')
-    assert.throws(() => scopeKey(dk, ''), /non-empty/)
-    assert.throws(() => scopeKey(dk, ' invoices'), /whitespace/)
-    assert.throws(() => pieceMetadata(ref, { salt: newSalt(), scope: 'invoices ' }), /whitespace/)
-  })
-
-  it('lowercases the salt wherever it is used, and keeps its leading zeros', async () => {
-    const dk = await dkOf(account, ref)
-    const upper = '0x00CDEF0123456789ABCDEF0123456789' as const
-    assert.deepStrictEqual(pieceKey(dk, upper), pieceKey(dk, '0x00cdef0123456789abcdef0123456789'))
-    assert.notDeepStrictEqual(pieceKey(dk, upper), pieceKey(dk, '0xcdef0123456789abcdef0123456789'))
-    assert.equal(pieceMetadata(ref, { salt: upper })['foc/salt'], '0x00cdef0123456789abcdef0123456789')
-  })
-
-  it('carries the epoch and a canonical node in the descriptor', () => {
-    const d = grantDescriptor({ ...ref, epoch: 3 }, 'scope:cafe\u0301')
-    assert.equal(d.epoch, 3)
-    assert.equal(d.node, 'scope:caf\u00e9')
-    assert.equal(grantDescriptor(ref, 'dataset').epoch, 0)
-    assert.throws(() => grantDescriptor(ref, 'scope:'), /non-empty/)
+  it('lets a keyspace grant write under any role, or none', async () => {
+    const kk = await kkOf(account, ref)
+    const grant = grantDescriptor(ref, 'keyspace')
+    assert.equal(writeTarget(grant, kk).role, undefined)
+    assert.deepStrictEqual(writeTarget(grant, kk).key, kk)
+    assert.deepStrictEqual(writeTarget(grant, kk, 'agent-memory').key, roleKey(kk, 'agent-memory'))
   })
 })

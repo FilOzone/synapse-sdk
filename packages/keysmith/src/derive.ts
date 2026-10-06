@@ -1,11 +1,11 @@
 /**
- * Derivation: one wallet signature per dataset, then HKDF all the way down.
+ * Derivation: one wallet signature per keyspace, then HKDF all the way down.
  *
  * ```text
- * sig = signTypedData(DatasetKey{chainId, service, payer, clientDataSetId, epoch})
- * DK  = HKDF(r‖s, "foc/acl/dataset/v1")      one dataset
- * SK  = HKDF(DK,  "foc/acl/scope/v1"‖name)   one section of it
- * PK  = HKDF(node,"foc/acl/piece/v1"‖salt)   one piece
+ * sig = signTypedData(KeyspaceKey{owner, keyspace, epoch})
+ * KK  = HKDF(r‖s, "foc/acl/keyspace/v1")      the whole keyspace
+ * RK  = HKDF(KK,  "foc/acl/role/v1"‖role)     one access role within it
+ * PK  = HKDF(node,"foc/acl/piece/v1"‖salt)    one piece
  * ```
  *
  * @module
@@ -15,15 +15,16 @@ import { sha256 } from '@noble/hashes/sha2'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes } from 'viem'
 import type {
-  DatasetKeyMessage,
-  DatasetKeys,
-  DatasetKeysOptions,
-  DatasetRef,
   GrantDescriptor,
   GrantNode,
   Holding,
+  KeyspaceKeyMessage,
+  KeyspaceKeys,
+  KeyspaceKeysOptions,
+  KeyspaceRef,
   PieceMetadata,
   TypedDataSigner,
+  WriteTarget,
 } from './types.ts'
 
 const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
@@ -33,9 +34,9 @@ const HALF_N = N / 2n
 /**
  * Note: Deliberately carries neither `chainId` nor `verifyingContract`:
  * a redeployed contract, or a wallet pointed at another network, must
- * not orphan a dataset's key. The binding those fields would give is not
- * lost — `chainId` and `service` are fields of the message below, where
- * they are signed just the same.
+ * not orphan a keyspace's key. Nothing about chains or contracts is signed
+ * at all: the keyspace is a 128-bit random identifier, unique without them,
+ * and a piece must open wherever its copies end up.
  *
  * **Never add a field here, and never zero-fill one.** The separator is
  * hashed over the fields that are present, so `{name, version}` and
@@ -45,27 +46,27 @@ const HALF_N = N / 2n
  */
 export const DOMAIN = { name: 'FOC Encryption', version: '1' } as const
 
-export const DATASET_KEY_TYPES = {
-  DatasetKey: [
+export const KEYSPACE_KEY_TYPES = {
+  KeyspaceKey: [
     { name: 'purpose', type: 'string' },
-    { name: 'chainId', type: 'uint256' },
-    { name: 'service', type: 'address' },
-    { name: 'payer', type: 'address' },
-    { name: 'clientDataSetId', type: 'uint256' },
+    { name: 'owner', type: 'address' },
+    { name: 'keyspace', type: 'bytes16' },
     { name: 'epoch', type: 'uint32' },
   ],
 } as const
 
-const PURPOSE = 'foc/enc/v1 dataset key'
+const PURPOSE = 'foc/enc/v1 keyspace key'
 const INFO = {
-  dataset: 'foc/acl/dataset/v1',
-  scope: 'foc/acl/scope/v1',
+  keyspace: 'foc/acl/keyspace/v1',
+  role: 'foc/acl/role/v1',
   piece: 'foc/acl/piece/v1',
   commitment: 'foc/kc/v1',
 } as const
 
 /** The FWSS data-set metadata key the commitment is written to. */
 export const COMMITMENT_KEY = 'foc/kc'
+/** The FWSS data-set metadata key naming the keyspace, so the chain alone can list them. */
+export const KEYSPACE_ID_KEY = 'foc/ks'
 
 const derive = (ikm: Uint8Array, info: string, length = 32): Uint8Array => hkdf(sha256, ikm, undefined, info, length)
 
@@ -78,16 +79,31 @@ function randomHex(length: number): Hex {
 /** A fresh per-piece salt. Public: it only has to travel with the piece. */
 export const newSalt = (): Hex => randomHex(16)
 
-/** A fresh `clientDataSetId`. FWSS rejects one this payer has used before. */
-export const newClientDataSetId = (): bigint => BigInt(randomHex(8))
+/**
+ * A fresh keyspace identifier: 16 random bytes. Public, and unique without
+ * reference to any chain, contract or dataset.
+ */
+export const newKeyspace = (): Hex => randomHex(16)
 
-export function datasetKeyMessage(ref: DatasetRef): DatasetKeyMessage {
+/**
+ * A keyspace id in the one form it is signed and compared in: exactly 16
+ * bytes, lowercase hex. Leading zeros are part of the value.
+ *
+ * @throws If it is not 16 bytes of hex.
+ */
+export function keyspaceId(keyspace: string): Hex {
+  const lower = keyspace.toLowerCase()
+  if (!/^0x[0-9a-f]{32}$/.test(lower)) {
+    throw new Error(`A keyspace id is 16 bytes of hex, got ${JSON.stringify(keyspace)}`)
+  }
+  return lower as Hex
+}
+
+export function keyspaceKeyMessage(ref: KeyspaceRef): KeyspaceKeyMessage {
   return {
     purpose: PURPOSE,
-    chainId: BigInt(ref.chainId),
-    service: ref.service,
-    payer: ref.payer,
-    clientDataSetId: ref.clientDataSetId,
+    owner: ref.owner,
+    keyspace: keyspaceId(ref.keyspace),
     epoch: ref.epoch ?? 0,
   }
 }
@@ -96,46 +112,53 @@ export function datasetKeyMessage(ref: DatasetRef): DatasetKeyMessage {
 const verifiedSigners = new WeakSet<object>()
 
 /**
- * Sign for one dataset and derive its key.
+ * Sign for one keyspace and derive its key.
  *
  * The signature is the root secret, and it never leaves this function: the
- * caller gets the dataset key and the public commitment, and has nothing else
- * to guard.
+ * caller gets the keyspace key and the public commitment, and has nothing
+ * else to guard.
  *
  * On a signer's first use this signs twice and compares, which catches a
  * randomising signer before any data depends on it, at the cost of a second
- * wallet prompt. Later calls sign once. See {@link DatasetKeysOptions}.
+ * wallet prompt. Later calls sign once. See {@link KeyspaceKeysOptions}.
  *
  * @throws If the signer is not deterministic, or does not produce an ECDSA signature.
  */
-export async function datasetKeys(
+export async function keyspaceKeys(
   signer: TypedDataSigner,
-  ref: DatasetRef,
-  options: DatasetKeysOptions = {}
-): Promise<DatasetKeys> {
+  ref: KeyspaceRef,
+  options: KeyspaceKeysOptions = {}
+): Promise<KeyspaceKeys> {
   const args = {
     domain: DOMAIN,
-    types: DATASET_KEY_TYPES,
-    primaryType: 'DatasetKey' as const,
-    message: datasetKeyMessage(ref),
+    types: KEYSPACE_KEY_TYPES,
+    primaryType: 'KeyspaceKey' as const,
+    message: keyspaceKeyMessage(ref),
   }
   const first = await signer.signTypedData(args)
   if (options.verifySigner ?? !verifiedSigners.has(signer)) {
     const second = await signer.signTypedData(args)
     if (first !== second) {
       throw new Error(
-        'Signer is not deterministic (RFC 6979 expected), so it cannot root a dataset key. ' +
+        'Signer is not deterministic (RFC 6979 expected), so it cannot root a keyspace. ' +
           'Signing the same message twice produced different signatures.'
       )
     }
     verifiedSigners.add(signer)
   }
-  const secret = lowSrs(first)
-  return {
-    dk: derive(secret, INFO.dataset),
-    commitment: `v1.${bytesToHex(derive(secret, INFO.commitment, 16)).slice(2)}`,
-  }
+  const kk = derive(lowSrs(first), INFO.keyspace)
+  return { kk, commitment: commitment(kk) }
 }
+
+/**
+ * A non-secret commitment to the keyspace key, for FWSS data-set metadata.
+ *
+ * Derived from the keyspace key rather than the signature, so anything that
+ * holds the keyspace key — an agent replicating data into a new dataset, say —
+ * can write it into that dataset's metadata too. It reveals nothing: it is a
+ * one-way function of a key that is itself never published.
+ */
+export const commitment = (kk: Uint8Array): string => `v2.${bytesToHex(derive(kk, INFO.commitment, 16)).slice(2)}`
 
 /**
  * `r‖s` with `s` normalised to the low half, and `v` dropped.
@@ -155,7 +178,7 @@ export function lowSrs(signature: Hex): Uint8Array {
   if (raw.length !== 64 && raw.length !== 65) {
     throw new Error(
       `Expected a 64- or 65-byte ECDSA signature, got ${raw.length} bytes. ` +
-        'Contract accounts and smart wallets return other encodings and cannot root a dataset key.'
+        'Contract accounts and smart wallets return other encodings and cannot root a keyspace.'
     )
   }
   const r = BigInt(bytesToHex(raw.subarray(0, 32)))
@@ -171,35 +194,45 @@ export function lowSrs(signature: Hex): Uint8Array {
 }
 
 /**
- * The key for one section of a dataset. Opens every piece written into that
- * scope, and nothing outside it. The name is an HKDF input, never a secret.
+ * The key for an access role. Roles form a tree, and a role's key is derived
+ * from its parent's, so holding a role also opens every role beneath it — and
+ * nothing above it or beside it. A role is named by its path from the top,
+ * `super-secret/secret`; a top-level role is just `agent-memory`.
+ *
+ * Each role has exactly one parent. A role's position is part of its key, so
+ * moving or renaming a role re-keys everything beneath it.
  */
-export const scopeKey = (dk: Uint8Array, scope: string): Uint8Array => derive(dk, `${INFO.scope}${scopeName(scope)}`)
+export const roleKey = (kk: Uint8Array, role: string): Uint8Array => walk(kk, rolePath(role).split('/'))
+
+const walk = (key: Uint8Array, names: string[]): Uint8Array =>
+  names.reduce((parent, name) => derive(parent, `${INFO.role}${name}`), key)
 
 /**
- * A scope name in the one form it is derived from: Unicode NFC, non-empty,
- * with no leading or trailing whitespace. Case is significant — `Invoices`
- * and `invoices` are different scopes — so it is left alone rather than folded.
+ * One role name in the form it is derived from: Unicode NFC, non-empty, no
+ * leading or trailing whitespace, and no `/`. Case is significant.
  *
- * @throws If the name is empty or padded with whitespace.
+ * @throws If the name is empty, padded with whitespace, or contains `/`.
  */
-export function scopeName(name: string): string {
+export function roleName(name: string): string {
   const normalised = name.normalize('NFC')
-  if (normalised.length === 0 || normalised.trim() !== normalised) {
+  if (normalised.length === 0 || normalised.trim() !== normalised || normalised.includes('/')) {
     throw new Error(
-      `A scope name must be non-empty with no leading or trailing whitespace, got ${JSON.stringify(name)}`
+      `A role name must be non-empty, with no leading or trailing whitespace and no "/", got ${JSON.stringify(name)}`
     )
   }
   return normalised
 }
 
-/** A grant node in canonical form: `dataset`, or `scope:` plus a canonical scope name. */
+/** A role path in canonical form: canonical names joined by `/`, top role first. */
+export const rolePath = (path: string): string => path.split('/').map(roleName).join('/')
+
+/** A grant node in canonical form: `keyspace`, or `role:` plus a canonical role path. */
 export function canonicalNode(node: string): string {
-  if (node === 'dataset') {
-    return 'dataset'
+  if (node === 'keyspace') {
+    return 'keyspace'
   }
-  if (node.startsWith('scope:')) {
-    return `scope:${scopeName(node.slice('scope:'.length))}`
+  if (node.startsWith('role:')) {
+    return `role:${rolePath(node.slice('role:'.length))}`
   }
   throw new Error(`Unrecognised grant node: ${node}`)
 }
@@ -211,19 +244,17 @@ export const pieceKey = (node: Uint8Array, salt: Hex): Uint8Array => derive(node
 const lowerHex = (value: Hex): Hex => value.toLowerCase() as Hex
 
 /**
- * Deterministic serialization for IDs.
- * Essential because on-chain/off-chain values are used in signatures and
- * must not drift or vary in rendering.
+ * What to record in a piece's envelope so that a reader can derive its key.
+ *
+ * Everything a reader needs travels with the piece, so a copy opens wherever
+ * replication or repair puts it.
  */
-const clientDataSetIdHex = (id: bigint): Hex => `0x${id.toString(16)}`
-
-/** What to record in a piece's envelope so that a reader can derive its key. */
-export function pieceMetadata(ref: DatasetRef, options: { salt: Hex; scope?: string }): PieceMetadata {
+export function pieceMetadata(ref: KeyspaceRef, options: { salt: Hex; role?: string }): PieceMetadata {
   return {
-    'foc/v': 1,
-    'foc/cds': clientDataSetIdHex(ref.clientDataSetId),
+    'foc/v': 2,
+    'foc/ks': keyspaceId(ref.keyspace),
     'foc/epoch': ref.epoch ?? 0,
-    ...(options.scope == null ? {} : { 'foc/scope': scopeName(options.scope) }),
+    ...(options.role == null ? {} : { 'foc/role': rolePath(options.role) }),
     'foc/salt': lowerHex(options.salt),
   }
 }
@@ -233,53 +264,85 @@ export function pieceMetadata(ref: DatasetRef, options: { salt: Hex; scope?: str
  *
  * Build descriptors with `grantDescriptor()` rather than filling the
  * structure by hand: the descriptor is authenticated as the grant's AAD and
- * compared byte for byte, so addresses are lowercased and the id is spelled
- * exactly as the envelope spells it.
+ * compared byte for byte, so the owner is lowercased and the keyspace is
+ * spelled exactly as the envelope spells it.
  */
-export function grantDescriptor(ref: DatasetRef, node: GrantNode): GrantDescriptor {
+export function grantDescriptor(ref: KeyspaceRef, node: GrantNode): GrantDescriptor {
   return {
-    v: 1,
+    v: 2,
     node: canonicalNode(node) as GrantNode,
-    chainId: ref.chainId,
+    owner: ref.owner.toLowerCase() as Address,
+    keyspace: keyspaceId(ref.keyspace),
     epoch: ref.epoch ?? 0,
-    service: ref.service.toLowerCase() as Address,
-    payer: ref.payer.toLowerCase() as Address,
-    clientDataSetId: clientDataSetIdHex(ref.clientDataSetId),
   }
 }
 
 /**
  * Derive a piece's key from whichever node the caller holds.
  *
- * A dataset-key holder walks down through the scope named in the metadata; a
- * scope-key holder is already there. Neither needs records of its own.
+ * A keyspace-key holder walks the piece's whole role path. A role holder walks
+ * the rest of the path below its own role — which works only if its role is the
+ * piece's role or an ancestor of it.
+ *
+ * @throws If the piece predates this format, or the held role does not contain the piece's role.
  */
-export function keyForEnvelope(node: Uint8Array, metadata: PieceMetadata, holding: Holding = 'dataset'): Uint8Array {
-  const scope = metadata['foc/scope']
-  if (holding === 'scope' && scope == null) {
+export function keyForEnvelope(node: Uint8Array, metadata: PieceMetadata, holding: Holding = 'keyspace'): Uint8Array {
+  if (metadata['foc/v'] !== 2) {
     throw new Error(
-      'This piece is not in a scope, so no scope key opens it. Pieces written at the ' +
-        'root of a dataset need the dataset key.'
+      `This piece was written with envelope format ${String(metadata['foc/v'])}; this version reads format 2.`
     )
   }
-  const at = holding === 'dataset' && scope != null ? scopeKey(node, scope) : node
-  return pieceKey(at, metadata['foc/salt'])
+  const role = metadata['foc/role']
+  const target = role == null ? [] : rolePath(role).split('/')
+  const held = holding === 'keyspace' ? [] : rolePath(holding.role).split('/')
+  if (held.length > target.length || held.some((name, i) => name !== target[i])) {
+    throw new Error(
+      `Role "${held.join('/')}" does not contain this piece's role "${role ?? '(none)'}"; ` +
+        'a role opens itself and the roles beneath it.'
+    )
+  }
+  return pieceKey(walk(node, target.slice(held.length)), metadata['foc/salt'])
 }
 
 /**
- * Which level a grant carries, ready to pass to {@link keyForEnvelope}.
+ * Which node a grant carries, ready to pass to {@link keyForEnvelope}.
  *
- * `DK` and `SK` are both 32 bytes of HKDF output, so nothing distinguishes them
- * once unwrapped — but the grant that delivered the key says which it is.
+ * Keyspace and role keys are all 32 bytes of HKDF output, so nothing
+ * distinguishes them once unwrapped — but the grant that delivered the key says.
  *
  * @throws If the grant names a node this version does not understand.
  */
 export function holdingOf(grant: Pick<GrantDescriptor, 'node'>): Holding {
-  if (grant.node === 'dataset') {
-    return 'dataset'
+  const node = canonicalNode(grant.node)
+  return node === 'keyspace' ? 'keyspace' : { role: node.slice('role:'.length) }
+}
+
+/**
+ * Everything a delegate needs to write a piece, taken from the grant that
+ * delegated it: the keyspace and epoch to record, the role to label it with,
+ * and the key to derive its piece key from.
+ *
+ * The grant decides what is allowed. A keyspace grant may write under any role
+ * or none; a role grant only under its own role or a role beneath it, and
+ * defaults to its own role. Anything else is refused here, before a piece is
+ * encrypted under a key its intended readers could never derive.
+ *
+ * @throws If the role lies outside the grant's subtree, or the key is not 32 bytes.
+ */
+export function writeTarget(grant: GrantDescriptor, nodeKey: Uint8Array, role?: string): WriteTarget {
+  if (nodeKey.length !== 32) {
+    throw new Error(`Expected a 32-byte node key, got ${nodeKey.length} bytes`)
   }
-  if (grant.node.startsWith('scope:')) {
-    return 'scope'
+  const holding = holdingOf(grant)
+  const held = holding === 'keyspace' ? [] : holding.role.split('/')
+  const path = role == null ? held : rolePath(role).split('/')
+  if (held.length > path.length || held.some((name, i) => name !== path[i])) {
+    const covers = held.length === 0 ? 'the whole keyspace' : `role "${held.join('/')}" and the roles beneath it`
+    throw new Error(`This grant covers ${covers}; it cannot write under "${role}".`)
   }
-  throw new Error(`Unrecognised grant node: ${grant.node}`)
+  return {
+    ref: { owner: grant.owner, keyspace: keyspaceId(grant.keyspace), epoch: Number(grant.epoch) },
+    ...(path.length === 0 ? {} : { role: path.join('/') }),
+    key: walk(nodeKey, path.slice(held.length)),
+  }
 }

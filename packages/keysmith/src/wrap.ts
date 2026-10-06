@@ -18,7 +18,7 @@ import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha2'
 import type { Hex } from 'viem'
 import { bytesToHex, hexToBytes } from 'viem'
-import { canonicalNode } from './derive.ts'
+import { canonicalNode, keyspaceId } from './derive.ts'
 import type { Grant, GrantDescriptor } from './types.ts'
 
 const ECDH_INFO = 'foc/acl/ecdh/v1'
@@ -47,10 +47,10 @@ export const publicKeyOf = (privateKey: Hex): Hex =>
   bytesToHex(secp256k1.getPublicKey(ecdhSecretKey(privateKey), false))
 
 /**
- * Wrap a node key — a dataset key, or a scope key — to a recipient.
+ * Wrap a node key — a keyspace key, or a role key — to a recipient.
  *
  * The descriptor is authenticated, so a grant cannot be relabelled as one
- * naming a different dataset or scope. The result is inert without the
+ * naming a different keyspace or role. The result is inert without the
  * recipient's private key, so it can be delivered or stored anywhere.
  */
 export async function wrapTo(recipientPublicKey: Hex, key: Uint8Array, descriptor: GrantDescriptor): Promise<Grant> {
@@ -87,7 +87,7 @@ export async function wrapTo(recipientPublicKey: Hex, key: Uint8Array, descripto
  */
 export async function unwrapWith(privateKey: Hex, grant: Grant): Promise<Uint8Array> {
   const { alg, epk, iv, ct, ...descriptor } = grant
-  if (descriptor.v !== 1) {
+  if (descriptor.v !== 2) {
     throw new Error(`Unsupported grant version: ${String(descriptor.v)}`)
   }
   if (alg !== ALG) {
@@ -127,20 +127,12 @@ function wrapKek(shared: Uint8Array, epk: Uint8Array, pkR: Uint8Array): Uint8Arr
 /**
  * The authenticated fields, in a fixed order, as a JSON array of primitives.
  *
- * Addresses and the id are lowercased so that a spelling difference cannot
- * split a grant. Exactly these six fields are covered; anything else carried
+ * Each field is re-canonicalised so that a spelling difference cannot split a
+ * grant. Exactly these five fields are covered; anything else carried
  * alongside a grant is informational and unauthenticated.
  */
 function aad(d: GrantDescriptor): ArrayBuffer {
-  const fields = [
-    d.v,
-    canonicalNode(d.node),
-    integer(d.chainId, 'chainId'),
-    integer(d.epoch, 'epoch'),
-    d.service.toLowerCase(),
-    d.payer.toLowerCase(),
-    `0x${BigInt(d.clientDataSetId).toString(16)}`,
-  ]
+  const fields = [d.v, canonicalNode(d.node), d.owner.toLowerCase(), keyspaceId(d.keyspace), integer(d.epoch, 'epoch')]
   return buffer(new TextEncoder().encode(JSON.stringify(fields)))
 }
 
