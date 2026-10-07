@@ -1563,6 +1563,59 @@ InvalidSignature(address expected, address actual)
         assert.include(error.message, 'Failed to upload piece')
       }
     })
+
+    it('should abort before creating the upload session', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+      const testData = createTestData(SIZE_CONSTANTS.MIN_UPLOAD_SIZE)
+      let postCalled = false
+
+      server.use(
+        http.post('https://pdp.example.com/pdp/piece', () => {
+          postCalled = true
+          return HttpResponse.text('Should not be called', { status: 500 })
+        })
+      )
+
+      try {
+        await uploadPiece({
+          serviceURL: 'https://pdp.example.com',
+          data: testData,
+          pieceCid,
+          signal: AbortSignal.abort(),
+        })
+        assert.fail('Should have thrown error for aborted signal')
+      } catch (error) {
+        assert.instanceOf(error, AbortError)
+        assert.isFalse(postCalled)
+      }
+    })
+
+    it('should abort an in-flight PUT upload', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+      const testData = createTestData(SIZE_CONSTANTS.MIN_UPLOAD_SIZE)
+      const controller = new AbortController()
+
+      server.use(
+        postPieceHandler(mockPieceCidStr, mockUuid),
+        http.put(`https://pdp.example.com/pdp/piece/upload/${mockUuid}`, async () => {
+          controller.abort()
+          await delay('infinite')
+          return new HttpResponse(null, { status: 204 })
+        })
+      )
+
+      try {
+        await uploadPiece({
+          serviceURL: 'https://pdp.example.com',
+          data: testData,
+          pieceCid,
+          signal: controller.signal,
+        })
+        assert.fail('Should have thrown error for aborted upload')
+      } catch (error) {
+        assert.instanceOf(error, AbortError)
+      }
+    })
   })
 
   describe('uploadPieceStreaming', () => {
