@@ -79,4 +79,4 @@
  * @see {@link FilBeamService} for the main service class
  */
 
-export { type DataSetStats, FilBeamService } from './service.ts'
+export { type DataSetStats, FilBeamService, type GetDataSetStatsOptions } from './service.ts'
