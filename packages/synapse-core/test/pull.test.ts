@@ -212,6 +212,17 @@ describe('Pull', () => {
       assert.ok(statusUpdates.includes('complete'), 'Should include complete status')
     })
 
+    it('should time out when the pull does not finish within timeout', async () => {
+      server.use(
+        Mocks.pdp.pullPiecesHandler(Mocks.pdp.createPullResponse('inProgress', [{ pieceCid: TEST_PIECE_CID }]))
+      )
+
+      await assert.rejects(
+        waitForPullPiecesApiRequest({ ...baseOptions(), pollInterval: 10, timeout: 100 }),
+        (error: Error) => error.name === 'TimeoutError'
+      )
+    })
+
     it('should handle server errors during polling', async () => {
       server.use(Mocks.pdp.pullPiecesErrorHandler('Internal server error', 500))
 

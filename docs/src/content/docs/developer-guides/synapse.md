@@ -147,7 +147,7 @@ Upload size limits:
 - **Maximum**: ~63.5 GiB (68,182,605,824 bytes, 64 GiB padded)
 
 :::note
-These limits are defined in the SDK constants (`SIZE_CONSTANTS.MIN_UPLOAD_SIZE` and `SIZE_CONSTANTS.MAX_UPLOAD_SIZE`). The maximum accounts for fr32 padding, so a 64 GiB raw payload exceeds the limit. Use streaming input (`ReadableStream` or `AsyncIterable`) for large uploads.
+These limits are defined in the SDK constants (`SIZE_CONSTANTS.MIN_UPLOAD_SIZE` and `SIZE_CONSTANTS.MAX_UPLOAD_SIZE`). The maximum accounts for fr32 padding, so a 64 GiB raw payload exceeds the limit. Use a `ReadableStream` for large uploads.
 :::
 
 ### PieceCID

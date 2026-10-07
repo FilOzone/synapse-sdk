@@ -78,7 +78,7 @@ export const SIZE_CONSTANTS = {
    * exceeds this limit once padded.
    *
    * Note: While it's technically possible to upload large pieces as Uint8Array,
-   * streaming via AsyncIterable or ReadableStream is strongly recommended for non-trivial sizes.
+   * streaming via ReadableStream is strongly recommended for non-trivial sizes.
    */
   MAX_UPLOAD_SIZE: 68_182_605_824, // 64 GiB * 127/128
 
@@ -135,6 +135,12 @@ export const RETRY_CONSTANTS = {
   RETRY_DELAY: 250,
   /** The timeout in milliseconds. 5 minutes is the default timeout. */
   TIMEOUT: 1000 * 60 * 5,
+  /**
+   * Total timeout in milliseconds for waiting on an SP-to-SP pull to finish.
+   * 2 hours matches Curio's per-attempt pull download timeout; large pieces
+   * (up to {@link SIZE_CONSTANTS.MAX_UPLOAD_SIZE}) can take well over {@link RETRY_CONSTANTS.TIMEOUT} to transfer.
+   */
+  PULL_TIMEOUT: 1000 * 60 * 60 * 2,
 } as const
 
 /**
