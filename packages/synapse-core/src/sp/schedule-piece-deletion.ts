@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, request } from 'iso-web/http'
+import { AbortError, HttpError, type RequestErrors, request } from 'iso-web/http'
 import type { Account, Chain, Client, Hex, Transport } from 'viem'
 import { DeletePieceError } from '../errors/pdp.ts'
 import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
@@ -13,6 +13,8 @@ export namespace deletePieces {
     dataSetId: bigint
     pieceIds: bigint[]
     extraData: Hex
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -46,6 +48,7 @@ export async function deletePieces(options: deletePieces.OptionsType): Promise<d
   const response = await request.delete(new URL(`pdp/data-sets/${dataSetId}/pieces/${pieceIds[0]}`, serviceURL), {
     body,
     headers: { 'content-type': 'application/json' },
+    signal: options.signal,
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
       retries: options.retryCount,
@@ -96,6 +99,8 @@ export namespace schedulePieceDeletions {
     clientDataSetId: bigint
     /** The service URL of the PDP API. */
     serviceURL: string
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -143,6 +148,9 @@ export async function schedulePieceDeletions(
   client: Client<Transport, Chain, Account>,
   options: schedulePieceDeletions.OptionsType
 ): Promise<schedulePieceDeletions.OutputType> {
+  if (options.signal?.aborted) {
+    throw new AbortError(options.signal)
+  }
   const pieceIds = normalizeDeletePieceIds(options.pieceIds)
 
   return deletePieces({
@@ -155,6 +163,7 @@ export async function schedulePieceDeletions(
     }),
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
+    signal: options.signal,
   })
 }
 

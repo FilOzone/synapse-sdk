@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { AbortError, HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import {
   type Account,
   type Address,
@@ -30,6 +30,8 @@ export namespace createDataSetApiRequest {
     recordKeeper: Address
     /** The extra data for the create data set. */
     extraData: Hex
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -67,6 +69,7 @@ export async function createDataSetApiRequest(
       recordKeeper: options.recordKeeper,
       extraData: options.extraData,
     },
+    signal: options.signal,
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
       retries: options.retryCount,
@@ -113,6 +116,8 @@ export namespace createDataSet {
     clientDataSetId?: bigint
     /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
     recordKeeper?: Address
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -135,6 +140,9 @@ export namespace createDataSet {
  * @throws Errors {@link createDataSet.ErrorType}
  */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: createDataSet.OptionsType) {
+  if (options.signal?.aborted) {
+    throw new AbortError(options.signal)
+  }
   const chain = asChain(client.chain)
 
   // Sign and encode the create data set message
@@ -153,6 +161,7 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
     extraData,
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
+    signal: options.signal,
   })
 }
 
@@ -208,6 +217,8 @@ export namespace waitForCreateDataSet {
     statusUrl: string
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -246,6 +257,7 @@ export async function waitForCreateDataSet(
       },
     },
 
+    signal: options.signal,
     timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
     schema,
   })

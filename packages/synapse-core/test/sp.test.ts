@@ -30,7 +30,11 @@ import {
 } from '../src/mocks/pdp.ts'
 import * as Piece from '../src/piece/index.ts'
 import {
+  AbortError,
+  addPieces,
   addPiecesApiRequest,
+  createDataSet,
+  createDataSetAndAddPieces,
   createDataSetAndAddPiecesApiRequest,
   createDataSetApiRequest,
   deletePiece,
@@ -41,9 +45,13 @@ import {
   ping,
   schedulePieceDeletions,
   TimeoutError,
+  terminateService,
+  terminateServiceApiRequest,
   uploadPiece,
   waitForAddPieces,
   waitForCreateDataSet,
+  waitForCreateDataSetAddPieces,
+  waitForTerminateService,
 } from '../src/sp/index.ts'
 import { uploadPieceStreaming } from '../src/sp/upload-streaming.ts'
 import * as TypedData from '../src/typed-data/index.ts'
@@ -925,6 +933,301 @@ InvalidSignature(address expected, address actual)
       } catch (error) {
         assert.instanceOf(error, TimeoutError)
         assert.include(error.message, 'Request timed out after 50ms')
+      }
+    })
+  })
+
+  describe('abort signal', () => {
+    const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+    const pendingAddPieces = {
+      txHash: mockTxHash,
+      txStatus: 'pending',
+      dataSetId: 1,
+      pieceCount: 1,
+      addMessageOk: null,
+      piecesAdded: false,
+    }
+
+    async function assertAborts(fn: (signal: AbortSignal) => Promise<unknown>) {
+      const controller = new AbortController()
+      setTimeout(() => controller.abort(), 20)
+      const start = Date.now()
+      try {
+        await fn(controller.signal)
+        assert.fail('Expected the call to be aborted')
+      } catch (error) {
+        assert.instanceOf(error, AbortError)
+      }
+      assert.isBelow(Date.now() - start, 1000)
+    }
+
+    it('aborts ping', async () => {
+      server.use(
+        http.get('http://pdp.local/pdp/ping', async () => {
+          await delay('infinite')
+          return new HttpResponse(null, { status: 200 })
+        })
+      )
+      await assertAborts((signal) => ping('http://pdp.local', { signal }))
+    })
+
+    it('aborts the api requests', async () => {
+      const hang = async () => {
+        await delay('infinite')
+        return new HttpResponse(null, { status: 200 })
+      }
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', hang),
+        http.post('http://pdp.local/pdp/data-sets/create-and-add', hang),
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', hang),
+        http.delete('http://pdp.local/pdp/data-sets/:id/pieces/:pieceId', hang),
+        http.post('http://pdp.local/pdp/data-sets/:id/terminate', hang)
+      )
+      await assertAborts((signal) =>
+        createDataSetApiRequest({
+          serviceURL: 'http://pdp.local',
+          recordKeeper: ADDRESSES.calibration.warmStorage,
+          extraData: '0x',
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        createDataSetAndAddPiecesApiRequest({
+          serviceURL: 'http://pdp.local',
+          recordKeeper: ADDRESSES.calibration.warmStorage,
+          extraData: '0x',
+          pieces: [pieceCid],
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        addPiecesApiRequest({
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          pieces: [pieceCid],
+          extraData: '0x',
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        deletePieces({ serviceURL: 'http://pdp.local', dataSetId: 1n, pieceIds: [1n], extraData: '0x', signal })
+      )
+      await assertAborts((signal) =>
+        terminateServiceApiRequest({ serviceURL: 'http://pdp.local', dataSetId: 1n, extraData: '0x', signal })
+      )
+    })
+
+    it('aborts the signing wrappers', async () => {
+      // assertAddPiecesFit rejects pieces below the minimum upload size
+      const sizedPieceCid = await Piece.calculate(new Uint8Array(127))
+      const hang = async () => {
+        await delay('infinite')
+        return new HttpResponse(null, { status: 200 })
+      }
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', hang),
+        http.post('http://pdp.local/pdp/data-sets/create-and-add', hang),
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', hang),
+        http.delete('http://pdp.local/pdp/data-sets/:id/pieces/:pieceId', hang),
+        http.post('http://pdp.local/pdp/data-sets/:id/terminate', hang)
+      )
+      await assertAborts((signal) =>
+        createDataSet(client, { serviceURL: 'http://pdp.local', cdn: false, payee: ADDRESSES.client1, signal })
+      )
+      await assertAborts((signal) =>
+        createDataSetAndAddPieces(client, {
+          serviceURL: 'http://pdp.local',
+          payee: ADDRESSES.client1,
+          pieces: [{ pieceCid: sizedPieceCid }],
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        addPieces(client, {
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          clientDataSetId: 1n,
+          pieces: [{ pieceCid: sizedPieceCid }],
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        schedulePieceDeletions(client, {
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          clientDataSetId: 1n,
+          pieceIds: [1n],
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        terminateService(client, { serviceURL: 'http://pdp.local', dataSetId: 1n, signal })
+      )
+    })
+
+    it('does not sign when the signal is already aborted', async () => {
+      // assertAddPiecesFit rejects pieces below the minimum upload size
+      const sizedPieceCid = await Piece.calculate(new Uint8Array(127))
+      let signatures = 0
+      const spyClient = createWalletClient({
+        account: {
+          ...account,
+          signTypedData: (parameters) => {
+            signatures++
+            return account.signTypedData(parameters)
+          },
+        },
+        chain: Chains.calibration,
+        transport: viemHttp(),
+      })
+      const signal = AbortSignal.abort()
+      const calls: Array<() => Promise<unknown>> = [
+        () =>
+          createDataSet(spyClient, { serviceURL: 'http://pdp.local', cdn: false, payee: ADDRESSES.client1, signal }),
+        () =>
+          createDataSetAndAddPieces(spyClient, {
+            serviceURL: 'http://pdp.local',
+            payee: ADDRESSES.client1,
+            pieces: [{ pieceCid: sizedPieceCid }],
+            signal,
+          }),
+        () =>
+          addPieces(spyClient, {
+            serviceURL: 'http://pdp.local',
+            dataSetId: 1n,
+            clientDataSetId: 1n,
+            pieces: [{ pieceCid: sizedPieceCid }],
+            signal,
+          }),
+        () =>
+          schedulePieceDeletions(spyClient, {
+            serviceURL: 'http://pdp.local',
+            dataSetId: 1n,
+            clientDataSetId: 1n,
+            pieceIds: [1n],
+            signal,
+          }),
+        () => terminateService(spyClient, { serviceURL: 'http://pdp.local', dataSetId: 1n, signal }),
+      ]
+      for (const call of calls) {
+        try {
+          await call()
+          assert.fail('Expected the call to be aborted')
+        } catch (error) {
+          assert.instanceOf(error, AbortError)
+        }
+      }
+      assert.equal(signatures, 0)
+    })
+
+    it('aborts the status pollers', async () => {
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/created/:tx', () =>
+          HttpResponse.json({
+            createMessageHash: mockTxHash,
+            dataSetCreated: false,
+            service: 'test-service',
+            txStatus: 'pending',
+            ok: null,
+          })
+        ),
+        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () => HttpResponse.json(pendingAddPieces)),
+        http.get('http://pdp.local/pdp/data-sets/:id/terminate', () =>
+          HttpResponse.json({ terminationTxHash: '', fwssTerminated: null, serviceTerminationEpoch: null })
+        )
+      )
+      await assertAborts((signal) =>
+        waitForCreateDataSet({
+          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
+          pollInterval: 5,
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        waitForAddPieces({
+          statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
+          pollInterval: 5,
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        waitForCreateDataSetAddPieces({
+          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
+          pollInterval: 5,
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        waitForTerminateService({ statusUrl: 'http://pdp.local/pdp/data-sets/1/terminate', pollInterval: 5, signal })
+      )
+    })
+
+    it('waitForCreateDataSetAddPieces forwards the signal to the add pieces wait', async () => {
+      let addPiecesPolls = 0
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/created/:tx', () =>
+          HttpResponse.json({
+            createMessageHash: mockTxHash,
+            dataSetCreated: true,
+            service: 'test-service',
+            txStatus: 'confirmed',
+            ok: true,
+            dataSetId: 1,
+          })
+        ),
+        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () => {
+          addPiecesPolls++
+          return HttpResponse.json(pendingAddPieces)
+        })
+      )
+      await assertAborts((signal) =>
+        waitForCreateDataSetAddPieces({
+          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
+          pollInterval: 5,
+          signal,
+        })
+      )
+      assert.isAbove(addPiecesPolls, 0)
+    })
+  })
+
+  describe('waitForCreateDataSetAddPieces', () => {
+    it('forwards the timeout to the add pieces wait', async () => {
+      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/created/:tx', () =>
+          HttpResponse.json({
+            createMessageHash: mockTxHash,
+            dataSetCreated: true,
+            service: 'test-service',
+            txStatus: 'confirmed',
+            ok: true,
+            dataSetId: 1,
+          })
+        ),
+        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () =>
+          HttpResponse.json({
+            txHash: mockTxHash,
+            txStatus: 'pending',
+            dataSetId: 1,
+            pieceCount: 1,
+            addMessageOk: null,
+            piecesAdded: false,
+          })
+        )
+      )
+
+      try {
+        await waitForCreateDataSetAddPieces({
+          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
+          pollInterval: 10,
+          timeout: 100,
+        })
+        assert.fail('Expected a timeout')
+      } catch (error) {
+        assert.instanceOf(error, TimeoutError)
+        assert.include(error.message, 'Request timed out after 100ms')
       }
     })
   })

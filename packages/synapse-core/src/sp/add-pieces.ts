@@ -1,4 +1,4 @@
-import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
+import { AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import * as z from 'zod'
@@ -24,6 +24,8 @@ export namespace addPiecesApiRequest {
     pieces: PieceCID[]
     /** The extra data for the add pieces. {@link TypedData.signAddPieces} */
     extraData: Hex
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -66,6 +68,7 @@ export async function addPiecesApiRequest(
       })),
       extraData: extraData,
     },
+    signal: options.signal,
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
       retries: options.retryCount,
@@ -110,6 +113,8 @@ export namespace addPieces {
     nonce?: bigint
     /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
     extraData?: Hex
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -139,6 +144,9 @@ export async function addPieces(
   client: Client<Transport, Chain, Account>,
   options: addPieces.OptionsType
 ): Promise<addPieces.OutputType> {
+  if (options.signal?.aborted) {
+    throw new AbortError(options.signal)
+  }
   assertAddPiecesFit({
     kind: 'addPieces',
     dataSetId: options.dataSetId,
@@ -162,6 +170,7 @@ export async function addPieces(
     extraData,
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
+    signal: options.signal,
   })
 }
 
@@ -212,6 +221,8 @@ export namespace waitForAddPieces {
     statusUrl: string
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -252,6 +263,7 @@ export async function waitForAddPieces(options: waitForAddPieces.OptionsType): P
         return data.piecesAdded === false
       },
     },
+    signal: options.signal,
     timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
     schema,
   })
