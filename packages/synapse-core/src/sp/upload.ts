@@ -23,6 +23,8 @@ export namespace uploadPiece {
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
     retryDelay?: number
+    /** The signal to abort the request. */
+    signal?: AbortSignal
   }
   export type ErrorType = InvalidUploadSizeError | LocationHeaderError | TimeoutError | NetworkError | AbortError
 }
@@ -55,6 +57,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
     },
     timeout: RETRY_CONSTANTS.TIMEOUT,
+    signal: options.signal,
   })
 
   if (response.error) {
@@ -87,6 +90,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
       retries: options.retryCount,
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
     },
+    signal: options.signal,
   })
 
   if (uploadResponse.error) {
@@ -116,6 +120,8 @@ export namespace upload {
     data: File[]
     /** The callback to call when an event occurs. */
     onEvent?: <T extends keyof upload.Events>(event: T, data: upload.Events[T]) => void
+    /** The signal to abort the SP requests (upload, piece polling and add pieces). */
+    signal?: AbortSignal
   }
   export type OutputType = {
     pieceCid: Piece.PieceCID
@@ -166,6 +172,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
         data,
         pieceCid,
         serviceURL,
+        signal: options.signal,
       })
       options.onEvent?.('pieceUploaded', { pieceCid, dataSet })
 
@@ -173,6 +180,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
         pieceCid,
         serviceURL,
         poll: true,
+        signal: options.signal,
       })
 
       options.onEvent?.('pieceParked', { pieceCid, url, dataSet })
@@ -193,6 +201,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
       metadata: response.metadata,
     })),
     clientDataSetId: dataSet.clientDataSetId,
+    signal: options.signal,
   })
 
   return { ...addPiecesResponse, pieces: uploadResponses }
