@@ -78,7 +78,7 @@ import type {
   UploadOptions,
   UploadResult,
 } from '../types.ts'
-import { createError, SIZE_CONSTANTS } from '../utils/index.ts'
+import { createError, SIZE_CONSTANTS, throwIfAborted } from '../utils/index.ts'
 import { combineMetadata } from '../utils/metadata.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { type BatchedUploadResult, getPieceBatchingService } from './piece-batching.ts'
@@ -970,11 +970,15 @@ export class StorageContext {
    * Pieces must be stored on the provider (via store() or pull()) before committing.
    * Creates a new data set if this context doesn't have one yet.
    *
+   * Aborting `options.signal` after `onSubmitted` only stops waiting for confirmation; the
+   * transaction can still land. If it was creating the data set, this context does not learn
+   * the new data set ID, and a later commit() on it creates another data set.
+   *
    * @param options - Pieces to commit with optional pieceMetadata, extraData, and onSubmitted callback
    * @returns Transaction hash, confirmed pieceIds, dataSetId, and whether a new data set was created
    */
   async commit(options: CommitOptions): Promise<CommitResult> {
-    const { pieces, extraData } = options
+    const { pieces, extraData, signal } = options
 
     // Validate message size and metadata early, before any chain reads or signing
     this.assertPiecesFitMessage(pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata })))
@@ -987,6 +991,7 @@ export class StorageContext {
     const pieceInputs = pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata }))
 
     try {
+      throwIfAborted(signal)
       if (this._dataSetId) {
         // Add pieces to existing data set
         const [, clientDataSetId] = await Promise.all([
@@ -1000,10 +1005,11 @@ export class StorageContext {
           pieces: pieceInputs,
           serviceURL: this._pdpEndpoint,
           extraData,
+          signal,
         })
         options.onSubmitted?.(addPiecesResult.txHash as Hex)
 
-        const confirmation = await SP.waitForAddPieces(addPiecesResult)
+        const confirmation = await SP.waitForAddPieces({ statusUrl: addPiecesResult.statusUrl, signal })
         const confirmedPieceIds = confirmation.confirmedPieceIds
 
         return {
@@ -1025,10 +1031,11 @@ export class StorageContext {
         metadata: this._dataSetMetadata,
         serviceURL: this._pdpEndpoint,
         extraData,
+        signal,
       })
       options.onSubmitted?.(result.txHash as Hex)
 
-      const confirmation = await SP.waitForCreateDataSetAddPieces(result)
+      const confirmation = await SP.waitForCreateDataSetAddPieces({ statusUrl: result.statusUrl, signal })
       this._dataSetId = confirmation.dataSetId
 
       return {
@@ -1135,6 +1142,7 @@ export class StorageContext {
     // Commit phase
     const commitResult = await this.commit({
       pieces: [{ pieceCid: storeResult.pieceCid, pieceMetadata: options?.pieceMetadata }],
+      signal: options?.signal,
       onSubmitted: (txHash) =>
         options?.onPiecesAdded?.(txHash, this._provider.id, [{ pieceCid: storeResult.pieceCid }]),
     })

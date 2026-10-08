@@ -405,6 +405,7 @@ const contexts = await synapse.storage.createContexts({
 const [primary, secondary] = contexts
 const pieceCid = null as unknown as PieceCID;
 const extraData = null as unknown as Hex;
+const abortController = new AbortController()
 const onSubmitted = (txHash: Hex) => {
   console.log(`Transaction submitted: ${txHash}`)
 }
@@ -413,6 +414,7 @@ const onSubmitted = (txHash: Hex) => {
 const [primaryCommit, secondaryCommit] = await Promise.allSettled([
   primary.commit({
     pieces: [{ pieceCid, pieceMetadata: { filename: "doc.pdf" } }],
+    signal: abortController.signal, // cancellation (optional)
     onSubmitted: (txHash) => {
       console.log(`Transaction submitted: ${txHash}`)
     },
@@ -420,6 +422,7 @@ const [primaryCommit, secondaryCommit] = await Promise.allSettled([
   secondary.commit({
     pieces: [{ pieceCid, pieceMetadata: { filename: "doc.pdf" } }],
     extraData,          // pre-signed auth from presignForCommit() (optional)
+    signal: abortController.signal, // cancellation (optional)
     onSubmitted: (txHash) => {
       console.log(`Transaction submitted: ${txHash}`)
     },
@@ -440,6 +443,8 @@ The result:
 - **`pieceIds`** - assigned piece IDs (one per input piece)
 - **`dataSetId`** - data set ID (may be newly created)
 - **`isNewDataSet`** - whether a new data set was created
+
+**Cancellation**: aborting `signal` after `onSubmitted` only stops waiting for confirmation. The transaction can still land on chain. If the commit was creating a data set, the context does not learn the new data set ID, so calling `commit()` on it again creates another data set.
 
 ### Multi-File Batch Example
 

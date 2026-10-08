@@ -490,6 +490,14 @@ export interface PieceRecord {
 export interface UploadOptions extends StoreOptions, UploadCallbacks {
   /** Custom metadata for this specific piece (key-value pairs) */
   pieceMetadata?: MetadataObject
+  /**
+   * Optional AbortSignal to cancel the upload.
+   *
+   * With piece batching disabled, it cancels the store and the commit (see
+   * {@link CommitOptions.signal}). With batching enabled (the default), it cancels the
+   * store but not the shared batch commit or its confirmation wait.
+   */
+  signal?: AbortSignal
 }
 
 /**
@@ -646,6 +654,15 @@ export interface CommitOptions {
   pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>
   /** Pre-built signed extraData (avoids re-signing) */
   extraData?: Hex
+  /**
+   * Optional AbortSignal to cancel the commit requests and the confirmation wait.
+   *
+   * Aborting after {@link CommitOptions.onSubmitted} only stops waiting: the transaction
+   * was already submitted and can still confirm on chain. When this context has no data
+   * set yet, it does not learn the new data set ID, so a later commit() on the same
+   * context creates another data set.
+   */
+  signal?: AbortSignal
   /**
    * Called when the commit transaction is submitted (before on-chain confirmation).
    * The hash is Curio's Location wait key and is not guaranteed to be the final
