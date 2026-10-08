@@ -33,7 +33,7 @@ import {
   hexToBytes,
   toNullProto,
 } from './cose-fixtures.ts'
-import { findBytes } from './helpers.ts'
+import { findBytes, withUnprotectedPlaintextLength } from './helpers.ts'
 
 const TEST_RECIPIENT: RecipientInput = {
   protectedBytes: new Uint8Array(0),
@@ -417,6 +417,14 @@ describe('aesGcm.decrypt', () => {
     assert.strictEqual(changedDecoded.unprotectedHeader.get(100), 1)
 
     assert.deepStrictEqual(await decrypt(withUnprotectedParameter, new Uint8Array(FIXED_CEK)), HELLO)
+  })
+
+  it('rejects plaintext_length in the unprotected header instead of ignoring it', async () => {
+    const encoded = await encrypt(new Uint8Array(HELLO), { cek: new Uint8Array(FIXED_CEK) })
+    await assert.rejects(
+      decrypt(withUnprotectedPlaintextLength(encoded), new Uint8Array(FIXED_CEK)),
+      (error: unknown) => error instanceof MalformedEnvelopeError && error.message.includes('label -65789')
+    )
   })
 
   it('rejects detached ciphertext shorter than one authentication tag', async () => {

@@ -15,7 +15,7 @@ import {
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks, sourceOf } from './aes-gcm-stream-fixtures.ts'
 import { concatBytes, FIXTURE_BASE_NONCE_7, hasSharedArrayBuffer, hexToBytes } from './cose-fixtures.ts'
-import { findBytes, pipeBytes, pipeChunks } from './helpers.ts'
+import { findBytes, pipeBytes, pipeChunks, withUnprotectedPlaintextLength } from './helpers.ts'
 
 const CHUNK_SIZE = 4096
 
@@ -221,6 +221,14 @@ describe('aesGcmStream.decrypt', () => {
   })
 
   describe('rejections', () => {
+    it('rejects plaintext_length in the unprotected header instead of ignoring it', async () => {
+      const encoded = await encryptFull(deterministicPlaintext(50))
+      await assert.rejects(
+        decryptBytes(withUnprotectedPlaintextLength(encoded)),
+        (error: unknown) => error instanceof MalformedEnvelopeError && error.message.includes('label -65789')
+      )
+    })
+
     it('rejects the wrong key with AuthenticationError', async () => {
       const encoded = await encryptFull(deterministicPlaintext(50))
       const wrongKey = new Uint8Array(FIXED_CEK)
