@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, request } from 'iso-web/http'
+import { AbortError, HttpError, type RequestErrors, request } from 'iso-web/http'
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { PullError } from '../errors/pull.ts'
@@ -347,11 +347,16 @@ async function signPullExtraData(
 /**
  * Resolve the common SP-level options from high-level pull options.
  * Signs extraData if not pre-built by the caller.
+ * Throws AbortError before signing if the signal has already been aborted, so an
+ * aborted call never triggers a wallet prompt.
  */
 async function resolvePullParams(
   client: Client<Transport, Chain, Account>,
   options: pullPieces.OptionsType
 ): Promise<pullPiecesApiRequest.OptionsType> {
+  if (options.signal?.aborted) {
+    throw new AbortError(options.signal)
+  }
   const chain = asChain(client.chain)
   return {
     serviceURL: options.serviceURL,

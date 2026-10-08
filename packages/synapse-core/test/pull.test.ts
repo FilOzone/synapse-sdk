@@ -7,11 +7,21 @@
  */
 
 import assert from 'assert'
+import { AbortError } from 'iso-web/http'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
+import { createWalletClient, http as viemHttp } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '../src/chains.ts'
 import { PullError } from '../src/errors/pull.ts'
 import * as Mocks from '../src/mocks/index.ts'
-import { pullPiecesApiRequest, waitForPullPiecesApiRequest } from '../src/sp/pull-pieces.ts'
+import * as Piece from '../src/piece/index.ts'
+import {
+  pullPieces,
+  pullPiecesApiRequest,
+  waitForPullPieces,
+  waitForPullPiecesApiRequest,
+} from '../src/sp/pull-pieces.ts'
 
 // Mock server for testing
 const server = setup()
@@ -232,6 +242,47 @@ describe('Pull', () => {
       } catch (error) {
         assert.ok(error instanceof PullError, 'Error should be PullError')
       }
+    })
+  })
+
+  describe('abort', () => {
+    it('does not sign or send a request when the signal is already aborted', async () => {
+      const account = privateKeyToAccount(Mocks.PRIVATE_KEYS.key1)
+      let signatures = 0
+      let requests = 0
+      const client = createWalletClient({
+        account: {
+          ...account,
+          signTypedData: (parameters) => {
+            signatures++
+            return account.signTypedData(parameters)
+          },
+        },
+        chain: calibration,
+        transport: viemHttp(),
+      })
+      server.use(
+        http.post(`${TEST_ENDPOINT}/pdp/piece/pull`, () => {
+          requests++
+          return HttpResponse.json(Mocks.pdp.createPullResponse('complete', [{ pieceCid: TEST_PIECE_CID }]))
+        })
+      )
+      const signal = AbortSignal.abort()
+      const pieces = [{ pieceCid: Piece.from(TEST_PIECE_CID), sourceUrl: TEST_SOURCE_URL }]
+      const existing = { serviceURL: TEST_ENDPOINT, pieces, dataSetId: 1n, clientDataSetId: 1n, signal }
+      const created = { serviceURL: TEST_ENDPOINT, pieces, payee: Mocks.ADDRESSES.client1, signal }
+      const calls = [
+        () => pullPieces(client, existing),
+        () => pullPieces(client, created),
+        () => waitForPullPieces(client, existing),
+        () => waitForPullPieces(client, created),
+      ]
+
+      for (const call of calls) {
+        await assert.rejects(call(), AbortError)
+      }
+      assert.strictEqual(signatures, 0)
+      assert.strictEqual(requests, 0)
     })
   })
 
