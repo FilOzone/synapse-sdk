@@ -1255,6 +1255,11 @@ describe('crit (label 2): accepted when every listed label is understood and pre
     assert.doesNotThrow(() => decodeProtectedHeader(raw))
   })
 
+  it('accepts crit listing content_type (3) when content_type is present', () => {
+    const raw = buildProtectedHeader(2, 0x02, 0x81, 0x03, 0x03, 0x61, 0x78) // crit: [3], content_type: "x"
+    assert.doesNotThrow(() => decodeProtectedHeader(raw))
+  })
+
   it('accepts crit listing both alg (1) and typ (16): both understood and both present', () => {
     const raw = buildProtectedHeader(1, 0x02, 0x82, 0x01, 0x10) // crit: [1, 16]
     assert.doesNotThrow(() => decodeProtectedHeader(raw))
@@ -1363,6 +1368,20 @@ describe('encodeUnprotectedHeader / decodeUnprotectedHeader', () => {
       () => decodeUnprotectedHeader(new Map<CborValue, CborValue>([[6, Uint8Array.from([1, 2, 3])]])),
       MalformedEnvelopeError
     )
+  })
+
+  it('rejects every FEE content field, which must be protected, in the unprotected header', () => {
+    const fields: Array<[number, CborValue]> = [
+      [1, ALG_AES_256_GCM],
+      [5, FIXTURE_IV_12],
+      [16, ENVELOPE_TYPE],
+      [-1, MIN_CHUNK_SIZE],
+      [-65789, 1],
+      [-65792, new Map<CborValue, CborValue>()],
+    ]
+    for (const [label, value] of fields) {
+      assert.throws(() => decodeUnprotectedHeader(new Map([[label, value]])), MalformedEnvelopeError, `label ${label}`)
+    }
   })
 
   it('rejects crit (label 2) present in the unprotected header, even when well-formed', () => {

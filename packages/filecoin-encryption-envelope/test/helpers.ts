@@ -1,16 +1,29 @@
 /** Small fixtures and stream plumbing shared across test suites. */
 import assert from 'assert'
 import { ALG_A256KW } from '../src/cose/constants.ts'
+import { decodeEnvelope } from '../src/cose/decode.ts'
 import type { ByteRange, RandomAccessSource } from '../src/index.ts'
 import type { A256KWRecipient, Unwrapper } from '../src/recipients/types.ts'
 import { readAllChunks } from './aes-gcm-stream-fixtures.ts'
-import { concatBytes } from './cose-fixtures.ts'
+import { concatBytes, hexToBytes } from './cose-fixtures.ts'
 
 /** Builds an A256KW recipient with independent copies of its key and identifier. */
 export function a256kwRecipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipient {
   return kid === undefined
     ? { alg: ALG_A256KW, kek: new Uint8Array(kek) }
     : { alg: ALG_A256KW, kek: new Uint8Array(kek), kid: new Uint8Array(kid) }
+}
+
+/** Replace a tag-16 envelope's empty unprotected map with `{ -65789: 1 }` (plaintext_length). */
+export function withUnprotectedPlaintextLength(encoded: Uint8Array): Uint8Array {
+  const { envelopeLength } = decodeEnvelope(encoded)
+  // A tag-16 envelope ends with the empty unprotected map and the nil ciphertext.
+  assert.deepStrictEqual(Array.from(encoded.subarray(envelopeLength - 2, envelopeLength)), [0xa0, 0xf6])
+  return concatBytes(
+    encoded.subarray(0, envelopeLength - 2),
+    hexToBytes('a13a000100fc01f6'),
+    encoded.subarray(envelopeLength)
+  )
 }
 
 /**

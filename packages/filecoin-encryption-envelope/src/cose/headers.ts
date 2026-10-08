@@ -864,19 +864,22 @@ function assertNoPartialIv(map: Map<CborValue, CborValue>, location: 'protected'
   }
 }
 
-/**
- * Content-header labels this profile can process when listed in `crit`.
- * `crit` itself is excluded because listing it would be circular.
- */
-const UNDERSTOOD_CRIT_LABELS: ReadonlySet<number> = new Set([
+/** FEE content fields that must appear in the protected header. */
+const PROTECTED_ONLY_LABELS: ReadonlySet<number> = new Set([
   HEADER_ALG,
-  HEADER_CONTENT_TYPE,
+  HEADER_TYP,
   HEADER_IV,
   HEADER_CHUNK_SIZE,
-  HEADER_TYP,
   HEADER_PLAINTEXT_LENGTH,
   HEADER_APP_METADATA,
 ])
+
+/**
+ * Content-header labels this profile can process when listed in `crit`: the
+ * FEE fields plus `content_type`, a general COSE label allowed in either
+ * bucket. `crit` itself is excluded because listing it would be circular.
+ */
+const UNDERSTOOD_CRIT_LABELS: ReadonlySet<number> = new Set([...PROTECTED_ONLY_LABELS, HEADER_CONTENT_TYPE])
 
 /**
  * Validate content-header `crit` (2).
@@ -1226,8 +1229,8 @@ export function encodeUnprotectedHeader(): UnprotectedHeaderMap {
  * Validate and return the content unprotected header of a decoded envelope.
  *
  * Expects a value tree already checked by `decodeFirst`.
- * Unknown non-critical parameters are allowed. `crit`,
- * Partial IV, and IV are rejected; cross-bucket label duplication is checked
+ * Unknown non-critical parameters are allowed. FEE content fields, `crit`,
+ * and Partial IV are rejected; cross-bucket label duplication is checked
  * when the protected header is decoded.
  */
 export function decodeUnprotectedHeader(value: CborValue): UnprotectedHeaderMap {
@@ -1239,10 +1242,12 @@ export function decodeUnprotectedHeader(value: CborValue): UnprotectedHeaderMap 
   assertValidLabels(value, 'unprotected')
   assertNoPartialIv(value, 'unprotected')
   assertCritHeaderSatisfied(value, 'unprotected')
-  if (value.has(HEADER_IV)) {
-    throw new MalformedEnvelopeError(
-      'Invalid iv (5) in the unprotected header: this profile requires the IV in the protected header, so that it is covered by the content AAD (FIP amendment 3).'
-    )
+  for (const label of PROTECTED_ONLY_LABELS) {
+    if (value.has(label)) {
+      throw new MalformedEnvelopeError(
+        `Invalid label ${label} in the unprotected header: this profile requires it in the protected header, so that it is covered by the content AAD.`
+      )
+    }
   }
   return value
 }

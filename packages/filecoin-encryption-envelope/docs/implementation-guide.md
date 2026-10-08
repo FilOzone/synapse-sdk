@@ -86,7 +86,8 @@ is rejected in either content-header map; this profile does not reconstruct nonc
 
 Not covered by the AEAD. **The encoder emits no content unprotected parameters**, so the map it
 writes is empty — which is a statement about the encoder, not a closed door: decoders accept
-unknown non-critical parameters here, as described under COSE processing below.
+unknown non-critical parameters here, as described under COSE processing below. FEE content fields
+(`alg`, `typ`, `iv`, `chunk_size`, `plaintext_length`, `app_metadata`) are rejected there, since they must be protected.
 
 ### CDDL
 
