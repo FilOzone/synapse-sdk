@@ -64,7 +64,7 @@ import type {
   UploadCosts,
   UploadResult,
 } from '../types.ts'
-import { combineMetadata, createError, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/index.ts'
+import { combineMetadata, createError, SIZE_CONSTANTS, TIME_CONSTANTS, throwIfAborted } from '../utils/index.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
 import {
@@ -124,7 +124,17 @@ export interface StorageManagerUploadOptions extends CreateContextsOptions {
   /** Optional pre-calculated PieceCID to skip CommP calculation (verified by server) */
   pieceCid?: PieceCID
 
-  /** Optional AbortSignal to cancel the upload */
+  /**
+   * Optional AbortSignal to cancel the upload.
+   *
+   * With piece batching disabled, it cancels the store, the pulls to secondaries and the
+   * commits (see {@link CommitOptions.signal}). An abort during the commits does not reject
+   * with an AbortError directly: the upload throws a CommitError (cause: AbortError) when no
+   * commit succeeded, or returns `complete: false` with the copies that already confirmed.
+   *
+   * With batching enabled (the default), it cancels the store and pulls but not the shared
+   * batch commit or its confirmation wait.
+   */
   signal?: AbortSignal
 
   /** Custom metadata for pieces being uploaded (key-value pairs) */
@@ -585,6 +595,7 @@ export class StorageManager {
     let attempts = 0
 
     while (attempts < MAX_SECONDARY_ATTEMPTS) {
+      throwIfAborted(options.signal)
       const providerId = context.provider.id
       const task = options.batching.pull(context, {
         pieceCid,
@@ -609,7 +620,9 @@ export class StorageManager {
         return { context, committed: task.committed }
       } catch (error) {
         void task.committed.catch(() => undefined)
-        if (error instanceof UserRejectedRequestError) {
+        // An abort is the caller giving up, not a provider failure: stop instead of
+        // selecting a replacement and signing again.
+        if (error instanceof UserRejectedRequestError || options.signal?.aborted) {
           throw error
         }
         const message = error instanceof Error ? error.message : String(error)
@@ -730,6 +743,7 @@ export class StorageManager {
       let succeeded = false
 
       while (!succeeded && attempts < MAX_SECONDARY_ATTEMPTS) {
+        throwIfAborted(options.signal)
         try {
           // Pre-sign extraData so the same blob is reused for commit
           let extraData: Hex | undefined
@@ -776,7 +790,9 @@ export class StorageManager {
             }
           }
         } catch (error) {
-          if (error instanceof UserRejectedRequestError) {
+          // An abort is the caller giving up, not a provider failure: stop instead of
+          // selecting a replacement and signing again.
+          if (error instanceof UserRejectedRequestError || options.signal?.aborted) {
             throw error
           }
           const errorMsg = error instanceof Error ? error.message : String(error)

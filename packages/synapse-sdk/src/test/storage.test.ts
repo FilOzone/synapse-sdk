@@ -1643,6 +1643,130 @@ describe('StorageService', () => {
     })
   })
 
+  describe('abort handling', () => {
+    it('commit rejects an already-aborted signal before any chain read or request', async () => {
+      let ethCalls = 0
+      let addPiecesRequests = 0
+      server.use(
+        Mocks.JSONRPC({ ...Mocks.presets.basic }),
+        Mocks.PING(),
+        http.post('https://pdp.example.com/pdp/data-sets/:id/pieces', () => {
+          addPiecesRequests++
+          return HttpResponse.error()
+        })
+      )
+      const synapse = new Synapse({ client, source: null, pieceBatching: false })
+      const warmStorageService = new WarmStorageService({ client })
+      const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
+      server.use(
+        Mocks.JSONRPC(
+          { ...Mocks.presets.basic },
+          {
+            delay: async (request) => {
+              if (request.method === 'eth_call') ethCalls++
+            },
+          }
+        )
+      )
+
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      try {
+        await service.commit({ pieces: [{ pieceCid }], signal: AbortSignal.abort() })
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to commit pieces on-chain')
+        assert.instanceOf(error.cause, AbortError)
+      }
+      assert.equal(ethCalls, 0)
+      assert.equal(addPiecesRequests, 0)
+    })
+
+    // Stub contexts that count signing and replacement selection after an abort.
+    function abortingSecondaries(controller: AbortController) {
+      const counts = { presigns: 0, pulls: 0, replacements: 0 }
+      const makeSecondary = (id: bigint) =>
+        ({
+          provider: { id },
+          presignForCommit: async () => {
+            counts.presigns++
+            return '0x'
+          },
+          pull: async () => {
+            counts.pulls++
+            controller.abort()
+            throw new Error('StorageContext pull failed', { cause: new AbortError(controller.signal) })
+          },
+        }) as unknown as StorageContext
+      const primary = {
+        provider: { id: 1n },
+        getPieceUrl: () => 'https://pdp.example.com/piece',
+      } as unknown as StorageContext
+      return { counts, makeSecondary, primary }
+    }
+
+    it('stops the secondary retry loop when the signal aborts', async () => {
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }))
+      const synapse = new Synapse({ client, source: null, pieceBatching: false })
+      const controller = new AbortController()
+      const { counts, makeSecondary, primary } = abortingSecondaries(controller)
+      const storage = synapse.storage as any
+      let nextId = 3n
+      storage.createContexts = async () => {
+        counts.replacements++
+        return [makeSecondary(nextId++)]
+      }
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+
+      try {
+        await storage._pullToSecondariesWithRetry(primary, [makeSecondary(2n)], [pieceCid], {
+          explicitProviders: false,
+          signal: controller.signal,
+          pieceInputs: [{ pieceCid }],
+        })
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.instanceOf(error.cause, AbortError)
+      }
+      assert.deepEqual(counts, { presigns: 1, pulls: 1, replacements: 0 })
+    })
+
+    it('stops the batched secondary retry loop when the signal aborts', async () => {
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }))
+      const synapse = new Synapse({ client, source: null })
+      const controller = new AbortController()
+      const { counts, makeSecondary, primary } = abortingSecondaries(controller)
+      const storage = synapse.storage as any
+      let nextId = 3n
+      storage.createContexts = async () => {
+        counts.replacements++
+        return [makeSecondary(nextId++)]
+      }
+      const batching = {
+        pull: () => {
+          counts.pulls++
+          controller.abort()
+          const error = new AbortError(controller.signal)
+          return { parked: Promise.reject(error), committed: Promise.reject(error) }
+        },
+      }
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+
+      try {
+        await storage._parkBatchedSecondary(primary, makeSecondary(2n), pieceCid, {
+          batching,
+          explicitProviders: false,
+          usedProviderIds: new Set([1n, 2n]),
+          failedAttempts: [],
+          signal: controller.signal,
+        })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, AbortError)
+      }
+      assert.deepEqual(counts, { presigns: 0, pulls: 1, replacements: 0 })
+    })
+  })
+
   describe('Provider Ping Validation', () => {
     describe('selectRandomProvider with ping validation', () => {
       it('should select first provider that responds to ping', async () => {
