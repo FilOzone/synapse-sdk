@@ -44,12 +44,17 @@ export interface GetDataSetStatsOptions {
  *
  * @example
  * ```typescript
- * // Create service with network detection
- * const synapse = await Synapse.create({ privateKey, rpcURL })
- * const stats = await synapse.filbeam.getDataSetStats(12345)
+ * import { mainnet } from '@filoz/synapse-core/chains'
+ * import { Synapse } from '@filoz/synapse-sdk'
+ * import { FilBeamService } from '@filoz/synapse-sdk/filbeam'
+ * import { privateKeyToAccount } from 'viem/accounts'
  *
- * // Monitor remaining pay-per-byte quotas
- * const service = new FilBeamService('mainnet')
+ * // Access through Synapse (uses the Synapse chain)
+ * const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
+ * const synapseStats = await synapse.filbeam.getDataSetStats(12345)
+ *
+ * // Or create the service directly for a chain
+ * const service = new FilBeamService(mainnet)
  * const stats = await service.getDataSetStats(12345)
  * console.log('Remaining CDN Egress (cache hits):', stats.cdnEgressQuota)
  * console.log('Remaining Cache Miss Egress:', stats.cacheMissEgressQuota)
