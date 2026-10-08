@@ -165,7 +165,7 @@ describe('location independence', () => {
 })
 
 describe('roles', () => {
-  it('are flat labels: unrelated keys, no implication between them', async () => {
+  it('give siblings unrelated keys: neither opens the other', async () => {
     const kk = await kkOf(account, ref)
     const salt = newSalt()
     assert.notDeepStrictEqual(roleKey(kk, 'super-secret'), roleKey(kk, 'secret'))
