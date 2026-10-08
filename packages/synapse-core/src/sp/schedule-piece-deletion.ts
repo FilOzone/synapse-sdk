@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, request } from 'iso-web/http'
+import { AbortError, HttpError, type RequestErrors, request } from 'iso-web/http'
 import type { Account, Chain, Client, Hex, Transport } from 'viem'
 import { DeletePieceError } from '../errors/pdp.ts'
 import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
@@ -148,6 +148,9 @@ export async function schedulePieceDeletions(
   client: Client<Transport, Chain, Account>,
   options: schedulePieceDeletions.OptionsType
 ): Promise<schedulePieceDeletions.OutputType> {
+  if (options.signal?.aborted) {
+    throw new AbortError(options.signal)
+  }
   const pieceIds = normalizeDeletePieceIds(options.pieceIds)
 
   return deletePieces({

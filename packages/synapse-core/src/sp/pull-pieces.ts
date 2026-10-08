@@ -151,7 +151,7 @@ export namespace waitForPullPiecesApiRequest {
   export type OptionsType = pullPiecesApiRequest.OptionsType & {
     /** Callback invoked on each poll with current status. */
     onStatus?: (response: pullPiecesApiRequest.ReturnType) => void
-    /** The timeout in milliseconds. Defaults to 5 minutes. */
+    /** Total time in milliseconds to wait for the pull to finish. Defaults to {@link RETRY_CONSTANTS.PULL_TIMEOUT} (2 hours). */
     timeout?: number
     /** The number of retries. Defaults to 2. */
     retryCount?: number
@@ -201,7 +201,7 @@ export async function waitForPullPiecesApiRequest(
         return data.status !== 'complete' && data.status !== 'failed'
       },
     },
-    timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
+    timeout: options.timeout ?? RETRY_CONSTANTS.PULL_TIMEOUT,
     signal: options.signal,
   })
 
@@ -392,7 +392,7 @@ export namespace waitForPullPieces {
   export type OptionsType = pullPieces.OptionsType & {
     /** Callback invoked on each poll with current status. */
     onStatus?: (response: pullPieces.ReturnType) => void
-    /** The timeout in milliseconds. Defaults to 5 minutes. */
+    /** Total time in milliseconds to wait for the pull to finish. Defaults to {@link RETRY_CONSTANTS.PULL_TIMEOUT} (2 hours). */
     timeout?: number
     /** The number of retries. Defaults to 2. */
     retryCount?: number

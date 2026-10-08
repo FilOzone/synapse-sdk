@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { AbortError, HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import {
   type Account,
   type Address,
@@ -140,6 +140,9 @@ export namespace createDataSet {
  * @throws Errors {@link createDataSet.ErrorType}
  */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: createDataSet.OptionsType) {
+  if (options.signal?.aborted) {
+    throw new AbortError(options.signal)
+  }
   const chain = asChain(client.chain)
 
   // Sign and encode the create data set message

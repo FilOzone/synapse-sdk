@@ -31,7 +31,10 @@ import {
 import * as Piece from '../src/piece/index.ts'
 import {
   AbortError,
+  addPieces,
   addPiecesApiRequest,
+  createDataSet,
+  createDataSetAndAddPieces,
   createDataSetAndAddPiecesApiRequest,
   createDataSetApiRequest,
   deletePiece,
@@ -42,6 +45,7 @@ import {
   ping,
   schedulePieceDeletions,
   TimeoutError,
+  terminateService,
   terminateServiceApiRequest,
   uploadPiece,
   waitForAddPieces,
@@ -1012,6 +1016,109 @@ InvalidSignature(address expected, address actual)
       await assertAborts((signal) =>
         terminateServiceApiRequest({ serviceURL: 'http://pdp.local', dataSetId: 1n, extraData: '0x', signal })
       )
+    })
+
+    it('aborts the signing wrappers', async () => {
+      // assertAddPiecesFit rejects pieces below the minimum upload size
+      const sizedPieceCid = await Piece.calculate(new Uint8Array(127))
+      const hang = async () => {
+        await delay('infinite')
+        return new HttpResponse(null, { status: 200 })
+      }
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', hang),
+        http.post('http://pdp.local/pdp/data-sets/create-and-add', hang),
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', hang),
+        http.delete('http://pdp.local/pdp/data-sets/:id/pieces/:pieceId', hang),
+        http.post('http://pdp.local/pdp/data-sets/:id/terminate', hang)
+      )
+      await assertAborts((signal) =>
+        createDataSet(client, { serviceURL: 'http://pdp.local', cdn: false, payee: ADDRESSES.client1, signal })
+      )
+      await assertAborts((signal) =>
+        createDataSetAndAddPieces(client, {
+          serviceURL: 'http://pdp.local',
+          payee: ADDRESSES.client1,
+          pieces: [{ pieceCid: sizedPieceCid }],
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        addPieces(client, {
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          clientDataSetId: 1n,
+          pieces: [{ pieceCid: sizedPieceCid }],
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        schedulePieceDeletions(client, {
+          serviceURL: 'http://pdp.local',
+          dataSetId: 1n,
+          clientDataSetId: 1n,
+          pieceIds: [1n],
+          signal,
+        })
+      )
+      await assertAborts((signal) =>
+        terminateService(client, { serviceURL: 'http://pdp.local', dataSetId: 1n, signal })
+      )
+    })
+
+    it('does not sign when the signal is already aborted', async () => {
+      // assertAddPiecesFit rejects pieces below the minimum upload size
+      const sizedPieceCid = await Piece.calculate(new Uint8Array(127))
+      let signatures = 0
+      const spyClient = createWalletClient({
+        account: {
+          ...account,
+          signTypedData: (parameters) => {
+            signatures++
+            return account.signTypedData(parameters)
+          },
+        },
+        chain: Chains.calibration,
+        transport: viemHttp(),
+      })
+      const signal = AbortSignal.abort()
+      const calls: Array<() => Promise<unknown>> = [
+        () =>
+          createDataSet(spyClient, { serviceURL: 'http://pdp.local', cdn: false, payee: ADDRESSES.client1, signal }),
+        () =>
+          createDataSetAndAddPieces(spyClient, {
+            serviceURL: 'http://pdp.local',
+            payee: ADDRESSES.client1,
+            pieces: [{ pieceCid: sizedPieceCid }],
+            signal,
+          }),
+        () =>
+          addPieces(spyClient, {
+            serviceURL: 'http://pdp.local',
+            dataSetId: 1n,
+            clientDataSetId: 1n,
+            pieces: [{ pieceCid: sizedPieceCid }],
+            signal,
+          }),
+        () =>
+          schedulePieceDeletions(spyClient, {
+            serviceURL: 'http://pdp.local',
+            dataSetId: 1n,
+            clientDataSetId: 1n,
+            pieceIds: [1n],
+            signal,
+          }),
+        () => terminateService(spyClient, { serviceURL: 'http://pdp.local', dataSetId: 1n, signal }),
+      ]
+      for (const call of calls) {
+        try {
+          await call()
+          assert.fail('Expected the call to be aborted')
+        } catch (error) {
+          assert.instanceOf(error, AbortError)
+        }
+      }
+      assert.equal(signatures, 0)
     })
 
     it('aborts the status pollers', async () => {

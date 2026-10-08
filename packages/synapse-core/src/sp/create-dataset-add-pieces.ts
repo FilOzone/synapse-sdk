@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { AbortError, HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Address, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import { asChain } from '../chains.ts'
@@ -158,6 +158,9 @@ export async function createDataSetAndAddPieces(
   client: Client<Transport, Chain, Account>,
   options: CreateDataSetAndAddPiecesOptions
 ): Promise<createDataSetAndAddPieces.ReturnType> {
+  if (options.signal?.aborted) {
+    throw new AbortError(options.signal)
+  }
   assertAddPiecesFit({
     kind: 'createDataSetAndAddPieces',
     metadata: options.metadata,

@@ -1354,7 +1354,7 @@ describe('StorageService', () => {
       const service = await StorageContext.create({ synapse, warmStorageService })
 
       // Create minimal data but mock length to simulate oversized data
-      // This tests validation without allocating 1+ GiB
+      // This tests validation without allocating 63.5+ GiB
       const smallData = new Uint8Array(127)
       const testSize = SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1
       Object.defineProperty(smallData, 'size', { value: testSize })
