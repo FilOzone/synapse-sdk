@@ -1,4 +1,4 @@
-import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
+import { AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import * as z from 'zod'
@@ -144,6 +144,9 @@ export async function addPieces(
   client: Client<Transport, Chain, Account>,
   options: addPieces.OptionsType
 ): Promise<addPieces.OutputType> {
+  if (options.signal?.aborted) {
+    throw new AbortError(options.signal)
+  }
   assertAddPiecesFit({
     kind: 'addPieces',
     dataSetId: options.dataSetId,
