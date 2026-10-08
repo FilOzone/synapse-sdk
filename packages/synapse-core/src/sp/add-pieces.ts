@@ -1,4 +1,4 @@
-import { AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
+import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import * as z from 'zod'
@@ -9,6 +9,7 @@ import { WaitForAddPiecesError, WaitForAddPiecesRejectedError } from '../errors/
 import type { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
+import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
@@ -144,9 +145,7 @@ export async function addPieces(
   client: Client<Transport, Chain, Account>,
   options: addPieces.OptionsType
 ): Promise<addPieces.OutputType> {
-  if (options.signal?.aborted) {
-    throw new AbortError(options.signal)
-  }
+  throwIfAborted(options.signal)
   assertAddPiecesFit({
     kind: 'addPieces',
     dataSetId: options.dataSetId,

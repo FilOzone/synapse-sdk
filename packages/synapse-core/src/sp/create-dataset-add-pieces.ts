@@ -1,4 +1,4 @@
-import { AbortError, HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Address, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import { asChain } from '../chains.ts'
@@ -14,6 +14,7 @@ import type {
 import type { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
+import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { waitForAddPieces } from './add-pieces.ts'
@@ -158,9 +159,7 @@ export async function createDataSetAndAddPieces(
   client: Client<Transport, Chain, Account>,
   options: CreateDataSetAndAddPiecesOptions
 ): Promise<createDataSetAndAddPieces.ReturnType> {
-  if (options.signal?.aborted) {
-    throw new AbortError(options.signal)
-  }
+  throwIfAborted(options.signal)
   assertAddPiecesFit({
     kind: 'createDataSetAndAddPieces',
     metadata: options.metadata,

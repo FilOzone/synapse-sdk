@@ -1,4 +1,4 @@
-import { AbortError, HttpError, type RequestErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, request } from 'iso-web/http'
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { PullError } from '../errors/pull.ts'
@@ -6,6 +6,7 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import type { MetadataEntry } from '../typed-data/type-definitions.ts'
+import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
@@ -354,9 +355,7 @@ async function resolvePullParams(
   client: Client<Transport, Chain, Account>,
   options: pullPieces.OptionsType
 ): Promise<pullPiecesApiRequest.OptionsType> {
-  if (options.signal?.aborted) {
-    throw new AbortError(options.signal)
-  }
+  throwIfAborted(options.signal)
   const chain = asChain(client.chain)
   return {
     serviceURL: options.serviceURL,
