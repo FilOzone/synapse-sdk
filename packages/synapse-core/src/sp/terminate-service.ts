@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, type RequestJsonErrors, request, SchemaError } from 'iso-web/http'
+import { AbortError, HttpError, type RequestErrors, type RequestJsonErrors, request, SchemaError } from 'iso-web/http'
 import type {
   Account,
   Chain,
@@ -239,6 +239,9 @@ export async function terminateService(
   client: Client<Transport, Chain, Account>,
   options: terminateService.OptionsType
 ): Promise<terminateService.OutputType> {
+  if (options.signal?.aborted) {
+    throw new AbortError(options.signal)
+  }
   const extraData = options.extraData ?? (await signTerminateService(client, { dataSetId: options.dataSetId }))
   return terminateServiceApiRequest({
     serviceURL: options.serviceURL,
