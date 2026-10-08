@@ -224,9 +224,7 @@ export class StorageContext {
       throw createError(
         'StorageContext',
         context,
-        `Data size ${sizeBytes} bytes exceeds maximum allowed size of ${
-          SIZE_CONSTANTS.MAX_UPLOAD_SIZE
-        } bytes (${Math.floor(SIZE_CONSTANTS.MAX_UPLOAD_SIZE / 1024 / 1024)} MiB)`
+        `Data size ${sizeBytes} bytes exceeds maximum allowed size of ${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes (64 GiB padded)`
       )
     }
   }
@@ -885,11 +883,11 @@ export class StorageContext {
    * Used for multi-copy uploads: data stored once on primary, then pulled to
    * secondaries via SP-to-SP transfer.
    *
-   * @param options - Pull options: pieces to pull, source (URL or StorageContext), optional extraData, signal, and onProgress
+   * @param options - Pull options: pieces to pull, source (URL or StorageContext), optional extraData, signal, timeout, and onProgress
    * @returns Status per piece ('complete' or 'failed') and overall result
    */
   async pull(options: PullOptions): Promise<PullResult> {
-    const { pieces, from, signal, onProgress, extraData } = options
+    const { pieces, from, signal, onProgress, extraData, timeout } = options
 
     // The SP estimateGas-validates the eventual addPieces, so an oversized batch
     // fails there too; reject early for a clear error on non-presigned paths.
@@ -925,6 +923,7 @@ export class StorageContext {
         signal,
         onStatus: handleProgressResponse,
         extraData,
+        timeout,
       }
 
       const pullOptions = this._dataSetId

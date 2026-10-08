@@ -71,18 +71,18 @@ export const SIZE_CONSTANTS = {
   /**
    * Maximum upload size currently supported by PDP servers.
    *
-   * 1 GiB adjusted for fr32 expansion: 1 GiB * (127/128) = 1,065,353,216 bytes
+   * 64 GiB padded piece adjusted for fr32 expansion: 64 GiB * (127/128) = 68,182,605,824 bytes (63.5 GiB)
    *
    * Fr32 encoding adds 2 bits of padding per 254 bits of data, resulting in 128 bytes
-   * of padded data for every 127 bytes of raw data.
+   * of padded data for every 127 bytes of raw data. A 64 GiB raw payload therefore
+   * exceeds this limit once padded.
    *
-   * Note: While it's technically possible to upload pieces this large as Uint8Array,
-   * streaming via AsyncIterable is strongly recommended for non-trivial sizes.
-   * See SIZE_CONSTANTS.MAX_UPLOAD_SIZE in synapse-sdk for detailed guidance.
+   * Note: While it's technically possible to upload large pieces as Uint8Array,
+   * streaming via ReadableStream is strongly recommended for non-trivial sizes.
    */
-  MAX_UPLOAD_SIZE: 1_065_353_216, // 1 GiB * 127/128
+  MAX_UPLOAD_SIZE: 68_182_605_824, // 64 GiB * 127/128
 
-  /** Minimum upload size; matches what storage providers currently accept. */
+  /** Minimum upload size (128 bytes padded); matches what storage providers currently accept. */
   MIN_UPLOAD_SIZE: 127,
 
   /**
@@ -135,6 +135,12 @@ export const RETRY_CONSTANTS = {
   RETRY_DELAY: 250,
   /** The timeout in milliseconds. 5 minutes is the default timeout. */
   TIMEOUT: 1000 * 60 * 5,
+  /**
+   * Total timeout in milliseconds for waiting on an SP-to-SP pull to finish.
+   * 2 hours matches Curio's per-attempt pull download timeout; large pieces
+   * (up to {@link SIZE_CONSTANTS.MAX_UPLOAD_SIZE}) can take well over {@link RETRY_CONSTANTS.TIMEOUT} to transfer.
+   */
+  PULL_TIMEOUT: 1000 * 60 * 60 * 2,
 } as const
 
 /**

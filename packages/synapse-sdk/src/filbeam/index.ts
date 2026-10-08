@@ -35,10 +35,11 @@
  *
  * @example Basic Usage
  * ```typescript
+ * import { mainnet } from '@filoz/synapse-core/chains'
  * import { FilBeamService } from '@filoz/synapse-sdk/filbeam'
  *
  * // Create service for mainnet
- * const service = new FilBeamService('mainnet')
+ * const service = new FilBeamService(mainnet)
  *
  * // Get remaining data set statistics
  * const stats = await service.getDataSetStats('dataset-id')
@@ -49,11 +50,12 @@
  * @example Integration with Synapse SDK
  * ```typescript
  * import { Synapse } from '@filoz/synapse-sdk'
+ * import { privateKeyToAccount } from 'viem/accounts'
  *
  * // Initialize Synapse
- * const synapse = await Synapse.create({
- *   privateKey: process.env.PRIVATE_KEY,
- *   rpcURL: 'https://api.node.glif.io/rpc/v1'
+ * const synapse = Synapse.create({
+ *   account: privateKeyToAccount('0x...'),
+ *   source: 'my-app',
  * })
  *
  * // Access FilBeam service through Synapse
@@ -79,4 +81,4 @@
  * @see {@link FilBeamService} for the main service class
  */
 
-export { type DataSetStats, FilBeamService } from './service.ts'
+export { type DataSetStats, FilBeamService, type GetDataSetStatsOptions } from './service.ts'

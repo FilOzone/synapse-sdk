@@ -8,6 +8,8 @@
  * @see {@link https://docs.filbeam.com | FilBeam Documentation} - Official FilBeam documentation
  */
 
+import { RETRY_CONSTANTS } from '@filoz/synapse-core/utils'
+import { HttpError, request } from 'iso-web/http'
 import type { Chain } from 'viem'
 import { createError } from '../utils/errors.ts'
 
@@ -28,16 +30,31 @@ export interface DataSetStats {
 }
 
 /**
+ * Options for {@link FilBeamService.getDataSetStats}.
+ */
+export interface GetDataSetStatsOptions {
+  /** Signal to abort the request. */
+  signal?: AbortSignal
+  /** Timeout in milliseconds. Defaults to {@link RETRY_CONSTANTS.TIMEOUT}. */
+  timeout?: number
+}
+
+/**
  * Service for interacting with FilBeam infrastructure and APIs.
  *
  * @example
  * ```typescript
- * // Create service with network detection
- * const synapse = await Synapse.create({ privateKey, rpcURL })
- * const stats = await synapse.filbeam.getDataSetStats(12345)
+ * import { mainnet } from '@filoz/synapse-core/chains'
+ * import { Synapse } from '@filoz/synapse-sdk'
+ * import { FilBeamService } from '@filoz/synapse-sdk/filbeam'
+ * import { privateKeyToAccount } from 'viem/accounts'
  *
- * // Monitor remaining pay-per-byte quotas
- * const service = new FilBeamService('mainnet')
+ * // Access through Synapse (uses the Synapse chain)
+ * const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
+ * const synapseStats = await synapse.filbeam.getDataSetStats(12345)
+ *
+ * // Or create the service directly for a chain
+ * const service = new FilBeamService(mainnet)
  * const stats = await service.getDataSetStats(12345)
  * console.log('Remaining CDN Egress (cache hits):', stats.cdnEgressQuota)
  * console.log('Remaining Cache Miss Egress:', stats.cacheMissEgressQuota)
@@ -102,12 +119,14 @@ export class FilBeamService {
    * {@link WarmStorageService.getPriceList} or see https://docs.filbeam.com for rates.
    *
    * @param dataSetId - The unique identifier of the data set to query
+   * @param options - Optional abort signal and timeout. See {@link GetDataSetStatsOptions}.
    * @returns A promise that resolves to the data set statistics with remaining quotas as BigInt values
    *
    * @throws {Error} Throws an error if:
    * - The data set is not found (404)
    * - The API returns an invalid response format
    * - Network or other HTTP errors occur
+   * - The request times out or is aborted
    *
    * @example
    * ```typescript
@@ -122,28 +141,32 @@ export class FilBeamService {
    * }
    * ```
    */
-  async getDataSetStats(dataSetId: string | number): Promise<DataSetStats> {
+  async getDataSetStats(dataSetId: string | number, options: GetDataSetStatsOptions = {}): Promise<DataSetStats> {
     const baseUrl = this._getStatsBaseUrl()
     const url = `${baseUrl}/data-set/${dataSetId}`
 
-    const response = await this._fetch(url, {
-      method: 'GET',
+    const { error, result: response } = await request.get(url, {
+      fetch: this._fetch,
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: options.signal,
+      timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
     })
 
-    if (response.status === 404) {
-      throw createError('FilBeamService', 'getDataSetStats', `Data set not found: ${dataSetId}`)
-    }
-
-    if (response.status !== 200) {
-      const errorText = await response.text().catch(() => 'Unknown error')
-      throw createError(
-        'FilBeamService',
-        'getDataSetStats',
-        `HTTP ${response.status} ${response.statusText}: ${errorText}`
-      )
+    if (error) {
+      if (HttpError.is(error)) {
+        if (error.response.status === 404) {
+          throw createError('FilBeamService', 'getDataSetStats', `Data set not found: ${dataSetId}`)
+        }
+        const errorText = await error.response.text().catch(() => 'Unknown error')
+        throw createError(
+          'FilBeamService',
+          'getDataSetStats',
+          `HTTP ${error.response.status} ${error.response.statusText}: ${errorText}`
+        )
+      }
+      throw error
     }
 
     const data = await response.json()

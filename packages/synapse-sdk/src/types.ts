@@ -624,6 +624,8 @@ export interface PullOptions {
   onProgress?: (pieceCid: PieceCID, status: PullStatus) => void
   /** Pre-built signed extraData (avoids double wallet prompts) */
   extraData?: Hex
+  /** Total time in milliseconds to wait for the pull to finish. Defaults to 2 hours. */
+  timeout?: number
 }
 
 /**
