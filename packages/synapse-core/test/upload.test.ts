@@ -150,8 +150,9 @@ describe('upload', () => {
     const otherFile = new File([otherBytes], 'other.bin', { type: 'application/octet-stream' })
     const failingUuid = '00000000-0000-0000-0000-000000000001'
     const hangingUuid = '00000000-0000-0000-0000-000000000002'
-    let hangingAborted = false
     const hangingStarted = Promise.withResolvers<void>()
+    const releaseHanging = Promise.withResolvers<void>()
+    const events: string[] = []
 
     server.use(
       JSONRPC(presets.basic),
@@ -160,14 +161,14 @@ describe('upload', () => {
         const uuid = body.pieceCid === pieceCid.toString() ? failingUuid : hangingUuid
         return new HttpResponse(null, { status: 201, headers: { Location: `/pdp/piece/upload/${uuid}` } })
       }),
-      http.put(`${serviceURL}/pdp/piece/upload/${hangingUuid}`, async ({ request }) => {
-        request.signal.addEventListener('abort', () => {
-          hangingAborted = true
-        })
+      // The handler's request.signal does not fire under the browser service worker,
+      // so release the PUT after upload() rejects and check the sibling did not continue
+      http.put(`${serviceURL}/pdp/piece/upload/${hangingUuid}`, async () => {
         hangingStarted.resolve()
-        await delay('infinite')
+        await releaseHanging.promise
         return new HttpResponse(null, { status: 204 })
       }),
+      findAnyPieceHandler(true),
       http.put(`${serviceURL}/pdp/piece/upload/${failingUuid}`, async () => {
         // Fail only once the sibling PUT is in flight
         await hangingStarted.promise
@@ -176,12 +177,19 @@ describe('upload', () => {
     )
 
     try {
-      await upload(client, { dataSetId: 1n, data: [file, otherFile] })
+      await upload(client, {
+        dataSetId: 1n,
+        data: [file, otherFile],
+        onEvent: (event) => events.push(event),
+      })
       assert.fail('Should have thrown error for failed upload')
     } catch (error) {
       assert.instanceOf(error, UploadPieceError)
       assert.include((error as Error).message, 'upload failed')
     }
-    assert.isTrue(hangingAborted, 'Sibling upload should have been aborted')
+
+    releaseHanging.resolve()
+    await delay(200)
+    assert.deepStrictEqual(events, [], 'Sibling upload should have been aborted')
   })
 })
