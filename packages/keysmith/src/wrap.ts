@@ -16,9 +16,9 @@ import { mapHashToField } from '@noble/curves/abstract/modular'
 import { secp256k1 } from '@noble/curves/secp256k1'
 import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha2'
-import type { Hex } from 'viem'
+import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes } from 'viem'
-import { canonicalNode, keyspaceId } from './derive.ts'
+import { canonicalNode, epochOf, keyspaceId } from './derive.ts'
 import type { Grant, GrantDescriptor } from './types.ts'
 
 const ECDH_INFO = 'foc/acl/ecdh/v1'
@@ -31,9 +31,16 @@ const KEY_LENGTH = 32
  * never serves two algorithms. HKDF stretches the signing key to 48 bytes,
  * and hash-to-scalar (FIPS 186-5 §A.2.1) reduces that to a uniform scalar.
  * Deterministic, so the public half can be published once and stays valid.
+ *
+ * @throws If it is not a valid secp256k1 private key — an address or a public
+ * key passed by mistake would otherwise hash to a key nobody holds.
  */
 function ecdhSecretKey(privateKey: Hex): Uint8Array {
-  const seed = hkdf(sha256, hexToBytes(privateKey), undefined, ECDH_INFO, 48)
+  const raw = hexToBytes(privateKey)
+  if (raw.length !== 32 || !secp256k1.utils.isValidSecretKey(raw)) {
+    throw new Error(`Expected a 32-byte secp256k1 private key, got ${raw.length} bytes that are not one`)
+  }
+  const seed = hkdf(sha256, raw, undefined, ECDH_INFO, 48)
   return mapHashToField(seed, secp256k1.CURVE.n)
 }
 
@@ -52,8 +59,12 @@ export const publicKeyOf = (privateKey: Hex): Hex =>
  * The descriptor is authenticated, so a grant cannot be relabelled as one
  * naming a different keyspace or role. The result is inert without the
  * recipient's private key, so it can be delivered or stored anywhere.
+ *
+ * The grant carries the descriptor in canonical form, whoever built it, and
+ * nothing else: add informational fields to the returned grant if needed.
  */
-export async function wrapTo(recipientPublicKey: Hex, key: Uint8Array, descriptor: GrantDescriptor): Promise<Grant> {
+export async function wrapTo(recipientPublicKey: Hex, key: Uint8Array, input: GrantDescriptor): Promise<Grant> {
+  const descriptor = canonical(input)
   if (key.length !== KEY_LENGTH) {
     throw new Error(`Expected a ${KEY_LENGTH}-byte node key, got ${key.length} bytes`)
   }
@@ -86,10 +97,8 @@ export async function wrapTo(recipientPublicKey: Hex, key: Uint8Array, descripto
  * altered, or it is not a grant this version understands.
  */
 export async function unwrapWith(privateKey: Hex, grant: Grant): Promise<Uint8Array> {
-  const { alg, epk, iv, ct, ...descriptor } = grant
-  if (descriptor.v !== 2) {
-    throw new Error(`Unsupported grant version: ${String(descriptor.v)}`)
-  }
+  const { alg, epk, iv, ct, ...rest } = grant
+  const descriptor = canonical(rest)
   if (alg !== ALG) {
     throw new Error(`Unsupported grant algorithm: ${String(alg)}`)
   }
@@ -125,25 +134,32 @@ function wrapKek(shared: Uint8Array, epk: Uint8Array, pkR: Uint8Array): Uint8Arr
 }
 
 /**
- * The authenticated fields, in a fixed order, as a JSON array of primitives.
+ * The descriptor's five fields in canonical form, and nothing else, so that a
+ * spelling difference cannot split a grant and every grant matches the
+ * documented canonical forms, whoever built its descriptor.
  *
- * Each field is re-canonicalised so that a spelling difference cannot split a
- * grant. Exactly these five fields are covered; anything else carried
- * alongside a grant is informational and unauthenticated.
+ * @throws If it is not a version this code understands, or a field is malformed.
  */
-function aad(d: GrantDescriptor): ArrayBuffer {
-  const fields = [d.v, canonicalNode(d.node), d.owner.toLowerCase(), keyspaceId(d.keyspace), integer(d.epoch, 'epoch')]
-  return buffer(new TextEncoder().encode(JSON.stringify(fields)))
+function canonical(d: GrantDescriptor): GrantDescriptor {
+  if (d.v !== 1) {
+    throw new Error(`Unsupported grant version: ${String(d.v)}`)
+  }
+  return {
+    v: 1,
+    node: canonicalNode(d.node),
+    owner: d.owner.toLowerCase() as Address,
+    keyspace: keyspaceId(d.keyspace),
+    epoch: epochOf(d.epoch),
+  }
 }
 
-/** A relay may have rendered a number as a string; accept that, but nothing that is not an integer. */
-function integer(value: unknown, name: string): number {
-  const n = Number(value)
-  if (!Number.isSafeInteger(n) || n < 0) {
-    throw new Error(`Grant ${name} must be a non-negative integer, got ${String(value)}`)
-  }
-  return n
-}
+/**
+ * The authenticated fields of a canonical descriptor, in a fixed order, as a
+ * JSON array of primitives. Exactly these five are covered; anything else
+ * carried alongside a grant is informational and unauthenticated.
+ */
+const aad = (d: GrantDescriptor): ArrayBuffer =>
+  buffer(new TextEncoder().encode(JSON.stringify([d.v, d.node, d.owner, d.keyspace, d.epoch])))
 
 /** WebCrypto takes ArrayBuffer-backed data; noble and viem return views. */
 const buffer = (view: Uint8Array): ArrayBuffer =>

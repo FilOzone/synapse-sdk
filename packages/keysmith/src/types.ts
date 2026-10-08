@@ -25,7 +25,8 @@ export type KeyspaceKeyMessage = {
 /** What `keyspaceKeys()` hands back. The signature it came from is never exposed. */
 export interface KeyspaceKeys {
   kk: Uint8Array // The key for the whole keyspace.
-  commitment: string // Non-secret check value for FWSS metadata, under `COMMITMENT_KEY`.
+  commitment: string // Non-secret check value for FWSS metadata, under `COMMITMENT_KEY`: `v1.<epoch>.<hex>`.
+  descriptor: GrantDescriptor // What was signed, as a keyspace grant descriptor: `writeTarget(descriptor, kk, role)`.
 }
 
 export interface KeyspaceKeysOptions {
@@ -54,7 +55,7 @@ export interface TypedDataSigner {
 
 /** FEE envelope entries to enable key derivation/recovery, wherever the piece ends up */
 export interface PieceMetadata {
-  'foc/v': 2
+  'foc/v': 1
   'foc/ks': Hex // The keyspace this piece's key belongs to
   'foc/epoch': number // Key rotation counter
   'foc/role'?: string // A role path, `super-secret/secret`: that role and every ancestor can read the piece
@@ -74,7 +75,7 @@ export type GrantNode = 'keyspace' | `role:${string}`
  * one with `grantDescriptor()` and the narrow type applies.
  */
 export interface GrantDescriptor {
-  v: 2
+  v: 1
   node: string // 'keyspace', or 'role:<name>'.
   owner: Address // The wallet that roots the keyspace, lowercased
   keyspace: Hex // Spelled as in `foc/ks`

@@ -24,7 +24,7 @@ describe('wrapTo / unwrapWith', () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()
     const grant = await wrapTo(publicKeyOf(recipient), kk, descriptor)
-    assert.equal(grant.v, 2)
+    assert.equal(grant.v, 1)
     assert.deepStrictEqual(await unwrapWith(recipient, JSON.parse(JSON.stringify(grant))), kk)
   })
 
@@ -83,13 +83,41 @@ describe('wrapTo / unwrapWith', () => {
     assert.deepStrictEqual(holdingOf(grant), { role: 'agent-memory' })
   })
 
-  it('rejects grants it does not understand, including the previous format', async () => {
+  it('rejects grants it does not understand', async () => {
     const recipient = generatePrivateKey()
     const grant = await wrapTo(publicKeyOf(recipient), await kkOf(), descriptor)
     await assert.rejects(unwrapWith(recipient, { ...grant, alg: 'RSA-OAEP' } as never), /Unsupported grant algorithm/)
-    await assert.rejects(unwrapWith(recipient, { ...grant, v: 1 } as never), /Unsupported grant version/)
+    await assert.rejects(unwrapWith(recipient, { ...grant, v: 2 } as never), /Unsupported grant version/)
     const { epoch: _dropped, ...withoutEpoch } = grant
     await assert.rejects(unwrapWith(recipient, withoutEpoch as never), /epoch/)
+  })
+
+  it('wraps only a version it writes, and carries exactly the canonical descriptor', async () => {
+    const kk = await kkOf()
+    const recipient = generatePrivateKey()
+    await assert.rejects(
+      wrapTo(publicKeyOf(recipient), kk, { ...descriptor, v: 2 } as never),
+      /Unsupported grant version/
+    )
+    const handBuilt = {
+      v: 1,
+      node: 'role:cafe\u0301',
+      owner: account.address,
+      keyspace: ref.keyspace.toUpperCase().replace('0X', '0x'),
+      epoch: '0',
+      dataSetId: '7',
+    }
+    const grant = await wrapTo(publicKeyOf(recipient), roleKey(kk, 'caf\u00e9'), handBuilt as never)
+    const { alg: _a, epk: _e, iv: _i, ct: _c, ...carried } = grant
+    assert.deepStrictEqual(carried, grantDescriptor(ref, 'role:caf\u00e9'), 'canonical, and nothing extra')
+  })
+
+  it('refuses something that is not a private key where one is needed', async () => {
+    const grant = await wrapTo(publicKeyOf(generatePrivateKey()), await kkOf(), descriptor)
+    assert.throws(() => publicKeyOf(account.address), /32-byte secp256k1 private key/, 'an address')
+    assert.throws(() => publicKeyOf(`0x${'00'.repeat(32)}`), /32-byte secp256k1 private key/, 'zero')
+    assert.throws(() => publicKeyOf(`0x${'ff'.repeat(32)}`), /32-byte secp256k1 private key/, 'above the order')
+    await assert.rejects(unwrapWith(account.address, grant), /32-byte secp256k1 private key/)
   })
 
   it('only wraps a 32-byte node key', async () => {

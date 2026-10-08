@@ -1,7 +1,7 @@
 {
   "name": "@filoz/keysmith",
   "version": "0.0.1",
-  "description": "Deterministic per-dataset key derivation for Filecoin Onchain Cloud",
+  "description": "Deterministic keyspace key derivation for Filecoin Onchain Cloud",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/FilOzone/synapse-sdk.git"
@@ -51,6 +51,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
+        "test/**/*.json",
         "tsconfig.json"
       ],
       "output": [
@@ -61,7 +62,8 @@
       "command": "pnpm run test:node && pnpm run test:browser",
       "files": [
         "src/**/*.ts",
-        "test/**/*.ts"
+        "test/**/*.ts",
+        "test/**/*.json"
       ],
       "output": [],
       "dependencies": [
@@ -72,7 +74,8 @@
       "command": "playwright-test \"test/**/*.test.ts\" --mode node",
       "files": [
         "src/**/*.ts",
-        "test/**/*.ts"
+        "test/**/*.ts",
+        "test/**/*.json"
       ],
       "output": []
     },
@@ -80,7 +83,8 @@
       "command": "playwright-test \"test/**/*.test.ts\"",
       "files": [
         "src/**/*.ts",
-        "test/**/*.ts"
+        "test/**/*.ts",
+        "test/**/*.json"
       ],
       "output": []
     },
@@ -89,6 +93,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
+        "test/**/*.json",
         "../../biome.json"
       ],
       "output": [],

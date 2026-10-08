@@ -69,19 +69,36 @@ const ref = {
   keyspace: Keysmith.newKeyspace(), // or reuse an existing one
 }
 
-// One wallet signature. The signature itself stays inside the call; you get
-// the keyspace key and a public commitment, and have nothing else to guard.
-const { kk, commitment } = await Keysmith.keyspaceKeys(account, ref)
+// One wallet signature. The signature itself stays inside the call; you get the
+// keyspace key, a public commitment, and a descriptor of exactly what was signed.
+const { kk, commitment, descriptor } = await Keysmith.keyspaceKeys(account, ref)
 
+// Write the way a delegate does: keyspace and epoch come from what was signed,
+// so a stale key or a mistyped ref cannot produce an envelope nobody can open.
+const target = Keysmith.writeTarget(descriptor, kk, 'agent-memory')
 const salt = Keysmith.newSalt()
-const key = Keysmith.pieceKey(Keysmith.roleKey(kk, 'agent-memory'), salt)
-const metadata = Keysmith.pieceMetadata(ref, { salt, role: 'agent-memory' }) // goes in the FEE envelope
+const key = Keysmith.pieceKey(target.key, salt) // hand to FEE
+const metadata = Keysmith.pieceMetadata(target.ref, { salt, role: target.role }) // goes in the FEE envelope
 
 // Record the keyspace and commitment in the createDataSet call you were making anyway:
 //   metadata: { [Keysmith.KEYSPACE_ID_KEY]: ref.keyspace, [Keysmith.COMMITMENT_KEY]: commitment }
 ```
 
 A piece written without a role is readable only with the keyspace key.
+
+Keysmith writes to two places, for different purposes:
+
+| Where | Keys | Written | Needed to decrypt? |
+| --- | --- | --- | --- |
+| FEE envelope (`pieceMetadata`) | `foc/v`, `foc/ks`, `foc/epoch`, `foc/role`, `foc/salt` | per piece | **yes** — this is what `keyForEnvelope` reads, and the source of truth |
+| FWSS dataset metadata | `foc/ks`, `foc/kc` | once, at `createDataSet` | no — lets a client list its keyspaces from the chain, and check its key before decrypting |
+
+The dataset entries also help a writer that has no envelope to draw from yet: it can learn
+a dataset's keyspace before adding to it. Like all FWSS metadata they are public, so the
+keyspace id goes on chain; no key does.
+
+Only the owner's own wallet can sign for its keyspace: `keyspaceKeys` checks the signature
+recovers to `ref.owner`. A delegate — a session key included — receives a grant instead.
 
 The first time a signer is used, `keyspaceKeys` signs twice and compares, refusing a
 signer that does not sign deterministically. That costs one extra wallet prompt, once;
@@ -145,7 +162,7 @@ const pieceKey = Keysmith.pieceKey(target.key, salt)
 const metadata = Keysmith.pieceMetadata(target.ref, { salt, role: target.role })
 ```
 
-ℹ️ NOTE: because shared keys are symmetric and deterministic, sharing the key in this way also enables a suitably permissioned delegate to *write* encrypted data under that role as well as read.
+ℹ️ NOTE: because shared keys are symmetric and deterministic, sharing the key in this way also enables a suitably permissioned delegate to *write* encrypted data under that role as well as read. However, write access (`addPieces`) is separately access controlled in FWSS, so keep session keys and scopes for reading and writing tightly in sync.
 
 ## Reading a piece
 
@@ -175,11 +192,24 @@ const key = Keysmith.keyForEnvelope(node, metadata, Keysmith.holdingOf(grant))
 
 With the wallet and the encrypted blobs. Nothing else is required, thus there is nothing the user can lose.
 
-1. Read `foc/ks` from each envelope — or, to find datasets before fetching pieces, from
-   each dataset's `KEYSPACE_ID_KEY` metadata.
-2. Call `keyspaceKeys` once per distinct keyspace. Where a dataset recorded a commitment,
-   compare it before decrypting anything.
-3. Derive each piece key from the metadata in its own envelope.
+1. List the wallet's datasets, and fetch their pieces. A dataset's `KEYSPACE_ID_KEY`
+   metadata says which keyspace to expect, but **each envelope is the source of truth**:
+   read `foc/ks` and `foc/epoch` from it.
+2. Call `keyspaceKeys` once per distinct **(keyspace, epoch)** — the epoch is part of what
+   is signed, so a re-keyed keyspace costs one signature per epoch in use.
+3. Where a dataset recorded a commitment, check it before decrypting anything. The
+   commitment names its own epoch (`v1.<epoch>.<hex>`), because dataset metadata is
+   write-once and may predate a re-key:
+
+   ```ts
+   const recorded = datasetMetadata[Keysmith.COMMITMENT_KEY]
+   const { kk } = await Keysmith.keyspaceKeys(wallet, { ...ref, epoch: Keysmith.commitmentEpoch(recorded) })
+   if (!Keysmith.matchesCommitment(kk, recorded)) throw new Error('wrong wallet, or a signer that is not deterministic')
+   ```
+
+   Where a dataset recorded no commitment, there is nothing to check in advance: a wrong
+   key shows up only as FEE decryption failing.
+4. Derive each piece key from the metadata in its own envelope.
 
 A copy found in a dataset other than the one it was written to opens exactly the same way:
 the envelope, not the dataset, names its keyspace. Because the commitment is derived from
@@ -197,20 +227,26 @@ so every value has exactly one spelling, produced by the library rather than the
 | role path | names joined by `/`, top first; each name Unicode NFC, non-empty, unpadded, no `/`; case is significant |
 | piece salt | lowercase hex |
 | owner in a grant | lowercase |
-| `epoch` in a grant | non-negative integer; a relayed `"0"` is accepted |
+| `epoch`, everywhere | an integer from 0 to 2³²−1, the `uint32` it is signed as; a decimal string such as a relayed `"0"` is accepted |
 | grant `node` | `keyspace`, or `role:` plus a canonical role path |
+| commitment | `v1.<epoch>.<32 lowercase hex digits>` |
 
 `grantDescriptor()` and `pieceMetadata()` emit these forms, and `wrapTo`, `unwrapWith`,
 `roleKey` and `keyForEnvelope` re-canonicalise whatever they are given, so a hand-built
-descriptor or a mangling relay cannot split a grant. A grant also names its `epoch`, so
-keys for different re-keyings of one keyspace are never confused for each other.
+descriptor or a mangling relay cannot split a grant. `wrapTo` emits the canonical
+descriptor and nothing else, whoever built it; add informational fields to the grant
+afterwards. A grant also names its `epoch`, so keys for different re-keyings of one
+keyspace are never confused for each other.
+
+Every format is at version 1: the envelope's `foc/v`, a grant's `v` and the commitment's
+`v1.` prefix. Each is checked, and a reader refuses a version it does not know.
 
 ## API
 
 | Function | Purpose |
 | --- | --- |
 | `newKeyspace()` | A fresh keyspace id |
-| `keyspaceKeys(signer, ref, options?)` | One signature per keyspace → `{ kk, commitment }` |
+| `keyspaceKeys(signer, ref, options?)` | One owner signature per keyspace and epoch → `{ kk, commitment, descriptor }` |
 | `roleKey(kk, path)` | The key for a role, e.g. `'super-secret/secret'` |
 | `roleName(name)` / `rolePath(path)` | A role name or path in canonical form, or a thrown error |
 | `pieceKey(node, salt)` | The key for one piece — hand this to FEE |
@@ -218,7 +254,9 @@ keys for different re-keyings of one keyspace are never confused for each other.
 | `writeTarget(grant, key, role?)` | For a delegate: the ref, role and key to write a piece, refusing roles its grant does not cover |
 | `holdingOf(grant)` | Which level a grant carries, for `keyForEnvelope` |
 | `pieceMetadata(ref, { salt, role? })` | What the envelope must record |
-| `commitment(kk)` | The non-secret check value, recomputable by any `KK` holder |
+| `commitment(kk, epoch)` | The non-secret check value, recomputable by any `KK` holder |
+| `commitmentEpoch(recorded)` / `matchesCommitment(kk, recorded)` | Which epoch a recorded commitment checks, and whether a key matches it |
+| `epochOf(value)` | An epoch in canonical form, or a thrown error |
 | `KEYSPACE_ID_KEY` / `COMMITMENT_KEY` | FWSS metadata keys for the keyspace id and commitment |
 | `grantDescriptor(ref, node)` | Name what a grant unlocks: `'keyspace'` or `'role:<name>'` |
 | `wrapTo(publicKey, key, descriptor)` | Wrap a node key for a recipient |
@@ -234,7 +272,9 @@ keys for different re-keyings of one keyspace are never confused for each other.
   whole estate. Day-to-day reads never sign, so a prompt is itself an anomaly.
 - **Determinism is checked twice**, because the whole scheme rests on it: on a signer's
   first use `keyspaceKeys` signs the same message twice and refuses a signer that disagrees
-  with itself, and the `foc/kc` commitment catches a wrong wallet at recovery time.
+  with itself, and, where a dataset recorded one, the `foc/kc` commitment catches a wrong
+  wallet at recovery time. Without a recorded commitment the only signal is FEE
+  decryption failing.
 - **Only a plain ECDSA signature is accepted.** A contract account or smart wallet answers
   `signTypedData` with an ABI-encoded blob whose leading bytes are structure, not secret;
   deriving from that would mint a guessable key, so it is refused rather than used.
@@ -256,8 +296,6 @@ keys for different re-keyings of one keyspace are never confused for each other.
   unwrap; browser wallets, hardware wallets and contract accounts cannot, because none of
   them expose a key to do ECDH with. They need a signature-derived encryption key, which
   is not in this package yet.
-- **Key material cannot be wiped.** JavaScript offers no way to zeroise a `Uint8Array`
-  reliably, so treat any process holding `KK` as holding it for its lifetime.
 
 ## Development
 
@@ -265,3 +303,7 @@ keys for different re-keyings of one keyspace are never confused for each other.
 pnpm --filter @filoz/keysmith build
 pnpm --filter @filoz/keysmith test     # node + browser
 ```
+
+`test/vectors.json` pins the outputs for fixed inputs (the well-known Anvil development
+keys). If a change alters any of them, existing keys would be orphaned. Other
+implementations can test themselves against the same file.

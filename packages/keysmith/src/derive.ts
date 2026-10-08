@@ -13,7 +13,7 @@
 import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha2'
 import type { Address, Hex } from 'viem'
-import { bytesToHex, hexToBytes } from 'viem'
+import { bytesToHex, hashTypedData, hexToBytes, recoverAddress } from 'viem'
 import type {
   GrantDescriptor,
   GrantNode,
@@ -28,6 +28,8 @@ import type {
 } from './types.ts'
 
 const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
+/** The largest epoch: it is signed as a `uint32`. */
+const MAX_EPOCH = 0xffffffff
 /** Half the secp256k1 group order; an `s` above this is the malleable form. */
 const HALF_N = N / 2n
 
@@ -99,12 +101,27 @@ export function keyspaceId(keyspace: string): Hex {
   return lower as Hex
 }
 
+/**
+ * An epoch in the one form it is signed, recorded and compared in: an integer
+ * from 0 to 2³²−1, the range of the `uint32` it is signed as. A decimal string
+ * is accepted too, since JSON relays and command lines produce them.
+ *
+ * @throws If it is anything else.
+ */
+export function epochOf(value: number | string): number {
+  const n = typeof value === 'string' && /^(0|[1-9][0-9]*)$/.test(value) ? Number(value) : value
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > MAX_EPOCH) {
+    throw new Error(`An epoch is an integer from 0 to ${MAX_EPOCH}, got ${JSON.stringify(value)}`)
+  }
+  return n
+}
+
 export function keyspaceKeyMessage(ref: KeyspaceRef): KeyspaceKeyMessage {
   return {
     purpose: PURPOSE,
     owner: ref.owner,
     keyspace: keyspaceId(ref.keyspace),
-    epoch: ref.epoch ?? 0,
+    epoch: epochOf(ref.epoch ?? 0),
   }
 }
 
@@ -122,19 +139,23 @@ const verifiedSigners = new WeakSet<object>()
  * randomising signer before any data depends on it, at the cost of a second
  * wallet prompt. Later calls sign once. See {@link KeyspaceKeysOptions}.
  *
- * @throws If the signer is not deterministic, or does not produce an ECDSA signature.
+ * Only the owner's own wallet can sign: a key signed by any other wallet,
+ * a session key included, is not the key the owner's wallet derives, and
+ * nothing downstream could tell. Delegates receive a grant instead.
+ *
+ * The result carries the keyspace descriptor, so an owner writes the same way
+ * a delegate does — `writeTarget(descriptor, kk, role)` — with the keyspace
+ * and epoch taken from what was actually signed.
+ *
+ * @throws If the signer is not deterministic, is not the owner, or does not produce an ECDSA signature.
  */
 export async function keyspaceKeys(
   signer: TypedDataSigner,
   ref: KeyspaceRef,
   options: KeyspaceKeysOptions = {}
 ): Promise<KeyspaceKeys> {
-  const args = {
-    domain: DOMAIN,
-    types: KEYSPACE_KEY_TYPES,
-    primaryType: 'KeyspaceKey' as const,
-    message: keyspaceKeyMessage(ref),
-  }
+  const message = keyspaceKeyMessage(ref)
+  const args = { domain: DOMAIN, types: KEYSPACE_KEY_TYPES, primaryType: 'KeyspaceKey' as const, message }
   const first = await signer.signTypedData(args)
   if (options.verifySigner ?? !verifiedSigners.has(signer)) {
     const second = await signer.signTypedData(args)
@@ -146,19 +167,70 @@ export async function keyspaceKeys(
     }
     verifiedSigners.add(signer)
   }
-  const kk = derive(lowSrs(first), INFO.keyspace)
-  return { kk, commitment: commitment(kk) }
+  const rs = lowSrs(first)
+  await assertSignedBy(message.owner, hashTypedData(args), rs)
+  const kk = derive(rs, INFO.keyspace)
+  return { kk, commitment: commitment(kk, message.epoch), descriptor: grantDescriptor(ref, 'keyspace') }
 }
 
 /**
- * A non-secret commitment to the keyspace key, for FWSS data-set metadata.
+ * `v` is dropped, and `s` normalised, before anything is derived, so recovery
+ * tries both parities: the owner's address must be one of the two candidates.
+ */
+async function assertSignedBy(owner: Address, hash: Hex, rs: Uint8Array): Promise<void> {
+  const r = bytesToHex(rs.subarray(0, 32))
+  const s = bytesToHex(rs.subarray(32, 64))
+  for (const yParity of [0, 1]) {
+    if ((await recoverAddress({ hash, signature: { r, s, yParity } })).toLowerCase() === owner.toLowerCase()) {
+      return
+    }
+  }
+  throw new Error(
+    `This signature is not from the keyspace owner ${owner}. Only the owner's wallet can sign for its keyspace; ` +
+      'a delegate, such as a session key, receives a grant instead.'
+  )
+}
+
+/**
+ * A non-secret commitment to one epoch's keyspace key, for FWSS data-set
+ * metadata: `v1.<epoch>.<32 hex digits>`.
  *
  * Derived from the keyspace key rather than the signature, so anything that
  * holds the keyspace key — an agent replicating data into a new dataset, say —
  * can write it into that dataset's metadata too. It reveals nothing: it is a
  * one-way function of a key that is itself never published.
+ *
+ * The epoch is part of the value because data-set metadata is write-once: after
+ * a re-key, a reader still has to know which epoch's key the commitment checks.
+ * `v1` is the format of the value.
  */
-export const commitment = (kk: Uint8Array): string => `v2.${bytesToHex(derive(kk, INFO.commitment, 16)).slice(2)}`
+export const commitment = (kk: Uint8Array, epoch: number | string): string =>
+  `v1.${epochOf(epoch)}.${bytesToHex(derive(kk, INFO.commitment, 16)).slice(2)}`
+
+/**
+ * The epoch a recorded commitment checks. Derive the keyspace key for that
+ * epoch, then compare with {@link matchesCommitment}.
+ *
+ * @throws If the value is not a commitment in this format.
+ */
+export function commitmentEpoch(recorded: string): number {
+  const match = /^v1\.(0|[1-9][0-9]*)\.[0-9a-f]{32}$/.exec(recorded)
+  if (match == null) {
+    throw new Error(`Not a keyspace commitment in format v1: ${JSON.stringify(recorded)}`)
+  }
+  return epochOf(match[1] as string)
+}
+
+/**
+ * Whether `kk` is the key a recorded commitment names: the right wallet, the
+ * right keyspace and the right epoch. Check this before decrypting, where a
+ * dataset recorded a commitment; without one, the only check is that FEE
+ * decryption fails.
+ *
+ * @throws If the recorded value is not a commitment in this format.
+ */
+export const matchesCommitment = (kk: Uint8Array, recorded: string): boolean =>
+  commitment(kk, commitmentEpoch(recorded)) === recorded
 
 /**
  * `r‖s` with `s` normalised to the low half, and `v` dropped.
@@ -251,9 +323,9 @@ const lowerHex = (value: Hex): Hex => value.toLowerCase() as Hex
  */
 export function pieceMetadata(ref: KeyspaceRef, options: { salt: Hex; role?: string }): PieceMetadata {
   return {
-    'foc/v': 2,
+    'foc/v': 1,
     'foc/ks': keyspaceId(ref.keyspace),
-    'foc/epoch': ref.epoch ?? 0,
+    'foc/epoch': epochOf(ref.epoch ?? 0),
     ...(options.role == null ? {} : { 'foc/role': rolePath(options.role) }),
     'foc/salt': lowerHex(options.salt),
   }
@@ -269,11 +341,11 @@ export function pieceMetadata(ref: KeyspaceRef, options: { salt: Hex; role?: str
  */
 export function grantDescriptor(ref: KeyspaceRef, node: GrantNode): GrantDescriptor {
   return {
-    v: 2,
+    v: 1,
     node: canonicalNode(node) as GrantNode,
     owner: ref.owner.toLowerCase() as Address,
     keyspace: keyspaceId(ref.keyspace),
-    epoch: ref.epoch ?? 0,
+    epoch: epochOf(ref.epoch ?? 0),
   }
 }
 
@@ -284,12 +356,14 @@ export function grantDescriptor(ref: KeyspaceRef, node: GrantNode): GrantDescrip
  * the rest of the path below its own role — which works only if its role is the
  * piece's role or an ancestor of it.
  *
- * @throws If the piece predates this format, or the held role does not contain the piece's role.
+ * @throws If the piece is not in this format, or the held role does not contain the piece's role.
  */
 export function keyForEnvelope(node: Uint8Array, metadata: PieceMetadata, holding: Holding = 'keyspace'): Uint8Array {
-  if (metadata['foc/v'] !== 2) {
+  // Pre-release prototypes also wrote `foc/v: 1`, but named no keyspace.
+  if (metadata['foc/v'] !== 1 || typeof metadata['foc/ks'] !== 'string') {
     throw new Error(
-      `This piece was written with envelope format ${String(metadata['foc/v'])}; this version reads format 2.`
+      `This piece's envelope is not format 1 with a keyspace (foc/v ${String(metadata['foc/v'])}, ` +
+        `foc/ks ${String(metadata['foc/ks'])}); this version reads only that.`
     )
   }
   const role = metadata['foc/role']
@@ -341,7 +415,7 @@ export function writeTarget(grant: GrantDescriptor, nodeKey: Uint8Array, role?: 
     throw new Error(`This grant covers ${covers}; it cannot write under "${role}".`)
   }
   return {
-    ref: { owner: grant.owner, keyspace: keyspaceId(grant.keyspace), epoch: Number(grant.epoch) },
+    ref: { owner: grant.owner, keyspace: keyspaceId(grant.keyspace), epoch: epochOf(grant.epoch) },
     ...(path.length === 0 ? {} : { role: path.join('/') }),
     key: walk(nodeKey, path.slice(held.length)),
   }

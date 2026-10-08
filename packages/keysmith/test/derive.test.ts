@@ -4,7 +4,9 @@ import { bytesToHex, hashDomain, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
   commitment,
+  commitmentEpoch,
   DOMAIN,
+  epochOf,
   grantDescriptor,
   holdingOf,
   keyForEnvelope,
@@ -12,6 +14,7 @@ import {
   keyspaceKeyMessage,
   keyspaceKeys,
   lowSrs,
+  matchesCommitment,
   newKeyspace,
   newSalt,
   pieceKey,
@@ -67,10 +70,27 @@ describe('keyspaceKeys', () => {
 
   it('returns a commitment derived from the keyspace key, so any key holder can recompute it', async () => {
     const { kk, commitment: c } = await keyspaceKeys(account, ref)
-    assert.equal(c, commitment(kk))
-    assert.match(c, /^v2\.[0-9a-f]{32}$/)
+    assert.equal(c, commitment(kk, 0))
+    assert.match(c, /^v1\.0\.[0-9a-f]{32}$/)
     assert.notEqual(c, (await keyspaceKeys(account, { ...ref, keyspace: newKeyspace() })).commitment)
     assert.ok(!c.includes(bytesToHex(kk).slice(2, 34)), 'the commitment must not contain the key')
+  })
+
+  it('refuses a signature from any wallet but the owner’s, a session key included', async () => {
+    const session = privateKeyToAccount(generatePrivateKey())
+    await assert.rejects(keyspaceKeys(session, ref), /not from the keyspace owner/)
+    const ownerInOtherCase = { ...ref, owner: account.address.toLowerCase() as `0x${string}` }
+    await keyspaceKeys(account, ownerInOtherCase)
+  })
+
+  it('returns the keyspace descriptor, so an owner writes the way a delegate does', async () => {
+    const { kk, descriptor } = await keyspaceKeys(account, { ...ref, epoch: 4 })
+    assert.deepStrictEqual(descriptor, grantDescriptor({ ...ref, epoch: 4 }, 'keyspace'))
+    const target = writeTarget(descriptor, kk, 'agent-memory')
+    const salt = newSalt()
+    const metadata = pieceMetadata(target.ref, { salt, role: target.role })
+    assert.equal(metadata['foc/epoch'], 4, 'the epoch comes from what was signed')
+    assert.deepStrictEqual(pieceKey(target.key, salt), keyForEnvelope(kk, metadata))
   })
 
   it('signs twice on a signer’s first use, and once after that', async () => {
@@ -157,21 +177,16 @@ describe('location independence', () => {
     assert.deepStrictEqual(keyForEnvelope(kk, foundElsewhere), pieceKey(kk, salt))
   })
 
-  it('refuses an envelope from an older format, clearly', async () => {
+  it('refuses an envelope in any other format, clearly', async () => {
     const kk = await kkOf(account, ref)
-    const old = { 'foc/v': 1, 'foc/cds': '0x2a', 'foc/epoch': 0, 'foc/salt': newSalt() } as never
-    assert.throws(() => keyForEnvelope(kk, old), /format 1/)
+    const prototype = { 'foc/v': 1, 'foc/cds': '0x2a', 'foc/epoch': 0, 'foc/salt': newSalt() } as never
+    assert.throws(() => keyForEnvelope(kk, prototype), /format 1 with a keyspace/, 'a pre-release prototype')
+    const future = { ...pieceMetadata(ref, { salt: newSalt() }), 'foc/v': 2 } as never
+    assert.throws(() => keyForEnvelope(kk, future), /format 1 with a keyspace/)
   })
 })
 
 describe('roles', () => {
-  it('give siblings unrelated keys: neither opens the other', async () => {
-    const kk = await kkOf(account, ref)
-    const salt = newSalt()
-    assert.notDeepStrictEqual(roleKey(kk, 'super-secret'), roleKey(kk, 'secret'))
-    assert.notDeepStrictEqual(pieceKey(roleKey(kk, 'super-secret'), salt), pieceKey(roleKey(kk, 'secret'), salt))
-  })
-
   it('give a keyspace holder and a role holder the same piece key', async () => {
     const kk = await kkOf(account, ref)
     const metadata = pieceMetadata(ref, { salt: newSalt(), role: 'agent-memory' })
@@ -213,14 +228,14 @@ describe('pieceMetadata and grantDescriptor', () => {
   it('record what a reader needs, in canonical form, and nothing secret', () => {
     const salt = '0x00CDEF0123456789ABCDEF0123456789' as const
     assert.deepStrictEqual(pieceMetadata({ ...ref, epoch: 3 }, { salt, role: 'café' }), {
-      'foc/v': 2,
+      'foc/v': 1,
       'foc/ks': ref.keyspace,
       'foc/epoch': 3,
       'foc/role': 'café',
       'foc/salt': '0x00cdef0123456789abcdef0123456789',
     })
     assert.deepStrictEqual(grantDescriptor({ ...ref, epoch: 3 }, 'role:café'), {
-      v: 2,
+      v: 1,
       node: 'role:café',
       owner: account.address.toLowerCase(),
       keyspace: ref.keyspace,
@@ -262,6 +277,13 @@ describe('role tree', () => {
       () => keyForEnvelope(roleKey(kk, 'super-secret/secret'), sibling, { role: 'super-secret/secret' }),
       /does not contain/
     )
+  })
+
+  it('gives siblings unrelated keys: neither opens the other', async () => {
+    const kk = await kkOf(account, ref)
+    const salt = newSalt()
+    assert.notDeepStrictEqual(roleKey(kk, 'super-secret'), roleKey(kk, 'secret'))
+    assert.notDeepStrictEqual(pieceKey(roleKey(kk, 'super-secret'), salt), pieceKey(roleKey(kk, 'secret'), salt))
   })
 
   it('derives a child from its parent, so position is part of the key', async () => {
@@ -309,5 +331,45 @@ describe('writeTarget', () => {
     assert.equal(writeTarget(grant, kk).role, undefined)
     assert.deepStrictEqual(writeTarget(grant, kk).key, kk)
     assert.deepStrictEqual(writeTarget(grant, kk, 'agent-memory').key, roleKey(kk, 'agent-memory'))
+  })
+})
+
+describe('epochOf', () => {
+  it('accepts a uint32, or one spelled as a decimal string', () => {
+    assert.equal(epochOf(0), 0)
+    assert.equal(epochOf(0xffffffff), 0xffffffff)
+    assert.equal(epochOf('7'), 7)
+  })
+
+  it('refuses anything else, everywhere an epoch is recorded', () => {
+    for (const bad of [-1, 1.5, 2 ** 32, Number.NaN, '07', '1e3', ' 7', 'seven']) {
+      assert.throws(() => epochOf(bad), /An epoch is an integer/, String(bad))
+    }
+    assert.throws(() => keyspaceKeyMessage({ ...ref, epoch: -1 }), /An epoch/)
+    assert.throws(() => pieceMetadata({ ...ref, epoch: 1.5 }, { salt: newSalt() }), /An epoch/)
+    assert.throws(() => grantDescriptor({ ...ref, epoch: 2 ** 32 }, 'keyspace'), /An epoch/)
+    const fromJson = { ...grantDescriptor(ref, 'keyspace'), epoch: '2' as unknown as number }
+    assert.equal(writeTarget(fromJson, new Uint8Array(32)).ref.epoch, 2)
+  })
+})
+
+describe('commitment', () => {
+  it('names its epoch, and matches only that epoch’s key from the owner’s wallet', async () => {
+    const { kk, commitment: c0 } = await keyspaceKeys(account, ref)
+    const { kk: kk1, commitment: c1 } = await keyspaceKeys(account, { ...ref, epoch: 1 })
+    assert.match(c1, /^v1\.1\.[0-9a-f]{32}$/)
+    assert.equal(commitmentEpoch(c0), 0)
+    assert.equal(commitmentEpoch(c1), 1)
+    assert.ok(matchesCommitment(kk, c0))
+    assert.ok(matchesCommitment(kk1, c1))
+    assert.ok(!matchesCommitment(kk1, c0), 'another epoch')
+    const other = privateKeyToAccount(generatePrivateKey())
+    assert.ok(!matchesCommitment(await kkOf(other, { ...ref, owner: other.address }), c0), 'another wallet')
+  })
+
+  it('refuses a value in any other format', () => {
+    for (const bad of ['v2.0123456789abcdef0123456789abcdef', 'v1.0.0123', 'v1.01.0123456789abcdef0123456789abcdef']) {
+      assert.throws(() => commitmentEpoch(bad), /format v1/, bad)
+    }
   })
 })
