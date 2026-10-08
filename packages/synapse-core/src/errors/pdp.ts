@@ -59,6 +59,10 @@ export class WaitForCreateDataSetRejectedError extends SynapseError {
     })
     this.response = error
   }
+
+  static override is(value: unknown): value is WaitForCreateDataSetRejectedError {
+    return isSynapseError(value) && value.name === 'WaitForCreateDataSetRejectedError'
+  }
 }
 
 export class GetDataSetError extends SynapseError {
