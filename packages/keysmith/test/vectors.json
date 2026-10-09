@@ -1,0 +1,49 @@
+{
+  "description": "Pinned Keysmith outputs for fixed inputs. A release that changes any of them orphans existing keys. The private keys are the well-known Anvil/Hardhat development keys #0 and #1: public, never for anything of value.",
+  "owner": {
+    "privateKey": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  },
+  "keyspace": "0x00112233445566778899aabbccddeeff",
+  "epochs": [
+    {
+      "epoch": 0,
+      "kk": "0x5f3b04d4ae0c893a4cd91313cbe9fba64a4a1e146f73c20133624dde9d724cca",
+      "commitment": "v1.0.da5f58361ff41d3deb799f1326be6ef6"
+    },
+    {
+      "epoch": 1,
+      "kk": "0xde9ef0e8bdb92f7adc0014aa05b2f6db48e8bb1dc2862ed45ddb8589663bd8e9",
+      "commitment": "v1.1.eea55a19ae61822160002d6feb281ca8"
+    }
+  ],
+  "role": {
+    "path": "admin/finance",
+    "key": "0x1b467702a6e24914fe242149fd4c0c4cae502a4181ac80d564392492d73d0757"
+  },
+  "piece": {
+    "metadata": {
+      "foc/v": 1,
+      "foc/ks": "0x00112233445566778899aabbccddeeff",
+      "foc/epoch": 0,
+      "foc/role": "admin/finance/clerks",
+      "foc/salt": "0x000102030405060708090a0b0c0d0e0f"
+    },
+    "key": "0xfe0d7f9e653bb371cc0242b6d764edbe416e891e237e78c18a6832e14bef08fa"
+  },
+  "recipient": {
+    "privateKey": "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+    "publicKey": "0x045e37be3bda1b6f6473cea4109645c929bae6d26d596525244cffb239468a3e1cd00c7adf30482122b34c98d2188e1e9c19d117a6ff7e8a95bfaf51502d5d16d5"
+  },
+  "grant": {
+    "v": 1,
+    "node": "role:admin/finance",
+    "owner": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+    "keyspace": "0x00112233445566778899aabbccddeeff",
+    "epoch": 0,
+    "alg": "ECDH-ES+A256GCM/secp256k1",
+    "epk": "0x04b07ec49b4371a4e634cd04b5a19899301658631ac728846a52ca4add1ff230de3aef513b3d787635c61f9d7357362125d5113f8a0249db5c854c4bab4ba13d2e",
+    "iv": "0xa5cb1c37a464295256023f58",
+    "ct": "0x9caef82ec484b3445fbc9cb92462d105ee3b130f2ab505df83e83aa4e10db1c2e3c3c6499c84437987970280d5fb32d8"
+  }
+}
