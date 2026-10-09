@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v2.0.2...synapse-sdk-v2.0.3) (2026-10-09)
+
+
+### Bug Fixes
+
+* **filbeam:** add timeout and abort signal to getDataSetStats ([#1010](https://github.com/FilOzone/synapse-sdk/issues/1010)) ([421d151](https://github.com/FilOzone/synapse-sdk/commit/421d15149938a5e87f061be4720ebcae25f52480))
+* increase max upload size to 64 GiB padded ([#997](https://github.com/FilOzone/synapse-sdk/issues/997)) ([290ed9e](https://github.com/FilOzone/synapse-sdk/commit/290ed9e73704908fba380ed1cede060b11409d7e))
+* **sdk:** forward abort signal to commit ([#1000](https://github.com/FilOzone/synapse-sdk/issues/1000)) ([245144a](https://github.com/FilOzone/synapse-sdk/commit/245144a80d98793992810cacba40c6b2fa0bdb49))
+
 ## [2.0.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v2.0.1...synapse-sdk-v2.0.2) (2026-09-25)
 
 
