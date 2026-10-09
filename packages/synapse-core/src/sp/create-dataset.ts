@@ -1,4 +1,4 @@
-import { AbortError, HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
 import {
   type Account,
   type Address,
@@ -15,6 +15,7 @@ import { asChain } from '../chains.ts'
 import { CreateDataSetError, LocationHeaderError } from '../errors/index.ts'
 import { WaitForCreateDataSetError, WaitForCreateDataSetRejectedError } from '../errors/pdp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
+import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject } from '../utils/metadata.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
@@ -140,9 +141,7 @@ export namespace createDataSet {
  * @throws Errors {@link createDataSet.ErrorType}
  */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: createDataSet.OptionsType) {
-  if (options.signal?.aborted) {
-    throw new AbortError(options.signal)
-  }
+  throwIfAborted(options.signal)
   const chain = asChain(client.chain)
 
   // Sign and encode the create data set message

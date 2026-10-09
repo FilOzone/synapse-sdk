@@ -1,4 +1,4 @@
-import { AbortError, HttpError, type RequestErrors, type RequestJsonErrors, request, SchemaError } from 'iso-web/http'
+import { HttpError, type RequestErrors, type RequestJsonErrors, request, SchemaError } from 'iso-web/http'
 import type {
   Account,
   Chain,
@@ -21,6 +21,7 @@ import {
   WaitForTerminateServiceRejectedError,
 } from '../errors/pdp.ts'
 import { signTerminateService } from '../typed-data/sign-terminate-service.ts'
+import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
 
@@ -239,9 +240,7 @@ export async function terminateService(
   client: Client<Transport, Chain, Account>,
   options: terminateService.OptionsType
 ): Promise<terminateService.OutputType> {
-  if (options.signal?.aborted) {
-    throw new AbortError(options.signal)
-  }
+  throwIfAborted(options.signal)
   const extraData = options.extraData ?? (await signTerminateService(client, { dataSetId: options.dataSetId }))
   return terminateServiceApiRequest({
     serviceURL: options.serviceURL,

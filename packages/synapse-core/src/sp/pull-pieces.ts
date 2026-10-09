@@ -6,6 +6,7 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import type { MetadataEntry } from '../typed-data/type-definitions.ts'
+import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
@@ -347,11 +348,14 @@ async function signPullExtraData(
 /**
  * Resolve the common SP-level options from high-level pull options.
  * Signs extraData if not pre-built by the caller.
+ * Throws AbortError before signing if the signal has already been aborted, so an
+ * aborted call never triggers a wallet prompt.
  */
 async function resolvePullParams(
   client: Client<Transport, Chain, Account>,
   options: pullPieces.OptionsType
 ): Promise<pullPiecesApiRequest.OptionsType> {
+  throwIfAborted(options.signal)
   const chain = asChain(client.chain)
   return {
     serviceURL: options.serviceURL,

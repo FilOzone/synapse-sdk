@@ -1,8 +1,9 @@
-import { AbortError, HttpError, type RequestErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, request } from 'iso-web/http'
 import type { Account, Chain, Client, Hex, Transport } from 'viem'
 import { DeletePieceError } from '../errors/pdp.ts'
 import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
+import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 
 const MAX_CURIO_PIECE_ID = (1n << 63n) - 1n
@@ -148,9 +149,7 @@ export async function schedulePieceDeletions(
   client: Client<Transport, Chain, Account>,
   options: schedulePieceDeletions.OptionsType
 ): Promise<schedulePieceDeletions.OutputType> {
-  if (options.signal?.aborted) {
-    throw new AbortError(options.signal)
-  }
+  throwIfAborted(options.signal)
   const pieceIds = normalizeDeletePieceIds(options.pieceIds)
 
   return deletePieces({
