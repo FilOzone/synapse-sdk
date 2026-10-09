@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.10.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.10.0...synapse-core-v0.10.1) (2026-10-09)
+
+
+### Features
+
+* **core:** accept AbortSignal in legacy uploadPiece ([#1009](https://github.com/FilOzone/synapse-sdk/issues/1009)) ([596f768](https://github.com/FilOzone/synapse-sdk/commit/596f768be0b67b9f1b80638eefa41eb9b88abc56))
+* **core:** accept AbortSignal in sp actions and forward timeout in waitForCreateDataSetAddPieces ([#998](https://github.com/FilOzone/synapse-sdk/issues/998)) ([603403a](https://github.com/FilOzone/synapse-sdk/commit/603403a5c4bb6b1baf0f95e20ad0825ff08ff8ea))
+
+
+### Bug Fixes
+
+* **core:** add is() type guard to WaitForCreateDataSetRejectedError ([#1001](https://github.com/FilOzone/synapse-sdk/issues/1001)) ([b85f512](https://github.com/FilOzone/synapse-sdk/commit/b85f5122188781bba2501befa0b5c970e1ee27aa))
+* **core:** cancel sibling uploads when one fails in upload() ([#1013](https://github.com/FilOzone/synapse-sdk/issues/1013)) ([57d84c2](https://github.com/FilOzone/synapse-sdk/commit/57d84c2f3de3faf5fd638c89ddeed1e13f639a6c))
+* **core:** skip signing in pullPieces when the abort signal already fired ([#1012](https://github.com/FilOzone/synapse-sdk/issues/1012)) ([47d5e64](https://github.com/FilOzone/synapse-sdk/commit/47d5e64b84f91b095803c46f6d2cce2b9d58f0bd))
+* increase max upload size to 64 GiB padded ([#997](https://github.com/FilOzone/synapse-sdk/issues/997)) ([290ed9e](https://github.com/FilOzone/synapse-sdk/commit/290ed9e73704908fba380ed1cede060b11409d7e))
+
 ## [0.10.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.9.1...synapse-core-v0.10.0) (2026-09-25)
 
 
