@@ -276,6 +276,9 @@ describe('Pull', () => {
         () => pullPieces(client, created),
         () => waitForPullPieces(client, existing),
         () => waitForPullPieces(client, created),
+        // Pre-built extraData skips signing; iso-web also refuses to send on an aborted signal.
+        () => pullPieces(client, { ...existing, extraData: '0x' }),
+        () => waitForPullPieces(client, { ...existing, extraData: '0x' }),
       ]
 
       for (const call of calls) {
