@@ -4,6 +4,7 @@ import { delay, HttpResponse, http } from 'msw'
 import { createWalletClient, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import * as Chains from '../src/chains.ts'
+import { UploadPieceError } from '../src/errors/pdp.ts'
 import { JSONRPC, PRIVATE_KEYS, presets } from '../src/mocks/jsonrpc/index.ts'
 import { findAnyPieceHandler, postPieceHandler, uploadPieceHandler } from '../src/mocks/pdp.ts'
 import * as Piece from '../src/piece/index.ts'
@@ -142,5 +143,53 @@ describe('upload', () => {
       assert.instanceOf(error, AbortError)
       assert.isFalse(addPiecesCalled)
     }
+  })
+
+  it('should abort sibling uploads when one upload fails', async () => {
+    const otherBytes = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x43)
+    const otherFile = new File([otherBytes], 'other.bin', { type: 'application/octet-stream' })
+    const failingUuid = '00000000-0000-0000-0000-000000000001'
+    const hangingUuid = '00000000-0000-0000-0000-000000000002'
+    const hangingStarted = Promise.withResolvers<void>()
+    const releaseHanging = Promise.withResolvers<void>()
+    const events: string[] = []
+
+    server.use(
+      JSONRPC(presets.basic),
+      http.post<Record<string, never>, { pieceCid: string }>(`${serviceURL}/pdp/piece`, async ({ request }) => {
+        const body = await request.json()
+        const uuid = body.pieceCid === pieceCid.toString() ? failingUuid : hangingUuid
+        return new HttpResponse(null, { status: 201, headers: { Location: `/pdp/piece/upload/${uuid}` } })
+      }),
+      // The handler's request.signal does not fire under the browser service worker,
+      // so release the PUT after upload() rejects and check the sibling did not continue
+      http.put(`${serviceURL}/pdp/piece/upload/${hangingUuid}`, async () => {
+        hangingStarted.resolve()
+        await releaseHanging.promise
+        return new HttpResponse(null, { status: 204 })
+      }),
+      findAnyPieceHandler(true),
+      http.put(`${serviceURL}/pdp/piece/upload/${failingUuid}`, async () => {
+        // Fail only once the sibling PUT is in flight
+        await hangingStarted.promise
+        return HttpResponse.text('upload failed', { status: 500 })
+      })
+    )
+
+    try {
+      await upload(client, {
+        dataSetId: 1n,
+        data: [file, otherFile],
+        onEvent: (event) => events.push(event),
+      })
+      assert.fail('Should have thrown error for failed upload')
+    } catch (error) {
+      assert.instanceOf(error, UploadPieceError)
+      assert.include((error as Error).message, 'upload failed')
+    }
+
+    releaseHanging.resolve()
+    await delay(200)
+    assert.deepStrictEqual(events, [], 'Sibling upload should have been aborted')
   })
 })

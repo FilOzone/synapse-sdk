@@ -157,38 +157,52 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
   const chain = asChain(client.chain)
   const serviceURL = dataSet.provider.pdp.serviceURL
 
+  // Aborted when any file fails, so sibling uploads and polls stop instead of running in the background
+  const controller = new AbortController()
+  const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal
+
+  const uploadFile = async (file: File) => {
+    const data = new Uint8Array(await file.arrayBuffer())
+    const pieceCid = await Piece.calculate(data)
+    const url = createPieceUrl({
+      cid: pieceCid.toString(),
+      cdn: dataSet.cdn,
+      address: client.account.address,
+      chain: chain,
+      serviceURL,
+    })
+    await uploadPiece({
+      data,
+      pieceCid,
+      serviceURL,
+      signal,
+    })
+    options.onEvent?.('pieceUploaded', { pieceCid, dataSet })
+
+    await findPiece({
+      pieceCid,
+      serviceURL,
+      poll: true,
+      signal,
+    })
+
+    options.onEvent?.('pieceParked', { pieceCid, url, dataSet })
+
+    return {
+      pieceCid,
+      url,
+      metadata: { name: file.name, type: file.type },
+    }
+  }
+
+  // Promise.all rejects with the first failure, so the AbortErrors from cancelled siblings are ignored
   const uploadResponses = await Promise.all(
-    options.data.map(async (file: File) => {
-      const data = new Uint8Array(await file.arrayBuffer())
-      const pieceCid = await Piece.calculate(data)
-      const url = createPieceUrl({
-        cid: pieceCid.toString(),
-        cdn: dataSet.cdn,
-        address: client.account.address,
-        chain: chain,
-        serviceURL,
-      })
-      await uploadPiece({
-        data,
-        pieceCid,
-        serviceURL,
-        signal: options.signal,
-      })
-      options.onEvent?.('pieceUploaded', { pieceCid, dataSet })
-
-      await findPiece({
-        pieceCid,
-        serviceURL,
-        poll: true,
-        signal: options.signal,
-      })
-
-      options.onEvent?.('pieceParked', { pieceCid, url, dataSet })
-
-      return {
-        pieceCid,
-        url,
-        metadata: { name: file.name, type: file.type },
+    options.data.map(async (file) => {
+      try {
+        return await uploadFile(file)
+      } catch (error) {
+        controller.abort()
+        throw error
       }
     })
   )
@@ -201,7 +215,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
       metadata: response.metadata,
     })),
     clientDataSetId: dataSet.clientDataSetId,
-    signal: options.signal,
+    signal,
   })
 
   return { ...addPiecesResponse, pieces: uploadResponses }
