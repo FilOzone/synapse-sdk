@@ -10,7 +10,7 @@ export class EnvelopeError extends Error {
   override name = 'EnvelopeError'
 }
 
-/** A CEK is not a 32-byte, non-zero AES-256 key. */
+/** A CEK or KEK is not a 32-byte, non-zero AES-256 key. */
 export class InvalidKeyError extends EnvelopeError {
   override name = 'InvalidKeyError'
 }
@@ -31,6 +31,21 @@ export class CryptoOperationError extends EnvelopeError {
  */
 export class AuthenticationError extends EnvelopeError {
   override name = 'AuthenticationError'
+}
+
+/** No recipient in a valid envelope could provide a CEK. */
+export class NoUsableRecipientError extends EnvelopeError {
+  override name = 'NoUsableRecipientError'
+}
+
+/** A recipient unwrapper failed instead of declining the available recipients. */
+export class RecipientUnwrapError extends EnvelopeError {
+  override name = 'RecipientUnwrapError'
+}
+
+/** A recipient unwrapper reached its configured limit of key-unwrap attempts. */
+export class RecipientAttemptLimitError extends EnvelopeError {
+  override name = 'RecipientAttemptLimitError'
 }
 
 /** `chunkSize` is not an integer within `[MIN_CHUNK_SIZE, MAX_CHUNK_SIZE]`. */

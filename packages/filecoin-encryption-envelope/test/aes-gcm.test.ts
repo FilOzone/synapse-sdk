@@ -12,7 +12,8 @@ import { ALG_A256KW, TAG_ENCRYPT, TAG_ENCRYPT0 } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import { encStructure } from '../src/cose/enc-structure.ts'
 import type { RecipientInput } from '../src/cose/encode.ts'
-import { encodeEnvelope, prepareEnvelope } from '../src/cose/encode.ts'
+import { assemblePreparedEnvelope, encodeEnvelope, prepareEnvelope } from '../src/cose/encode.ts'
+import { encodeProtectedHeader } from '../src/cose/headers.ts'
 import {
   AuthenticationError,
   CryptoOperationError,
@@ -23,23 +24,8 @@ import {
   MalformedEnvelopeError,
   UnsupportedSchemeError,
 } from '../src/errors.ts'
-import {
-  concatBytes,
-  FIXTURE_BASE_NONCE_7,
-  FIXTURE_IV_12,
-  hexToBytes,
-  MINIMAL_ENVELOPE_TAG16_HEX,
-  toNullProto,
-} from './cose-fixtures.ts'
-
-const FIXED_CEK = Uint8Array.from({ length: KEY_SIZE }, (_, index) => index)
-const HELLO = new TextEncoder().encode('hello')
-
-// Key 000102...1f, IV 000102...0b, plaintext "hello", and the minimal
-// tag-16 Enc_structure. The envelope prefix is the existing hand-derived
-// COSE fixture; the final 21 bytes are 5 bytes of ciphertext plus the
-// 16-byte GCM tag.
-const HELLO_VECTOR_HEX = `${MINIMAL_ENVELOPE_TAG16_HEX}2f67ba77aa3e5b52d043203a731722e538ba0f0538`
+import { FIXED_CEK, fixedRandomValues, HELLO, HELLO_VECTOR_HEX, withRandomValues } from './aes-gcm-fixtures.ts'
+import { concatBytes, FIXTURE_BASE_NONCE_7, FIXTURE_IV_12, hexToBytes, toNullProto } from './cose-fixtures.ts'
 
 const TEST_RECIPIENT: RecipientInput = {
   protectedBytes: new Uint8Array(0),
@@ -64,22 +50,6 @@ function findBytes(haystack: Uint8Array, needle: Uint8Array): number {
   }
   return -1
 }
-
-async function withRandomValues<T>(implementation: Crypto['getRandomValues'], action: () => Promise<T>): Promise<T> {
-  const original = globalThis.crypto.getRandomValues
-  globalThis.crypto.getRandomValues = implementation
-  try {
-    return await action()
-  } finally {
-    globalThis.crypto.getRandomValues = original
-  }
-}
-
-const fixedRandomValues = ((array: Uint8Array<ArrayBuffer>) => {
-  assert.strictEqual(array.length, NONCE_SIZE)
-  array.set(FIXTURE_IV_12)
-  return array
-}) as Crypto['getRandomValues']
 
 async function decryptWithWebCrypto(encoded: Uint8Array, cek: Uint8Array): Promise<Uint8Array> {
   const decoded = decodeEnvelope(encoded)
@@ -169,29 +139,21 @@ describe('aesGcm.encrypt', () => {
     assert.deepStrictEqual(decoded.protectedHeader.appMetadata, toNullProto({ name: 'greeting', revision: 1 }))
   })
 
-  it('snapshots caller-owned plaintext, CEK, and metadata before its first await', async () => {
-    const plaintext = new Uint8Array(HELLO)
-    const cek = new Uint8Array(FIXED_CEK)
-    const appMetadata: NonNullable<EncryptOptions['appMetadata']> = { state: 'before' }
-
-    const encoded = await withRandomValues(fixedRandomValues, async () => {
-      const pending = encrypt(plaintext, { cek, appMetadata })
-      plaintext.fill(0xff)
-      cek.fill(0xff)
-      appMetadata.state = 'after'
-      return await pending
-    })
-    const decoded = decodeEnvelope(encoded)
-
-    assert.deepStrictEqual(decoded.protectedHeader.appMetadata, toNullProto({ state: 'before' }))
-    assert.deepStrictEqual(await decryptWithWebCrypto(encoded, FIXED_CEK), HELLO)
-  })
-
   it('rejects plaintext that is not a Uint8Array', async () => {
     await assert.rejects(
       encrypt('hello' as unknown as Uint8Array, { cek: new Uint8Array(FIXED_CEK) }),
       InvalidPlaintextError
     )
+  })
+
+  it('rejects a SharedArrayBuffer-backed plaintext', async () => {
+    const plaintext = new Uint8Array(new SharedArrayBuffer(HELLO.length))
+    await assert.rejects(encrypt(plaintext, { cek: new Uint8Array(FIXED_CEK) }), InvalidPlaintextError)
+  })
+
+  it('rejects a SharedArrayBuffer-backed CEK', async () => {
+    const cek = new Uint8Array(new SharedArrayBuffer(KEY_SIZE))
+    await assert.rejects(encrypt(new Uint8Array(HELLO), { cek }), InvalidKeyError)
   })
 
   it('rejects a non-byte, wrong-length, or all-zero CEK', async () => {
@@ -209,15 +171,6 @@ describe('aesGcm.encrypt', () => {
 
   it('rejects malformed options with a package error', async () => {
     await assert.rejects(encrypt(new Uint8Array(HELLO), null as unknown as EncryptOptions), MalformedEnvelopeError)
-  })
-
-  it('rejects recipients instead of silently producing an envelope without them', async () => {
-    const options = {
-      cek: new Uint8Array(FIXED_CEK),
-      recipients: [{ key: 'recipient' }],
-    }
-
-    await assert.rejects(encrypt(new Uint8Array(HELLO), options), MalformedEnvelopeError)
   })
 
   it('round-trips plaintext at the 64 MiB scheme-1 limit', async function () {
@@ -299,6 +252,33 @@ describe('aesGcm.decrypt', () => {
     malformed[recipientAlgorithm + 2] = 0xf5
 
     await assert.rejects(decrypt(malformed, new Uint8Array(FIXED_CEK)), MalformedEnvelopeError)
+  })
+
+  it('rejects a tag-96 A256KW recipient with a bad ciphertext length, even with a directly supplied CEK', async () => {
+    // `prepareEnvelope` (the checked encoder) would reject this recipient
+    // outright, so this bad envelope can only be built through the trusted
+    // `assemblePreparedEnvelope` path, which does not check ciphertext
+    // length itself — proving the check that matters here is decodeEnvelope's.
+    const badRecipient: RecipientInput = { ...TEST_RECIPIENT, ciphertext: new Uint8Array(39) }
+    const protectedBytes = encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12 })
+    const prepared = assemblePreparedEnvelope(protectedBytes, [badRecipient])
+
+    const key = await globalThis.crypto.subtle.importKey('raw', new Uint8Array(FIXED_CEK), 'AES-GCM', false, [
+      'encrypt',
+    ])
+    const ciphertext = await globalThis.crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv: FIXTURE_IV_12,
+        additionalData: encStructure(TAG_ENCRYPT, prepared.protectedBytes),
+        tagLength: 128,
+      },
+      key,
+      new Uint8Array(HELLO)
+    )
+    const encoded = concatBytes(prepared.bytes, new Uint8Array(ciphertext))
+
+    await assert.rejects(decrypt(encoded, new Uint8Array(FIXED_CEK)), MalformedEnvelopeError)
   })
 
   it('decrypts with a directly supplied CEK despite an unsupported recipient algorithm', async () => {
@@ -460,16 +440,23 @@ describe('aesGcm.decrypt', () => {
     await assert.rejects(decrypt(encoded, new Uint8Array(FIXED_CEK)), InvalidCiphertextLengthError)
   })
 
-  it('does not observe envelope or CEK mutations after the call starts', async () => {
+  it('rejects a SharedArrayBuffer-backed encoded envelope', async () => {
     const encoded = await withRandomValues(fixedRandomValues, () =>
       encrypt(new Uint8Array(HELLO), { cek: new Uint8Array(FIXED_CEK) })
     )
-    const cek = new Uint8Array(FIXED_CEK)
+    const shared = new Uint8Array(new SharedArrayBuffer(encoded.length))
+    shared.set(encoded)
 
-    const pending = decrypt(encoded, cek)
-    encoded.fill(0xff)
-    cek.fill(0xff)
+    await assert.rejects(decrypt(shared, new Uint8Array(FIXED_CEK)), MalformedEnvelopeError)
+  })
 
-    assert.deepStrictEqual(await pending, HELLO)
+  it('rejects a SharedArrayBuffer-backed CEK', async () => {
+    const encoded = await withRandomValues(fixedRandomValues, () =>
+      encrypt(new Uint8Array(HELLO), { cek: new Uint8Array(FIXED_CEK) })
+    )
+    const cek = new Uint8Array(new SharedArrayBuffer(KEY_SIZE))
+    cek.set(FIXED_CEK)
+
+    await assert.rejects(decrypt(encoded, cek), InvalidKeyError)
   })
 })

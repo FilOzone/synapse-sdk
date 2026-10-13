@@ -14,11 +14,12 @@ const STRIDE = CHUNK_SIZE + TAG_SIZE
 /**
  * Independent reimplementation of the ciphertext length an encoder produces,
  * always in the `k`-chunk (never `k+1`) form. Deliberately not the exported
- * `ciphertextLengthForPlaintext`: the round-trip test below needs an oracle
- * that would not agree with `chunkLayout` if both shared the same bug.
+ * `ciphertextLengthForPlaintext` or `chunkCountForPlaintext`: the round-trip
+ * test below needs an oracle that would not agree with `chunkLayout` if both
+ * shared the same chunk-count bug.
  */
 function expectedCiphertextLength(length: number, chunkSizeBytes: number): number {
-  const count = chunkCountForPlaintext(length, chunkSizeBytes)
+  const count = Math.max(1, Math.ceil(length / chunkSizeBytes))
   const stride = chunkSizeBytes + TAG_SIZE
   const lastChunkPlaintext = length <= 0 ? 0 : length - (count - 1) * chunkSizeBytes
   return (count - 1) * stride + (lastChunkPlaintext + TAG_SIZE)
