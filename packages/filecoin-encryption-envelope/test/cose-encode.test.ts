@@ -9,7 +9,7 @@ import {
 } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import type { EncodeEnvelopeInput, RecipientInput } from '../src/cose/encode.ts'
-import { encodeEnvelope } from '../src/cose/encode.ts'
+import { encodeEnvelope, prepareEnvelope } from '../src/cose/encode.ts'
 import type { CborValue } from '../src/cose/headers.ts'
 import { MalformedEnvelopeError } from '../src/errors.ts'
 import {
@@ -70,6 +70,17 @@ describe('encodeEnvelope', () => {
       // 44 09090909 (ciphertext)
       const expected = hexToBytes(`d86084583c${MINIMAL_PROTECTED_HEADER_HEX}a0f6818340a201240442aabb4409090909`)
       assert.deepStrictEqual(encodeEnvelope({ ...MINIMAL_INPUT, recipients: [A256KW_RECIPIENT] }), expected)
+    })
+
+    it('retains the exact protected bytes placed in either envelope type', () => {
+      for (const input of [MINIMAL_INPUT, { ...MINIMAL_INPUT, recipients: [A256KW_RECIPIENT] }]) {
+        const prepared = prepareEnvelope(input)
+        const decoded = decodeEnvelope(prepared.bytes)
+
+        assert.strictEqual(prepared.tag, decoded.tag)
+        assert.deepStrictEqual(prepared.protectedBytes, decoded.protectedHeader.bytes)
+        assert.deepStrictEqual(prepared.bytes, encodeEnvelope(input))
+      }
     })
   })
 

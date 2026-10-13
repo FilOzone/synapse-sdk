@@ -9,7 +9,8 @@
 export * from './constants.ts'
 export * from './decode.ts'
 export * from './enc-structure.ts'
-export * from './encode.ts'
+export type { EncodeEnvelopeInput, RecipientInput } from './encode.ts'
+export { encodeEnvelope } from './encode.ts'
 
 export type {
   Alg,
