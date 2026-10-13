@@ -1,7 +1,7 @@
 /**
  * COSE decode-only inspection surface (FIP-1253): read an untrusted envelope
  * into its typed protected header, unprotected header, and recipient list.
- * See docs/tech-spec.md, "Wire profile" and "CDDL".
+ * See docs/implementation-guide.md, "Wire profile" and "CDDL".
  *
  * @module cose
  */

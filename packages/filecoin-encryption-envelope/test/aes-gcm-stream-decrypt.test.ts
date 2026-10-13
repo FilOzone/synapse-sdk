@@ -1,5 +1,4 @@
-import assert from 'node:assert'
-import crypto from 'node:crypto'
+import assert from 'assert'
 import { encrypt as encryptWholeObject } from '../src/aes-gcm.ts'
 import { type ChunkedEncryptOptions, decrypt, encrypt } from '../src/aes-gcm-stream.ts'
 import { KEY_SIZE, MIN_CHUNK_SIZE, TAG_SIZE } from '../src/constants.ts'
@@ -15,7 +14,8 @@ import {
 } from '../src/errors.ts'
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks, sourceOf } from './aes-gcm-stream-fixtures.ts'
-import { concatBytes, FIXTURE_BASE_NONCE_7, hexToBytes } from './cose-fixtures.ts'
+import { concatBytes, FIXTURE_BASE_NONCE_7, hasSharedArrayBuffer, hexToBytes } from './cose-fixtures.ts'
+import { findBytes, pipeBytes, pipeChunks } from './helpers.ts'
 
 const CHUNK_SIZE = 4096
 
@@ -29,39 +29,40 @@ const PLAINTEXT_LENGTH_ENVELOPE_HEX =
   'd0835846a5013a000101000547000102030405061078286170706c69636174696f6e2f766e642e66696c65636f696e2d656e6372797074696f6e2b636f7365201910003a000100fc1864a0f6'
 
 /**
- * Build a decryptable object directly with node:crypto (never this
+ * Build a decryptable object directly with Web Crypto (never this
  * package's aesGcmEncrypt/aesGcmDecrypt/deriveChunkNonce): a fixed envelope
  * plus one aes-256-gcm chunk per stride, each with a literal nonce
  * (`[...base, i3,i2,i1,i0, flag]`) and the AAD from encStructure (itself
  * covered elsewhere).
  */
-function buildObject(
+async function buildObject(
   totalLength: number,
   envelopeHex: string = ENVELOPE_HEX
-): { encoded: Uint8Array; plaintext: Uint8Array } {
+): Promise<{ encoded: Uint8Array; plaintext: Uint8Array }> {
   const envelope = hexToBytes(envelopeHex)
   const decoded = decodeEnvelope(envelope)
-  const aad = Buffer.from(encStructure(decoded.tag, decoded.protectedHeader.bytes))
+  const aad = encStructure(decoded.tag, decoded.protectedHeader.bytes)
   const plaintext = deterministicPlaintext(totalLength)
   const chunkCount = totalLength === 0 ? 1 : Math.ceil(totalLength / CHUNK_SIZE)
+  const key = await crypto.subtle.importKey('raw', FIXED_CEK, 'AES-GCM', false, ['encrypt'])
 
   const parts: Uint8Array[] = [envelope]
   for (let i = 0; i < chunkCount; i++) {
     const isLast = i === chunkCount - 1
     const start = i * CHUNK_SIZE
     const end = Math.min(start + CHUNK_SIZE, totalLength)
-    const slice = Buffer.from(plaintext.subarray(start, end))
+    const slice = plaintext.subarray(start, end) as Uint8Array<ArrayBuffer>
 
     const nonce = new Uint8Array(12)
     nonce.set(FIXTURE_BASE_NONCE_7, 0)
     new DataView(nonce.buffer).setUint32(7, i, false)
     nonce[11] = isLast ? 1 : 0
 
-    const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(FIXED_CEK), Buffer.from(nonce), {
-      authTagLength: 16,
-    })
-    cipher.setAAD(aad)
-    const ciphertext = Buffer.concat([cipher.update(slice), cipher.final(), cipher.getAuthTag()])
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: 128 },
+      key,
+      slice
+    )
     parts.push(new Uint8Array(ciphertext))
   }
   return { encoded: concatBytes(...parts), plaintext }
@@ -69,38 +70,19 @@ function buildObject(
 
 /** Encrypt via the production writer and drive it to completion. */
 async function encryptFull(plaintext: Uint8Array, extra: Partial<ChunkedEncryptOptions> = {}): Promise<Uint8Array> {
-  const { writable, readable } = await withRandomValues(fixedBaseNonceRandomValues, async () =>
+  const pair = await withRandomValues(fixedBaseNonceRandomValues, async () =>
     encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize: CHUNK_SIZE, ...extra })
   )
-  const writer = writable.getWriter()
-  const writeDone = writer.write(plaintext)
-  const closeDone = writer.close()
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return concatBytes(...chunks)
+  return pipeBytes(pair, plaintext)
 }
 
 /** Drive decrypt() to completion (or rejection) with `encoded` delivered in one write. */
 async function decryptChunks(encoded: Uint8Array, cek: Uint8Array = FIXED_CEK): Promise<Uint8Array<ArrayBuffer>[]> {
-  const { writable, readable } = decrypt(new Uint8Array(cek))
-  const writer = writable.getWriter()
-  const writeDone = writer.write(encoded)
-  const closeDone = writer.close()
-  writeDone.catch(() => {
-    // Surfaced via readAllChunks below either way; avoid an unhandled rejection.
-  })
-  closeDone.catch(() => {
-    // Same: an incomplete/invalid object rejects close(), read already reports it.
-  })
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return chunks
+  return pipeChunks(decrypt(new Uint8Array(cek)), encoded)
 }
 
 async function decryptBytes(encoded: Uint8Array, cek: Uint8Array = FIXED_CEK): Promise<Uint8Array> {
-  return concatBytes(...(await decryptChunks(encoded, cek)))
+  return pipeBytes(decrypt(new Uint8Array(cek)), encoded)
 }
 
 /** Read until the stream rejects (or ends), capturing every chunk that arrived first. */
@@ -131,16 +113,6 @@ async function decryptUntilFailure(
   return { chunks, error }
 }
 
-function findSubsequence(haystack: Uint8Array, needle: Uint8Array): number {
-  outer: for (let i = 0; i <= haystack.length - needle.length; i++) {
-    for (let j = 0; j < needle.length; j++) {
-      if (haystack[i + j] !== needle[j]) continue outer
-    }
-    return i
-  }
-  throw new Error('test helper: subsequence not found')
-}
-
 describe('aesGcmStream.decrypt', () => {
   describe('independent vectors', () => {
     const cases = [
@@ -151,7 +123,7 @@ describe('aesGcmStream.decrypt', () => {
     ]
     for (const { name, length } of cases) {
       it(`matches the independent oracle: ${name}`, async () => {
-        const { encoded, plaintext } = buildObject(length)
+        const { encoded, plaintext } = await buildObject(length)
         const chunks = await decryptChunks(encoded)
         // One piece per non-empty chunk: an empty object yields no pieces at all.
         assert.strictEqual(chunks.length, Math.ceil(length / CHUNK_SIZE))
@@ -160,7 +132,7 @@ describe('aesGcmStream.decrypt', () => {
     }
 
     it('matches the independent oracle with plaintext_length present', async () => {
-      const { encoded, plaintext } = buildObject(100, PLAINTEXT_LENGTH_ENVELOPE_HEX)
+      const { encoded, plaintext } = await buildObject(100, PLAINTEXT_LENGTH_ENVELOPE_HEX)
       assert.deepStrictEqual(await decryptBytes(encoded), plaintext)
     })
   })
@@ -259,7 +231,7 @@ describe('aesGcmStream.decrypt', () => {
     it('rejects a changed protected-header byte with AuthenticationError', async () => {
       const encoded = await encryptFull(deterministicPlaintext(10))
       const decodedEnvelope = decodeEnvelope(encoded)
-      const ivOffset = findSubsequence(encoded, decodedEnvelope.protectedHeader.iv)
+      const ivOffset = findBytes(encoded, decodedEnvelope.protectedHeader.iv)
       const tampered = Uint8Array.from(encoded)
       tampered[ivOffset] ^= 0xff
       await assert.rejects(decryptBytes(tampered), AuthenticationError)
@@ -408,12 +380,15 @@ describe('aesGcmStream.decrypt', () => {
       await assert.rejects(writer.write('not bytes'), MalformedEnvelopeError)
     })
 
-    it('rejects a SharedArrayBuffer-backed block with MalformedEnvelopeError', async () => {
-      const { writable } = decrypt(new Uint8Array(FIXED_CEK))
-      const writer = writable.getWriter()
-      const view = new Uint8Array(new SharedArrayBuffer(16))
-      await assert.rejects(writer.write(view), MalformedEnvelopeError)
-    })
+    ;(hasSharedArrayBuffer ? it : it.skip)(
+      'rejects a SharedArrayBuffer-backed block with MalformedEnvelopeError',
+      async () => {
+        const { writable } = decrypt(new Uint8Array(FIXED_CEK))
+        const writer = writable.getWriter()
+        const view = new Uint8Array(new SharedArrayBuffer(16))
+        await assert.rejects(writer.write(view), MalformedEnvelopeError)
+      }
+    )
 
     it('throws synchronously for an invalid CEK', () => {
       assert.throws(() => decrypt(new Uint8Array(KEY_SIZE - 1)), InvalidKeyError)
@@ -588,7 +563,7 @@ describe('aesGcmStream.decrypt', () => {
     })
 
     it('starts no key work when input failed after the envelope but before the first read', async () => {
-      const { encoded } = buildObject(CHUNK_SIZE + 100)
+      const { encoded } = await buildObject(CHUNK_SIZE + 100)
       const envelopeLength = decodeEnvelope(encoded).envelopeLength
       const original = globalThis.crypto.subtle.importKey
       let importCalls = 0

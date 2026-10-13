@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { type ChunkedEncryptOptions, encrypt } from '../src/aes-gcm-stream.ts'
 import { assertWithinObjectLimit } from '../src/chunk-layout.ts'
 import {

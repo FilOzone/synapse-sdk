@@ -39,6 +39,16 @@ export function toNullProto<T extends Record<string, unknown>>(obj: T): T {
   return Object.assign(Object.create(null), obj)
 }
 
+/**
+ * Browsers hide `SharedArrayBuffer` by default (a Spectre-era security
+ * measure) unless the page opts into extra isolation headers, which
+ * playwright-test's browser page doesn't — so the global is `undefined`
+ * there, though it always exists in Node. Check this before building a
+ * `SharedArrayBuffer` fixture, so the browser suite skips that case
+ * instead of crashing the moment the file loads.
+ */
+export const hasSharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined'
+
 /** The 12-byte IV used across fixtures: bytes 0x00..0x0B. */
 export const FIXTURE_IV_12 = Uint8Array.from({ length: 12 }, (_, i) => i)
 

@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { encode as cborEncode, rfc8949EncodeOptions } from 'cborg'
 import { ALG_AES_256_GCM } from '../src/constants.ts'
 import { ALG_A256KW, ALG_ECDH_ES_A256KW, HEADER_ALG, HEADER_KID } from '../src/cose/constants.ts'

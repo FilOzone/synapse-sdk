@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { type ChunkedEncryptOptions, encrypt } from '../src/aes-gcm-stream.ts'
 import { MAX_ENCODED_OBJECT_SIZE } from '../src/constants.ts'
 import { MAX_ENVELOPE_SIZE } from '../src/cose/constants.ts'
@@ -7,20 +7,15 @@ import { InvalidSourceLengthError, MalformedEnvelopeError } from '../src/errors.
 import { openExactRange, type RandomAccessSource, readEnvelope, toRandomAccessSource } from '../src/range/source.ts'
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks, sourceOf } from './aes-gcm-stream-fixtures.ts'
-import { concatBytes } from './cose-fixtures.ts'
+import { concatBytes, hasSharedArrayBuffer } from './cose-fixtures.ts'
+import { pipeBytes, recordingSource } from './helpers.ts'
 
 /** Encrypt via the production writer and drive it to completion. */
 async function encryptFull(plaintext: Uint8Array, extra: Partial<ChunkedEncryptOptions> = {}): Promise<Uint8Array> {
-  const { writable, readable } = await withRandomValues(fixedBaseNonceRandomValues, async () =>
+  const pair = await withRandomValues(fixedBaseNonceRandomValues, async () =>
     encrypt({ cek: new Uint8Array(FIXED_CEK), ...extra })
   )
-  const writer = writable.getWriter()
-  const writeDone = writer.write(plaintext)
-  const closeDone = writer.close()
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return concatBytes(...chunks)
+  return pipeBytes(pair, plaintext)
 }
 
 /** An object whose envelope alone (large `app_metadata`) is bigger than 12288 bytes. */
@@ -47,7 +42,7 @@ describe('toRandomAccessSource', () => {
       assert.strictEqual(chunk.buffer, bytes.buffer)
     })
 
-    it('rejects a SharedArrayBuffer-backed input', () => {
+    ;(hasSharedArrayBuffer ? it : it.skip)('rejects a SharedArrayBuffer-backed input', () => {
       const shared = new Uint8Array(new SharedArrayBuffer(10))
       assert.throws(() => toRandomAccessSource(shared), MalformedEnvelopeError)
     })
@@ -362,49 +357,6 @@ describe('openExactRange', () => {
 })
 
 describe('readEnvelope', () => {
-  function recordingSource(bytes: Uint8Array): {
-    source: RandomAccessSource
-    calls: Array<{ offset: number; length: number }>
-    cancelled: Array<{ offset: number; length: number }>
-  } {
-    const calls: Array<{ offset: number; length: number }> = []
-    const cancelled: Array<{ offset: number; length: number }> = []
-    // Delivered in small blocks, closing only on a *later* pull() once
-    // fully drained -- like a real transport, so a span that completes the
-    // envelope partway through still has bytes left to actually cancel.
-    const blockSize = 64
-    const source: RandomAccessSource = {
-      size: bytes.length,
-      async openRange(offset, length) {
-        calls.push({ offset, length })
-        const slice = bytes.subarray(offset, offset + length)
-        let pos = 0
-        return new ReadableStream<Uint8Array>(
-          {
-            pull(controller) {
-              if (pos >= slice.length) {
-                controller.close()
-                return
-              }
-              const end = Math.min(pos + blockSize, slice.length)
-              controller.enqueue(slice.subarray(pos, end))
-              pos = end
-            },
-            cancel() {
-              cancelled.push({ offset, length })
-            },
-          },
-          // Without this, the default queuing strategy (highWaterMark: 1)
-          // eagerly pulls one block ahead of every explicit read() -- which
-          // would call pull() again (and self-close) right after the block
-          // that completes the envelope, before this test ever cancels it.
-          { highWaterMark: 0 }
-        )
-      },
-    }
-    return { source, calls, cancelled }
-  }
-
   it('probes exactly one span [0, min(4096, size)) for a small envelope', async () => {
     const full = await encryptFull(deterministicPlaintext(10))
     const { source, calls } = recordingSource(full)

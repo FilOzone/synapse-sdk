@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { KEY_SIZE } from '../src/constants.ts'
 import { ALG_A256KW, ALG_ECDH_ES_A256KW } from '../src/cose/constants.ts'
 import {
@@ -10,6 +10,7 @@ import {
 import { aesKwWrap, importAesGcmKey, importAesKwKey } from '../src/internal/web-crypto.ts'
 import { createA256KWUnwrapper } from '../src/recipients/a256kw.ts'
 import type { A256KWKey, A256KWUnwrapperOptions, RecipientInfo } from '../src/recipients/types.ts'
+import { hasSharedArrayBuffer } from './cose-fixtures.ts'
 
 const CEK = Uint8Array.from({ length: KEY_SIZE }, (_, index) => index + 1)
 const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x10 + index)
@@ -86,12 +87,18 @@ describe('createA256KWUnwrapper', () => {
       ['a key entry is null', [null], undefined, MalformedEnvelopeError],
       ['kek is too short', [{ kek: new Uint8Array(KEY_SIZE - 1) }], undefined, InvalidKeyError],
       ['kek is all-zero', [{ kek: new Uint8Array(KEY_SIZE) }], undefined, InvalidKeyError],
-      [
-        'kek is SharedArrayBuffer-backed',
-        [{ kek: new Uint8Array(new SharedArrayBuffer(KEY_SIZE)) }],
-        undefined,
-        InvalidKeyError,
-      ],
+      // Omitted, not just skipped: constructing a SharedArrayBuffer at all
+      // throws where the global doesn't exist (a non-isolated browser page).
+      ...(hasSharedArrayBuffer
+        ? ([
+            [
+              'kek is SharedArrayBuffer-backed',
+              [{ kek: new Uint8Array(new SharedArrayBuffer(KEY_SIZE)) }],
+              undefined,
+              InvalidKeyError,
+            ],
+          ] as Array<[string, unknown, unknown, new (...args: never[]) => Error]>)
+        : []),
       ['kek is not a Uint8Array', [{ kek: 'nope' }], undefined, InvalidKeyError],
       ['kid is not a Uint8Array', [{ kek: KEK_A, kid: 'nope' }], undefined, MalformedEnvelopeError],
       // A valid key first: validation must finish for every entry before any import.

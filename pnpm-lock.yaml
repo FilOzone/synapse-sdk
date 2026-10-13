@@ -339,9 +339,15 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.2.0
+      assert:
+        specifier: ^2.1.0
+        version: 2.1.0
       mocha:
         specifier: 'catalog:'
         version: 11.8.0
+      playwright-test:
+        specifier: ^14.1.12
+        version: 14.1.15
       typescript:
         specifier: 'catalog:'
         version: 6.0.3

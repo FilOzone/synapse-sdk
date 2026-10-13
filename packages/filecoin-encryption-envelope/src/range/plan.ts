@@ -2,7 +2,7 @@
  * Turn a caller's byte range into an exact ciphertext span and chunk plan for
  * the chunked scheme. Pure arithmetic: no I/O, no crypto, no streams -- every
  * input is a plain number already in hand (from a decoded envelope, or from
- * library-created cached params). See docs/tech-spec.md, "Random-access
+ * library-created cached params). See docs/implementation-guide.md, "Random-access
  * source contract" and its `RandomAccessSource`/`decryptRange` API block.
  *
  * Semantics (HTTP-like):
@@ -105,8 +105,7 @@ export function planRange(layoutInput: ChunkedRangeLayoutInput, range: unknown):
   const layout = chunkLayout(sourceSize - headerLength, chunkSize)
   if (declaredPlaintextLength !== undefined && layout.plaintextLength !== declaredPlaintextLength) {
     throw new InvalidCiphertextLengthError(
-      `Invalid encoded object: the ciphertext implies a plaintext of ${layout.plaintextLength} bytes, ` +
-        `but the declared plaintext_length is ${declaredPlaintextLength}.`
+      `Invalid encoded object: the ciphertext implies a plaintext of ${layout.plaintextLength} bytes, but the declared plaintext_length is ${declaredPlaintextLength}.`
     )
   }
   const total = layout.plaintextLength

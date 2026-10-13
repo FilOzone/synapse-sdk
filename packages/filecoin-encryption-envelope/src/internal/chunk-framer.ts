@@ -186,8 +186,7 @@ export function createChunkFramer(chunkSize: number, expectedLength?: number): C
           consumedBytes += chunk.length
           if (consumedBytes > expectedLength) {
             const cause = new InvalidPlaintextLengthError(
-              `Invalid plaintext: expected exactly ${expectedLength} bytes, but intake reached ` +
-                `${consumedBytes} bytes and the source has not finished.`
+              `Invalid plaintext: expected exactly ${expectedLength} bytes, but intake reached ${consumedBytes} bytes and the source has not finished.`
             )
             setError(cause)
             reject(cause)
@@ -208,8 +207,7 @@ export function createChunkFramer(chunkSize: number, expectedLength?: number): C
     close() {
       if (expectedLength !== undefined && consumedBytes !== expectedLength) {
         const cause = new InvalidPlaintextLengthError(
-          `Invalid plaintext: expected exactly ${expectedLength} bytes, but only ${consumedBytes} bytes were ` +
-            'written before the source closed.'
+          `Invalid plaintext: expected exactly ${expectedLength} bytes, but only ${consumedBytes} bytes were written before the source closed.`
         )
         setError(cause)
         throw cause

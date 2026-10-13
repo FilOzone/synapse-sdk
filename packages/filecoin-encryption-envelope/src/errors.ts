@@ -1,11 +1,11 @@
 /**
- * Catch {@link EnvelopeError} to catch everything this package throws.
+ * Error categories for expected package failures. Errors from caller-provided
+ * streams may propagate unchanged.
  *
- * When adding a subclass: its message states the offending value and the
- * range or shape that was expected.
+ * Input-validation messages name the offending value and expected shape or range.
  */
 
-/** Base class for every error raised by this package. */
+/** Base class for errors defined by this package. */
 export class EnvelopeError extends Error {
   override name = 'EnvelopeError'
 }

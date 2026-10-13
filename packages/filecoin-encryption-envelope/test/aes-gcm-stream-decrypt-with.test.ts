@@ -1,7 +1,7 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { decryptWith, encrypt } from '../src/aes-gcm-stream.ts'
 import { ALG_CHUNKED_AES_256_GCM_STREAM, KEY_SIZE } from '../src/constants.ts'
-import { ALG_A256KW, HEADER_ALG } from '../src/cose/constants.ts'
+import { HEADER_ALG } from '../src/cose/constants.ts'
 import { decodeEnvelope } from '../src/cose/decode.ts'
 import { encStructure } from '../src/cose/enc-structure.ts'
 import { assemblePreparedEnvelope, type RecipientInput } from '../src/cose/encode.ts'
@@ -19,7 +19,8 @@ import { toRecipientInfo } from '../src/recipients/info.ts'
 import type { A256KWRecipient, RecipientInfo, Unwrapper } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedBaseNonceRandomValues, withRandomValues } from './aes-gcm-fixtures.ts'
 import { deterministicPlaintext, readAllChunks } from './aes-gcm-stream-fixtures.ts'
-import { concatBytes, FIXTURE_BASE_NONCE_7 } from './cose-fixtures.ts'
+import { concatBytes, FIXTURE_BASE_NONCE_7, hasSharedArrayBuffer } from './cose-fixtures.ts'
+import { neverCalledUnwrapper, pipeBytes, a256kwRecipient as recipient } from './helpers.ts'
 
 const CHUNK_SIZE = 4096
 
@@ -28,58 +29,17 @@ const KEK_B = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x80 + index)
 const KID_A = Uint8Array.from([0xa1, 0xa2])
 const KID_B = Uint8Array.from([0xb1])
 
-function recipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipient {
-  return kid === undefined
-    ? { alg: ALG_A256KW, kek: new Uint8Array(kek) }
-    : { alg: ALG_A256KW, kek: new Uint8Array(kek), kid: new Uint8Array(kid) }
-}
-
 /** Encrypt via the production writer, optionally with recipients, and drive it to completion. */
 async function encryptFull(plaintext: Uint8Array, recipients?: readonly A256KWRecipient[]): Promise<Uint8Array> {
-  const { writable, readable } = await withRandomValues(fixedBaseNonceRandomValues, async () =>
+  const pair = await withRandomValues(fixedBaseNonceRandomValues, async () =>
     encrypt({ cek: new Uint8Array(FIXED_CEK), chunkSize: CHUNK_SIZE, recipients })
   )
-  const writer = writable.getWriter()
-  const writeDone = writer.write(plaintext)
-  const closeDone = writer.close()
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return concatBytes(...chunks)
+  return pipeBytes(pair, plaintext)
 }
 
 /** Drive decryptWith() to completion (or rejection) with `encoded` delivered in one write. */
-async function decryptWithChunks(encoded: Uint8Array, unwrapper: Unwrapper): Promise<Uint8Array<ArrayBuffer>[]> {
-  const { writable, readable } = decryptWith(unwrapper)
-  const writer = writable.getWriter()
-  const writeDone = writer.write(encoded)
-  const closeDone = writer.close()
-  writeDone.catch(() => {
-    // Surfaced via readAllChunks below either way; avoid an unhandled rejection.
-  })
-  closeDone.catch(() => {
-    // Same: an incomplete/invalid object rejects close(), read already reports it.
-  })
-  const chunks = await readAllChunks(readable)
-  await writeDone
-  await closeDone
-  return chunks
-}
-
 async function decryptWithBytes(encoded: Uint8Array, unwrapper: Unwrapper): Promise<Uint8Array> {
-  return concatBytes(...(await decryptWithChunks(encoded, unwrapper)))
-}
-
-/** Fails the test if the wrapped unwrapper is ever invoked. */
-function neverCalledUnwrapper(): { unwrapper: Unwrapper; assertNeverCalled: () => void } {
-  let calls = 0
-  return {
-    unwrapper: async () => {
-      calls++
-      return undefined
-    },
-    assertNeverCalled: () => assert.strictEqual(calls, 0),
-  }
+  return pipeBytes(decryptWith(unwrapper), encoded)
 }
 
 /**
@@ -261,7 +221,11 @@ describe('aesGcmStream.decryptWith', () => {
       ['not a Uint8Array', 'nope'],
       ['31 bytes', new Uint8Array(KEY_SIZE - 1)],
       ['all-zero', new Uint8Array(KEY_SIZE)],
-      ['SharedArrayBuffer-backed', new Uint8Array(new SharedArrayBuffer(KEY_SIZE))],
+      // Omitted, not just skipped: constructing a SharedArrayBuffer at all
+      // throws where the global doesn't exist (a non-isolated browser page).
+      ...(hasSharedArrayBuffer
+        ? ([['SharedArrayBuffer-backed', new Uint8Array(new SharedArrayBuffer(KEY_SIZE))]] as Array<[string, unknown]>)
+        : []),
     ]
 
     for (const [label, badCek] of invalidCeks) {

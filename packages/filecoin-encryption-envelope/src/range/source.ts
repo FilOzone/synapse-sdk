@@ -2,7 +2,7 @@
  * Random-access byte sources for range decryption: the `RandomAccessSource`
  * contract, adapting a plain `Uint8Array` or a caller object to it, reading
  * exactly one requested range, and reading a chunked envelope from one
- * without loading the whole object. See docs/tech-spec.md, "Random-access
+ * without loading the whole object. See docs/implementation-guide.md, "Random-access
  * source contract".
  */
 
@@ -30,8 +30,7 @@ export interface RandomAccessSource {
 function assertValidSourceSize(size: unknown): asserts size is number {
   if (typeof size !== 'number' || !Number.isSafeInteger(size) || size < 0 || size > MAX_ENCODED_OBJECT_SIZE) {
     throw new InvalidSourceLengthError(
-      `Invalid range source size: ${describeCborType(size)} ${String(size)}. Expected a non-negative safe ` +
-        `integer of at most ${MAX_ENCODED_OBJECT_SIZE} bytes.`
+      `Invalid range source size: ${describeCborType(size)} ${String(size)}. Expected a non-negative safe integer of at most ${MAX_ENCODED_OBJECT_SIZE} bytes.`
     )
   }
 }
@@ -137,8 +136,7 @@ export function openExactRange(source: RandomAccessSource, offset: number, lengt
         const stream = await source.openRange(offset, length)
         if (!(stream instanceof ReadableStream)) {
           throw new MalformedEnvelopeError(
-            `Invalid range source: openRange(${offset}, ${length}) must resolve to a ReadableStream, got ` +
-              `${describeCborType(stream)}.`
+            `Invalid range source: openRange(${offset}, ${length}) must resolve to a ReadableStream, got ${describeCborType(stream)}.`
           )
         }
         opened = true
@@ -172,8 +170,7 @@ export function openExactRange(source: RandomAccessSource, offset: number, lengt
       const trailing = await readNextNonEmpty(reader)
       if (!trailing.done) {
         throw new InvalidSourceLengthError(
-          `Invalid range source: openRange(${offset}, ${length}) produced extra bytes after the ${length} ` +
-            'requested were already read.'
+          `Invalid range source: openRange(${offset}, ${length}) produced extra bytes after the ${length} requested were already read.`
         )
       }
       finished = true
@@ -183,8 +180,7 @@ export function openExactRange(source: RandomAccessSource, offset: number, lengt
     const next = await readNextNonEmpty(reader)
     if (next.done) {
       throw new InvalidSourceLengthError(
-        `Invalid range source: openRange(${offset}, ${length}) produced only ${received} of the ${length} ` +
-          'requested bytes before ending.'
+        `Invalid range source: openRange(${offset}, ${length}) produced only ${received} of the ${length} requested bytes before ending.`
       )
     }
 

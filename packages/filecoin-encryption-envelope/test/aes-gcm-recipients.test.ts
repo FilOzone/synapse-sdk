@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { decrypt, encrypt } from '../src/aes-gcm.ts'
 import { KEY_SIZE } from '../src/constants.ts'
 import {
@@ -17,7 +17,8 @@ import { InvalidKeyError, MalformedEnvelopeError } from '../src/errors.ts'
 import { aesKwUnwrap, importAesKwKey } from '../src/internal/web-crypto.ts'
 import type { A256KWRecipient } from '../src/recipients/types.ts'
 import { FIXED_CEK, fixedRandomValues, HELLO, HELLO_VECTOR_HEX, withRandomValues } from './aes-gcm-fixtures.ts'
-import { hexToBytes, MINIMAL_PROTECTED_HEADER_HEX } from './cose-fixtures.ts'
+import { hasSharedArrayBuffer, hexToBytes, MINIMAL_PROTECTED_HEADER_HEX } from './cose-fixtures.ts'
+import { a256kwRecipient as recipient } from './helpers.ts'
 
 describe('aesGcm.encrypt with A256KW recipients', () => {
   const KEK_A = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x40 + index)
@@ -30,20 +31,12 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
   // Hand-encoded after the protected header: {} · null · array(1) ·
   // [h'', {1: -5, 4: h'a1a2'}, bstr(40)] · 5 ciphertext bytes · 16-byte tag.
   const WRAPPED_UNDER_KEK_A = '9ba74ec0a3394a43baa95548a2d07bd4ac4f6ead62c4dd166837dcc58680468653db29b899a7668d'
-  const TAG96_HELLO_VECTOR_HEX =
-    `d86084583c${MINIMAL_PROTECTED_HEADER_HEX}a0f6818340a201240442a1a25828${WRAPPED_UNDER_KEK_A}` +
-    '2f67ba77aac8eb27d5b3f96ae7c50d40f2cdc7c20a'
+  const TAG96_HELLO_VECTOR_HEX = `d86084583c${MINIMAL_PROTECTED_HEADER_HEX}a0f6818340a201240442a1a25828${WRAPPED_UNDER_KEK_A}2f67ba77aac8eb27d5b3f96ae7c50d40f2cdc7c20a`
 
   /** Unwrap a wrapped CEK with a raw KEK, bypassing this package's recipient-level API. */
   async function unwrapWithKek(wrappedCek: Uint8Array, kek: Uint8Array): Promise<Uint8Array | undefined> {
     const kekKey = await importAesKwKey(new Uint8Array(kek), 'unwrapKey')
     return aesKwUnwrap(new Uint8Array(wrappedCek), kekKey)
-  }
-
-  function recipient(kek: Uint8Array, kid?: Uint8Array): A256KWRecipient {
-    return kid === undefined
-      ? { alg: ALG_A256KW, kek: new Uint8Array(kek) }
-      : { alg: ALG_A256KW, kek: new Uint8Array(kek), kid: new Uint8Array(kid) }
   }
 
   function encryptFor(recipients: readonly A256KWRecipient[], plaintext: Uint8Array = HELLO) {
@@ -196,18 +189,21 @@ describe('aesGcm.encrypt with A256KW recipients', () => {
     }
   })
 
-  it('rejects a SharedArrayBuffer-backed recipient KEK before wrapping or encrypting', async () => {
-    const badKek = new Uint8Array(new SharedArrayBuffer(KEY_SIZE))
-    badKek.set(KEK_B)
+  ;(hasSharedArrayBuffer ? it : it.skip)(
+    'rejects a SharedArrayBuffer-backed recipient KEK before wrapping or encrypting',
+    async () => {
+      const badKek = new Uint8Array(new SharedArrayBuffer(KEY_SIZE))
+      badKek.set(KEK_B)
 
-    const calls = await countCryptoCalls(async () => {
-      await assert.rejects(
-        encryptFor([recipient(KEK_A, KID_A), { alg: ALG_A256KW, kek: badKek }]),
-        (error: unknown) => error instanceof InvalidKeyError && error.message.includes('recipients[1].kek')
-      )
-    })
-    assert.deepStrictEqual(calls, { wrapKey: 0, encrypt: 0 })
-  })
+      const calls = await countCryptoCalls(async () => {
+        await assert.rejects(
+          encryptFor([recipient(KEK_A, KID_A), { alg: ALG_A256KW, kek: badKek }]),
+          (error: unknown) => error instanceof InvalidKeyError && error.message.includes('recipients[1].kek')
+        )
+      })
+      assert.deepStrictEqual(calls, { wrapKey: 0, encrypt: 0 })
+    }
+  )
 
   it('imports the CEK once and each recipient KEK once, by algorithm', async () => {
     const subtle = globalThis.crypto.subtle

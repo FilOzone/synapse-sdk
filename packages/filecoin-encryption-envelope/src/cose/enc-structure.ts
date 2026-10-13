@@ -1,7 +1,7 @@
 /**
  * `Enc_structure` (RFC 9052 §5.3): the AAD authenticated by every AEAD
  * operation in this envelope, whole-object and per-chunk alike — see
- * docs/tech-spec.md, "AAD".
+ * docs/implementation-guide.md, "AAD".
  *
  * The context string depends on the envelope's CBOR tag, not on whether it
  * carries recipients.

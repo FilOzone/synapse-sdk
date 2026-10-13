@@ -1,4 +1,4 @@
-import assert from 'node:assert'
+import assert from 'assert'
 import { decrypt, type EncryptOptions, encrypt } from '../src/aes-gcm.ts'
 import {
   ALG_AES_256_GCM,
@@ -25,7 +25,15 @@ import {
   UnsupportedSchemeError,
 } from '../src/errors.ts'
 import { FIXED_CEK, fixedRandomValues, HELLO, HELLO_VECTOR_HEX, withRandomValues } from './aes-gcm-fixtures.ts'
-import { concatBytes, FIXTURE_BASE_NONCE_7, FIXTURE_IV_12, hexToBytes, toNullProto } from './cose-fixtures.ts'
+import {
+  concatBytes,
+  FIXTURE_BASE_NONCE_7,
+  FIXTURE_IV_12,
+  hasSharedArrayBuffer,
+  hexToBytes,
+  toNullProto,
+} from './cose-fixtures.ts'
+import { findBytes } from './helpers.ts'
 
 const TEST_RECIPIENT: RecipientInput = {
   protectedBytes: new Uint8Array(0),
@@ -37,18 +45,6 @@ const UNSUPPORTED_RECIPIENT: RecipientInput = {
   protectedBytes: new Uint8Array(0),
   unprotected: new Map([[1, -999]]),
   ciphertext: new Uint8Array(40),
-}
-
-function findBytes(haystack: Uint8Array, needle: Uint8Array): number {
-  outer: for (let offset = 0; offset <= haystack.length - needle.length; offset++) {
-    for (let index = 0; index < needle.length; index++) {
-      if (haystack[offset + index] !== needle[index]) {
-        continue outer
-      }
-    }
-    return offset
-  }
-  return -1
 }
 
 async function decryptWithWebCrypto(encoded: Uint8Array, cek: Uint8Array): Promise<Uint8Array> {
@@ -146,12 +142,12 @@ describe('aesGcm.encrypt', () => {
     )
   })
 
-  it('rejects a SharedArrayBuffer-backed plaintext', async () => {
+  ;(hasSharedArrayBuffer ? it : it.skip)('rejects a SharedArrayBuffer-backed plaintext', async () => {
     const plaintext = new Uint8Array(new SharedArrayBuffer(HELLO.length))
     await assert.rejects(encrypt(plaintext, { cek: new Uint8Array(FIXED_CEK) }), InvalidPlaintextError)
   })
 
-  it('rejects a SharedArrayBuffer-backed CEK', async () => {
+  ;(hasSharedArrayBuffer ? it : it.skip)('rejects a SharedArrayBuffer-backed CEK', async () => {
     const cek = new Uint8Array(new SharedArrayBuffer(KEY_SIZE))
     await assert.rejects(encrypt(new Uint8Array(HELLO), { cek }), InvalidKeyError)
   })
@@ -440,7 +436,7 @@ describe('aesGcm.decrypt', () => {
     await assert.rejects(decrypt(encoded, new Uint8Array(FIXED_CEK)), InvalidCiphertextLengthError)
   })
 
-  it('rejects a SharedArrayBuffer-backed encoded envelope', async () => {
+  ;(hasSharedArrayBuffer ? it : it.skip)('rejects a SharedArrayBuffer-backed encoded envelope', async () => {
     const encoded = await withRandomValues(fixedRandomValues, () =>
       encrypt(new Uint8Array(HELLO), { cek: new Uint8Array(FIXED_CEK) })
     )
@@ -450,7 +446,7 @@ describe('aesGcm.decrypt', () => {
     await assert.rejects(decrypt(shared, new Uint8Array(FIXED_CEK)), MalformedEnvelopeError)
   })
 
-  it('rejects a SharedArrayBuffer-backed CEK', async () => {
+  ;(hasSharedArrayBuffer ? it : it.skip)('rejects a SharedArrayBuffer-backed CEK', async () => {
     const encoded = await withRandomValues(fixedRandomValues, () =>
       encrypt(new Uint8Array(HELLO), { cek: new Uint8Array(FIXED_CEK) })
     )
