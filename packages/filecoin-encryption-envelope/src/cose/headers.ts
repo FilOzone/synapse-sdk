@@ -12,8 +12,8 @@
  * - {@link createStrictTokenizer} is decode-only. It inspects the wire bytes
  *   to reject representations whose distinction is lost after decoding, such
  *   as integer-valued floats and invalid or BOM-stripped UTF-8.
- * - {@link assertAllowlistedValue} validates decoded and caller-supplied trees,
- *   allowing only the CBOR shapes supported by this profile.
+ * - The value walker checks profile shapes on both paths. Caller-supplied
+ *   values also get JavaScript-property checks before encoding.
  *
  * This ensures everything accepted by `encodeEnvelope` can be read by
  * `decodeEnvelope`, while still allowing other valid profile encodings.
@@ -39,6 +39,7 @@ import {
   NONCE_SIZE,
 } from '../constants.ts'
 import { CriticalHeaderError, MalformedEnvelopeError, UnsupportedSchemeError } from '../errors.ts'
+import { bytesEqual } from '../internal/bytes.ts'
 import {
   A256KW_WRAPPED_CEK_SIZE,
   ALG_A256KW,
@@ -55,6 +56,7 @@ import {
   HEADER_PLAINTEXT_LENGTH,
   HEADER_TYP,
   MAX_APP_METADATA_DEPTH,
+  MAX_VALUE_LENGTH,
 } from './constants.ts'
 
 /** One of the two content-encryption schemes supported by this package. */
@@ -64,8 +66,7 @@ export type Alg = typeof ALG_AES_256_GCM | typeof ALG_CHUNKED_AES_256_GCM_STREAM
  * CBOR values supported by this profile.
  *
  * Decoding produces `Map` for CBOR maps, while `appMetadata` may use plain
- * objects when encoding. One type for both allows decoded values to be passed
- * back to the encoder.
+ * objects when encoding.
  */
 export type CborValue =
   | string
@@ -241,7 +242,7 @@ export function decodeExact(data: Uint8Array): CborValue {
     ...DECODE_OPTIONS,
     tokenizer: createStrictTokenizer(data, DECODE_OPTIONS),
   })
-  assertAllowlistedValue(value, 'decoded CBOR value')
+  assertDecodedValue(value, 'decoded CBOR value')
   return value
 }
 
@@ -261,9 +262,9 @@ export function decodeFirst(data: Uint8Array, extra?: Pick<DecodeOptions, 'tags'
   // The top-level tag contributes one enclosing level. Protected-header byte
   // strings remain opaque here and are validated separately by `decodeExact`.
   if (value instanceof Tagged) {
-    assertAllowlistedValue(value.value, `CBOR tag ${value.tag} value`, 1)
+    assertDecodedValue(value.value, `CBOR tag ${value.tag} value`, 1)
   } else {
-    assertAllowlistedValue(value, 'decoded CBOR value')
+    assertDecodedValue(value, 'decoded CBOR value')
   }
   return [value, remainder]
 }
@@ -445,7 +446,7 @@ function assertPlaintextLengthValid(
   }
 }
 
-/** Render bytes as hex for content-based map-key comparison. */
+/** Render a short byte-key prefix for validation errors. */
 function bytesToHex(bytes: Uint8Array): string {
   let hex = ''
   for (const byte of bytes) {
@@ -454,19 +455,65 @@ function bytesToHex(bytes: Uint8Array): string {
   return hex
 }
 
+// ── Intrinsic length/size readers ───────────────────────────────────────────
+//
+// A Uint8Array or Map subclass can override its own `length`/`size` getter.
+// Reading through the intrinsic prototype descriptor instead of the value's
+// own accessor keeps the length check below from running caller code.
+
+/** The intrinsic getter for `key` on `target`; present in every supported runtime. */
+function intrinsicGetter(target: object, key: string): () => number {
+  const getter = Object.getOwnPropertyDescriptor(target, key)?.get
+  if (getter === undefined) {
+    throw new Error(`Missing intrinsic ${key} getter.`)
+  }
+  return getter
+}
+
+const typedArrayLengthGetter = intrinsicGetter(Object.getPrototypeOf(Uint8Array.prototype), 'length')
+const mapSizeGetter = intrinsicGetter(Map.prototype, 'size')
+
+/** `value.length`, read through the intrinsic `%TypedArray%.prototype` getter. */
+function intrinsicByteLength(value: Uint8Array): number {
+  return Reflect.apply(typedArrayLengthGetter, value, [])
+}
+
+/** `value.size`, read through the intrinsic `Map.prototype` getter. */
+function intrinsicMapSize(value: Map<unknown, unknown>): number {
+  return Reflect.apply(mapSizeGetter, value, [])
+}
+
+/**
+ * Reject `Uint8Array` and `Map` subclasses. Their overrides can make cborg
+ * encode different data from what validation checked.
+ */
+function assertBuiltInInstance(value: object, kind: 'Uint8Array' | 'Map', path: string): void {
+  const prototype = kind === 'Uint8Array' ? Uint8Array.prototype : Map.prototype
+  if (Object.getPrototypeOf(value) !== prototype) {
+    throw new MalformedEnvelopeError(
+      `Invalid ${path}: a ${kind} subclass${kind === 'Uint8Array' ? ", such as Node's Buffer," : ''} is not permitted because it can encode different content from what was validated. Pass a plain ${kind}, for example new ${kind}(value).`
+    )
+  }
+}
+
 /** Map-key types supported by this profile. */
 function isAllowlistedMapKey(key: unknown): key is string | number | Uint8Array {
   return typeof key === 'string' || typeof key === 'number' || key instanceof Uint8Array
 }
 
-/**
- * Content-based identity for map keys.
- *
- * `Map` compares `Uint8Array` keys by object identity, so byte-equal keys
- * need an explicit representation. The type prefix keeps `"1"` distinct from `1`.
- */
-function mapKeyIdentity(key: string | number | Uint8Array): string {
-  return key instanceof Uint8Array ? `bytes:${bytesToHex(key)}` : `${typeof key}:${String(key)}`
+/** Keep byte-key paths bounded even when a key fills most of the envelope. */
+function byteKeyLabel(key: Uint8Array): string {
+  return `bytes(${key.length}):${bytesToHex(key.subarray(0, 8))}${key.length > 8 ? '…' : ''}`
+}
+
+/** Sort byte keys so equal-content keys are adjacent without hex encoding. */
+function compareByteKeys(a: Uint8Array, b: Uint8Array): number {
+  const length = Math.min(a.length, b.length)
+  for (let index = 0; index < length; index++) {
+    const difference = (a[index] as number) - (b[index] as number)
+    if (difference !== 0) return difference
+  }
+  return a.length - b.length
 }
 
 /** True for plain or null-prototype objects, excluding class instances. */
@@ -475,83 +522,80 @@ function isPlainObject(value: object): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null
 }
 
-/** Canonical non-negative integer property name. */
-const INDEX_KEY = /^(0|[1-9][0-9]*)$/
-
-/** True when `key` identifies an element within this container. */
-function isElementIndex(key: string, length: number): boolean {
-  return INDEX_KEY.test(key) && Number(key) < length
-}
+/** Containers whose own keys must be element indices, plus `length` on arrays. */
+type IndexedKind = 'array' | 'byte string' | 'Map'
 
 /**
- * Reject own properties that CBOR encoding would silently omit.
- *
- * Arrays, maps, and byte strings may carry extra JavaScript properties that
- * are not represented in their CBOR encoding.
+ * Reject own keys beyond the `expected` element keys; CBOR would silently
+ * drop them. Own keys list integer indices first (ECMA-262
+ * OrdinaryOwnPropertyKeys), so the first extra key is at position
+ * `expected`. That order only affects which key the error names.
  */
-function assertNoUnencodableProperties(
-  value: object,
-  isExpected: (key: string) => boolean,
-  kind: string,
-  path: string
-): void {
-  const symbols = Object.getOwnPropertySymbols(value)
-  const extra = Object.getOwnPropertyNames(value).filter((key) => !isExpected(key))
-  if (symbols.length > 0 || extra.length > 0) {
-    const named = [...extra, ...symbols.map(String)].join(', ')
+function assertNoExtraKeys(value: object, expected: number, kind: IndexedKind, path: string): void {
+  const keys = Reflect.ownKeys(value)
+  if (keys.length > expected) {
     throw new MalformedEnvelopeError(
-      `Invalid ${path}: a ${kind} carrying extra own properties (${named}) is not permitted. CBOR does not encode them, so they would be silently dropped.`
+      `Invalid ${path}: extra own property (${String(keys[expected])}) on this ${kind} is not permitted. CBOR does not encode it, so it would be silently dropped.`
     )
   }
 }
 
 /**
- * Reject symbol and non-enumerable properties on plain objects.
- *
- * They are not visited by `Object.entries` and would therefore be silently
- * omitted during validation and encoding.
+ * Require dense data elements plus `length` and nothing else. A getter could
+ * answer differently between validation and encoding.
  */
-function assertNoHiddenKeys(value: object, path: string): void {
-  const symbols = Object.getOwnPropertySymbols(value)
-  if (symbols.length > 0) {
-    throw new MalformedEnvelopeError(
-      `Invalid ${path}: symbol-keyed properties (${symbols.map(String).join(', ')}) are not a permitted shape this profile can encode. CBOR has no symbol keys, and encoding would silently drop them.`
-    )
-  }
-  const nonEnumerable = Object.getOwnPropertyNames(value).filter(
-    (key) => !Object.prototype.propertyIsEnumerable.call(value, key)
-  )
-  if (nonEnumerable.length > 0) {
-    throw new MalformedEnvelopeError(
-      `Invalid ${path}: non-enumerable properties (${nonEnumerable.join(', ')}) are not permitted. Encoding walks enumerable own properties, so these would be silently dropped.`
-    )
-  }
-}
-
-/**
- * Reject accessor properties before reading caller-supplied CBOR values.
- *
- * Validation and encoding are separate passes, so a getter could return
- * different values between them. Metadata is restricted to data properties.
- */
-function assertNoAccessors(value: object, path: string): void {
-  for (const key of Reflect.ownKeys(value)) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)
-    if (descriptor !== undefined && !Object.hasOwn(descriptor, 'value')) {
+function assertArrayProperties(array: readonly unknown[], path: string): void {
+  for (let index = 0; index < array.length; index++) {
+    const descriptor = Object.getOwnPropertyDescriptor(array, index)
+    if (descriptor === undefined) {
       throw new MalformedEnvelopeError(
-        `Invalid ${path}.${String(key)}: getter and setter properties are not permitted in caller-supplied CBOR values.`
+        `Invalid ${path}[${index}]: sparse array (missing element) has no CBOR representation.`
+      )
+    }
+    if (!Object.hasOwn(descriptor, 'value')) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}[${index}]: getter and setter properties are not permitted in caller-supplied CBOR values.`
+      )
+    }
+  }
+  // Dense, so the own keys are every index plus `length`.
+  assertNoExtraKeys(array, array.length + 1, 'array', path)
+}
+
+/**
+ * Require enumerable, string-keyed data properties. `Object.entries` skips
+ * symbol and non-enumerable keys, and a getter could answer differently
+ * between validation and encoding.
+ */
+function assertPlainObjectProperties(value: object, path: string): void {
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key === 'symbol') {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}: symbol-keyed property ${String(key)} is not a permitted shape this profile can encode. CBOR has no symbol keys, and encoding would silently drop it.`
+      )
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key)
+    if (descriptor?.enumerable !== true) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}: non-enumerable property ${key} is not permitted. Encoding walks enumerable own properties, so it would be silently dropped.`
+      )
+    }
+    if (!Object.hasOwn(descriptor, 'value')) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}.${key}: getter and setter properties are not permitted in caller-supplied CBOR values.`
       )
     }
   }
 }
 
-/**
- * Recursive implementation of {@link assertAllowlistedValue}.
- *
- * `seen` tracks the current path to detect cycles, while `depth` bounds
- * deeply nested but acyclic values.
- */
-function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object>, depth: number): void {
+/** Validate CBOR shapes, checking JavaScript-only properties only on caller input. */
+function walkAllowlistedValue(
+  value: unknown,
+  path: string,
+  seen: WeakSet<object>,
+  depth: number,
+  source: 'decoded' | 'caller'
+): void {
   // Charge the container itself against the nesting limit, matching the
   // decoder's tokenizer.
   const enterContainer = (): void => {
@@ -585,44 +629,62 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
   }
 
   if (value instanceof Uint8Array) {
-    assertNoUnencodableProperties(value, (key) => isElementIndex(key, value.length), 'a byte string', path)
+    if (source === 'caller') {
+      assertBuiltInInstance(value, 'Uint8Array', path)
+    }
+    const length = intrinsicByteLength(value)
+    if (length > MAX_VALUE_LENGTH) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}: byte string length ${length} exceeds this library's limit of ${MAX_VALUE_LENGTH} bytes.`
+      )
+    }
+    if (source === 'caller') {
+      assertNoExtraKeys(value, length, 'byte string', path)
+    }
     return
   }
 
   if (Array.isArray(value)) {
-    assertNoUnencodableProperties(
-      value,
-      (key) => key === 'length' || isElementIndex(key, value.length),
-      'an array',
-      path
-    )
+    if (value.length > MAX_VALUE_LENGTH) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}: array length ${value.length} exceeds this library's limit of ${MAX_VALUE_LENGTH} elements.`
+      )
+    }
+    if (source === 'caller') {
+      assertArrayProperties(value, path)
+    }
     enterContainer()
     if (seen.has(value)) {
       throw new MalformedEnvelopeError(`Invalid ${path}: cyclic structure detected.`)
     }
-    assertNoAccessors(value, path)
-    for (let index = 0; index < value.length; index++) {
-      if (!Object.hasOwn(value, index)) {
-        throw new MalformedEnvelopeError(
-          `Invalid ${path}[${index}]: sparse array (missing element) has no CBOR representation.`
-        )
-      }
-    }
     seen.add(value)
     for (let index = 0; index < value.length; index++) {
-      walkAllowlistedValue(value[index], `${path}[${index}]`, seen, depth + 1)
+      walkAllowlistedValue(value[index], `${path}[${index}]`, seen, depth + 1, source)
     }
     seen.delete(value)
     return
   }
 
   if (value instanceof Map) {
-    assertNoUnencodableProperties(value, () => false, 'a Map', path)
+    if (source === 'caller') {
+      assertBuiltInInstance(value, 'Map', path)
+    }
+    const size = intrinsicMapSize(value)
+    if (size > MAX_VALUE_LENGTH) {
+      throw new MalformedEnvelopeError(
+        `Invalid ${path}: Map size ${size} exceeds this library's limit of ${MAX_VALUE_LENGTH} entries.`
+      )
+    }
+    if (source === 'caller') {
+      assertNoExtraKeys(value, 0, 'Map', path)
+    }
     enterContainer()
     if (seen.has(value)) {
       throw new MalformedEnvelopeError(`Invalid ${path}: cyclic structure detected.`)
     }
-    const seenKeys = new Set<string>()
+    // Maps compare byte-string keys by object identity. Group by length and
+    // compare contents so distinct objects cannot encode the same CBOR key.
+    const byteKeysByLength = new Map<number, Uint8Array[]>()
     for (const key of value.keys()) {
       if (!isAllowlistedMapKey(key)) {
         throw new MalformedEnvelopeError(
@@ -637,19 +699,43 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
           `Invalid ${path} map key ${String(key)}: expected a safe integer, excluding -0.`
         )
       }
-      const identity = mapKeyIdentity(key)
-      if (seenKeys.has(identity)) {
-        throw new MalformedEnvelopeError(
-          `Invalid ${path}: duplicate map key by content (${identity}). A JS Map compares byte-string keys by identity, not content, so two byte-equal keys would otherwise be silently retained as separate entries.`
-        )
+      if (key instanceof Uint8Array) {
+        if (source === 'caller') {
+          assertBuiltInInstance(key, 'Uint8Array', `${path} map key`)
+        }
+        const keyLength = intrinsicByteLength(key)
+        if (keyLength > MAX_VALUE_LENGTH) {
+          throw new MalformedEnvelopeError(
+            `Invalid ${path} map key: byte string length ${keyLength} exceeds this library's limit of ${MAX_VALUE_LENGTH} bytes.`
+          )
+        }
+        if (source === 'caller') {
+          assertNoExtraKeys(key, keyLength, 'byte string', path)
+        }
+        const group = byteKeysByLength.get(keyLength)
+        if (group === undefined) {
+          byteKeysByLength.set(keyLength, [key])
+        } else {
+          group.push(key)
+        }
       }
-      seenKeys.add(identity)
+    }
+    for (const group of byteKeysByLength.values()) {
+      if (group.length < 2) continue
+      group.sort(compareByteKeys)
+      for (let index = 1; index < group.length; index++) {
+        const left = group[index - 1]
+        const right = group[index]
+        if (left !== undefined && right !== undefined && bytesEqual(left, right)) {
+          throw new MalformedEnvelopeError(`Invalid ${path}: duplicate map key by content (${byteKeyLabel(right)}).`)
+        }
+      }
     }
     seen.add(value)
     for (const [key, entryValue] of value) {
       // Map keys were validated above; use a stable representation in error paths.
-      const label = key instanceof Uint8Array ? `bytes:${bytesToHex(key)}` : String(key)
-      walkAllowlistedValue(entryValue, `${path}[${label}]`, seen, depth + 1)
+      const label = key instanceof Uint8Array ? byteKeyLabel(key) : String(key)
+      walkAllowlistedValue(entryValue, `${path}[${label}]`, seen, depth + 1, source)
     }
     seen.delete(value)
     return
@@ -666,13 +752,14 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
       throw new MalformedEnvelopeError(`Invalid ${path}: cyclic structure detected.`)
     }
     seen.add(value)
-    assertNoHiddenKeys(value, path)
-    assertNoAccessors(value, path)
+    if (source === 'caller') {
+      assertPlainObjectProperties(value, path)
+    }
     for (const [key, entryValue] of Object.entries(value)) {
       if (!key.isWellFormed()) {
         throw new MalformedEnvelopeError(`Invalid ${path}.${key}: object key is not well-formed Unicode.`)
       }
-      walkAllowlistedValue(entryValue, `${path}.${key}`, seen, depth + 1)
+      walkAllowlistedValue(entryValue, `${path}.${key}`, seen, depth + 1, source)
     }
     seen.delete(value)
     return
@@ -684,18 +771,22 @@ function walkAllowlistedValue(value: unknown, path: string, seen: WeakSet<object
 }
 
 /**
- * Validate a value against the profile's CBOR allowlist.
+ * Validate caller-supplied data before CBOR encoding.
  *
- * Supports well-formed strings, safe integers except `-0`, booleans, `null`,
- * byte strings, dense arrays, maps with supported unique keys, and plain
- * objects. `path` identifies nested values in validation errors.
+ * Rejects unsupported values, properties CBOR would omit, accessors, and
+ * `Uint8Array` or `Map` subclasses. `path` labels errors, while
+ * `enclosingDepth` counts the containers around `value`.
  *
- * Validation and encoding are separate passes. Accessors and hidden
- * properties are rejected, but deliberately unstable values such as proxies
- * remain the caller's responsibility.
+ * Validation does not copy the input. The caller must keep it unchanged
+ * until encoding finishes.
  */
 export function assertAllowlistedValue(value: unknown, path: string, enclosingDepth = 0): void {
-  walkAllowlistedValue(value, path, new WeakSet<object>(), enclosingDepth)
+  walkAllowlistedValue(value, path, new WeakSet<object>(), enclosingDepth, 'caller')
+}
+
+/** Validate decoded CBOR shapes without inspecting JavaScript-only properties. */
+function assertDecodedValue(value: unknown, path: string, enclosingDepth = 0): void {
+  walkAllowlistedValue(value, path, new WeakSet<object>(), enclosingDepth, 'decoded')
 }
 
 /**
@@ -703,12 +794,6 @@ export function assertAllowlistedValue(value: unknown, path: string, enclosingDe
  * protected-header map → `app_metadata` map.
  */
 const APP_METADATA_ENCLOSING_DEPTH = 2
-
-/**
- * Existing container depth before entering the content unprotected map:
- * envelope tag → envelope array.
- */
-const UNPROTECTED_ENCLOSING_DEPTH = 2
 
 /**
  * Validate `app_metadata`: a plain object with well-formed string keys and
@@ -722,8 +807,7 @@ function assertValidAppMetadata(entries: Record<string, CborValue>): void {
       `Invalid app_metadata (-65792): expected a plain object with string keys, got ${describeCborType(entries)}. A Map, an array, a typed array, or any other class instance is not a valid app_metadata root.`
     )
   }
-  assertNoHiddenKeys(entries, 'app_metadata (-65792)')
-  assertNoAccessors(entries, 'app_metadata (-65792)')
+  assertPlainObjectProperties(entries, 'app_metadata (-65792)')
   for (const [key, value] of Object.entries(entries)) {
     if (!key.isWellFormed()) {
       throw new MalformedEnvelopeError(
@@ -753,7 +837,6 @@ function decodeAppMetadata(value: CborValue): Record<string, CborValue> {
     }
     result[key] = entryValue
   }
-  assertValidAppMetadata(result)
   return result
 }
 
@@ -781,19 +864,22 @@ function assertNoPartialIv(map: Map<CborValue, CborValue>, location: 'protected'
   }
 }
 
-/**
- * Content-header labels this profile can process when listed in `crit`.
- * `crit` itself is excluded because listing it would be circular.
- */
-const UNDERSTOOD_CRIT_LABELS: ReadonlySet<number> = new Set([
+/** FEE content fields that must appear in the protected header. */
+const PROTECTED_ONLY_LABELS: ReadonlySet<number> = new Set([
   HEADER_ALG,
-  HEADER_CONTENT_TYPE,
+  HEADER_TYP,
   HEADER_IV,
   HEADER_CHUNK_SIZE,
-  HEADER_TYP,
   HEADER_PLAINTEXT_LENGTH,
   HEADER_APP_METADATA,
 ])
+
+/**
+ * Content-header labels this profile can process when listed in `crit`: the
+ * FEE fields plus `content_type`, a general COSE label allowed in either
+ * bucket. `crit` itself is excluded because listing it would be circular.
+ */
+const UNDERSTOOD_CRIT_LABELS: ReadonlySet<number> = new Set([...PROTECTED_ONLY_LABELS, HEADER_CONTENT_TYPE])
 
 /**
  * Validate content-header `crit` (2).
@@ -1140,11 +1226,12 @@ export function encodeUnprotectedHeader(): UnprotectedHeaderMap {
 }
 
 /**
- * Validate and return the content unprotected header.
+ * Validate and return the content unprotected header of a decoded envelope.
  *
- * Unknown non-critical parameters are allowed. `crit`, Partial IV, and IV
- * are rejected; cross-bucket label duplication is checked when the protected
- * header is decoded.
+ * Expects a value tree already checked by `decodeFirst`.
+ * Unknown non-critical parameters are allowed. FEE content fields, `crit`,
+ * and Partial IV are rejected; cross-bucket label duplication is checked
+ * when the protected header is decoded.
  */
 export function decodeUnprotectedHeader(value: CborValue): UnprotectedHeaderMap {
   if (!(value instanceof Map)) {
@@ -1155,13 +1242,12 @@ export function decodeUnprotectedHeader(value: CborValue): UnprotectedHeaderMap 
   assertValidLabels(value, 'unprotected')
   assertNoPartialIv(value, 'unprotected')
   assertCritHeaderSatisfied(value, 'unprotected')
-  // Envelope decoding already validates this tree. Keep the check here because
-  // this exported helper may also receive a decoded map directly.
-  assertAllowlistedValue(value, 'unprotected header', UNPROTECTED_ENCLOSING_DEPTH)
-  if (value.has(HEADER_IV)) {
-    throw new MalformedEnvelopeError(
-      'Invalid iv (5) in the unprotected header: this profile requires the IV in the protected header, so that it is covered by the content AAD (FIP amendment 3).'
-    )
+  for (const label of PROTECTED_ONLY_LABELS) {
+    if (value.has(label)) {
+      throw new MalformedEnvelopeError(
+        `Invalid label ${label} in the unprotected header: this profile requires it in the protected header, so that it is covered by the content AAD.`
+      )
+    }
   }
   return value
 }

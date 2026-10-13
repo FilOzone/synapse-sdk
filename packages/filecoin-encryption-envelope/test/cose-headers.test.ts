@@ -6,9 +6,10 @@ import {
   MAX_ENCODED_OBJECT_SIZE,
   MIN_CHUNK_SIZE,
 } from '../src/constants.ts'
-import { ENVELOPE_TYPE, MAX_APP_METADATA_DEPTH } from '../src/cose/constants.ts'
+import { ENVELOPE_TYPE, MAX_APP_METADATA_DEPTH, MAX_VALUE_LENGTH } from '../src/cose/constants.ts'
 import type { CborValue, ProtectedHeaderFields } from '../src/cose/headers.ts'
 import {
+  decodeExact,
   decodeProtectedHeader,
   decodeUnprotectedHeader,
   encodeProtectedHeader,
@@ -515,8 +516,8 @@ describe('encodeProtectedHeader / decodeProtectedHeader', () => {
     it('rejects a nested app_metadata map key that is a boolean on decode too (scalar-keys-only, both sides)', () => {
       // Previously lenient on decode: the old assertNoDuplicateByteStringKeys
       // only ever inspected Uint8Array keys, so a boolean key sailed through
-      // unexamined. The shared assertValidAppMetadata now runs the same
-      // scalar-key policy on both sides (defect 4) — app_metadata ->
+      // unexamined. The decoded-value walk now applies the same scalar-key
+      // policy on both sides (defect 4) — app_metadata ->
       // { "outer": { true: 1 } }, hand-built since a boolean-keyed map
       // cannot be expressed through the encode-side Record<string, unknown> API.
       const raw = buildProtectedHeader(
@@ -637,6 +638,78 @@ describe('encodeProtectedHeader / decodeProtectedHeader', () => {
         0x62 // value: "b"
       )
       assert.throws(() => decodeProtectedHeader(raw), MalformedEnvelopeError)
+    })
+
+    it('compares byte-string map keys beyond the error-label prefix', () => {
+      const prefix = [1, 2, 3, 4, 5, 6, 7, 8]
+      const keys = new Map<CborValue, CborValue>([
+        [Uint8Array.from([...prefix, 1]), 'first'],
+        [Uint8Array.from([...prefix, 2]), 'second'],
+      ])
+      const encoded = encodeProtectedHeader({
+        alg: ALG_AES_256_GCM,
+        iv: FIXTURE_IV_12,
+        appMetadata: { keys },
+      })
+      assert.doesNotThrow(() => decodeProtectedHeader(encoded))
+
+      keys.set(Uint8Array.from([...prefix, 1]), 'duplicate')
+      assert.throws(
+        () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { keys } }),
+        MalformedEnvelopeError
+      )
+    })
+
+    it('keeps duplicate byte-key errors bounded for large keys', () => {
+      const key = new Uint8Array(4096)
+      const keys = new Map<CborValue, CborValue>([
+        [key, 'first'],
+        [key.slice(), 'duplicate'],
+      ])
+      const encoded = encodeProtectedHeader({
+        alg: ALG_AES_256_GCM,
+        iv: FIXTURE_IV_12,
+        appMetadata: { keys: new Map([[key, 'first']]) },
+      })
+      assert.doesNotThrow(() => decodeProtectedHeader(encoded))
+
+      assert.throws(
+        () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { keys } }),
+        (error: unknown) => error instanceof MalformedEnvelopeError && error.message.length < 256
+      )
+    })
+
+    it('does not enumerate decoded byte-string or array indices', () => {
+      const encoded = encodeProtectedHeader({
+        alg: ALG_AES_256_GCM,
+        iv: FIXTURE_IV_12,
+        appMetadata: {
+          bytes: new Uint8Array(8192),
+          values: Array(2048).fill(null),
+          keys: new Map([[new Uint8Array(8192), 'value']]),
+        },
+      })
+      const getOwnPropertyNames = Object.getOwnPropertyNames
+      const ownKeys = Reflect.ownKeys
+      try {
+        Object.getOwnPropertyNames = ((value: object) => {
+          if (value instanceof Uint8Array && value.length >= 8192) {
+            throw new Error('decoded byte-string indices were enumerated')
+          }
+          return getOwnPropertyNames(value)
+        }) as typeof Object.getOwnPropertyNames
+        Reflect.ownKeys = (value: object) => {
+          if (Array.isArray(value) && value.length >= 2048) {
+            throw new Error('decoded array indices were enumerated')
+          }
+          return ownKeys(value)
+        }
+
+        assert.doesNotThrow(() => decodeProtectedHeader(encoded))
+      } finally {
+        Object.getOwnPropertyNames = getOwnPropertyNames
+        Reflect.ownKeys = ownKeys
+      }
     })
 
     it('decodes an app_metadata key of "__proto__" as an own property without polluting the prototype', () => {
@@ -825,8 +898,69 @@ describe('app_metadata', () => {
       // sparse[1] is a hole, not `undefined` written to the slot.
       assert.throws(
         () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { x: sparse } }),
-        (error: unknown) => error instanceof MalformedEnvelopeError && error.message.includes('app_metadata.x[1]')
+        (error: unknown) =>
+          error instanceof MalformedEnvelopeError &&
+          error.message.includes('app_metadata.x[1]') &&
+          error.message.includes('sparse array')
       )
+    })
+
+    it('rejects an oversized sparse array by length, before the sparse-element scan runs', () => {
+      // `new Array(n)` is maximally sparse but allocates no elements, so this
+      // stays cheap even at MAX_VALUE_LENGTH + 1. If the length check ran
+      // after the sparse scan, this would fail with the sparse-array message
+      // instead.
+      const oversized = new Array(MAX_VALUE_LENGTH + 1)
+      assert.throws(
+        () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { x: oversized } }),
+        (error: unknown) =>
+          error instanceof MalformedEnvelopeError && error.message.includes("exceeds this library's limit")
+      )
+    })
+
+    it('rejects an oversized byte string by length', () => {
+      const oversized = new Uint8Array(MAX_VALUE_LENGTH + 1)
+      assert.throws(
+        () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { x: oversized } }),
+        (error: unknown) =>
+          error instanceof MalformedEnvelopeError && error.message.includes("exceeds this library's limit")
+      )
+    })
+
+    it('rejects Uint8Array and Map subclasses, which could encode different content', () => {
+      // cborg encodes through the overridable length, size, and iteration.
+      class ShortBytes extends Uint8Array {
+        override get length(): number {
+          return 0
+        }
+      }
+      class EmptyMap extends Map<CborValue, CborValue> {
+        override get size(): number {
+          return 0
+        }
+      }
+      // Rejected even without overrides, the way Node's Buffer would be.
+      class PlainSubclass extends Uint8Array {}
+      const cases: [string, CborValue][] = [
+        ['Uint8Array', new ShortBytes([1, 2, 3])],
+        ['Map', new EmptyMap([['k', 1]])],
+        ['Uint8Array', new PlainSubclass([1, 2, 3])],
+        ['Uint8Array', new Map([[new PlainSubclass([1]), 1]])],
+      ]
+      for (const [kind, value] of cases) {
+        assert.throws(
+          () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { x: value } }),
+          (error: unknown) => error instanceof MalformedEnvelopeError && error.message.includes(`a ${kind} subclass`)
+        )
+      }
+    })
+
+    it('accepts decoded byte strings that share a subclass with the input bytes', () => {
+      // Decoding a Node Buffer yields Buffer slices; decoded values must not
+      // be held to the caller-input rule.
+      class InputBytes extends Uint8Array {}
+      const decoded = decodeExact(new InputBytes([0x43, 1, 2, 3]))
+      assert.deepStrictEqual(Array.from(decoded as Uint8Array), [1, 2, 3])
     })
 
     it('rejects a symbol-keyed property rather than silently dropping it', () => {
@@ -919,10 +1053,26 @@ describe('app_metadata', () => {
       ] as Array<[string, CborValue]>) {
         assert.throws(
           () => encodeProtectedHeader({ alg: ALG_AES_256_GCM, iv: FIXTURE_IV_12, appMetadata: { value } }),
-          MalformedEnvelopeError,
+          (error: unknown) =>
+            error instanceof MalformedEnvelopeError &&
+            error.message.includes(`extra own property (extra) on this ${label}`),
           `for ${label}`
         )
       }
+    })
+
+    it('rejects an extra property on a byte-string map key', () => {
+      const key = Uint8Array.from([1, 2])
+      ;(key as unknown as Record<string, string>).extra = 'lost'
+      assert.throws(
+        () =>
+          encodeProtectedHeader({
+            alg: ALG_AES_256_GCM,
+            iv: FIXTURE_IV_12,
+            appMetadata: { keys: new Map([[key, 'value']]) },
+          }),
+        MalformedEnvelopeError
+      )
     })
 
     it('rejects digit-only properties that are not actual container elements', () => {
@@ -1105,6 +1255,11 @@ describe('crit (label 2): accepted when every listed label is understood and pre
     assert.doesNotThrow(() => decodeProtectedHeader(raw))
   })
 
+  it('accepts crit listing content_type (3) when content_type is present', () => {
+    const raw = buildProtectedHeader(2, 0x02, 0x81, 0x03, 0x03, 0x61, 0x78) // crit: [3], content_type: "x"
+    assert.doesNotThrow(() => decodeProtectedHeader(raw))
+  })
+
   it('accepts crit listing both alg (1) and typ (16): both understood and both present', () => {
     const raw = buildProtectedHeader(1, 0x02, 0x82, 0x01, 0x10) // crit: [1, 16]
     assert.doesNotThrow(() => decodeProtectedHeader(raw))
@@ -1213,6 +1368,20 @@ describe('encodeUnprotectedHeader / decodeUnprotectedHeader', () => {
       () => decodeUnprotectedHeader(new Map<CborValue, CborValue>([[6, Uint8Array.from([1, 2, 3])]])),
       MalformedEnvelopeError
     )
+  })
+
+  it('rejects every FEE content field, which must be protected, in the unprotected header', () => {
+    const fields: Array<[number, CborValue]> = [
+      [1, ALG_AES_256_GCM],
+      [5, FIXTURE_IV_12],
+      [16, ENVELOPE_TYPE],
+      [-1, MIN_CHUNK_SIZE],
+      [-65789, 1],
+      [-65792, new Map<CborValue, CborValue>()],
+    ]
+    for (const [label, value] of fields) {
+      assert.throws(() => decodeUnprotectedHeader(new Map([[label, value]])), MalformedEnvelopeError, `label ${label}`)
+    }
   })
 
   it('rejects crit (label 2) present in the unprotected header, even when well-formed', () => {
