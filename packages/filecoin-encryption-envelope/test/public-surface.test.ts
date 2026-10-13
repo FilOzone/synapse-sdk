@@ -25,8 +25,26 @@ const EXPECTED_PUBLIC_CONSTANTS: Record<string, unknown> = {
 }
 
 describe('public surface (src/index.ts)', () => {
-  it('exposes exactly the allowlisted root runtime namespaces', () => {
-    assert.deepStrictEqual(Object.keys(fee).sort(), ['aesGcm', 'constants', 'cose', 'errors', 'recipients'])
+  it('exposes exactly the allowlisted root runtime exports', () => {
+    assert.deepStrictEqual(Object.keys(fee).sort(), ['aesGcm', 'constants', 'cose', 'encrypt', 'errors', 'recipients'])
+  })
+
+  it('encrypt works through the package root with pipeThrough', async () => {
+    const cek = Uint8Array.from({ length: KEY_SIZE }, (_, index) => index + 1)
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('hello'))
+        controller.close()
+      },
+    })
+    const chunks: Uint8Array[] = []
+    for await (const chunk of source.pipeThrough(fee.encrypt({ cek, chunkSize: MIN_CHUNK_SIZE }))) {
+      chunks.push(chunk)
+    }
+    // Envelope, then one final chunk: 5 plaintext bytes plus the 16-byte tag.
+    assert.strictEqual(chunks.length, 2)
+    assert.strictEqual(fee.cose.decodeEnvelope(chunks[0]).tag, 16)
+    assert.strictEqual(chunks[1].length, 5 + 16)
   })
 
   it('aesGcm exposes exactly decrypt, decryptWith, and encrypt', () => {
