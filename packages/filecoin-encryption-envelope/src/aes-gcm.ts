@@ -8,7 +8,6 @@
  * supplied CEK (`decrypt`) or a CEK recovered from a recipient (`decryptWith`).
  */
 import { ALG_AES_256_GCM, MAX_AES_GCM_PLAINTEXT_SIZE, NONCE_SIZE, TAG_SIZE } from './constants.ts'
-import { TAG_ENCRYPT0 } from './cose/constants.ts'
 import { type DecodedEnvelope, decodeEnvelope } from './cose/decode.ts'
 import { encStructure } from './cose/enc-structure.ts'
 import { assemblePreparedEnvelope } from './cose/encode.ts'
@@ -19,14 +18,12 @@ import {
   InvalidPlaintextError,
   InvalidPlaintextLengthError,
   MalformedEnvelopeError,
-  NoUsableRecipientError,
-  RecipientUnwrapError,
   UnsupportedSchemeError,
 } from './errors.ts'
 import { assertAes256Key, assertArrayBufferBacked } from './internal/keys.ts'
 import { aesGcmDecrypt, aesGcmEncrypt, importAesGcmKey, randomBytes } from './internal/web-crypto.ts'
-import { toRecipientInfo } from './recipients/info.ts'
 import { createRecipientRecords, prepareRecipientInputs } from './recipients/prepare.ts'
+import { recoverCek } from './recipients/recover.ts'
 import type { Recipient, Unwrapper } from './recipients/types.ts'
 
 const MAX_AES_GCM_CIPHERTEXT_SIZE = MAX_AES_GCM_PLAINTEXT_SIZE + TAG_SIZE
@@ -128,10 +125,9 @@ interface PreparedDecryption {
 }
 
 /**
- * Shared steps for both decryption entry points: input backing check, decode,
- * content-algorithm check, detached-ciphertext view, AAD, and IV. Neither
- * caller's remaining checks (CEK shape, recipient presence) belong here, since
- * `decrypt` and `decryptWith` order them differently against this common work.
+ * Validate and decode a scheme-1 object, returning the detached ciphertext
+ * and inputs needed for content authentication. The ciphertext remains a view
+ * into `encoded`; the caller must still supply or recover the CEK.
  */
 function prepareDecryption(encoded: Uint8Array): PreparedDecryption {
   if (encoded instanceof Uint8Array) {
@@ -185,26 +181,7 @@ export async function decryptWith(encoded: Uint8Array, unwrapper: Unwrapper): Pr
   }
 
   const { decoded, ciphertext, additionalData, iv } = prepareDecryption(encoded)
-  if (decoded.tag === TAG_ENCRYPT0) {
-    throw new NoUsableRecipientError(
-      'No usable recipient: this envelope is COSE_Encrypt0 and carries no recipients; supply the CEK directly with aesGcm.decrypt instead.'
-    )
-  }
-
-  const infos = decoded.recipients.map(toRecipientInfo)
-  let cek: Uint8Array | undefined
-  try {
-    cek = await unwrapper(infos)
-  } catch (cause) {
-    throw new RecipientUnwrapError('Recipient key recovery failed.', { cause })
-  }
-  if (cek === undefined) {
-    throw new NoUsableRecipientError(
-      `No usable recipient: none of the ${infos.length} recipients offered a usable key.`
-    )
-  }
-  assertAes256Key(cek, 'recovered CEK')
-
+  const cek = await recoverCek(decoded, unwrapper)
   const key = await importAesGcmKey(cek, 'decrypt', false)
   return await aesGcmDecrypt(key, iv, additionalData, ciphertext)
 }

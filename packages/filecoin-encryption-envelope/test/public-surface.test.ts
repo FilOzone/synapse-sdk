@@ -12,6 +12,7 @@ import { EnvelopeError } from '../src/errors.ts'
 // `../src/index.ts` (the root barrel) is the file under test here; every
 // other test file in this package imports source files directly instead.
 import * as fee from '../src/index.ts'
+import { concatBytes } from './cose-fixtures.ts'
 
 const EXPECTED_PUBLIC_CONSTANTS: Record<string, unknown> = {
   ALG_A256KW,
@@ -26,7 +27,16 @@ const EXPECTED_PUBLIC_CONSTANTS: Record<string, unknown> = {
 
 describe('public surface (src/index.ts)', () => {
   it('exposes exactly the allowlisted root runtime exports', () => {
-    assert.deepStrictEqual(Object.keys(fee).sort(), ['aesGcm', 'constants', 'cose', 'encrypt', 'errors', 'recipients'])
+    assert.deepStrictEqual(Object.keys(fee).sort(), [
+      'aesGcm',
+      'constants',
+      'cose',
+      'decrypt',
+      'decryptWith',
+      'encrypt',
+      'errors',
+      'recipients',
+    ])
   })
 
   it('encrypt works through the package root with pipeThrough', async () => {
@@ -45,6 +55,44 @@ describe('public surface (src/index.ts)', () => {
     assert.strictEqual(chunks.length, 2)
     assert.strictEqual(fee.cose.decodeEnvelope(chunks[0]).tag, 16)
     assert.strictEqual(chunks[1].length, 5 + 16)
+  })
+
+  it('round-trips through the package root only: encrypt then decrypt with a direct CEK', async () => {
+    const cek = Uint8Array.from({ length: KEY_SIZE }, (_, index) => index + 1)
+    const plaintext = new TextEncoder().encode('hello, root barrel')
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(plaintext)
+        controller.close()
+      },
+    })
+    const chunks: Uint8Array[] = []
+    for await (const chunk of source
+      .pipeThrough(fee.encrypt({ cek, chunkSize: MIN_CHUNK_SIZE }))
+      .pipeThrough(fee.decrypt(cek))) {
+      chunks.push(chunk)
+    }
+    assert.deepStrictEqual(concatBytes(...chunks), plaintext)
+  })
+
+  it('round-trips through the package root only: encrypt then decryptWith an A256KW recipient', async () => {
+    const cek = Uint8Array.from({ length: KEY_SIZE }, (_, index) => index + 1)
+    const kek = Uint8Array.from({ length: KEY_SIZE }, (_, index) => 0x80 + index)
+    const plaintext = new TextEncoder().encode('hello, root barrel')
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(plaintext)
+        controller.close()
+      },
+    })
+    const unwrapper = await fee.recipients.createA256KWUnwrapper([{ kek }])
+    const chunks: Uint8Array[] = []
+    for await (const chunk of source
+      .pipeThrough(fee.encrypt({ cek, chunkSize: MIN_CHUNK_SIZE, recipients: [{ alg: ALG_A256KW, kek }] }))
+      .pipeThrough(fee.decryptWith(unwrapper))) {
+      chunks.push(chunk)
+    }
+    assert.deepStrictEqual(concatBytes(...chunks), plaintext)
   })
 
   it('aesGcm exposes exactly decrypt, decryptWith, and encrypt', () => {
