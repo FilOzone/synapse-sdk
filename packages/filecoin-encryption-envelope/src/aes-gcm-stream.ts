@@ -45,10 +45,12 @@ export interface ChunkedEncryptOptions {
   appMetadata?: AppMetadata
 
   /**
-   * Exact plaintext length, if known up front. Stored in the authenticated
-   * `plaintext_length` header. Exceeding it fails the write; closing before
-   * reaching it fails the close. In either case, no final chunk is emitted
-   * and earlier output must be discarded. Omit if the length is not guaranteed.
+   * Exact plaintext length, if known up front.
+   *
+   * Stored in the authenticated `plaintext_length` header. Exceeding it fails
+   * the write; closing before reaching it fails the close. In either case, no
+   * final chunk is emitted and earlier output must be discarded. Omit if the
+   * length is not guaranteed.
    */
   contentLength?: number
 
