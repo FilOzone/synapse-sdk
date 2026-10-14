@@ -1,5 +1,5 @@
 {
-  "name": "@filoz/filecoin-encryption-envelope",
+  "name": "filecoin-encryption-envelope",
   "version": "0.0.0",
   "description": "Filecoin Encryption Envelope (FIP-1253): COSE envelope encryption",
   "repository": {

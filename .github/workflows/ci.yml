@@ -99,4 +99,4 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
       - name: Run filecoin-encryption-envelope tests
-        run: pnpm -r --filter @filoz/filecoin-encryption-envelope run test
+        run: pnpm -r --filter filecoin-encryption-envelope run test

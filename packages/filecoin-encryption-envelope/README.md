@@ -14,13 +14,13 @@ It uses Web Crypto and Web Streams in Node.js and browsers.
 ## Install
 
 ```sh
-npm install @filoz/filecoin-encryption-envelope
+npm install filecoin-encryption-envelope
 ```
 
 For a small object, the whole-object API is the shortest way to get started:
 
 ```ts
-import * as fee from '@filoz/filecoin-encryption-envelope'
+import * as fee from 'filecoin-encryption-envelope'
 
 const cek = crypto.getRandomValues(new Uint8Array(fee.constants.KEY_SIZE))
 const plaintext = new TextEncoder().encode('Hello, Filecoin')
@@ -44,7 +44,7 @@ fresh, secret CEK for each new encryption unless your key-management system
 defines a different reuse policy. The library generates the encryption nonce.
 
 ```ts
-import * as fee from '@filoz/filecoin-encryption-envelope'
+import * as fee from 'filecoin-encryption-envelope'
 
 const cek = crypto.getRandomValues(new Uint8Array(fee.constants.KEY_SIZE))
 

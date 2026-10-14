@@ -3,7 +3,7 @@
  *
  * @example
  * ```ts
- * import * as fee from '@filoz/filecoin-encryption-envelope'
+ * import * as fee from 'filecoin-encryption-envelope'
  *
  * source.pipeThrough(fee.encrypt({ cek }))  // chunked stream, the default
  * encrypted.pipeThrough(fee.decrypt(cek))    // and back
