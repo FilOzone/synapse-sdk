@@ -1,7 +1,7 @@
 {
   "name": "filecoin-encryption-envelope",
   "version": "0.0.0",
-  "description": "Filecoin Encryption Envelope (FIP-1253): COSE envelope encryption",
+  "description": "Filecoin Encryption Envelope: COSE envelope encryption",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/FilOzone/synapse-sdk.git"

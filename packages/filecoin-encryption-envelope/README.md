@@ -11,6 +11,11 @@ This package implements a draft FEE profile. It supports chunked AES-256-GCM
 encryption, authenticated range reads, and one-shot AES-GCM for small objects.
 It uses Web Crypto and Web Streams in Node.js and browsers.
 
+The Go implementation, [`go-fee`](https://github.com/filecoin-project/go-fee), supports
+scheme 2, A256KW and ECDH-ES+A256KW (X25519) recipients, and range decryption.
+It does not implement scheme 1. The two implementations are checked against
+[cross-implementation test vectors](https://github.com/filecoin-project/go-fee/tree/main/vectors).
+
 ## Install
 
 ```sh
