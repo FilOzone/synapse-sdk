@@ -1,7 +1,6 @@
 {
   "name": "@filoz/filecoin-encryption-envelope",
   "version": "0.0.0",
-  "private": true,
   "description": "Filecoin Encryption Envelope (FIP-1253): COSE envelope encryption",
   "repository": {
     "type": "git",
@@ -11,14 +10,13 @@
     "filecoin",
     "encryption",
     "cose",
-    "aes-gcm",
-    "fip-1253"
+    "aes-gcm"
   ],
   "license": "Apache-2.0 OR MIT",
   "bugs": {
     "url": "https://github.com/FilOzone/synapse-sdk/issues"
   },
-  "homepage": "https://github.com/FilOzone/synapse-sdk/tree/main/packages/filecoin-encryption-envelope",
+  "homepage": "https://github.com/FilOzone/synapse-sdk/tree/master/packages/filecoin-encryption-envelope",
   "type": "module",
   "main": "dist/src/index.js",
   "module": "dist/src/index.js",

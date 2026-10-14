@@ -1,7 +1,6 @@
 # Filecoin Encryption Envelope
 
-Filecoin Encryption Envelope (FEE) is a proposed format for portable encrypted
-data, described in [FIP #1253](https://github.com/filecoin-project/FIPs/discussions/1253).
+Filecoin Encryption Envelope (FEE) is a proposed format for portable encrypted data, currently under review as a draft FRC in [filecoin-project/FIPs#1294](https://github.com/filecoin-project/FIPs/pull/1294).
 An encoded FEE object starts with a COSE (CBOR) envelope containing the
 algorithm, nonce information, and optional recipient records, followed by the
 detached ciphertext. Separating that metadata from the ciphertext is meant to
@@ -11,6 +10,27 @@ encrypted data stored on Filecoin.
 This package implements a draft FEE profile. It supports chunked AES-256-GCM
 encryption, authenticated range reads, and one-shot AES-GCM for small objects.
 It uses Web Crypto and Web Streams in Node.js and browsers.
+
+## Install
+
+```sh
+npm install @filoz/filecoin-encryption-envelope
+```
+
+For a small object, the whole-object API is the shortest way to get started:
+
+```ts
+import * as fee from '@filoz/filecoin-encryption-envelope'
+
+const cek = crypto.getRandomValues(new Uint8Array(fee.constants.KEY_SIZE))
+const plaintext = new TextEncoder().encode('Hello, Filecoin')
+const encoded = await fee.aesGcm.encrypt(plaintext, { cek })
+const restored = await fee.aesGcm.decrypt(encoded, cek)
+console.log(new TextDecoder().decode(restored)) // Hello, Filecoin
+```
+
+Keep the CEK secret and store it through your key-management system. You need
+that same key to decrypt the object.
 
 The root `encrypt()` and `decrypt()` functions use the chunked scheme (scheme 2).
 Use them for files and for objects you may need to read by range. The separate
@@ -57,14 +77,6 @@ async function saveEncryptedFile(file: File, handle: FileSystemFileHandle, cek: 
 If a stream errors, discard all output already written or read. A storage sink
 that keeps a partial upload must remove it; earlier chunks are not a complete
 encrypted object.
-
-For a small object already held in memory, scheme 1 is a one-shot alternative:
-
-```ts
-const cek = crypto.getRandomValues(new Uint8Array(fee.constants.KEY_SIZE))
-const encoded = await fee.aesGcm.encrypt(plaintext, { cek })
-const restored = await fee.aesGcm.decrypt(encoded, cek)
-```
 
 ## Recipients
 
@@ -190,4 +202,4 @@ that key and `info.params` to `decryptRange()`.
 
 The chunked scheme permits an encoded object of at most 64 GiB. Scheme 1
 permits at most 64 MiB of plaintext. For the wire profile, range rules, and
-other limits, see the [implementation guide](docs/implementation-guide.md).
+other limits, see the [implementation guide](https://github.com/FilOzone/synapse-sdk/blob/master/packages/filecoin-encryption-envelope/docs/implementation-guide.md).

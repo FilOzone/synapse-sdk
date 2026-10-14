@@ -89,7 +89,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/setup@v3
+        with:
+          require-lockfile: true
       - name: Use Node.js lts/*
         uses: actions/setup-node@v7
         with:
