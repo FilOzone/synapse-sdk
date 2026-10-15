@@ -39,9 +39,7 @@ describe('wrapTo / unwrapWith', () => {
   it('accepts a compressed recipient key', async () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()
-    const compressed = bytesToHex(
-      secp256k1.ProjectivePoint.fromHex(hexToBytes(publicKeyOf(recipient))).toRawBytes(true)
-    )
+    const compressed = bytesToHex(secp256k1.Point.fromBytes(hexToBytes(publicKeyOf(recipient))).toBytes(true))
     assert.deepStrictEqual(await unwrapWith(recipient, await wrapTo(compressed, kk, descriptor)), kk)
   })
 

@@ -110,7 +110,7 @@ export function keyspaceKeyMessage(ref: KeyspaceRef): KeyspaceKeyMessage {
  * else to guard.
  *
  * For a new keyspace this signs twice and compares, which catches a
- * randomising signer before any data depends on it, at the cost of a second
+ * non-deterministic signer before any data depends on it, at the cost of a second
  * wallet prompt. For an existing one, pass the commitment its dataset records
  * (`foc/kc`): it signs once, and the commitment catches the same faults. See
  * {@link KeyspaceKeysOptions}.

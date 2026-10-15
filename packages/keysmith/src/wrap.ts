@@ -42,7 +42,7 @@ function ecdhSecretKey(privateKey: Hex): Uint8Array {
     throw new Error(`Expected a 32-byte secp256k1 private key, got ${raw.length} bytes that are not one`)
   }
   const seed = hkdf(sha256, raw, undefined, ECDH_INFO, 48)
-  return mapHashToField(seed, secp256k1.CURVE.n)
+  return mapHashToField(seed, secp256k1.Point.CURVE().n)
 }
 
 /**
@@ -70,7 +70,7 @@ export async function wrapTo(recipientPublicKey: Hex, key: Uint8Array, input: Gr
     throw new Error(`Expected a ${KEY_LENGTH}-byte node key, got ${key.length} bytes`)
   }
   // Accept either encoding, but derive from one, or the two sides would disagree.
-  const pkR = secp256k1.ProjectivePoint.fromHex(hexToBytes(recipientPublicKey)).toRawBytes(false)
+  const pkR = secp256k1.Point.fromBytes(hexToBytes(recipientPublicKey)).toBytes(false)
   const ephemeral = secp256k1.utils.randomSecretKey()
   const epk = secp256k1.getPublicKey(ephemeral, false)
   const kek = wrapKek(sharedSecret(ephemeral, pkR), epk, pkR)

@@ -134,7 +134,7 @@ describe('lowSrs', () => {
 
   it('drops v and normalises a high-S signature to the low form', () => {
     const low = 0x0123456789abcdefn
-    assert.deepStrictEqual(lowSrs(asSig(low, '1b')), lowSrs(asSig(secp256k1.CURVE.n - low, '1c')))
+    assert.deepStrictEqual(lowSrs(asSig(low, '1b')), lowSrs(asSig(secp256k1.Point.CURVE().n - low, '1c')))
     assert.deepStrictEqual(lowSrs(asSig(7n, '')), lowSrs(asSig(7n)), '64-byte r‖s with no v is fine')
   })
 
@@ -142,7 +142,7 @@ describe('lowSrs', () => {
     assert.throws(() => lowSrs('0xdeadbeef'), /64- or 65-byte/)
     assert.throws(() => lowSrs(`${asSig(7n)}00`), /64- or 65-byte/)
     assert.throws(() => lowSrs(asSig(0n)), /\[1, n−1\]/)
-    assert.throws(() => lowSrs(asSig(secp256k1.CURVE.n)), /\[1, n−1\]/)
+    assert.throws(() => lowSrs(asSig(secp256k1.Point.CURVE().n)), /\[1, n−1\]/)
   })
 })
 
