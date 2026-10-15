@@ -11,31 +11,29 @@ import type { Address, Hex } from 'viem'
 export interface KeyspaceRef {
   owner: Address // The wallet that roots this keyspace and signs for it
   keyspace: Hex // 16 random bytes; names the key namespace, independent of any dataset
-  epoch?: number // For key rotation/re-encrypt in place
 }
 
-/** The EIP-712 message an owner signs to start the derivation tree */
+/** The message an owner signs to start the derivation tree */
 export type KeyspaceKeyMessage = {
-  purpose: string
   owner: Address // The wallet that roots this keyspace
   keyspace: Hex // bytes16, canonical lowercase hex
-  epoch: number // For key rotation/re-encrypt in place
 } & Record<string, unknown>
 
 /** What `keyspaceKeys()` hands back. The signature it came from is never exposed. */
 export interface KeyspaceKeys {
   kk: Uint8Array // The key for the whole keyspace.
-  commitment: string // Non-secret check value for FWSS metadata, under `COMMITMENT_KEY`: `v1.<epoch>.<hex>`.
-  descriptor: GrantDescriptor // What was signed, as a keyspace grant descriptor: `writeTarget(descriptor, kk, role)`.
+  commitment: string // Non-secret check value for FWSS metadata, under `COMMITMENT_KEY`: `v1.<hex>`.
+  descriptor: GrantDescriptor // What was signed, as a keyspace grant descriptor: `writeTarget(descriptor, kk, scope)`.
 }
 
 export interface KeyspaceKeysOptions {
   /**
    * @verifySigner@
-   * Whether to sign twice and compare, which catches a randomising signer
-   * before any data depends on it. Defaults to once per signer object: the
-   * first call costs two wallet prompts, later calls one. Pass `true` to check
-   * on every call, or `false` for a signer you have already vetted.
+   * Whether to sign twice to confirm deterministic derivation (ie RFC 6979)
+   *
+   * DANGER! Only set to false if you are certain that the signer
+   * is deterministic, otherwise you may end up with encryption
+   * keys that are not recoverable by the owner.
    */
   verifySigner?: boolean
 }
@@ -53,33 +51,28 @@ export interface TypedDataSigner {
   }) => Promise<Hex>
 }
 
-/** FEE envelope entries to enable key derivation/recovery, wherever the piece ends up */
+/** FEE envelope entries to enable key derivation/recovery */
 export interface PieceMetadata {
-  'foc/v': 1
+  'foc/v': 1 // The version of this metadata format
+  'foc/own'?: Address // The keyspace owner, lowercased
   'foc/ks': Hex // The keyspace this piece's key belongs to
-  'foc/epoch': number // Key rotation counter
-  'foc/role'?: string // A role path, `super-secret/secret`: that role and every ancestor can read the piece
-  'foc/salt': Hex // Because there is such a thing as _too much_ determinism :-)
+  'foc/scope'?: string // The scope path this piece is in, eg `top-secret/secret`
+  'foc/salt': Hex // The piece's unique salt
 }
 
-/** What a grant may unlock: the whole keyspace, or one role within it. */
-export type GrantNode = 'keyspace' | `role:${string}`
+/** What a grant may unlock: the whole keyspace, one scope within it, or one piece, named by its salt. */
+export type GrantNode = 'keyspace' | `scope:${string}` | `piece:${string}`
 
 /**
- * Names the node a grant unlocks. Exactly these fields are authenticated, so a
+ * Encryption grant metadata. Exactly these fields are authenticated, so a
  * grant cannot be relabelled; anything else carried alongside a grant is
  * informational and unauthenticated.
- *
- * `node` is a plain string rather than {@link GrantNode} because grants arrive
- * as JSON from elsewhere and must be validated at runtime, not assumed. Build
- * one with `grantDescriptor()` and the narrow type applies.
  */
 export interface GrantDescriptor {
   v: 1
-  node: string // 'keyspace', or 'role:<name>'.
+  node: string // 'keyspace', 'scope:<path>', or 'piece:<salt>'.
   owner: Address // The wallet that roots the keyspace, lowercased
   keyspace: Hex // Spelled as in `foc/ks`
-  epoch: number // Which re-keying of the keyspace this key belongs to
 }
 
 /** A node key wrapped to one recipient. Safe to store or send anywhere. */
@@ -90,12 +83,12 @@ export interface Grant extends GrantDescriptor {
   ct: Hex // Wrapped key: ciphertext ‖ tag
 }
 
-/** Which node the caller holds when deriving a piece key: the keyspace, or a role by its path. */
-export type Holding = 'keyspace' | { role: string }
+/** Which node the caller holds when deriving a piece key: the keyspace, a scope by its path, or one piece by its salt. */
+export type Holding = 'keyspace' | { scope: string } | { piece: Hex }
 
 /** What `writeTarget()` hands a delegate: everything needed to write one piece. */
 export interface WriteTarget {
-  ref: KeyspaceRef // For pieceMetadata(): the keyspace and epoch the grant names
-  role?: string // The role path to label the piece with; absent for an unlabelled piece
+  ref: KeyspaceRef // For pieceMetadata(): the keyspace the grant names
+  scope?: string // The scope path to label the piece with; absent for an unlabelled piece
   key: Uint8Array // The node key to derive the piece key from: pieceKey(key, salt)
 }

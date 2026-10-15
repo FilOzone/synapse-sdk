@@ -2,9 +2,9 @@
  * Derivation: one wallet signature per keyspace, then HKDF all the way down.
  *
  * ```text
- * sig = signTypedData(KeyspaceKey{owner, keyspace, epoch})
+ * sig = signTypedData(KeyspaceKey{owner, keyspace})
  * KK  = HKDF(r‖s, "foc/acl/keyspace/v1")      the whole keyspace
- * RK  = HKDF(KK,  "foc/acl/role/v1"‖role)     one access role within it
+ * RK  = HKDF(KK,  "foc/acl/role/v1"‖scope)     one access scope within it
  * PK  = HKDF(node,"foc/acl/piece/v1"‖salt)    one piece
  * ```
  *
@@ -28,39 +28,36 @@ import type {
 } from './types.ts'
 
 const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
-/** The largest epoch: it is signed as a `uint32`. */
-const MAX_EPOCH = 0xffffffff
 /** Half the secp256k1 group order; an `s` above this is the malleable form. */
 const HALF_N = N / 2n
 
 /**
- * Note: Deliberately carries neither `chainId` nor `verifyingContract`:
- * a redeployed contract, or a wallet pointed at another network, must
- * not orphan a keyspace's key. Nothing about chains or contracts is signed
- * at all: the keyspace is a 128-bit random identifier, unique without them,
- * and a piece must open wherever its copies end up.
+ * Sparse EIP-712 message block to be signed by the root wallet.
+ * Note: Deliberately carries neither `chainId` nor `verifyingContract`
+ * as out primary concern is long-term access to the stored pieces,
+ * no matter what chain or contract they were initially associated with.
  *
  * **Never add a field here, and never zero-fill one.** The separator is
  * hashed over the fields that are present, so `{name, version}` and
  * `{name, version, chainId: 0, verifyingContract: 0x00…}` are different
  * domains, different signatures, and different keys. Any change orphans
- * every key ever derived, with no migration path. Pinned by a golden test.
+ * every key ever derived, with no migration path.
  */
 export const DOMAIN = { name: 'FOC Encryption', version: '1' } as const
 
+/**
+ * Parameters of the typed data signature that roots a keyspace
+ */
 export const KEYSPACE_KEY_TYPES = {
   KeyspaceKey: [
-    { name: 'purpose', type: 'string' },
     { name: 'owner', type: 'address' },
     { name: 'keyspace', type: 'bytes16' },
-    { name: 'epoch', type: 'uint32' },
   ],
 } as const
 
-const PURPOSE = 'foc/enc/v1 keyspace key'
 const INFO = {
   keyspace: 'foc/acl/keyspace/v1',
-  role: 'foc/acl/role/v1',
+  scope: 'foc/acl/role/v1',
   piece: 'foc/acl/piece/v1',
   commitment: 'foc/kc/v1',
 } as const
@@ -82,14 +79,14 @@ function randomHex(length: number): Hex {
 export const newSalt = (): Hex => randomHex(16)
 
 /**
- * A fresh keyspace identifier: 16 random bytes. Public, and unique without
- * reference to any chain, contract or dataset.
+ * A fresh keyspace identifier: 16 random bytes.
+ * Must be unique to a wallet, so that a grant for one keyspace cannot be
+ * relabelled as another.
  */
 export const newKeyspace = (): Hex => randomHex(16)
 
 /**
- * A keyspace id in the one form it is signed and compared in: exactly 16
- * bytes, lowercase hex. Leading zeros are part of the value.
+ * Canonical form of a keyspace identifier: 16 bytes of hex, lowercase, prefixed with `0x`.
  *
  * @throws If it is not 16 bytes of hex.
  */
@@ -101,28 +98,8 @@ export function keyspaceId(keyspace: string): Hex {
   return lower as Hex
 }
 
-/**
- * An epoch in the one form it is signed, recorded and compared in: an integer
- * from 0 to 2³²−1, the range of the `uint32` it is signed as. A decimal string
- * is accepted too, since JSON relays and command lines produce them.
- *
- * @throws If it is anything else.
- */
-export function epochOf(value: number | string): number {
-  const n = typeof value === 'string' && /^(0|[1-9][0-9]*)$/.test(value) ? Number(value) : value
-  if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > MAX_EPOCH) {
-    throw new Error(`An epoch is an integer from 0 to ${MAX_EPOCH}, got ${JSON.stringify(value)}`)
-  }
-  return n
-}
-
 export function keyspaceKeyMessage(ref: KeyspaceRef): KeyspaceKeyMessage {
-  return {
-    purpose: PURPOSE,
-    owner: ref.owner,
-    keyspace: keyspaceId(ref.keyspace),
-    epoch: epochOf(ref.epoch ?? 0),
-  }
+  return { owner: ref.owner, keyspace: keyspaceId(ref.keyspace) }
 }
 
 /** Signers already shown to sign deterministically, so later calls cost one prompt. */
@@ -144,8 +121,8 @@ const verifiedSigners = new WeakSet<object>()
  * nothing downstream could tell. Delegates receive a grant instead.
  *
  * The result carries the keyspace descriptor, so an owner writes the same way
- * a delegate does — `writeTarget(descriptor, kk, role)` — with the keyspace
- * and epoch taken from what was actually signed.
+ * a delegate does — `writeTarget(descriptor, kk, scope)` — with the keyspace
+ * taken from what was actually signed.
  *
  * @throws If the signer is not deterministic, is not the owner, or does not produce an ECDSA signature.
  */
@@ -170,7 +147,7 @@ export async function keyspaceKeys(
   const rs = lowSrs(first)
   await assertSignedBy(message.owner, hashTypedData(args), rs)
   const kk = derive(rs, INFO.keyspace)
-  return { kk, commitment: commitment(kk, message.epoch), descriptor: grantDescriptor(ref, 'keyspace') }
+  return { kk, commitment: commitment(kk), descriptor: grantDescriptor(ref, 'keyspace') }
 }
 
 /**
@@ -192,52 +169,26 @@ async function assertSignedBy(owner: Address, hash: Hex, rs: Uint8Array): Promis
 }
 
 /**
- * A non-secret commitment to one epoch's keyspace key, for FWSS data-set
- * metadata: `v1.<epoch>.<32 hex digits>`.
- *
- * Derived from the keyspace key rather than the signature, so anything that
- * holds the keyspace key — an agent replicating data into a new dataset, say —
- * can write it into that dataset's metadata too. It reveals nothing: it is a
- * one-way function of a key that is itself never published.
- *
- * The epoch is part of the value because data-set metadata is write-once: after
- * a re-key, a reader still has to know which epoch's key the commitment checks.
- * `v1` is the format of the value.
+ * A non-secret commitment to the keyspace key, for FWSS data-set metadata:
+ * `v1.<32 hex digits>`, where `v1` is the format of the value.
  */
-export const commitment = (kk: Uint8Array, epoch: number | string): string =>
-  `v1.${epochOf(epoch)}.${bytesToHex(derive(kk, INFO.commitment, 16)).slice(2)}`
+export const commitment = (kk: Uint8Array): string => `v1.${bytesToHex(derive(kk, INFO.commitment, 16)).slice(2)}`
 
 /**
- * The epoch a recorded commitment checks. Derive the keyspace key for that
- * epoch, then compare with {@link matchesCommitment}.
- *
- * @throws If the value is not a commitment in this format.
- */
-export function commitmentEpoch(recorded: string): number {
-  const match = /^v1\.(0|[1-9][0-9]*)\.[0-9a-f]{32}$/.exec(recorded)
-  if (match == null) {
-    throw new Error(`Not a keyspace commitment in format v1: ${JSON.stringify(recorded)}`)
-  }
-  return epochOf(match[1] as string)
-}
-
-/**
- * Whether `kk` is the key a recorded commitment names: the right wallet, the
- * right keyspace and the right epoch. Check this before decrypting, where a
- * dataset recorded a commitment; without one, the only check is that FEE
- * decryption fails.
+ * Verifies that `kk` is the key you expect: the right root wallet and the right
+ * keyspace. Check this before using any key received in a grant.
  *
  * @throws If the recorded value is not a commitment in this format.
  */
-export const matchesCommitment = (kk: Uint8Array, recorded: string): boolean =>
-  commitment(kk, commitmentEpoch(recorded)) === recorded
+export function matchesCommitment(kk: Uint8Array, recorded: string): boolean {
+  if (!/^v1\.[0-9a-f]{32}$/.test(recorded)) {
+    throw new Error(`Not a keyspace commitment in format v1: ${JSON.stringify(recorded)}`)
+  }
+  return commitment(kk) === recorded
+}
 
 /**
- * `r‖s` with `s` normalised to the low half, and `v` dropped.
- *
- * Both `(r, s)` and `(r, n−s)` are valid signatures, so a signer returning the
- * high form would otherwise derive a different key for the same wallet. The
- * `v` byte is excluded because wallets report it as 0/1 or 27/28.
+ * Canonicalize signature:`r‖s` with `s` normalised to the low half, and `v` dropped.
  *
  * Only a plain secp256k1 ECDSA signature is accepted. A contract account or
  * smart wallet answers `signTypedData` with an ABI-encoded blob whose leading
@@ -266,47 +217,70 @@ export function lowSrs(signature: Hex): Uint8Array {
 }
 
 /**
- * The key for an access role. Roles form a tree, and a role's key is derived
- * from its parent's, so holding a role also opens every role beneath it — and
- * nothing above it or beside it. A role is named by its path from the top,
- * `super-secret/secret`; a top-level role is just `agent-memory`.
+ * The key for an access scope. Scopes form a tree, and a scope's key is derived
+ * from its parent's, so holding a scope also opens every scope beneath it.
  *
- * Each role has exactly one parent. A role's position is part of its key, so
- * moving or renaming a role re-keys everything beneath it.
  */
-export const roleKey = (kk: Uint8Array, role: string): Uint8Array => walk(kk, rolePath(role).split('/'))
+export const scopeKey = (kk: Uint8Array, scope: string): Uint8Array => walk(kk, scopePath(scope).split('/'))
 
 const walk = (key: Uint8Array, names: string[]): Uint8Array =>
-  names.reduce((parent, name) => derive(parent, `${INFO.role}${name}`), key)
+  names.reduce((parent, name) => derive(parent, `${INFO.scope}${name}`), key)
 
 /**
- * One role name in the form it is derived from: Unicode NFC, non-empty, no
- * leading or trailing whitespace, and no `/`. Case is significant.
+ * Canonicalize scope name in the form it is derived from: Unicode NFC,
+ * non-empty, no leading or trailing whitespace, and no `/` (which would
+ * indicate a *path*). Case is significant.
  *
  * @throws If the name is empty, padded with whitespace, or contains `/`.
  */
-export function roleName(name: string): string {
+export function scopeName(name: string): string {
   const normalised = name.normalize('NFC')
   if (normalised.length === 0 || normalised.trim() !== normalised || normalised.includes('/')) {
     throw new Error(
-      `A role name must be non-empty, with no leading or trailing whitespace and no "/", got ${JSON.stringify(name)}`
+      `A scope name must be non-empty, with no leading or trailing whitespace and no "/", got ${JSON.stringify(name)}`
     )
   }
   return normalised
 }
 
-/** A role path in canonical form: canonical names joined by `/`, top role first. */
-export const rolePath = (path: string): string => path.split('/').map(roleName).join('/')
+/** Canonicalize scope path: canonical names joined by `/`, top scope first. */
+export const scopePath = (path: string): string => path.split('/').map(scopeName).join('/')
 
-/** A grant node in canonical form: `keyspace`, or `role:` plus a canonical role path. */
+/**
+ * A grant node in canonical form: `keyspace`, `scope:` plus a canonical scope
+ * path, or `piece:` plus a piece's salt in lowercase hex.
+ */
 export function canonicalNode(node: string): string {
   if (node === 'keyspace') {
     return 'keyspace'
   }
-  if (node.startsWith('role:')) {
-    return `role:${rolePath(node.slice('role:'.length))}`
+  if (node.startsWith('scope:')) {
+    return `scope:${scopePath(node.slice('scope:'.length))}`
+  }
+  if (node.startsWith('piece:')) {
+    return `piece:${saltOf(node.slice('piece:'.length))}`
   }
   throw new Error(`Unrecognised grant node: ${node}`)
+}
+
+/**
+ * The grant node for one piece, from its envelope metadata: `piece:<salt>`.
+ *
+ * A piece grant is bound to the salt, not the CID: the salt is what the key is
+ * derived from, it has one canonical spelling, and `keyForEnvelope` checks it
+ * against the envelope at no cost. Carry the piece's CID beside the grant to
+ * tell the recipient where to fetch it.
+ */
+export const pieceNode = (metadata: Pick<PieceMetadata, 'foc/salt'>): GrantNode =>
+  `piece:${saltOf(metadata['foc/salt'])}`
+
+/** A salt in the form it is derived from and compared in: hex bytes, lowercase. */
+function saltOf(salt: string): Hex {
+  const lower = salt.toLowerCase()
+  if (!/^0x([0-9a-f]{2})+$/.test(lower)) {
+    throw new Error(`A piece salt is hex bytes, got ${JSON.stringify(salt)}`)
+  }
+  return lower as Hex
 }
 
 /** The key for one piece. Never reused: FEE requires a fresh key per object. */
@@ -316,17 +290,20 @@ export const pieceKey = (node: Uint8Array, salt: Hex): Uint8Array => derive(node
 const lowerHex = (value: Hex): Hex => value.toLowerCase() as Hex
 
 /**
- * What to record in a piece's envelope so that a reader can derive its key.
+ * Piece FEE envelope metadata entries.
  *
  * Everything a reader needs travels with the piece, so a copy opens wherever
  * replication or repair puts it.
  */
-export function pieceMetadata(ref: KeyspaceRef, options: { salt: Hex; role?: string }): PieceMetadata {
+export function pieceMetadata(
+  ref: KeyspaceRef,
+  options: { salt: Hex; scope?: string; }
+): PieceMetadata {
   return {
     'foc/v': 1,
+    'foc/own': ref.owner.toLowerCase() as Address,
     'foc/ks': keyspaceId(ref.keyspace),
-    'foc/epoch': epochOf(ref.epoch ?? 0),
-    ...(options.role == null ? {} : { 'foc/role': rolePath(options.role) }),
+    ...(options.scope == null ? {} : { 'foc/scope': scopePath(options.scope) }),
     'foc/salt': lowerHex(options.salt),
   }
 }
@@ -345,78 +322,102 @@ export function grantDescriptor(ref: KeyspaceRef, node: GrantNode): GrantDescrip
     node: canonicalNode(node) as GrantNode,
     owner: ref.owner.toLowerCase() as Address,
     keyspace: keyspaceId(ref.keyspace),
-    epoch: epochOf(ref.epoch ?? 0),
   }
 }
 
 /**
  * Derive a piece's key from whichever node the caller holds.
  *
- * A keyspace-key holder walks the piece's whole role path. A role holder walks
- * the rest of the path below its own role — which works only if its role is the
- * piece's role or an ancestor of it.
+ * A keyspace-key holder walks the piece's whole scope path. A scope holder walks
+ * the rest of the path below its own scope — which works only if its scope is the
+ * piece's scope or an ancestor of it. A piece holder already has the key, and
+ * gets it back only for the piece whose salt it names.
  *
- * @throws If the piece is not in this format, or the held role does not contain the piece's role.
+ * @throws If the piece is not in this format, the held scope does not contain the
+ * piece's scope, or the held piece is a different piece.
  */
 export function keyForEnvelope(node: Uint8Array, metadata: PieceMetadata, holding: Holding = 'keyspace'): Uint8Array {
-  // Pre-release prototypes also wrote `foc/v: 1`, but named no keyspace.
+  // Format changes break key derivation, so guard first
   if (metadata['foc/v'] !== 1 || typeof metadata['foc/ks'] !== 'string') {
     throw new Error(
       `This piece's envelope is not format 1 with a keyspace (foc/v ${String(metadata['foc/v'])}, ` +
         `foc/ks ${String(metadata['foc/ks'])}); this version reads only that.`
     )
   }
-  const role = metadata['foc/role']
-  const target = role == null ? [] : rolePath(role).split('/')
-  const held = holding === 'keyspace' ? [] : rolePath(holding.role).split('/')
+
+  // If a direct piece grant, verify this is for the correct piece before deriving
+  if (holding !== 'keyspace' && 'piece' in holding) {
+    if (saltOf(holding.piece) !== saltOf(metadata['foc/salt'])) {
+      throw new Error('This piece key belongs to another piece: the envelope names a different salt.')
+    }
+    return node.slice()
+  }
+
+  // Verify the held scope contains the piece's scope before deriving
+  const scope = metadata['foc/scope']
+  const target = scope == null ? [] : scopePath(scope).split('/')
+  const held = holding === 'keyspace' ? [] : scopePath(holding.scope).split('/')
   if (held.length > target.length || held.some((name, i) => name !== target[i])) {
     throw new Error(
-      `Role "${held.join('/')}" does not contain this piece's role "${role ?? '(none)'}"; ` +
-        'a role opens itself and the roles beneath it.'
+      `Scope "${held.join('/')}" does not contain this piece's scope "${scope ?? '(none)'}"; ` +
+        'a scope opens itself and the scopes beneath it.'
     )
   }
+
+  // Go!
   return pieceKey(walk(node, target.slice(held.length)), metadata['foc/salt'])
 }
 
 /**
  * Which node a grant carries, ready to pass to {@link keyForEnvelope}.
  *
- * Keyspace and role keys are all 32 bytes of HKDF output, so nothing
- * distinguishes them once unwrapped — but the grant that delivered the key says.
+ * Keyspace and scope keys are all 32 bytes of HKDF output, so nothing
+ * distinguishes them once unwrapped — but the grant that delivered the
+ * key tells you so keep the whole grant, not just the key.
  *
  * @throws If the grant names a node this version does not understand.
  */
 export function holdingOf(grant: Pick<GrantDescriptor, 'node'>): Holding {
   const node = canonicalNode(grant.node)
-  return node === 'keyspace' ? 'keyspace' : { role: node.slice('role:'.length) }
+  if (node === 'keyspace') {
+    return 'keyspace'
+  }
+  return node.startsWith('piece:')
+    ? { piece: node.slice('piece:'.length) as Hex }
+    : { scope: node.slice('scope:'.length) }
 }
 
 /**
  * Everything a delegate needs to write a piece, taken from the grant that
- * delegated it: the keyspace and epoch to record, the role to label it with,
+ * delegated it: the keyspace to record, the scope to label it with,
  * and the key to derive its piece key from.
  *
- * The grant decides what is allowed. A keyspace grant may write under any role
- * or none; a role grant only under its own role or a role beneath it, and
- * defaults to its own role. Anything else is refused here, before a piece is
- * encrypted under a key its intended readers could never derive.
+ * The grant decides what is allowed. A keyspace grant may write under any scope
+ * or none; a scope grant only under its own scope or a scope beneath it, and
+ * defaults to its own scope. A piece grant cannot write at all: its key belongs
+ * to one existing piece, and FEE needs a fresh key for every object. Anything
+ * else is refused here, before a piece is encrypted under a key its intended
+ * readers could never derive.
  *
- * @throws If the role lies outside the grant's subtree, or the key is not 32 bytes.
+ * @throws If the grant is a piece grant, the scope lies outside the grant's subtree, or the key is not 32 bytes.
  */
-export function writeTarget(grant: GrantDescriptor, nodeKey: Uint8Array, role?: string): WriteTarget {
+export function writeTarget(grant: GrantDescriptor, nodeKey: Uint8Array, scope?: string): WriteTarget {
   if (nodeKey.length !== 32) {
     throw new Error(`Expected a 32-byte node key, got ${nodeKey.length} bytes`)
   }
   const holding = holdingOf(grant)
-  const held = holding === 'keyspace' ? [] : holding.role.split('/')
-  const path = role == null ? held : rolePath(role).split('/')
+  if (holding !== 'keyspace' && 'piece' in holding) {
+    throw new Error('A piece grant opens one existing piece and cannot write: FEE needs a fresh key for every object.')
+  }
+  const held = holding === 'keyspace' ? [] : holding.scope.split('/')
+  const path = scope == null ? held : scopePath(scope).split('/')
   if (held.length > path.length || held.some((name, i) => name !== path[i])) {
-    const covers = held.length === 0 ? 'the whole keyspace' : `role "${held.join('/')}" and the roles beneath it`
-    throw new Error(`This grant covers ${covers}; it cannot write under "${role}".`)
+    const covers = held.length === 0 ? 'the whole keyspace' : `scope "${held.join('/')}" and the scopes beneath it`
+    throw new Error(`This grant covers ${covers}; it cannot write under "${scope}".`)
   }
   return {
-    ref: { owner: grant.owner, keyspace: keyspaceId(grant.keyspace), epoch: epochOf(grant.epoch) },
-    ...(path.length === 0 ? {} : { role: path.join('/') }),
+    ref: { owner: grant.owner, keyspace: keyspaceId(grant.keyspace) },
+    ...(path.length === 0 ? {} : { scope: path.join('/') }),
     key: walk(nodeKey, path.slice(held.length)),
   }
 }

@@ -2,7 +2,15 @@ import { secp256k1 } from '@noble/curves/secp256k1'
 import assert from 'assert'
 import { bytesToHex, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { grantDescriptor, holdingOf, keyspaceKeys, roleKey } from '../src/derive.ts'
+import {
+  grantDescriptor,
+  holdingOf,
+  keyForEnvelope,
+  keyspaceKeys,
+  newSalt,
+  pieceMetadata,
+  scopeKey,
+} from '../src/derive.ts'
 import type { Grant, KeyspaceRef } from '../src/types.ts'
 import { publicKeyOf, unwrapWith, wrapTo } from '../src/wrap.ts'
 
@@ -42,26 +50,24 @@ describe('wrapTo / unwrapWith', () => {
     await assert.rejects(unwrapWith(generatePrivateKey(), grant))
   })
 
-  it('refuses a grant relabelled as another node, keyspace, owner or epoch', async () => {
+  it('refuses a grant relabelled as another node, keyspace or owner', async () => {
     const recipient = generatePrivateKey()
     const grant = await wrapTo(publicKeyOf(recipient), await kkOf(), descriptor)
-    await assert.rejects(unwrapWith(recipient, { ...grant, node: 'role:super-secret' }))
+    await assert.rejects(unwrapWith(recipient, { ...grant, node: 'scope:super-secret' }))
     await assert.rejects(unwrapWith(recipient, { ...grant, keyspace: '0xffeeddccbbaa99887766554433221100' }))
     await assert.rejects(unwrapWith(recipient, { ...grant, owner: '0x00000000000000000000000000000000000000ff' }))
-    await assert.rejects(unwrapWith(recipient, { ...grant, epoch: 1 }))
   })
 
   it('opens a grant whose relay mangled the spelling of every field', async () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()
-    const rk = roleKey(kk, 'café')
-    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'role:café'))
+    const rk = scopeKey(kk, 'café')
+    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'scope:café'))
     const mangled = {
       ...grant,
-      node: 'role:café',
+      node: 'scope:café',
       owner: grant.owner.toUpperCase().replace('0X', '0x'),
       keyspace: grant.keyspace.toUpperCase().replace('0X', '0x'),
-      epoch: '0',
     }
     assert.deepStrictEqual(await unwrapWith(recipient, mangled as never), rk)
   })
@@ -74,13 +80,25 @@ describe('wrapTo / unwrapWith', () => {
     assert.deepStrictEqual(await unwrapWith(recipient, carried), kk)
   })
 
-  it('carries a role key, and holdingOf reads the level back', async () => {
+  it('carries a scope key, and holdingOf reads the level back', async () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()
-    const rk = roleKey(kk, 'agent-memory')
-    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'role:agent-memory'))
+    const rk = scopeKey(kk, 'agent-memory')
+    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'scope:agent-memory'))
     assert.deepStrictEqual(await unwrapWith(recipient, grant), rk)
-    assert.deepStrictEqual(holdingOf(grant), { role: 'agent-memory' })
+    assert.deepStrictEqual(holdingOf(grant), { scope: 'agent-memory' })
+  })
+
+  it('carries one piece key, and opens only that piece', async () => {
+    const kk = await kkOf()
+    const recipient = generatePrivateKey()
+    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'agent-memory' })
+    const pk = keyForEnvelope(kk, metadata)
+    const grant = await wrapTo(publicKeyOf(recipient), pk, grantDescriptor(ref, `piece:${metadata['foc/salt']}`))
+    const delivered = JSON.parse(JSON.stringify(grant))
+    const node = await unwrapWith(recipient, delivered)
+    assert.deepStrictEqual(keyForEnvelope(node, metadata, holdingOf(delivered)), pk)
+    await assert.rejects(unwrapWith(recipient, { ...grant, node: `piece:${newSalt()}` }), 'relabelled to another piece')
   })
 
   it('rejects grants it does not understand', async () => {
@@ -88,8 +106,8 @@ describe('wrapTo / unwrapWith', () => {
     const grant = await wrapTo(publicKeyOf(recipient), await kkOf(), descriptor)
     await assert.rejects(unwrapWith(recipient, { ...grant, alg: 'RSA-OAEP' } as never), /Unsupported grant algorithm/)
     await assert.rejects(unwrapWith(recipient, { ...grant, v: 2 } as never), /Unsupported grant version/)
-    const { epoch: _dropped, ...withoutEpoch } = grant
-    await assert.rejects(unwrapWith(recipient, withoutEpoch as never), /epoch/)
+    const { keyspace: _dropped, ...withoutKeyspace } = grant
+    await assert.rejects(unwrapWith(recipient, withoutKeyspace as never))
   })
 
   it('wraps only a version it writes, and carries exactly the canonical descriptor', async () => {
@@ -101,15 +119,14 @@ describe('wrapTo / unwrapWith', () => {
     )
     const handBuilt = {
       v: 1,
-      node: 'role:cafe\u0301',
+      node: 'scope:cafe\u0301',
       owner: account.address,
       keyspace: ref.keyspace.toUpperCase().replace('0X', '0x'),
-      epoch: '0',
       dataSetId: '7',
     }
-    const grant = await wrapTo(publicKeyOf(recipient), roleKey(kk, 'caf\u00e9'), handBuilt as never)
+    const grant = await wrapTo(publicKeyOf(recipient), scopeKey(kk, 'caf\u00e9'), handBuilt as never)
     const { alg: _a, epk: _e, iv: _i, ct: _c, ...carried } = grant
-    assert.deepStrictEqual(carried, grantDescriptor(ref, 'role:caf\u00e9'), 'canonical, and nothing extra')
+    assert.deepStrictEqual(carried, grantDescriptor(ref, 'scope:caf\u00e9'), 'canonical, and nothing extra')
   })
 
   it('refuses something that is not a private key where one is needed', async () => {

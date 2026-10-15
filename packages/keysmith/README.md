@@ -1,14 +1,21 @@
 # @filoz/keysmith
 
-Deterministic key derivation for robust, recoverable, transparent encryption of data on Filecoin Onchain Cloud.
+Deterministic key derivation for robust, recoverable encryption of data on
+Filecoin Onchain Cloud.
 
-One wallet signature per keyspace produces every key beneath it. Keysmith stores nothing,
-needs no key server, and puts no key material on chain — so a user who still has their
-wallet can always read their data.
+Private data on Filecoin uses the Filecoin Encryption Envelope (FEE), such 
+that the data stored as pieces with an SP consist of the plaintext envelope 
+followed by encrypted bytes. 
 
-Keysmith **generates and derives keys**. It does not encrypt: hand the key it gives you to
-[FEE](https://github.com/FilOzone/synapse-sdk/pull/967), which produces the envelope, and
-upload that through the Synapse SDK like any other bytes.
+Keysmith provides a mechanism for generating piece encryption keys in a
+derivation tree rooted from the dataset owner's wallet, enabling fine-grained
+sharing of sections of a payer’s datasets without introducing a key storage
+problem: if you ever forget a key, you can always get it back for the price
+of 1 wallet operation.
+
+Keysmith **generates and derives keys**. It does not encrypt: hand the key
+it gives you to the FEE implementation along with your envelope metadata,
+and upload that through the Synapse SDK like any other bytes.
 
 ```text
 your app ──▶ @filoz/keysmith ──key──▶ FEE (envelope) ──bytes──▶ @filoz/synapse-sdk ──▶ FWSS + Curio
@@ -23,43 +30,149 @@ pnpm add @filoz/keysmith
 Requires `viem` 2.x as a peer dependency. Works in Node.js and browsers; in a browser it
 needs a secure context (HTTPS or localhost) for WebCrypto.
 
-## Keyspaces, not datasets
+## Development
 
-Keys belong to a **keyspace**: a random 16-byte identifier the client mints, which every
-envelope carries. It is deliberately independent of FWSS. Replication and repair put copies
-of a piece into other datasets, on other providers, sometimes paid for by other accounts —
-and because nothing about the dataset is an input to the key, every copy opens with the same
-key wherever it lands.
+```bash
+pnpm --filter @filoz/keysmith build
+pnpm --filter @filoz/keysmith test     # node + browser
+```
 
-The usual choice is one keyspace per dataset, created alongside it. Nothing enforces that:
-several datasets can share a keyspace to save wallet prompts, at the cost of a larger blast
-radius for one signature.
+`test/vectors.json` pins the outputs for fixed inputs (the well-known Anvil development
+keys). If a change alters any of them, existing keys would be orphaned. Other
+implementations can test themselves against the same file.
+
+## Core concepts
+
+- **Keyspace** is the top level concept: the keyspace key forms the root of the
+tree. The keyspace key binds back to the payer wallet (we assume that the payer
+can *always* access *everything* they are maintaining). Anyone holding the
+keyspace key can ultimately decrypt any Piece underneath it.
+- **Scopes** are intermediate nodes on the tree: just like scopes in other
+security protocols they are highly flexible and user/application-defined, and
+can model metaphors like ‘subfolders’, or ‘roles’, ‘security classification’.
+Any of these metaphors (and more!) work, but it would be very dangerous to try
+to mix them! Anyone with the scope key can **read and write** pieces below that
+scope in the tree, but cannot go up or sideways, allowing apps/users to limit
+access to different session keys/apps.
+- **Pieces** are all encrypted with a unique key (still deterministically
+derived from their keyspace/scope), enabling sharing of individual pieces
+of data with others on a safe, ad-hoc basis.
+
+**There is no subdivision below the Piece level**.
+
+**One wallet signature per keyspace derives every key beneath it**, nothing is
+stored (except for convenience, eg caching of grants for agent sessions), and
+the wallet alone is sufficient to recover all the Piece encryption keys in a
+payer’s datsets (eg in the event that they lose their cached pieces or session
+key or something). 
+
+**Keys are shared by wrapping an encryption key** (any layer of the hierarchy)
+under the recipient’s public key (eg a Session Key Registry key) into a
+structured grant object.
+
+**Each piece’s FEE envelope contains sufficient metadata to identify which
+key is needed to decrypt it**, so even if the Piece migrates out of its original
+FWSS dataset or was written prior to a key rollover it can be reopened by
+suitably authorized actors.
+
+## Keyspaces
+
+Keys belong to a **keyspace**: a random 16-byte identifier the client chooses,
+which every envelope carries. It is deliberately independent of FWSS datasets:
+replication and repair can put copies of a piece into other datasets, on other
+providers, sometimes paid for by other accounts — so tying to FWSS-chosen
+identities could lead to issues with recovering keys later. With user-selected
+keyspaces every copy of a Piece opens with the same key wherever it is fetched
+from.
+
+The default choice is one keyspace per dataset, and synapse stores the keyspace
+id in the dataset metadata so that applications don't need to remember it.
+Applications can override this behavior if they have good reason to, but must
+then make sure to keep track of keyspaces and know which to use at any given
+time.
+
+To re-key, or maintain a hard separation between different sections of data,
+simply make a new keyspace: its keys are then unrelated to the old ones.
+(in which case it's stored in the dataset metadata and you can read it back
+from the chain).
+
+**IMPORTANT**: Initializing a keyspace requires the payer wallet to sign a
+specially-crafted message, one time, and thereafter as long as they remember
+the Keyspace Key (KK) all further operations can be performed in code with
+Session Keys or other EOAs. Because this scheme demands deterministic
+signatures the signing must happen in a wallet or library tha supports RFC
+6979 - keysmith includes a check for this before returning a root KK.
 
 ## The key derivation tree
 
-Each keyspace has its own key, `KK`. From it are derived **role** keys — access labels such
-as `agent-memory` or `super-secret` — and from either of those, keys for individual Pieces.
+Each keyspace has its own root key, `KK`. From it are derived **scope** keys 
+— access labels such as `agent-memory` or `super-secret` — and from either of
+those, keys for individual Pieces.
 
-Roles form a **tree**: a role's key is derived from its parent's, so holding a role opens
-that role *and every role beneath it*, and nothing above it or beside it. That is clearance
-in the usual sense — `super-secret` contains `super-secret/secret`, which contains
-`super-secret/secret/internal`. A role is named by its path from the top.
+A scope is a user/application-chosen access label (string) such as
+`agent-memory` or `super-secret`. Scopes are the intermediate nodes of the
+derivation tree, between the all powerful root and single Pieces and allow 
+elegation of portions of the entire keyspace to non-owner actors, processes,
+agents or whatever.
 
-In this way, read and write delegations can be made to other entities over a whole
-keyspace; or everything carrying one role; or just a single Piece.
+Keysmith is unopinionated about how scopes are used, or what’s in them, other
+than the `/` separator. The `/` allows specification of sub-scopes and finer
+divisions. Because we’re dealing with strings and need deterministic encoding
+each segment is Unicode NFC, non-empty, unpadded and without `/`; case is
+significant. Keysmith refuses a non-canonical name rather than silently
+normalising it and generating mismatched keys.
 
-```text
-sig = signTypedData(KeyspaceKey{owner, keyspace, epoch})
-KK  = HKDF(r‖s, "foc/acl/keyspace/v1")      the whole keyspace
-RK  = HKDF(KK,  "foc/acl/role/v1"‖role)     a top-level role
-RK′ = HKDF(RK,  "foc/acl/role/v1"‖child)    a role beneath it, and so on down
-PK  = HKDF(node,"foc/acl/piece/v1"‖salt)    one piece
-```
+A scope key is derived from its parent’s key, so **holding a scope means you can
+access all data and sub-scopes beneath it, but nothing above or beside it**.
+Examples:
 
-Every derivation is one-way: a role key opens every Piece labelled with that role or any role beneath it, but a
-Piece key says nothing about its neighbours, its role, its keyspace, or the wallet.
+- Clearance levels/MLS: `top-secret` contains `top-secret/secret`, which contains
+`top-secret/secret/official`. A holder of `top-secret/secret` can grant an agent
+access to `top-secret/secret/official` and they can happily operate in that
+`official` layer without being able to walk back up the tree.
+- Naive RBAC: `super-admin` contains `super-admin/admin`, which contains 
+`super-admin/admin/user`. A holder of `super-admin` can grant a session key access
+to `super-admin/admin` and they can happily manage `users`without being able to
+walk back up the tree.
 
-## Writing a piece
+This may look counter-intuitive, starting at most privileged and walking outward,
+or specifying the whole `top-secret/secret/official` rather than just `official`,
+but the way the crypto and grants work saves the entire path to look at and verify
+where the grant came from (all the way back to the root) but the actual node key
+shared is only the last element of the path. So you can verify up, but only derive
+and decrypt down.
+
+## Metadata handling
+
+Keysmith requires no additional key storage: encryption grants can be handled
+in whatever way the application currently handles its session keys. It does
+however maintain key recovery metadata in two places:
+
+| Where | Keys | Written | Needed to decrypt? |
+| --- | --- | --- | --- |
+| FEE envelope (`pieceMetadata`) | `foc/v`, `foc/own`, `foc/ks`, `foc/scope`, `foc/salt` | per piece | **yes** — this is what `keyForEnvelope` reads, and the source of truth |
+| FWSS dataset metadata | `foc/ks`, `foc/kc` | once, at `createDataSet` | no — lets a client list its keyspaces from the chain, and check its key before decrypting |
+
+- **No key material lives on chain.** The keyspace id is public by design; the commitment is a one-way function of a key that is never published.
+- **All you need when you need it:**
+    - When **reading**, the envelope metadata is enough for the caller to know which of
+    their derived/granted keys they need to decrypt.
+    - When **writing**, the dataset metadata is enough for the caller to derive the
+    right encryption key for their new Piece.
+- **Scope names travel in the clear.** The reader needs them to derive, so an observer
+learns which pieces are `super-secret`, and with a tree, the shape of the hierarchy.
+If that matters to you, use opaque scope ids and map them at the application layer.
+
+The dataset entries also help a writer that has no envelope to draw from yet: it can learn
+a dataset's keyspace before adding to it. Like all FWSS metadata they are public, so the
+keyspace id goes on chain; no key does.
+
+## Initializing a keyspace
+
+Starting a keyspace and rooting it in the wallet requires 2 wallet signatures
+(one to generate the key and the second to verify determinism). 
+
+To initialize and write an initial piece to a new dataset:
 
 ```ts
 import * as Keysmith from '@filoz/keysmith'
@@ -73,46 +186,40 @@ const ref = {
 // keyspace key, a public commitment, and a descriptor of exactly what was signed.
 const { kk, commitment, descriptor } = await Keysmith.keyspaceKeys(account, ref)
 
-// Write the way a delegate does: keyspace and epoch come from what was signed,
+// Write the way a delegate does: the keyspace comes from what was signed,
 // so a stale key or a mistyped ref cannot produce an envelope nobody can open.
 const target = Keysmith.writeTarget(descriptor, kk, 'agent-memory')
 const salt = Keysmith.newSalt()
 const key = Keysmith.pieceKey(target.key, salt) // hand to FEE
-const metadata = Keysmith.pieceMetadata(target.ref, { salt, role: target.role }) // goes in the FEE envelope
+const metadata = Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope }) // goes in the FEE envelope
 
 // Record the keyspace and commitment in the createDataSet call you were making anyway:
 //   metadata: { [Keysmith.KEYSPACE_ID_KEY]: ref.keyspace, [Keysmith.COMMITMENT_KEY]: commitment }
 ```
 
-A piece written without a role is readable only with the keyspace key.
-
-Keysmith writes to two places, for different purposes:
-
-| Where | Keys | Written | Needed to decrypt? |
-| --- | --- | --- | --- |
-| FEE envelope (`pieceMetadata`) | `foc/v`, `foc/ks`, `foc/epoch`, `foc/role`, `foc/salt` | per piece | **yes** — this is what `keyForEnvelope` reads, and the source of truth |
-| FWSS dataset metadata | `foc/ks`, `foc/kc` | once, at `createDataSet` | no — lets a client list its keyspaces from the chain, and check its key before decrypting |
-
-The dataset entries also help a writer that has no envelope to draw from yet: it can learn
-a dataset's keyspace before adding to it. Like all FWSS metadata they are public, so the
-keyspace id goes on chain; no key does.
-
-Only the owner's own wallet can sign for its keyspace: `keyspaceKeys` checks the signature
-recovers to `ref.owner`. A delegate — a session key included — receives a grant instead.
-
-The first time a signer is used, `keyspaceKeys` signs twice and compares, refusing a
-signer that does not sign deterministically. That costs one extra wallet prompt, once;
-later calls sign once. See `KeyspaceKeysOptions` to force or skip the check.
-
 ## Sharing
 
-A grant is a node key wrapped to a recipient's public key. Nothing is written on chain and
-no piece is rewritten: anyone holding `KK` can issue one, offline.
+Collaboration in a dataset requires multiple actors to have access to the same
+set of encryption keys. These keys are shared through *grants*, consisting of
+essential metadata and a node key wrapped to a recipient's public key.
+Nothing is written on chain: the application is responsible for distributing
+the grant once it is made.
 
-The recipient needs a secp256k1 **private key in hand** to open it — a session key, or
-any service or agent holding a local key. A browser wallet will sign for you but will not
-hand over its key, so a MetaMask or Ledger user cannot unwrap a grant with this API; that
-needs a signature-derived encryption key, which is not in this package yet.
+The recipient needs a secp256k1 **private key in hand** to open it — a session
+key, or any service or agent holding a local key.
+
+ℹ️ NOTE: Build grants with `grantDescriptor()` rather than filling the structure
+by hand. The descriptor is the grant's authenticated data, compared byte for byte,
+so it must be constructed with its precise canonical form.
+
+ℹ️ NOTE: Because shared keys are symmetric and deterministic, sharing the key in
+this way also enables a suitably permissioned delegate to *write* encrypted data
+under that scope as well as read. However, write access (`addPieces`) is separately
+access controlled in FWSS, so keep session keys and scopes for reading and writing
+tightly in sync. The default FWSS implementation does this for you, but if you
+choose to go another path, watch out for this.
+
+### Sharing the entire keyspace
 
 ```ts
 // Current custodian, sharing out the whole keyspace:
@@ -127,62 +234,89 @@ Send the grant through application channels, eg share link, then:
 const kk = await Keysmith.unwrapWith(myPrivateKey, grant)
 ```
 
-To share one **role** instead of the whole keyspace:
+The recipient is all-powerful: with KK they can read, write, and onwardly
+delegate access to any data in the keyspace.
+
+### Sharing a scope
+
+Sharing scopes is the most common option: it allows the reading and writing of pieces to a restricted logical partition of your dataset, ensuring frictionless operation of processes without compromising your entire estate.
+
+To share one **scope** instead of the whole keyspace:
 
 ```ts
-const rk = Keysmith.roleKey(kk, 'agent-memory')
-const grant = await Keysmith.wrapTo(theirPublicKey, rk, Keysmith.grantDescriptor(ref, 'role:agent-memory'))
+const rk = Keysmith.scopeKey(kk, 'agent-memory')
+const grant = await Keysmith.wrapTo(theirPublicKey, rk, Keysmith.grantDescriptor(ref, 'scope:agent-memory'))
 ```
 
-The recipient reads everything labelled `agent-memory`, including pieces written after the
-grant, and nothing else.
+The recipient can then:
+ * read everything in `agent-memory` scope: all past and future pieces.
+ * write new pieces to the `agent-memory` scope
+ * access, create and delegate sub-scopes (eg `agent-memory/conversations/1234`)
 
-Build descriptors with `grantDescriptor()` rather than filling the structure by hand. The
-descriptor is the grant's authenticated data, compared byte for byte, so it is emitted in
-canonical form. Exactly its five fields are covered: anything else carried alongside a
-grant — a dataset id, a note — is informational and unauthenticated. The descriptor is
-authenticated, so a grant cannot be relabelled as another keyspace or role.
+## Sharing a single piece
 
-A grant proves nothing about **who sent it**. Anyone can address one to anyone, with any
-key inside; a successful unwrap only shows the descriptor arrived intact. A forged grant
-cannot open existing data — the forger does not have `KK` — but a delegate who *writes*
-with a key it was handed would be encrypting under a key someone else chose. Before
-writing with a key from a grant, open a known piece with it. `publicKeyOf` returns a
-key-agreement key derived from the private key, not the signing key itself, so publish
-that: one credential, two algorithms, two keys.
+To share one **piece**, wrap its piece key. The grant names the piece by its salt,
+and the piece's CID rides alongside so the recipient knows what to fetch:
+
+```ts
+// anyone holding a node above the piece:
+const pk = Keysmith.keyForEnvelope(kk, metadata)
+const grant = {
+  ...(await Keysmith.wrapTo(theirPublicKey, pk, Keysmith.grantDescriptor(ref, Keysmith.pieceNode(metadata)))),
+  pieceCid, // where to fetch it: informational, outside the authenticated descriptor
+}
+
+// recipient: fetch grant.pieceCid, read the metadata from its envelope, then
+const node = await Keysmith.unwrapWith(myPrivateKey, grant)
+const key = Keysmith.keyForEnvelope(node, metadata, Keysmith.holdingOf(grant))
+```
+
+The grant is bound to the salt rather than the CID: the salt is what the key is derived
+from, it has one canonical spelling (a piece has several CID spellings), it is known before
+upload, and `keyForEnvelope` checks it against the envelope at no cost. The CID needs no
+protection: if it is wrong, the recipient fetches a piece with a different salt, and
+`keyForEnvelope` refuses it. The recipient reads that one piece and nothing else. A piece grant is read-only, and `writeTarget` refuses it: FEE needs
+a fresh key for every object, so a piece key must never encrypt anything else.
 
 A delegate writing pieces should start from its grant rather than assembling the pieces by
-hand. `writeTarget` takes the keyspace and epoch from the grant, checks the role against what
+hand. `writeTarget` takes the keyspace from the grant, checks the scope against what
 the grant covers, and walks down to the right key:
-
-```ts
-const target = Keysmith.writeTarget(grant, key, 'admin/finance/clerks') // throws outside the grant's subtree
-const salt = Keysmith.newSalt()
-const pieceKey = Keysmith.pieceKey(target.key, salt)
-const metadata = Keysmith.pieceMetadata(target.ref, { salt, role: target.role })
-```
-
-ℹ️ NOTE: because shared keys are symmetric and deterministic, sharing the key in this way also enables a suitably permissioned delegate to *write* encrypted data under that role as well as read. However, write access (`addPieces`) is separately access controlled in FWSS, so keep session keys and scopes for reading and writing tightly in sync.
 
 ## Reading a piece
 
-The FEE envelope carries everything a reader needs, so there is no index to keep in sync,
-and it does not matter which dataset or provider the copy came from.
+```ts
+const target = Keysmith.writeTarget(grant, key, 'admin/finance/clerks')
+const salt = Keysmith.newSalt()
+const pieceKey = Keysmith.pieceKey(target.key, salt)
+const metadata = Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope })
+```
+
+ℹ️ NOTE: A piece written without a scope is readable only with the keyspace key,
+or by directly sharing its piece key.
+
+## Reading a piece
+
+The FEE envelope carries everything a reader needs, so there is no index to
+keep in sync, and it does not matter which dataset or provider the copy came
+from.
+
 What you pass depends on which key you were given:
 
 ```ts
-// the keyspace key: walks down into whatever role the metadata names
+// the keyspace key: walks down into whatever scope the metadata names
 const key = Keysmith.keyForEnvelope(kk, metadata)
 
-// a role key: say which role it is, and it walks down from there
-const key = Keysmith.keyForEnvelope(rk, metadata, { role: 'agent-memory' })
+// a scope key: say which scope it is, and it walks down from there
+const key = Keysmith.keyForEnvelope(rk, metadata, { scope: 'agent-memory' })
 
 // a piece key: nothing to derive — hand it straight to FEE
 await decrypt(blob, pk)
 ```
 
-`KK` and `RK` are both 32 bytes of HKDF output, so nothing in the envelope says which
-one you are holding — you have to tell it. The grant that delivered the key holds this information, so keep the whole grant when receiving a share and then use it in the derivation:
+`KK`, `RK` and a piece key are all 32 bytes of HKDF output, so nothing in the
+envelope says which one you are holding — you have to tell it. The grant that
+delivered the key holds this information, so keep the whole grant when
+receiving a share and then use it in the derivation:
 
 ```ts
 const key = Keysmith.keyForEnvelope(node, metadata, Keysmith.holdingOf(grant))
@@ -194,17 +328,15 @@ With the wallet and the encrypted blobs. Nothing else is required, thus there is
 
 1. List the wallet's datasets, and fetch their pieces. A dataset's `KEYSPACE_ID_KEY`
    metadata says which keyspace to expect, but **each envelope is the source of truth**:
-   read `foc/ks` and `foc/epoch` from it.
-2. Call `keyspaceKeys` once per distinct **(keyspace, epoch)** — the epoch is part of what
-   is signed, so a re-keyed keyspace costs one signature per epoch in use.
-3. Where a dataset recorded a commitment, check it before decrypting anything. The
-   commitment names its own epoch (`v1.<epoch>.<hex>`), because dataset metadata is
-   write-once and may predate a re-key:
+   read `foc/ks` from it.
+2. Call `keyspaceKeys` once per distinct keyspace.
+3. Where a dataset recorded a commitment, check it before decrypting anything:
 
    ```ts
-   const recorded = datasetMetadata[Keysmith.COMMITMENT_KEY]
-   const { kk } = await Keysmith.keyspaceKeys(wallet, { ...ref, epoch: Keysmith.commitmentEpoch(recorded) })
-   if (!Keysmith.matchesCommitment(kk, recorded)) throw new Error('wrong wallet, or a signer that is not deterministic')
+   const { kk } = await Keysmith.keyspaceKeys(wallet, { owner, keyspace: datasetMetadata[Keysmith.KEYSPACE_ID_KEY] })
+   if (!Keysmith.matchesCommitment(kk, datasetMetadata[Keysmith.COMMITMENT_KEY])) {
+     throw new Error('wrong wallet, or a signer that is not deterministic')
+   }
    ```
 
    Where a dataset recorded no commitment, there is nothing to check in advance: a wrong
@@ -216,49 +348,24 @@ the envelope, not the dataset, names its keyspace. Because the commitment is der
 `KK`, anything holding the keyspace key — an agent replicating data, say — can record it in
 a new dataset's metadata too.
 
-## Canonical forms
-
-Two things are compared byte for byte — HKDF inputs, and a grant's authenticated fields —
-so every value has exactly one spelling, produced by the library rather than the caller:
-
-| Value | Canonical form |
-| --- | --- |
-| keyspace id | exactly 16 bytes, lowercase hex; leading zeros kept |
-| role path | names joined by `/`, top first; each name Unicode NFC, non-empty, unpadded, no `/`; case is significant |
-| piece salt | lowercase hex |
-| owner in a grant | lowercase |
-| `epoch`, everywhere | an integer from 0 to 2³²−1, the `uint32` it is signed as; a decimal string such as a relayed `"0"` is accepted |
-| grant `node` | `keyspace`, or `role:` plus a canonical role path |
-| commitment | `v1.<epoch>.<32 lowercase hex digits>` |
-
-`grantDescriptor()` and `pieceMetadata()` emit these forms, and `wrapTo`, `unwrapWith`,
-`roleKey` and `keyForEnvelope` re-canonicalise whatever they are given, so a hand-built
-descriptor or a mangling relay cannot split a grant. `wrapTo` emits the canonical
-descriptor and nothing else, whoever built it; add informational fields to the grant
-afterwards. A grant also names its `epoch`, so keys for different re-keyings of one
-keyspace are never confused for each other.
-
-Every format is at version 1: the envelope's `foc/v`, a grant's `v` and the commitment's
-`v1.` prefix. Each is checked, and a reader refuses a version it does not know.
-
 ## API
 
 | Function | Purpose |
 | --- | --- |
 | `newKeyspace()` | A fresh keyspace id |
-| `keyspaceKeys(signer, ref, options?)` | One owner signature per keyspace and epoch → `{ kk, commitment, descriptor }` |
-| `roleKey(kk, path)` | The key for a role, e.g. `'super-secret/secret'` |
-| `roleName(name)` / `rolePath(path)` | A role name or path in canonical form, or a thrown error |
+| `keyspaceKeys(signer, ref, options?)` | One owner signature per keyspace → `{ kk, commitment, descriptor }` |
+| `scopeKey(kk, path)` | The key for a scope, e.g. `'super-secret/secret'` |
+| `scopeName(name)` / `scopePath(path)` | A scope name or path in canonical form, or a thrown error |
 | `pieceKey(node, salt)` | The key for one piece — hand this to FEE |
 | `keyForEnvelope(node, metadata, holding?)` | Derive a piece key from whatever node you hold |
-| `writeTarget(grant, key, role?)` | For a delegate: the ref, role and key to write a piece, refusing roles its grant does not cover |
-| `holdingOf(grant)` | Which level a grant carries, for `keyForEnvelope` |
-| `pieceMetadata(ref, { salt, role? })` | What the envelope must record |
-| `commitment(kk, epoch)` | The non-secret check value, recomputable by any `KK` holder |
-| `commitmentEpoch(recorded)` / `matchesCommitment(kk, recorded)` | Which epoch a recorded commitment checks, and whether a key matches it |
-| `epochOf(value)` | An epoch in canonical form, or a thrown error |
+| `writeTarget(grant, key, scope?)` | For a delegate: the ref, scope and key to write a piece, refusing scopes its grant does not cover, and piece grants |
+| `holdingOf(grant)` | Which node a grant carries — keyspace, scope or piece — for `keyForEnvelope` |
+| `pieceMetadata(ref, { salt, scope?})` | What the envelope must record |
+| `pieceNode(metadata)` | The grant node for one piece, `piece:<salt>`, from its envelope metadata |
+| `commitment(kk)` | The non-secret check value, recomputable by any `KK` holder |
+| `matchesCommitment(kk, recorded)` | Whether a key matches a recorded commitment |
 | `KEYSPACE_ID_KEY` / `COMMITMENT_KEY` | FWSS metadata keys for the keyspace id and commitment |
-| `grantDescriptor(ref, node)` | Name what a grant unlocks: `'keyspace'` or `'role:<name>'` |
+| `grantDescriptor(ref, node)` | Name what a grant unlocks: `'keyspace'`, `'scope:<path>'` or `'piece:<salt>'` |
 | `wrapTo(publicKey, key, descriptor)` | Wrap a node key for a recipient |
 | `unwrapWith(privateKey, grant)` | Open a grant |
 | `publicKeyOf(privateKey)` | The key-agreement key to publish, derived from a private key |
@@ -275,35 +382,26 @@ Every format is at version 1: the envelope's `foc/v`, a grant's `v` and the comm
   with itself, and, where a dataset recorded one, the `foc/kc` commitment catches a wrong
   wallet at recovery time. Without a recorded commitment the only signal is FEE
   decryption failing.
-- **Only a plain ECDSA signature is accepted.** A contract account or smart wallet answers
-  `signTypedData` with an ABI-encoded blob whose leading bytes are structure, not secret;
-  deriving from that would mint a guessable key, so it is refused rather than used.
-- **`s` is normalised and `v` is dropped**, so the two malleable forms of a signature
-  yield one key.
-- **Roles form a tree, not a graph.** Each role has exactly one parent, so a role cannot
+- **Scopes form a tree, not a graph.** Each scope has exactly one parent, so a scope cannot
   inherit from two (`finance-lead` over both `finance` and `audit`), and each piece carries
-  one role. Both need keys wrapped per parent rather than derived — and somewhere to keep
+  one scope. Both need keys wrapped per parent rather than derived — and somewhere to keep
   those wraps — which is not in this package yet.
-- **A role's position is part of its key.** Moving or renaming a role re-keys everything
+- **A scope's position is part of its key.** Moving or renaming a scope re-keys everything
   beneath it, so settle the shape of the tree before writing data under it.
-- **Role names travel in the clear** inside the envelope, because the reader needs them to
+- **scope names travel in the clear** inside the envelope, because the reader needs them to
   derive. For access labels that is a leak of *classification* — an observer learns which
-  pieces are `super-secret`, and with a tree, the shape of the hierarchy too. Prefer opaque role ids, and keep display names in your app.
+  pieces are `super-secret`, and with a tree, the shape of the hierarchy too. Prefer opaque scope ids, and keep display names in your app.
 - **Sharing cannot be undone.** A grant hands over a symmetric key; ending future delivery does not
-  recall it. To genuinely cut someone off, move that content to a new role or keyspace
+  recall it. To genuinely cut someone off, move that content to a new scope or keyspace
   and re-encrypt.
+- **Beware grant spoofing.** A grant alone proves nothing about who made it. Anyone can
+  send one to anyone, with any key inside, which could trick an application into writing
+  data encrypted under a key that the attacker holds and real users can't access. Check
+  the key before writing with it: a keyspace key against the dataset's `foc/kc` with
+  `matchesCommitment`, and a scope key by opening a known piece.
 - **Receiving a grant needs a private key in hand.** Session keys and services can
   unwrap; browser wallets, hardware wallets and contract accounts cannot, because none of
   them expose a key to do ECDH with. They need a signature-derived encryption key, which
   is not in this package yet.
 
-## Development
 
-```bash
-pnpm --filter @filoz/keysmith build
-pnpm --filter @filoz/keysmith test     # node + browser
-```
-
-`test/vectors.json` pins the outputs for fixed inputs (the well-known Anvil development
-keys). If a change alters any of them, existing keys would be orphaned. Other
-implementations can test themselves against the same file.

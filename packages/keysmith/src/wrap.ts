@@ -7,8 +7,9 @@
  *
  * A grant proves nothing about who made it. Anyone can address one to anyone,
  * with any key inside; what the recipient learns on a successful unwrap is
- * only that the descriptor was not altered in transit. Before writing with a
- * key you were handed, open a known piece with it.
+ * only that the descriptor was not altered in transit. Check a key before
+ * writing with it: a keyspace key against the dataset's `foc/kc` with
+ * `matchesCommitment`, and a scope key by opening a known piece.
  *
  * @module
  */
@@ -18,7 +19,7 @@ import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha2'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes } from 'viem'
-import { canonicalNode, epochOf, keyspaceId } from './derive.ts'
+import { canonicalNode, keyspaceId } from './derive.ts'
 import type { Grant, GrantDescriptor } from './types.ts'
 
 const ECDH_INFO = 'foc/acl/ecdh/v1'
@@ -54,10 +55,10 @@ export const publicKeyOf = (privateKey: Hex): Hex =>
   bytesToHex(secp256k1.getPublicKey(ecdhSecretKey(privateKey), false))
 
 /**
- * Wrap a node key — a keyspace key, or a role key — to a recipient.
+ * Wrap a node key — a keyspace key, a scope key, or one piece's key — to a recipient.
  *
  * The descriptor is authenticated, so a grant cannot be relabelled as one
- * naming a different keyspace or role. The result is inert without the
+ * naming a different keyspace, scope or piece. The result is inert without the
  * recipient's private key, so it can be delivered or stored anywhere.
  *
  * The grant carries the descriptor in canonical form, whoever built it, and
@@ -120,11 +121,11 @@ export async function unwrapWith(privateKey: Hex, grant: Grant): Promise<Uint8Ar
   return out
 }
 
-/** X coordinate of the ECDH point, as both halves compute it. */
+/** SSK for key wraps */
 const sharedSecret = (privateKey: Uint8Array, publicKey: Uint8Array): Uint8Array =>
   secp256k1.getSharedSecret(privateKey, publicKey, true).subarray(1)
 
-/** KEK = HKDF(shared ‖ epk ‖ pkR): both public keys bound in, as HPKE does. */
+/** Derive key encryption key from HKDF(shared ‖ epk ‖ pkR) */
 function wrapKek(shared: Uint8Array, epk: Uint8Array, pkR: Uint8Array): Uint8Array {
   const ikm = new Uint8Array(shared.length + epk.length + pkR.length)
   ikm.set(shared, 0)
@@ -134,9 +135,7 @@ function wrapKek(shared: Uint8Array, epk: Uint8Array, pkR: Uint8Array): Uint8Arr
 }
 
 /**
- * The descriptor's five fields in canonical form, and nothing else, so that a
- * spelling difference cannot split a grant and every grant matches the
- * documented canonical forms, whoever built its descriptor.
+ * Canonicalize a grant descriptor to ensure it authenitcates on the other end.
  *
  * @throws If it is not a version this code understands, or a field is malformed.
  */
@@ -149,18 +148,17 @@ function canonical(d: GrantDescriptor): GrantDescriptor {
     node: canonicalNode(d.node),
     owner: d.owner.toLowerCase() as Address,
     keyspace: keyspaceId(d.keyspace),
-    epoch: epochOf(d.epoch),
   }
 }
 
 /**
  * The authenticated fields of a canonical descriptor, in a fixed order, as a
- * JSON array of primitives. Exactly these five are covered; anything else
+ * JSON array of primitives. Exactly these four are covered; anything else
  * carried alongside a grant is informational and unauthenticated.
  */
 const aad = (d: GrantDescriptor): ArrayBuffer =>
-  buffer(new TextEncoder().encode(JSON.stringify([d.v, d.node, d.owner, d.keyspace, d.epoch])))
+  buffer(new TextEncoder().encode(JSON.stringify([d.v, d.node, d.owner, d.keyspace])))
 
-/** WebCrypto takes ArrayBuffer-backed data; noble and viem return views. */
+/** Helper: WebCrypto takes ArrayBuffer-backed data; noble and viem return views. */
 const buffer = (view: Uint8Array): ArrayBuffer =>
   view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer
