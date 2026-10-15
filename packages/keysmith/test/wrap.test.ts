@@ -1,5 +1,6 @@
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import assert from 'assert'
+import { decode, encode } from 'cborg'
 import { bytesToHex, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
@@ -12,7 +13,7 @@ import {
   scopeKey,
 } from '../src/derive.ts'
 import type { Grant, KeyspaceRef } from '../src/types.ts'
-import { publicKeyOf, unwrapWith, wrapTo } from '../src/wrap.ts'
+import { decodeGrant, encodeGrant, publicKeyOf, unwrapWith, wrapTo } from '../src/wrap.ts'
 
 const account = privateKeyToAccount(generatePrivateKey())
 const ref: KeyspaceRef = { owner: account.address, keyspace: '0x00112233445566778899aabbccddeeff' }
@@ -28,12 +29,15 @@ describe('publicKeyOf', () => {
 })
 
 describe('wrapTo / unwrapWith', () => {
-  it('round-trips a keyspace key to the named recipient, through JSON', async () => {
+  it('round-trips a keyspace key to the named recipient, as bytes', async () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()
     const grant = await wrapTo(publicKeyOf(recipient), kk, descriptor)
     assert.equal(grant.v, 1)
-    assert.deepStrictEqual(await unwrapWith(recipient, JSON.parse(JSON.stringify(grant))), kk)
+    const bytes = encodeGrant(grant)
+    assert.ok(bytes.length < 200, `${bytes.length} bytes`)
+    assert.deepStrictEqual(await unwrapWith(recipient, bytes), kk)
+    assert.deepStrictEqual(decodeGrant(bytes), grant)
   })
 
   it('accepts a compressed recipient key', async () => {
@@ -93,7 +97,8 @@ describe('wrapTo / unwrapWith', () => {
     const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'agent-memory' })
     const pk = keyForEnvelope(kk, metadata)
     const grant = await wrapTo(publicKeyOf(recipient), pk, grantDescriptor(ref, `piece:${metadata['foc/salt']}`))
-    const delivered = JSON.parse(JSON.stringify(grant))
+    const delivered = decodeGrant(encodeGrant({ ...grant, pieceCid: 'bafk…' }))
+    assert.equal(delivered.pieceCid, 'bafk…', 'informational fields travel with the bytes')
     const node = await unwrapWith(recipient, delivered)
     assert.deepStrictEqual(keyForEnvelope(node, metadata, holdingOf(delivered)), pk)
     await assert.rejects(unwrapWith(recipient, { ...grant, node: `piece:${newSalt()}` }), 'relabelled to another piece')
@@ -127,6 +132,42 @@ describe('wrapTo / unwrapWith', () => {
     ] as const
     for (const [fields, error] of malformed) {
       await assert.rejects(unwrapWith(recipient, { ...grant, ...fields } as never), error, JSON.stringify(fields))
+    }
+  })
+
+  it('authenticates none of the informational fields carried in the bytes', async () => {
+    const kk = await kkOf()
+    const recipient = generatePrivateKey()
+    const grant = await wrapTo(publicKeyOf(recipient), kk, descriptor)
+    const relabelled = { ...decodeGrant(encodeGrant({ ...grant, dataSetId: '7' })), dataSetId: '8' }
+    assert.deepStrictEqual(await unwrapWith(recipient, encodeGrant(relabelled)), kk)
+  })
+
+  it('refuses bytes that are not one canonical version 1 grant', async () => {
+    const recipient = generatePrivateKey()
+    const bytes = encodeGrant(await wrapTo(publicKeyOf(recipient), await kkOf(), descriptor))
+    const fields = decode(bytes, { useMaps: true }) as Map<number | string, unknown>
+    const reencoded = (change: (m: Map<number | string, unknown>) => void) => {
+      const m = new Map(fields)
+      change(m)
+      return encode(m)
+    }
+    const refused = [
+      [new Uint8Array(), /not canonical CBOR/],
+      [new Uint8Array([...bytes, 0]), /not canonical CBOR/],
+      [new Uint8Array([0xa2, 0x00, 0x01, 0x00, 0x01]), /not canonical CBOR/], // the same key twice
+      [new Uint8Array([0xbf, ...bytes.slice(1), 0xff]), /not canonical CBOR/], // indefinite length
+      [new Uint8Array([0xc0, ...bytes]), /not canonical CBOR/], // tagged
+      [encode([1, 2]), /expected a CBOR map/],
+      [reencoded((m) => m.set(7, 1)), /unknown field 7/],
+      [reencoded((m) => m.set(0, 2)), /Unsupported grant version: 2/],
+      [reencoded((m) => m.set(2, account.address)), /owner must be 20 bytes/],
+      [reencoded((m) => m.set(6, (m.get(6) as Uint8Array).slice(1))), /ct must be 48 bytes/],
+      [reencoded((m) => m.delete(1)), /grant node must be a string/],
+    ] as const
+    for (const [input, error] of refused) {
+      assert.throws(() => decodeGrant(input), error)
+      await assert.rejects(unwrapWith(recipient, input), error)
     }
   })
 

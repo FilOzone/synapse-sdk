@@ -68,7 +68,7 @@ key or something).
 
 **Keys are shared by wrapping an encryption key** (any layer of the hierarchy)
 under the recipient’s public key (eg a Session Key Registry key) into a
-structured grant object.
+structured grant object: about 190 bytes of CBOR.
 
 **Each piece’s FEE envelope contains sufficient metadata to identify which
 key is needed to decrypt it**, so even if the Piece migrates out of its original
@@ -221,19 +221,46 @@ access controlled in FWSS, so keep session keys and scopes for reading and writi
 tightly in sync. The default FWSS implementation does this for you, but if you
 choose to go another path, watch out for this.
 
+### Grants on the wire
+
+`wrapTo` returns the grant as an object; `encodeGrant` turns it into bytes to send
+or store, and `decodeGrant` reads them back. `unwrapWith` takes either.
+
+```text
+grant = {                 ; a CBOR map
+  0 => 1,                 ; v: version 1 implies ECDH-ES + A256GCM over secp256k1
+  1 => tstr,              ; node: "keyspace" / "scope:<path>" / "piece:<salt>"
+  2 => bstr .size 20,     ; owner
+  3 => bstr .size 16,     ; keyspace
+  4 => bstr .size 65,     ; epk, the ephemeral public key, uncompressed
+  5 => bstr .size 12,     ; iv
+  6 => bstr .size 48,     ; ct: the wrapped node key and its tag
+  * tstr => any,          ; informational, e.g. "pieceCid": not authenticated
+}
+```
+
+The authenticated data is `[v, node, owner, keyspace]` as deterministic CBOR
+(RFC 8949 §4.2.1), with the owner and keyspace as bytes, so every implementation
+builds the same bytes. `decodeGrant` accepts only canonical CBOR: no indefinite
+lengths, duplicate keys, tags, trailing bytes or unknown numbered fields. 
+
+When sending a grant to a recipient over a text channel, use a safe
+deterministic encoding such as Base64.
+
 ### Sharing the entire keyspace
 
 ```ts
 // Current custodian, sharing out the whole keyspace:
 const descriptor = Keysmith.grantDescriptor(ref, 'keyspace')
 const grant = await Keysmith.wrapTo(Keysmith.publicKeyOf(theirKey), kk, descriptor)
+const bytes = Keysmith.encodeGrant(grant)
 ```
 
-Send the grant through application channels, eg share link, then:
+Send the bytes through application channels, eg share link, then:
 
 ```ts
 // recipient, elsewhere:
-const kk = await Keysmith.unwrapWith(myPrivateKey, grant)
+const kk = await Keysmith.unwrapWith(myPrivateKey, bytes)
 ```
 
 The recipient is all-powerful: with KK they can read, write, and onwardly
@@ -263,12 +290,14 @@ and the piece's CID rides alongside so the recipient knows what to fetch:
 ```ts
 // anyone holding a node above the piece:
 const pk = Keysmith.keyForEnvelope(kk, metadata)
-const grant = {
+const bytes = Keysmith.encodeGrant({
   ...(await Keysmith.wrapTo(theirPublicKey, pk, Keysmith.grantDescriptor(ref, Keysmith.pieceNode(metadata)))),
   pieceCid, // where to fetch it: informational, outside the authenticated descriptor
-}
+})
 
-// recipient: fetch grant.pieceCid, read the metadata from its envelope, then
+// recipient:
+const grant = Keysmith.decodeGrant(bytes)
+// fetch grant.pieceCid, read the metadata from its envelope, then
 const node = await Keysmith.unwrapWith(myPrivateKey, grant)
 const key = Keysmith.keyForEnvelope(node, metadata, Keysmith.holdingOf(grant))
 ```
@@ -371,7 +400,8 @@ a new dataset's metadata too.
 | `KEYSPACE_ID_KEY` / `COMMITMENT_KEY` | FWSS metadata keys for the keyspace id and commitment |
 | `grantDescriptor(ref, node)` | Name what a grant unlocks: `'keyspace'`, `'scope:<path>'` or `'piece:<salt>'` |
 | `wrapTo(publicKey, key, descriptor)` | Wrap a node key for a recipient |
-| `unwrapWith(privateKey, grant)` | Open a grant |
+| `encodeGrant(grant)` / `decodeGrant(bytes)` | A grant to and from its CBOR bytes, for delivery or storage |
+| `unwrapWith(privateKey, grant)` | Open a grant, as bytes or decoded |
 | `publicKeyOf(privateKey)` | The key-agreement key to publish, derived from a private key |
 | `newSalt()` | A fresh per-piece salt |
 

@@ -38,4 +38,4 @@ export type {
   TypedDataSigner,
   WriteTarget,
 } from './types.ts'
-export { publicKeyOf, unwrapWith, wrapTo } from './wrap.ts'
+export { decodeGrant, encodeGrant, publicKeyOf, unwrapWith, wrapTo } from './wrap.ts'

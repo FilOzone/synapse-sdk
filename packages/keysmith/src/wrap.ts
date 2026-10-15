@@ -18,6 +18,7 @@ import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
+import { decode, encode } from 'cborg'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes, isAddress } from 'viem'
 import { canonicalNode, keyspaceId, text } from './derive.ts'
@@ -27,6 +28,19 @@ const ECDH_INFO = utf8ToBytes('foc/acl/ecdh/v1')
 const WRAP_INFO = utf8ToBytes('foc/acl/wrap/v1')
 const ALG = 'ECDH-ES+A256GCM/secp256k1'
 const KEY_LENGTH = 32
+
+/** CBOR map keys of an encoded grant. Text keys are informational. */
+const FIELD = { v: 0, node: 1, owner: 2, keyspace: 3, epk: 4, iv: 5, ct: 6 } as const
+
+/** Grants may arrive from anywhere, so enforce only canonical, unambiguous CBOR. */
+const STRICT = {
+  strict: true,
+  useMaps: true,
+  rejectDuplicateMapKeys: true,
+  allowIndefinite: false,
+  allowUndefined: false,
+  allowBigInt: false,
+} as const
 
 /**
  * The key-agreement key derived from a signing key, so that one credential
@@ -93,12 +107,14 @@ export async function wrapTo(recipientPublicKey: Hex, key: Uint8Array, input: Gr
 }
 
 /**
- * Open a grant with the recipient's private key.
+ * Open a grant with the recipient's private key: the grant as delivered, in
+ * bytes, or as decoded by {@link decodeGrant}.
  *
  * @throws If the grant was not addressed to this key, its descriptor was
  * altered, or it is not a grant this version understands.
  */
-export async function unwrapWith(privateKey: Hex, grant: Grant): Promise<Uint8Array> {
+export async function unwrapWith(privateKey: Hex, input: Grant | Uint8Array): Promise<Uint8Array> {
+  const grant = input instanceof Uint8Array ? decodeGrant(input) : input
   if (grant == null || typeof grant !== 'object') {
     throw new Error(`A grant must be an object, got ${grant === null ? 'null' : typeof grant}`)
   }
@@ -130,6 +146,86 @@ export async function unwrapWith(privateKey: Hex, grant: Grant): Promise<Uint8Ar
   }
 }
 
+/**
+ * Pack the grant to deliver or store it
+ *
+ * ```text
+ * { 0: v, 1: node, 2: owner (20 bytes), 3: keyspace (16 bytes),
+ *   4: epk (65 bytes), 5: iv (12 bytes), 6: ct (48 bytes), * text: informational }
+ * ```
+ *
+ * Fields with text keys carry anything informational added to the grant, such as
+ * a piece's CID. These informational keys are not authenticated.
+ */
+export function encodeGrant<G extends Grant>(grant: G): Uint8Array {
+  const { v, node, owner, keyspace, alg, epk, iv, ct, ...info } = grant
+  const descriptor = canonical({ v, node, owner, keyspace })
+  if (alg !== ALG) {
+    throw new Error(`Unsupported grant algorithm: ${String(alg)}`)
+  }
+  const fields = new Map<number | string, unknown>([
+    [FIELD.v, descriptor.v],
+    [FIELD.node, descriptor.node],
+    [FIELD.owner, hexToBytes(descriptor.owner)],
+    [FIELD.keyspace, hexToBytes(descriptor.keyspace)],
+    [FIELD.epk, grantBytes(epk, 'epk', 65)],
+    [FIELD.iv, grantBytes(iv, 'iv', 12)],
+    [FIELD.ct, grantBytes(ct, 'ct', KEY_LENGTH + 16)],
+  ])
+  for (const [key, value] of Object.entries(info)) {
+    fields.set(key, value)
+  }
+  return encode(fields)
+}
+
+/**
+ * Read a grant delivered as bytes, without opening it: to see what it names
+ * before unwrapping, or to pass to {@link holdingOf}.
+ *
+ * @throws If the bytes are not one canonical CBOR map holding a version 1
+ * grant, with every field the right type and size and no unknown numbered field.
+ */
+export function decodeGrant(bytes: Uint8Array): Grant & Record<string, unknown> {
+  let map: unknown
+  try {
+    map = decode(bytes, STRICT)
+  } catch (cause) {
+    throw new Error('Not a grant: the bytes are not canonical CBOR', { cause })
+  }
+  if (!(map instanceof Map)) {
+    throw new Error('Not a grant: expected a CBOR map')
+  }
+  const info: Record<string, unknown> = {}
+  for (const [key, value] of map) {
+    if (typeof key === 'string') {
+      info[key] = value
+    } else if (!Object.values(FIELD).includes(key)) {
+      throw new Error(`Not a grant this version understands: unknown field ${String(key)}`)
+    }
+  }
+  if (map.get(FIELD.v) !== 1) {
+    throw new Error(`Unsupported grant version: ${String(map.get(FIELD.v))}`)
+  }
+  const field = (key: number, name: string, length: number): Hex => {
+    const value = map.get(key)
+    if (!(value instanceof Uint8Array) || value.length !== length) {
+      throw new Error(`A grant's ${name} must be ${length} bytes`)
+    }
+    return bytesToHex(value)
+  }
+  return {
+    ...info,
+    v: 1,
+    node: text(map.get(FIELD.node), 'A grant node'),
+    owner: field(FIELD.owner, 'owner', 20),
+    keyspace: field(FIELD.keyspace, 'keyspace', 16),
+    alg: ALG,
+    epk: field(FIELD.epk, 'epk', 65),
+    iv: field(FIELD.iv, 'iv', 12),
+    ct: field(FIELD.ct, 'ct', KEY_LENGTH + 16),
+  }
+}
+
 /** A fixed-length hex field of a grant, as bytes. */
 function grantBytes(value: unknown, field: string, length: number): Uint8Array {
   const hex = text(value, `A grant's ${field}`)
@@ -153,7 +249,7 @@ function wrapKek(shared: Uint8Array, epk: Uint8Array, pkR: Uint8Array): Uint8Arr
 }
 
 /**
- * Canonicalize a grant descriptor to ensure it authenitcates on the other end.
+ * Canonicalize a grant descriptor to ensure it authenticates on the other end.
  *
  * @throws If it is not a version this code understands, or a field is malformed.
  */
@@ -174,12 +270,14 @@ function canonical(d: GrantDescriptor): GrantDescriptor {
 }
 
 /**
- * The authenticated fields of a canonical descriptor, in a fixed order, as a
- * JSON array of primitives. Exactly these four are covered; anything else
- * carried alongside a grant is informational and unauthenticated.
+ * The authenticated fields of a canonical descriptor, in a fixed order:
+ * `[v, node, owner, keyspace]` as deterministic CBOR (RFC 8949 §4.2.1), with
+ * the owner and keyspace as bytes, so every implementation produces the same
+ * bytes. Exactly these four are covered; anything else carried alongside a
+ * grant is informational and unauthenticated.
  */
 const aad = (d: GrantDescriptor): ArrayBuffer =>
-  buffer(new TextEncoder().encode(JSON.stringify([d.v, d.node, d.owner, d.keyspace])))
+  buffer(encode([d.v, d.node, hexToBytes(d.owner), hexToBytes(d.keyspace)]))
 
 /** Helper: WebCrypto takes ArrayBuffer-backed data; noble and viem return views. */
 const buffer = (view: Uint8Array): ArrayBuffer =>
