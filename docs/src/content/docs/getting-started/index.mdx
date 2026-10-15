@@ -50,6 +50,16 @@ The Synapse SDK works in **Node.js** and **the browser**. Install it with your p
 
 `viem` is a peer dependency and must be installed separately.
 
+:::note[Content-Security-Policy]
+PieceCID hashing uses WebAssembly. If your page sets a Content-Security-Policy with `script-src`, it must allow `'wasm-unsafe-eval'`:
+
+```http
+Content-Security-Policy: script-src 'self' 'wasm-unsafe-eval'
+```
+
+Without it, the SDK still loads, but uploads fail when computing the PieceCID, with an error naming the missing directive. `'wasm-unsafe-eval'` only allows compiling WebAssembly, not JavaScript `eval`.
+:::
+
 :::tip[Trying an unreleased version?]
 Every pull request, commit, and push to `master` publishes a preview package. See [Preview Packages](/developer-guides/preview-packages/) for the install URLs.
 :::

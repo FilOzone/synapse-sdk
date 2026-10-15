@@ -208,7 +208,10 @@
       ]
     },
     "test:node": {
-      "command": "playwright-test \"test/**/*.test.ts\" --mode node",
+      "command": "playwright-test \"test/**/*.test.ts\" \"test/csp.node.ts\" --mode node",
+      "dependencies": [
+        "build"
+      ],
       "files": [
         "src/**/*.ts",
         "test/**/*.ts"
