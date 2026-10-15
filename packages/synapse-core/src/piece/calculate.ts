@@ -2,8 +2,9 @@
  * Compute PieceCIDs from data: bytes, blobs, streams, or async iterables.
  */
 
+import { create as createHasher, digest as wasmDigest } from '@hugomrdias/commp-wasm'
 import { isAsyncIterable, isReadableStream } from '../utils/streams.ts'
-import { Hasher as InternalHasher } from './internal/hasher.ts'
+import * as Digest from './internal/digest.ts'
 import { PieceCID } from './piece-cid.ts'
 
 /**
@@ -21,18 +22,20 @@ export type CalculateInput = Uint8Array | Blob | ReadableStream<Uint8Array> | As
  * synchronous bytes case, use {@link hasher} directly.
  */
 export async function calculate(input: CalculateInput): Promise<PieceCID> {
-  const h = new InternalHasher()
-
   if (input instanceof Uint8Array) {
-    writeChunked(h, input)
-    return PieceCID._fromDigest(h.digest())
+    return toPieceCID(wasmDigest(input))
   }
 
-  const stream = input instanceof Blob ? input.stream() : input
-  for await (const chunk of asyncIterableOf(stream)) {
-    h.write(chunk)
+  const h = createHasher()
+  try {
+    const stream = input instanceof Blob ? input.stream() : input
+    for await (const chunk of asyncIterableOf(stream)) {
+      h.write(chunk)
+    }
+    return toPieceCID(h.digest())
+  } finally {
+    h.free()
   }
-  return PieceCID._fromDigest(h.digest())
 }
 
 /**
@@ -62,14 +65,16 @@ export interface PieceHasher {
  * ```
  */
 export function hasher(): PieceHasher {
-  const h = new InternalHasher()
+  // WASM memory is released by the package's FinalizationRegistry once the
+  // facade is garbage collected.
+  const h = createHasher()
   const facade: PieceHasher = {
     write(chunk) {
       h.write(chunk)
       return facade
     },
     count: () => h.count(),
-    finalize: () => PieceCID._fromDigest(h.digest()),
+    finalize: () => toPieceCID(h.digest()),
     reset() {
       h.reset()
       return facade
@@ -96,7 +101,7 @@ export interface PieceCIDTransform {
 }
 
 export function transformStream(): PieceCIDTransform {
-  const h = new InternalHasher()
+  const h = createHasher()
   const { promise: result, resolve, reject } = Promise.withResolvers<PieceCID>()
 
   const transform = new TransformStream<Uint8Array, Uint8Array>({
@@ -111,9 +116,11 @@ export function transformStream(): PieceCIDTransform {
     },
     flush() {
       try {
-        resolve(PieceCID._fromDigest(h.digest()))
+        resolve(toPieceCID(h.digest()))
       } catch (err) {
         reject(err)
+      } finally {
+        h.free()
       }
     },
   })
@@ -121,16 +128,8 @@ export function transformStream(): PieceCIDTransform {
   return { transform, result }
 }
 
-/**
- * Write a Uint8Array in fixed-size chunks. 2048-byte chunks give better
- * throughput than one big write, determined by manual benchmarking in Node;
- * may vary by environment.
- */
-function writeChunked(h: InternalHasher, data: Uint8Array): void {
-  const chunkSize = 2048
-  for (let i = 0; i < data.length; i += chunkSize) {
-    h.write(data.subarray(i, i + chunkSize))
-  }
+function toPieceCID(digest: { bytes: Uint8Array }): PieceCID {
+  return PieceCID._fromDigest(Digest.fromBytes(digest.bytes))
 }
 
 function asyncIterableOf<T>(source: AsyncIterable<T> | ReadableStream<T>): AsyncIterable<T> {

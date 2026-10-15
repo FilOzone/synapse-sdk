@@ -32,7 +32,9 @@ Read contributing [guidelines](../../.github/CONTRIBUTING.md).
 
 ## Acknowledgments
 
-The PieceCID primitives in `src/piece/internal/` (FR32 expansion, the streaming SHA254 binary-tree hasher, merkle construction, zero-piece roots, and the digest/size math) are derived from [`@web3-storage/data-segment`](https://github.com/web3-storage/data-segment), Apache-2.0 OR MIT. That codebase in turn drew on [`js-fil-utils`](https://github.com/rvagg/js-fil-utils), [`go-data-segment`](https://github.com/filecoin-project/go-data-segment), and [`go-fil-commp-hashhash`](https://github.com/filecoin-project/go-fil-commp-hashhash).
+The PieceCID primitives in `src/piece/internal/` (FR32 expansion, merkle construction, zero-piece roots, and the digest/size math) are derived from [`@web3-storage/data-segment`](https://github.com/web3-storage/data-segment), Apache-2.0 OR MIT. That codebase in turn drew on [`js-fil-utils`](https://github.com/rvagg/js-fil-utils), [`go-data-segment`](https://github.com/filecoin-project/go-data-segment), and [`go-fil-commp-hashhash`](https://github.com/filecoin-project/go-fil-commp-hashhash).
+
+PieceCID hashing is done by [`@hugomrdias/commp-wasm`](https://github.com/hugomrdias/commp), a Rust/WASM implementation with SIMD SHA-256.
 
 ## License
 
