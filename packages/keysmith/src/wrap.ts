@@ -13,17 +13,18 @@
  *
  * @module
  */
-import { mapHashToField } from '@noble/curves/abstract/modular'
-import { secp256k1 } from '@noble/curves/secp256k1'
-import { hkdf } from '@noble/hashes/hkdf'
-import { sha256 } from '@noble/hashes/sha2'
+import { mapHashToField } from '@noble/curves/abstract/modular.js'
+import { secp256k1 } from '@noble/curves/secp256k1.js'
+import { hkdf } from '@noble/hashes/hkdf.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes } from 'viem'
 import { canonicalNode, keyspaceId } from './derive.ts'
 import type { Grant, GrantDescriptor } from './types.ts'
 
-const ECDH_INFO = 'foc/acl/ecdh/v1'
-const WRAP_INFO = 'foc/acl/wrap/v1'
+const ECDH_INFO = utf8ToBytes('foc/acl/ecdh/v1')
+const WRAP_INFO = utf8ToBytes('foc/acl/wrap/v1')
 const ALG = 'ECDH-ES+A256GCM/secp256k1'
 const KEY_LENGTH = 32
 

@@ -1,4 +1,4 @@
-import { secp256k1 } from '@noble/curves/secp256k1'
+import { secp256k1 } from '@noble/curves/secp256k1.js'
 import assert from 'assert'
 import { bytesToHex, hashDomain, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'

@@ -31,7 +31,8 @@ jobs:
     if: |
       contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-core') ||
       contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk') ||
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react')
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react') ||
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/keysmith')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,6 +53,9 @@ jobs:
       - name: Publish synapse-react
         if: contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react')
         run: pnpm -r --filter=./packages/synapse-react publish --access=public
+      - name: Publish keysmith
+        if: contains(fromJson(needs.release.outputs.paths_released), 'packages/keysmith')
+        run: pnpm -r --filter=./packages/keysmith publish --access=public
   docs:
     needs: release
     # Publish docs when any package is released (manual publishing is also available from the GitHub UI)

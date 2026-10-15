@@ -10,8 +10,9 @@
  *
  * @module
  */
-import { hkdf } from '@noble/hashes/hkdf'
-import { sha256 } from '@noble/hashes/sha2'
+import { hkdf } from '@noble/hashes/hkdf.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, hashTypedData, hexToBytes, recoverAddress } from 'viem'
 import type {
@@ -67,7 +68,8 @@ export const COMMITMENT_KEY = 'foc/kc'
 /** The FWSS data-set metadata key naming the keyspace, so the chain alone can list them. */
 export const KEYSPACE_ID_KEY = 'foc/ks'
 
-const derive = (ikm: Uint8Array, info: string, length = 32): Uint8Array => hkdf(sha256, ikm, undefined, info, length)
+const derive = (ikm: Uint8Array, info: string, length = 32): Uint8Array =>
+  hkdf(sha256, ikm, undefined, utf8ToBytes(info), length)
 
 function randomHex(length: number): Hex {
   const bytes = new Uint8Array(length)
