@@ -93,7 +93,7 @@ export const newKeyspace = (): Hex => randomHex(16)
  * @throws If it is not 16 bytes of hex.
  */
 export function keyspaceId(keyspace: string): Hex {
-  const lower = keyspace.toLowerCase()
+  const lower = text(keyspace, 'A keyspace id').toLowerCase()
   if (!/^0x[0-9a-f]{32}$/.test(lower)) {
     throw new Error(`A keyspace id is 16 bytes of hex, got ${JSON.stringify(keyspace)}`)
   }
@@ -251,14 +251,14 @@ export function scopeName(name: string): string {
 }
 
 /** Canonicalize scope path: canonical names joined by `/`, top scope first. */
-export const scopePath = (path: string): string => path.split('/').map(scopeName).join('/')
+export const scopePath = (path: string): string => text(path, 'A scope path').split('/').map(scopeName).join('/')
 
 /**
  * A grant node in canonical form: `keyspace`, `scope:` plus a canonical scope
  * path, or `piece:` plus a piece's salt in lowercase hex.
  */
 export function canonicalNode(node: string): string {
-  if (node === 'keyspace') {
+  if (text(node, 'A grant node') === 'keyspace') {
     return 'keyspace'
   }
   if (node.startsWith('scope:')) {
@@ -283,7 +283,7 @@ export const pieceNode = (metadata: Pick<PieceMetadata, 'foc/salt'>): GrantNode 
 
 /** A salt in the form it is derived from and compared in: hex bytes, lowercase. */
 function saltOf(salt: string): Hex {
-  const lower = salt.toLowerCase()
+  const lower = text(salt, 'A piece salt').toLowerCase()
   if (!/^0x([0-9a-f]{2})+$/.test(lower)) {
     throw new Error(`A piece salt is hex bytes, got ${JSON.stringify(salt)}`)
   }
@@ -291,10 +291,18 @@ function saltOf(salt: string): Hex {
 }
 
 /** The key for one piece. Never reused: FEE requires a fresh key per object. */
-export const pieceKey = (node: Uint8Array, salt: Hex): Uint8Array => derive(node, `${INFO.piece}${lowerHex(salt)}`)
+export const pieceKey = (node: Uint8Array, salt: Hex): Uint8Array => derive(node, `${INFO.piece}${saltOf(salt)}`)
 
-/** Salts are bytes, so only case is normalised — leading zeros are part of the value. */
-const lowerHex = (value: Hex): Hex => value.toLowerCase() as Hex
+/**
+ * Untrusted input arrives as parsed JSON, so check a field is a string before
+ * treating it as one, and say which field it was.
+ */
+export function text(value: unknown, what: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`${what} must be a string, got ${value === null ? 'null' : typeof value}`)
+  }
+  return value
+}
 
 /**
  * Piece FEE envelope metadata entries.
@@ -303,12 +311,16 @@ const lowerHex = (value: Hex): Hex => value.toLowerCase() as Hex
  * replication or repair puts it.
  */
 export function pieceMetadata(ref: KeyspaceRef, options: { salt: Hex; scope?: string }): PieceMetadata {
+  const salt = saltOf(options.salt)
+  if (salt.length !== 2 + 2 * 16) {
+    throw new Error(`A piece salt is 16 random bytes, from newSalt(); got ${(salt.length - 2) / 2}`)
+  }
   return {
     'foc/v': 1,
     'foc/own': ref.owner.toLowerCase() as Address,
     'foc/ks': keyspaceId(ref.keyspace),
     ...(options.scope == null ? {} : { 'foc/scope': scopePath(options.scope) }),
-    'foc/salt': lowerHex(options.salt),
+    'foc/salt': salt,
   }
 }
 
@@ -341,6 +353,11 @@ export function grantDescriptor(ref: KeyspaceRef, node: GrantNode): GrantDescrip
  * piece's scope, or the held piece is a different piece.
  */
 export function keyForEnvelope(node: Uint8Array, metadata: PieceMetadata, holding: Holding = 'keyspace'): Uint8Array {
+  if (metadata == null || typeof metadata !== 'object') {
+    throw new Error(
+      `A piece's envelope metadata must be an object, got ${metadata === null ? 'null' : typeof metadata}`
+    )
+  }
   // Format changes break key derivation, so guard first
   if (metadata['foc/v'] !== 1 || typeof metadata['foc/ks'] !== 'string') {
     throw new Error(
@@ -348,6 +365,7 @@ export function keyForEnvelope(node: Uint8Array, metadata: PieceMetadata, holdin
         `foc/ks ${String(metadata['foc/ks'])}); this version reads only that.`
     )
   }
+  keyspaceId(metadata['foc/ks'])
 
   // If a direct piece grant, verify this is for the correct piece before deriving
   if (holding !== 'keyspace' && 'piece' in holding) {

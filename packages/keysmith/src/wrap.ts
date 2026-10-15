@@ -19,8 +19,8 @@ import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Address, Hex } from 'viem'
-import { bytesToHex, hexToBytes } from 'viem'
-import { canonicalNode, keyspaceId } from './derive.ts'
+import { bytesToHex, hexToBytes, isAddress } from 'viem'
+import { canonicalNode, keyspaceId, text } from './derive.ts'
 import type { Grant, GrantDescriptor } from './types.ts'
 
 const ECDH_INFO = utf8ToBytes('foc/acl/ecdh/v1')
@@ -99,27 +99,44 @@ export async function wrapTo(recipientPublicKey: Hex, key: Uint8Array, input: Gr
  * altered, or it is not a grant this version understands.
  */
 export async function unwrapWith(privateKey: Hex, grant: Grant): Promise<Uint8Array> {
+  if (grant == null || typeof grant !== 'object') {
+    throw new Error(`A grant must be an object, got ${grant === null ? 'null' : typeof grant}`)
+  }
   const { alg, epk, iv, ct, ...rest } = grant
   const descriptor = canonical(rest)
   if (alg !== ALG) {
     throw new Error(`Unsupported grant algorithm: ${String(alg)}`)
   }
+  // Exactly the sizes wrapTo writes: an uncompressed point, a GCM nonce, a node key and its tag.
+  const epkBytes = grantBytes(epk, 'epk', 65)
+  const ivBytes = grantBytes(iv, 'iv', 12)
+  const ctBytes = grantBytes(ct, 'ct', KEY_LENGTH + 16)
   const sk = ecdhSecretKey(privateKey)
   const pkR = secp256k1.getPublicKey(sk, false)
-  const epkBytes = hexToBytes(epk)
   const kek = wrapKek(sharedSecret(sk, epkBytes), epkBytes, pkR)
   const aesKey = await crypto.subtle.importKey('raw', buffer(kek), 'AES-GCM', false, ['decrypt'])
-  const out = new Uint8Array(
-    await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: buffer(hexToBytes(iv)), additionalData: aad(descriptor) },
-      aesKey,
-      buffer(hexToBytes(ct))
+  try {
+    return new Uint8Array(
+      await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: buffer(ivBytes), additionalData: aad(descriptor) },
+        aesKey,
+        buffer(ctBytes)
+      )
     )
-  )
-  if (out.length !== KEY_LENGTH) {
-    throw new Error(`Grant carried a ${out.length}-byte key; a node key is ${KEY_LENGTH} bytes`)
+  } catch (cause) {
+    throw new Error('This grant does not open with this key: it is addressed to another key, or was altered', {
+      cause,
+    })
   }
-  return out
+}
+
+/** A fixed-length hex field of a grant, as bytes. */
+function grantBytes(value: unknown, field: string, length: number): Uint8Array {
+  const hex = text(value, `A grant's ${field}`)
+  if (!/^0x[0-9a-fA-F]*$/.test(hex) || hex.length !== 2 + 2 * length) {
+    throw new Error(`A grant's ${field} must be ${length} bytes of hex`)
+  }
+  return hexToBytes(hex as Hex)
 }
 
 /** SSK for key wraps */
@@ -144,10 +161,14 @@ function canonical(d: GrantDescriptor): GrantDescriptor {
   if (d.v !== 1) {
     throw new Error(`Unsupported grant version: ${String(d.v)}`)
   }
+  const owner = text(d.owner, "A grant's owner").toLowerCase()
+  if (!isAddress(owner, { strict: false })) {
+    throw new Error(`A grant's owner must be an address, got ${JSON.stringify(d.owner)}`)
+  }
   return {
     v: 1,
     node: canonicalNode(d.node),
-    owner: d.owner.toLowerCase() as Address,
+    owner: owner as Address,
     keyspace: keyspaceId(d.keyspace),
   }
 }

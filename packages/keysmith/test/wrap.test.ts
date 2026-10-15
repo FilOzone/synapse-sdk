@@ -108,6 +108,40 @@ describe('wrapTo / unwrapWith', () => {
     await assert.rejects(unwrapWith(recipient, withoutKeyspace as never))
   })
 
+  it('refuses a malformed grant clearly, before any decryption', async () => {
+    const recipient = generatePrivateKey()
+    const grant = await wrapTo(publicKeyOf(recipient), await kkOf(), descriptor)
+    await assert.rejects(unwrapWith(recipient, null as never), /A grant must be an object/)
+    await assert.rejects(unwrapWith(recipient, 'a grant' as never), /A grant must be an object/)
+    const malformed = [
+      [{ owner: 7 }, /owner must be a string/],
+      [{ owner: 'alice' }, /owner must be an address/],
+      [{ node: null }, /grant node must be a string/],
+      [{ keyspace: 5 }, /keyspace id must be a string/],
+      [{ epk: undefined }, /epk must be a string/],
+      [{ epk: 'hello' }, /epk must be 65 bytes of hex/],
+      [{ epk: `0x02${grant.epk.slice(4, 68)}` }, /epk must be 65 bytes of hex/],
+      [{ epk: `0x04${'11'.repeat(64)}` }, /not on curve/],
+      [{ iv: `0x${'00'.repeat(16)}` }, /iv must be 12 bytes of hex/],
+      [{ ct: `0x${'00'.repeat(15)}` }, /ct must be 48 bytes of hex/],
+    ] as const
+    for (const [fields, error] of malformed) {
+      await assert.rejects(unwrapWith(recipient, { ...grant, ...fields } as never), error, JSON.stringify(fields))
+    }
+  })
+
+  it('says plainly when a well-formed grant does not open', async () => {
+    const recipient = generatePrivateKey()
+    const grant = await wrapTo(publicKeyOf(recipient), await kkOf(), descriptor)
+    await assert.rejects(unwrapWith(generatePrivateKey(), grant), /does not open with this key/, 'a stranger')
+    const otherOwner = privateKeyToAccount(generatePrivateKey()).address
+    await assert.rejects(
+      unwrapWith(recipient, { ...grant, owner: otherOwner }),
+      /does not open with this key/,
+      'relabelled'
+    )
+  })
+
   it('wraps only a version it writes, and carries exactly the canonical descriptor', async () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()

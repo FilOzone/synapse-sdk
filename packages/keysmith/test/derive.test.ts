@@ -192,6 +192,30 @@ describe('location independence', () => {
     const future = { ...pieceMetadata(ref, { salt: newSalt() }), 'foc/v': 2 } as never
     assert.throws(() => keyForEnvelope(kk, future), /format 1 with a keyspace/)
   })
+
+  it('refuses malformed envelope metadata clearly, rather than deriving from it', () => {
+    const kk = new Uint8Array(32).fill(7)
+    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'a/b' })
+    assert.throws(() => keyForEnvelope(kk, null as never), /envelope metadata must be an object/)
+    const hostile = [
+      [{ 'foc/salt': 'hello' }, /piece salt is hex bytes/],
+      [{ 'foc/salt': '0x' }, /piece salt is hex bytes/],
+      [{ 'foc/salt': 5 }, /piece salt must be a string/],
+      [{ 'foc/salt': undefined }, /piece salt must be a string/],
+      [{ 'foc/scope': 5 }, /scope path must be a string/],
+      [{ 'foc/ks': '0xzz' }, /keyspace id is 16 bytes/],
+    ] as const
+    for (const [fields, error] of hostile) {
+      assert.throws(() => keyForEnvelope(kk, { ...metadata, ...fields } as never), error, JSON.stringify(fields))
+    }
+    assert.throws(() => keyForEnvelope(kk, metadata, { scope: 5 } as never), /scope path must be a string/)
+  })
+
+  it('writes only a 16-byte hex salt', () => {
+    assert.throws(() => pieceMetadata(ref, { salt: 'hello' as never }), /piece salt is hex bytes/)
+    assert.throws(() => pieceMetadata(ref, { salt: '0x2a' }), /16 random bytes/)
+    assert.throws(() => pieceKey(new Uint8Array(32), 'hello' as never), /piece salt is hex bytes/)
+  })
 })
 
 describe('scopes', () => {
