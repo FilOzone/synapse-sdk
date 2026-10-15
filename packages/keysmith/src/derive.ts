@@ -102,9 +102,6 @@ export function keyspaceKeyMessage(ref: KeyspaceRef): KeyspaceKeyMessage {
   return { owner: ref.owner, keyspace: keyspaceId(ref.keyspace) }
 }
 
-/** Signers already shown to sign deterministically, so later calls cost one prompt. */
-const verifiedSigners = new WeakSet<object>()
-
 /**
  * Sign for one keyspace and derive its key.
  *
@@ -112,9 +109,11 @@ const verifiedSigners = new WeakSet<object>()
  * caller gets the keyspace key and the public commitment, and has nothing
  * else to guard.
  *
- * On a signer's first use this signs twice and compares, which catches a
+ * For a new keyspace this signs twice and compares, which catches a
  * randomising signer before any data depends on it, at the cost of a second
- * wallet prompt. Later calls sign once. See {@link KeyspaceKeysOptions}.
+ * wallet prompt. For an existing one, pass the commitment its dataset records
+ * (`foc/kc`): it signs once, and the commitment catches the same faults. See
+ * {@link KeyspaceKeysOptions}.
  *
  * Only the owner's own wallet can sign: a key signed by any other wallet,
  * a session key included, is not the key the owner's wallet derives, and
@@ -124,7 +123,8 @@ const verifiedSigners = new WeakSet<object>()
  * a delegate does — `writeTarget(descriptor, kk, scope)` — with the keyspace
  * taken from what was actually signed.
  *
- * @throws If the signer is not deterministic, is not the owner, or does not produce an ECDSA signature.
+ * @throws If the signer is not deterministic, is not the owner, does not produce an ECDSA signature,
+ * or derives a key that does not match `options.commitment`.
  */
 export async function keyspaceKeys(
   signer: TypedDataSigner,
@@ -134,7 +134,7 @@ export async function keyspaceKeys(
   const message = keyspaceKeyMessage(ref)
   const args = { domain: DOMAIN, types: KEYSPACE_KEY_TYPES, primaryType: 'KeyspaceKey' as const, message }
   const first = await signer.signTypedData(args)
-  if (options.verifySigner ?? !verifiedSigners.has(signer)) {
+  if (options.verifySigner ?? options.commitment == null) {
     const second = await signer.signTypedData(args)
     if (first !== second) {
       throw new Error(
@@ -142,11 +142,16 @@ export async function keyspaceKeys(
           'Signing the same message twice produced different signatures.'
       )
     }
-    verifiedSigners.add(signer)
   }
   const rs = lowSrs(first)
   await assertSignedBy(message.owner, hashTypedData(args), rs)
   const kk = derive(rs, INFO.keyspace)
+  if (options.commitment != null && !matchesCommitment(kk, options.commitment)) {
+    throw new Error(
+      'This key does not match the recorded commitment: the signer is not deterministic, ' +
+        'or the commitment belongs to another keyspace.'
+    )
+  }
   return { kk, commitment: commitment(kk), descriptor: grantDescriptor(ref, 'keyspace') }
 }
 
@@ -295,10 +300,7 @@ const lowerHex = (value: Hex): Hex => value.toLowerCase() as Hex
  * Everything a reader needs travels with the piece, so a copy opens wherever
  * replication or repair puts it.
  */
-export function pieceMetadata(
-  ref: KeyspaceRef,
-  options: { salt: Hex; scope?: string; }
-): PieceMetadata {
+export function pieceMetadata(ref: KeyspaceRef, options: { salt: Hex; scope?: string }): PieceMetadata {
   return {
     'foc/v': 1,
     'foc/own': ref.owner.toLowerCase() as Address,

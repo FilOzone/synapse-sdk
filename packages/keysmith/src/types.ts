@@ -28,11 +28,17 @@ export interface KeyspaceKeys {
 
 export interface KeyspaceKeysOptions {
   /**
+   * The commitment an existing keyspace's dataset records under `COMMITMENT_KEY`
+   * (`foc/kc`). Used to verify RFC 6979 behavior without a second signature.
+   */
+  commitment?: string
+  /**
    * @verifySigner@
-   * Whether to sign twice to confirm deterministic derivation (ie RFC 6979)
+   * Whether to sign twice to confirm deterministic derivation (ie RFC 6979).
+   * Defaults to true, or to false when `commitment` is given.
    *
-   * DANGER! Only set to false if you are certain that the signer
-   * is deterministic, otherwise you may end up with encryption
+   * DANGER! Only set to false without a commitment if you are certain that
+   * the signer is deterministic, otherwise you may end up with encryption
    * keys that are not recoverable by the owner.
    */
   verifySigner?: boolean
@@ -54,7 +60,7 @@ export interface TypedDataSigner {
 /** FEE envelope entries to enable key derivation/recovery */
 export interface PieceMetadata {
   'foc/v': 1 // The version of this metadata format
-  'foc/own'?: Address // The keyspace owner, lowercased
+  'foc/own': Address // The keyspace owner, lowercased.
   'foc/ks': Hex // The keyspace this piece's key belongs to
   'foc/scope'?: string // The scope path this piece is in, eg `top-secret/secret`
   'foc/salt': Hex // The piece's unique salt

@@ -154,6 +154,7 @@ however maintain key recovery metadata in two places:
 | FWSS dataset metadata | `foc/ks`, `foc/kc` | once, at `createDataSet` | no — lets a client list its keyspaces from the chain, and check its key before decrypting |
 
 - **No key material lives on chain.** The keyspace id is public by design; the commitment is a one-way function of a key that is never published.
+- **Every piece names its owner.** `foc/own` lets a provider serve the piece only to a grant chain rooted at that owner. For verification only: not used in key derivation.
 - **All you need when you need it:**
     - When **reading**, the envelope metadata is enough for the caller to know which of
     their derived/granted keys they need to decrypt.
@@ -182,7 +183,8 @@ const ref = {
   keyspace: Keysmith.newKeyspace(), // or reuse an existing one
 }
 
-// One wallet signature. The signature itself stays inside the call; you get the
+// For a new keyspace the wallet signs twice, so Keysmith can check it signs
+// deterministically. The signature itself stays inside the call; you get the
 // keyspace key, a public commitment, and a descriptor of exactly what was signed.
 const { kk, commitment, descriptor } = await Keysmith.keyspaceKeys(account, ref)
 
@@ -329,19 +331,21 @@ With the wallet and the encrypted blobs. Nothing else is required, thus there is
 1. List the wallet's datasets, and fetch their pieces. A dataset's `KEYSPACE_ID_KEY`
    metadata says which keyspace to expect, but **each envelope is the source of truth**:
    read `foc/ks` from it.
-2. Call `keyspaceKeys` once per distinct keyspace.
-3. Where a dataset recorded a commitment, check it before decrypting anything:
+2. Call `keyspaceKeys` once per distinct keyspace, passing the commitment the dataset
+   recorded. It signs once, and throws before anything is decrypted if the key does not
+   match:
 
    ```ts
-   const { kk } = await Keysmith.keyspaceKeys(wallet, { owner, keyspace: datasetMetadata[Keysmith.KEYSPACE_ID_KEY] })
-   if (!Keysmith.matchesCommitment(kk, datasetMetadata[Keysmith.COMMITMENT_KEY])) {
-     throw new Error('wrong wallet, or a signer that is not deterministic')
-   }
+   const { kk } = await Keysmith.keyspaceKeys(
+     wallet,
+     { owner, keyspace: datasetMetadata[Keysmith.KEYSPACE_ID_KEY] },
+     { commitment: datasetMetadata[Keysmith.COMMITMENT_KEY] } // wrong wallet, or a signer that is not deterministic, throws
+   )
    ```
 
-   Where a dataset recorded no commitment, there is nothing to check in advance: a wrong
-   key shows up only as FEE decryption failing.
-4. Derive each piece key from the metadata in its own envelope.
+   Where a dataset recorded no commitment, leave it out: `keyspaceKeys` signs twice
+   instead, and a wrong key shows up only as FEE decryption failing.
+3. Derive each piece key from the metadata in its own envelope.
 
 A copy found in a dataset other than the one it was written to opens exactly the same way:
 the envelope, not the dataset, names its keyspace. Because the commitment is derived from
@@ -353,7 +357,7 @@ a new dataset's metadata too.
 | Function | Purpose |
 | --- | --- |
 | `newKeyspace()` | A fresh keyspace id |
-| `keyspaceKeys(signer, ref, options?)` | One owner signature per keyspace → `{ kk, commitment, descriptor }` |
+| `keyspaceKeys(signer, ref, { commitment?, verifySigner? })` | One owner signature per keyspace (two without a recorded commitment) → `{ kk, commitment, descriptor }` |
 | `scopeKey(kk, path)` | The key for a scope, e.g. `'super-secret/secret'` |
 | `scopeName(name)` / `scopePath(path)` | A scope name or path in canonical form, or a thrown error |
 | `pieceKey(node, salt)` | The key for one piece — hand this to FEE |
@@ -377,11 +381,9 @@ a new dataset's metadata too.
   signature for a keyspace can derive that keyspace's keys. Scope is the defence: the
   message names one keyspace, so one careless approval costs one keyspace, not the client's
   whole estate. Day-to-day reads never sign, so a prompt is itself an anomaly.
-- **Determinism is checked twice**, because the whole scheme rests on it: on a signer's
-  first use `keyspaceKeys` signs the same message twice and refuses a signer that disagrees
-  with itself, and, where a dataset recorded one, the `foc/kc` commitment catches a wrong
-  wallet at recovery time. Without a recorded commitment the only signal is FEE
-  decryption failing.
+- **Determinism is checked on every call**, because the whole scheme rests on it. For a
+  new keyspace `keyspaceKeys` signs the same message twice and refuses a signer that
+  disagrees with itself; for an existing one, it verifies the commitment in `foc/kc` and refuses a key that does not match. 
 - **Scopes form a tree, not a graph.** Each scope has exactly one parent, so a scope cannot
   inherit from two (`finance-lead` over both `finance` and `audit`), and each piece carries
   one scope. Both need keys wrapped per parent rather than derived — and somewhere to keep

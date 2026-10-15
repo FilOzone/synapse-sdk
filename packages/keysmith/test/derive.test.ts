@@ -90,17 +90,28 @@ describe('keyspaceKeys', () => {
     assert.deepStrictEqual(pieceKey(target.key, salt), keyForEnvelope(kk, metadata))
   })
 
-  it('signs twice on a signer’s first use, and once after that', async () => {
+  it('signs twice for a new keyspace, and once for one with a recorded commitment', async () => {
     const signer = counting(account)
+    const { kk, commitment: kc } = await keyspaceKeys(signer, ref)
+    assert.equal(signer.calls, 2, 'new keyspace: sign, sign again, compare')
     await keyspaceKeys(signer, ref)
-    assert.equal(signer.calls, 2, 'first use: sign, sign again, compare')
-    await keyspaceKeys(signer, { ...ref, keyspace: newKeyspace() })
-    assert.equal(signer.calls, 3, 'the signer is now known to be deterministic')
-    await keyspaceKeys(signer, ref, { verifySigner: true })
-    assert.equal(signer.calls, 5, 'checking can be forced')
-    const vetted = counting(account)
-    await keyspaceKeys(vetted, ref, { verifySigner: false })
-    assert.equal(vetted.calls, 1, 'or skipped for a signer already vetted')
+    assert.equal(signer.calls, 4, 'nothing is remembered between calls')
+    const reopened = await keyspaceKeys(signer, ref, { commitment: kc })
+    assert.equal(signer.calls, 5, 'existing keyspace: the commitment does the checking')
+    assert.deepStrictEqual(reopened.kk, kk)
+    await keyspaceKeys(signer, ref, { commitment: kc, verifySigner: true })
+    assert.equal(signer.calls, 7, 'checking can be forced')
+    await keyspaceKeys(signer, ref, { verifySigner: false })
+    assert.equal(signer.calls, 8, 'or skipped for a signer already vetted')
+  })
+
+  it('refuses a key that does not match the recorded commitment', async () => {
+    const other = await keyspaceKeys(account, { ...ref, keyspace: newKeyspace() })
+    await assert.rejects(
+      keyspaceKeys(account, ref, { commitment: other.commitment }),
+      /does not match the recorded commitment/
+    )
+    await assert.rejects(keyspaceKeys(account, ref, { commitment: 'v1.0.00' }), /format v1/)
   })
 
   it('rejects a randomising signer, and anything that is not plain ECDSA', async () => {
@@ -226,6 +237,7 @@ describe('pieceMetadata and grantDescriptor', () => {
     const salt = '0x00CDEF0123456789ABCDEF0123456789' as const
     assert.deepStrictEqual(pieceMetadata(ref, { salt, scope: 'café' }), {
       'foc/v': 1,
+      'foc/own': account.address.toLowerCase(),
       'foc/ks': ref.keyspace,
       'foc/scope': 'café',
       'foc/salt': '0x00cdef0123456789abcdef0123456789',
@@ -238,13 +250,12 @@ describe('pieceMetadata and grantDescriptor', () => {
     })
   })
 
-  it('record the owner only for a gated piece, without changing its key', () => {
-    const salt = newSalt()
-    const owned = pieceMetadata(ref, { salt, scope: 'agent-memory' })
+  it('record the owner on every piece, without it affecting the key', () => {
+    const owned = pieceMetadata(ref, { salt: newSalt(), scope: 'agent-memory' })
     const kk = new Uint8Array(32).fill(7)
-    assert.equal('foc/own' in owned, true, 'the owner is recorded for a stored piece')
-    assert.equal(owned['foc/own'], account.address.toLowerCase(), 'the owner matches the keyspace owner')
-    assert.deepStrictEqual(keyForEnvelope(kk), keyForEnvelope(kk, owned))
+    assert.equal(owned['foc/own'], account.address.toLowerCase(), 'the keyspace owner, lowercased')
+    const relabelled = { ...owned, 'foc/own': '0x0000000000000000000000000000000000000000' as const }
+    assert.deepStrictEqual(keyForEnvelope(kk, relabelled), keyForEnvelope(kk, owned), 'derivation ignores it')
   })
 
   it('refuse a keyspace id that is not 16 bytes of hex', () => {
