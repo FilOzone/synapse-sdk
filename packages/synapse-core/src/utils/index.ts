@@ -9,6 +9,7 @@ export {
 } from './calculate-upload-costs.ts'
 export * from './calibration.ts'
 export * from './capabilities.ts'
+export * from './concurrency.ts'
 export * from './constants.ts'
 export * from './contract-errors.ts'
 export * from './decode-pdp-errors.ts'

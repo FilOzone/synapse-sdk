@@ -1,5 +1,6 @@
 import { paginate } from '@filoz/synapse-core'
 import { getPieces } from '@filoz/synapse-core/pdp-verifier'
+import { mapWithLimit } from '@filoz/synapse-core/utils'
 import { getPdpDataSets, type PdpDataSet, type Piece } from '@filoz/synapse-core/warm-storage'
 import { skipToken, type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
@@ -79,25 +80,4 @@ export function useDataSets<IncludePieces extends boolean = true>(props: UseData
         }
       : skipToken,
   })
-}
-
-/**
- * Like `Promise.all(items.map(fn))`, but runs at most `limit` calls at a time.
- *
- * @param items - The inputs.
- * @param limit - The maximum number of concurrent calls.
- * @param fn - The async work per item.
- * @returns The results, in input order.
- */
-async function mapWithLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length)
-  let next = 0
-  const worker = async () => {
-    while (next < items.length) {
-      const index = next++
-      results[index] = await fn(items[index])
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-  return results
 }
