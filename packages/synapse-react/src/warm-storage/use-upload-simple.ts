@@ -3,6 +3,7 @@ import { type AddPiecesSuccess, upload } from '@filoz/synapse-core/sp'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useChainId, useConfig, useConnection } from 'wagmi'
 import { getSignerClient, type SessionKeySignerOptions } from '../signer.ts'
+import type { useUploadPieces } from './use-upload-pieces.ts'
 
 export interface UseUploadSimpleProps extends SessionKeySignerOptions {
   /**
@@ -16,6 +17,15 @@ export interface UseUploadSimpleVariables {
   files: File[]
   dataSetId: bigint
 }
+/**
+ * Upload files to a data set and add them in one request.
+ *
+ * @deprecated Use {@link useUploadPieces}, which streams each file, reports progress and returns the files that failed
+ * instead of rejecting the whole upload.
+ *
+ * @param props - The props to use. {@link UseUploadSimpleProps}
+ * @returns The upload mutation.
+ */
 export function useUploadSimple(props: UseUploadSimpleProps) {
   const config = useConfig()
   const chainId = useChainId({ config })
