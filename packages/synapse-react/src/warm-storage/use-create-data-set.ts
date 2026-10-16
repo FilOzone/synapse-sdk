@@ -3,9 +3,9 @@ import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useChainId, useConfig } from 'wagmi'
-import { getConnectorClient } from 'wagmi/actions'
+import { getSignerClient, type SessionKeySignerOptions } from '../signer.ts'
 
-export interface UseCreateDataSetProps {
+export interface UseCreateDataSetProps extends SessionKeySignerOptions {
   /**
    * The callback to call when the hash is available.
    */
@@ -35,14 +35,17 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
   return useMutation({
     ...props?.mutation,
     mutationFn: async ({ provider, cdn, metadata }: UseCreateDataSetVariables) => {
-      const connectorClient = await getConnectorClient(config, {
+      const client = await getSignerClient(config, {
         account: account.address,
         chainId,
+        sessionKey: props?.sessionKey,
       })
+      // A session key signs as itself, so the payer is its root wallet.
+      const payer = props?.sessionKey?.rootAddress ?? account.address
 
-      const { txHash, statusUrl } = await SP.createDataSet(connectorClient, {
+      const { txHash, statusUrl } = await SP.createDataSet(client, {
         payee: provider.payee,
-        payer: account.address,
+        payer,
         serviceURL: provider.pdp.serviceURL,
         cdn,
         metadata,
@@ -52,7 +55,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
       const dataSet = await SP.waitForCreateDataSet({ statusUrl })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', account.address, config.getClient().chain.id],
+        queryKey: ['synapse-warm-storage-data-sets', payer, chainId],
       })
       return dataSet
     },
