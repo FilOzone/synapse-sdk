@@ -185,6 +185,10 @@ const StorageExample = () => {
 };
 ```
 
+:::tip[Listing data sets without pieces]
+`useDataSets()` loads every piece of every data set, which costs at least one extra RPC call per data set. For list views that don't show pieces, pass `includePieces: false` to get `PdpDataSet[]` instead. Each data set's `hasActivePieces` still tells you whether it holds pieces.
+:::
+
 :::caution[Piece metadata]
 Each data set returned by `useDataSets()` has a `pieces: Piece[]` array whose items have no `metadata` field. Read piece metadata from FWSS `PieceAdded` events or an indexer instead. See the [migration guide](/developer-guides/migration-guide/#action-replace-core-piece-metadata-reads) for the core API changes.
 :::
