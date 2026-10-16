@@ -20,6 +20,8 @@ pnpm install @filoz/synapse-core viem@2.x
 
 Note: `viem` is a peer dependency and must be installed separately.
 
+In browsers, PieceCID hashing uses WebAssembly. If your page sets a Content-Security-Policy with `script-src`, add `'wasm-unsafe-eval'` (for example `script-src 'self' 'wasm-unsafe-eval'`). Without it, the package still loads, but hashing throws an error naming the missing directive.
+
 ## Docs
 
 Check the documentation [website](https://synapse.filecoin.services/)
@@ -32,7 +34,9 @@ Read contributing [guidelines](../../.github/CONTRIBUTING.md).
 
 ## Acknowledgments
 
-The PieceCID primitives in `src/piece/internal/` (FR32 expansion, the streaming SHA254 binary-tree hasher, merkle construction, zero-piece roots, and the digest/size math) are derived from [`@web3-storage/data-segment`](https://github.com/web3-storage/data-segment), Apache-2.0 OR MIT. That codebase in turn drew on [`js-fil-utils`](https://github.com/rvagg/js-fil-utils), [`go-data-segment`](https://github.com/filecoin-project/go-data-segment), and [`go-fil-commp-hashhash`](https://github.com/filecoin-project/go-fil-commp-hashhash).
+The PieceCID primitives in `src/piece/internal/` (FR32 expansion, merkle construction, zero-piece roots, and the digest/size math) are derived from [`@web3-storage/data-segment`](https://github.com/web3-storage/data-segment), Apache-2.0 OR MIT. That codebase in turn drew on [`js-fil-utils`](https://github.com/rvagg/js-fil-utils), [`go-data-segment`](https://github.com/filecoin-project/go-data-segment), and [`go-fil-commp-hashhash`](https://github.com/filecoin-project/go-fil-commp-hashhash).
+
+PieceCID hashing is done by [`@hugomrdias/commp-wasm`](https://github.com/hugomrdias/commp), a Rust/WASM implementation with SIMD SHA-256.
 
 ## License
 
