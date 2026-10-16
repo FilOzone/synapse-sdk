@@ -5,6 +5,7 @@ import { AddPiecesFlushError } from '../errors/pdp.ts'
 import { PullError } from '../errors/pull.ts'
 import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
+import { createLimit } from '../utils/concurrency.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 import { isUint8Array } from '../utils/streams.ts'
@@ -165,7 +166,7 @@ export function createPieceBatcher(
   if (options.concurrency != null && !(options.concurrency >= 1)) {
     throw new ValidationError('`concurrency` must be at least 1.')
   }
-  const acquireSlot = createSlots(options.concurrency ?? Number.POSITIVE_INFINITY)
+  const limit = createLimit(options.concurrency ?? Number.POSITIVE_INFINITY)
   const legacyPieceStorageIdLimit = asChain(client.chain).legacyPieceStorageIdLimit
   const datasetMetadata = options.metadata
   const cdn = options.cdn
@@ -416,17 +417,12 @@ export function createPieceBatcher(
     let parked: EnqueuePiece
     try {
       parked = await track(
-        (async () => {
-          const release = await acquireSlot()
-          try {
-            const piece = await park()
-            assertPieceCidSize(piece.pieceCid)
-            await onParked?.(piece)
-            return piece
-          } finally {
-            release()
-          }
-        })()
+        limit(async () => {
+          const piece = await park()
+          assertPieceCidSize(piece.pieceCid)
+          await onParked?.(piece)
+          return piece
+        })
       )
     } catch (error) {
       endSchedule()
@@ -548,31 +544,4 @@ export function createPieceBatcher(
       return dataSet
     },
   }
-}
-
-/**
- * Create a counting semaphore.
- *
- * @param limit - Maximum number of slots held at the same time.
- * @returns A function that resolves with a release function once a slot is free.
- */
-function createSlots(limit: number): () => Promise<() => void> {
-  let active = 0
-  const queue: (() => void)[] = []
-  const release = () => {
-    active--
-    queue.shift()?.()
-  }
-  return () =>
-    new Promise((resolve) => {
-      const grant = () => {
-        active++
-        resolve(release)
-      }
-      if (active < limit) {
-        grant()
-      } else {
-        queue.push(grant)
-      }
-    })
 }
