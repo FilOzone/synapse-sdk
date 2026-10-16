@@ -1,5 +1,4 @@
 import { HttpResponse, http } from 'msw'
-import { TxEnvelopeEip1559 } from 'ox'
 import type { RequiredDeep } from 'type-fest'
 import {
   type Address,
@@ -8,6 +7,7 @@ import {
   encodeAbiParameters,
   type Hex,
   isAddressEqual,
+  keccak256,
   multicall3Abi,
   numberToBytes,
   numberToHex,
@@ -394,19 +394,7 @@ export const presets = {
     eth_getTransactionCount: () => '0x1',
     eth_gasPrice: () => '0x09184e72a000',
     eth_maxPriorityFeePerGas: () => '0x5f5e100',
-    eth_sendRawTransaction: (args) => {
-      const deserialized = TxEnvelopeEip1559.deserialize(args[0] as `0x02${string}`)
-      const envelope = TxEnvelopeEip1559.from(deserialized, {
-        signature: {
-          r: deserialized.r ?? 0n,
-          s: deserialized.s ?? 0n,
-          yParity: deserialized.yParity ?? 0,
-        },
-      })
-      const hash = TxEnvelopeEip1559.hash(envelope)
-
-      return hash
-    },
+    eth_sendRawTransaction: (args) => keccak256(args[0]),
     warmStorage: {
       addApprovedProvider: () => [],
       removeApprovedProvider: () => [],
