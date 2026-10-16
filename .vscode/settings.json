@@ -36,5 +36,8 @@
   "markdown.validate.enabled": false,
   "starlightLinks.configDirectories": ["./docs"],
   "knip.configFilePath": ".github/knip.jsonc",
-  "js/ts.tsdk.path": "node_modules/typescript/lib"
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "cSpell.words": [
+    "keyspace"
+  ]
 }
