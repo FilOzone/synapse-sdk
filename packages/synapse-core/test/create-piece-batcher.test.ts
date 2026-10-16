@@ -665,4 +665,48 @@ describe('createPieceBatcher', () => {
     assert.equal(added.txHash, mockTxHash2)
     assert.equal(addBodies.length, 1)
   })
+
+  it('should limit concurrent parking with concurrency and still batch every piece', async () => {
+    const bodies: addPiecesApiRequest.RequestBody[] = []
+    let active = 0
+    let maxActive = 0
+    server.use(
+      ...parkHandlers(),
+      http.post(`${pdpBase}/pdp/piece/uploads`, async () => {
+        active++
+        maxActive = Math.max(maxActive, active)
+        await new Promise((resolve) => setTimeout(resolve, 10))
+        active--
+        return new HttpResponse('Created', {
+          status: 201,
+          headers: { Location: `/pdp/piece/uploads/${crypto.randomUUID()}` },
+        })
+      }),
+      addPiecesCaptureHandler((body) => bodies.push(body))
+    )
+
+    const batcher = createPieceBatcher(client, {
+      dataSet: createDataSet(),
+      wait: { kind: 'limiter' },
+      concurrency: 2,
+    })
+    const pending = Array.from({ length: 5 }, (_, index) =>
+      batcher.upload({ data: new Uint8Array(200).fill(index + 1) })
+    )
+    // close() right away must wait for the uploads still queued for a slot.
+    await batcher.close()
+    const results = await Promise.all(pending)
+
+    assert.ok(maxActive <= 2, `expected at most 2 concurrent uploads, got ${maxActive}`)
+    assert.equal(bodies.length, 1)
+    assert.equal(bodies[0]?.pieces.length, 5)
+    assert.equal(new Set(results.map((result) => result.txHash)).size, 1)
+  })
+
+  it('should reject a concurrency below 1', () => {
+    assert.throws(
+      () => createPieceBatcher(client, { dataSet: createDataSet(), concurrency: 0 }),
+      (error: unknown) => ValidationError.is(error)
+    )
+  })
 })

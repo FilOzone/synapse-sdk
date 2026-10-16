@@ -119,6 +119,11 @@ export namespace createPieceBatcher {
     payer?: Address
     metadata?: MetadataObject
     cdn?: boolean
+    /**
+     * Maximum number of `upload` and `pull` transfers parking at the same time. Others wait for a free slot.
+     * Defaults to no limit.
+     */
+    concurrency?: number
   }
   export type ReturnType = PieceBatcher
 }
@@ -157,6 +162,10 @@ export function createPieceBatcher(
     throw new ValidationError('`wait.ms` must be a non-negative number.')
   }
   const limiter = options.limiter ?? addPiecesFits
+  if (options.concurrency != null && !(options.concurrency >= 1)) {
+    throw new ValidationError('`concurrency` must be at least 1.')
+  }
+  const acquireSlot = createSlots(options.concurrency ?? Number.POSITIVE_INFINITY)
   const legacyPieceStorageIdLimit = asChain(client.chain).legacyPieceStorageIdLimit
   const datasetMetadata = options.metadata
   const cdn = options.cdn
@@ -401,15 +410,31 @@ export function createPieceBatcher(
 
   async function parkAndEnqueue(park: () => Promise<EnqueuePiece>, onParked?: OnParked): Promise<PieceResult> {
     assertOpen()
-    const parked = await track(
-      (async () => {
-        const piece = await park()
-        assertPieceCidSize(piece.pieceCid)
-        await onParked?.(piece)
-        return piece
-      })()
-    )
-    return internalEnqueue(parked)
+    // Count the piece as scheduled from now until it is in the window, so `flush()` and `close()` wait for
+    // pieces still waiting for a slot or parking.
+    beginSchedule()
+    let parked: EnqueuePiece
+    try {
+      parked = await track(
+        (async () => {
+          const release = await acquireSlot()
+          try {
+            const piece = await park()
+            assertPieceCidSize(piece.pieceCid)
+            await onParked?.(piece)
+            return piece
+          } finally {
+            release()
+          }
+        })()
+      )
+    } catch (error) {
+      endSchedule()
+      throw error
+    }
+    const result = internalEnqueue(parked)
+    endSchedule()
+    return result
   }
 
   async function enqueue(piece: EnqueuePiece): Promise<PieceResult> {
@@ -501,8 +526,6 @@ export function createPieceBatcher(
   }
 
   async function flush(): Promise<FlushResult | undefined> {
-    await Promise.allSettled([...inFlight])
-    await Promise.resolve()
     await scheduledIdle
     return lock(() => flushWindowInternal())
   }
@@ -525,4 +548,31 @@ export function createPieceBatcher(
       return dataSet
     },
   }
+}
+
+/**
+ * Create a counting semaphore.
+ *
+ * @param limit - Maximum number of slots held at the same time.
+ * @returns A function that resolves with a release function once a slot is free.
+ */
+function createSlots(limit: number): () => Promise<() => void> {
+  let active = 0
+  const queue: (() => void)[] = []
+  const release = () => {
+    active--
+    queue.shift()?.()
+  }
+  return () =>
+    new Promise((resolve) => {
+      const grant = () => {
+        active++
+        resolve(release)
+      }
+      if (active < limit) {
+        grant()
+      } else {
+        queue.push(grant)
+      }
+    })
 }
