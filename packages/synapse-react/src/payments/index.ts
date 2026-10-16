@@ -124,6 +124,7 @@ export function useDeposit(props?: UseDepositProps) {
   const to = props?.to ?? account.address
 
   return useMutation({
+    ...props?.mutation,
     mutationFn: async ({ amount }: UseDepositVariables) => {
       const client = await getConnectorClient(config, {
         account: account.address,
@@ -150,7 +151,6 @@ export function useDeposit(props?: UseDepositProps) {
       })
       return transactionReceipt
     },
-    ...props?.mutation,
   })
 }
 
@@ -174,6 +174,7 @@ export function useWithdraw(props?: UseWithdrawProps) {
   const token = props?.token ?? chain.contracts.usdfc.address
 
   return useMutation({
+    ...props?.mutation,
     mutationFn: async ({ amount }: UseWithdrawVariables) => {
       const client = await getConnectorClient(config, {
         account: account.address,
@@ -197,7 +198,6 @@ export function useWithdraw(props?: UseWithdrawProps) {
       })
       return transactionReceipt
     },
-    ...props?.mutation,
   })
 }
 
@@ -213,6 +213,21 @@ export type ApproveOperatorProps =
        * If not provided, the USDFC token address will be used.
        */
       token?: Address
+      /**
+       * Maximum rate the operator can use per epoch (in token base units).
+       * If not provided, maxUint256 will be used.
+       */
+      rateAllowance?: bigint
+      /**
+       * Maximum lockup amount the operator can use (in token base units).
+       * If not provided, maxUint256 will be used.
+       */
+      lockupAllowance?: bigint
+      /**
+       * Maximum lockup period in epochs the operator can set for payment rails.
+       * If not provided, the chain's default lockup period will be used.
+       */
+      maxLockupPeriod?: bigint
       /**
        * The mutation options.
        */
@@ -247,6 +262,9 @@ export function useApproveOperator(props?: ApproveOperatorProps) {
         token: props?.token,
         operator: props?.operator,
         approve: true,
+        rateAllowance: props?.rateAllowance,
+        lockupAllowance: props?.lockupAllowance,
+        maxLockupPeriod: props?.maxLockupPeriod,
       })
 
       props?.onHash?.(hash)
