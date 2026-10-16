@@ -66,13 +66,13 @@ export function useDepositAndApprove(props?: UseDepositAndApproveProps) {
       })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-account-info', from, token],
+        queryKey: ['synapse-payments-account-info', from, token, chainId],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-erc20-balance', from, token],
+        queryKey: ['synapse-erc20-balance', from, token, chainId],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-operator-approvals', from, token, operator],
+        queryKey: ['synapse-payments-operator-approvals', from, token, operator, chainId],
       })
 
       return transactionReceipt

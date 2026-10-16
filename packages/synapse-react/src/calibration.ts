@@ -54,7 +54,7 @@ export function useFundWallet(props?: UseFundWalletProps) {
       })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-erc20-balance', client.account.address, chain.contracts.usdfc.address],
+        queryKey: ['synapse-erc20-balance', client.account.address, chain.contracts.usdfc.address, chainId],
       })
 
       queryClient.invalidateQueries({

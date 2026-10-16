@@ -3,7 +3,7 @@ import { getPieces } from '@filoz/synapse-core/pdp-verifier'
 import { getPdpDataSets, type PdpDataSet, type Piece } from '@filoz/synapse-core/warm-storage'
 import { skipToken, type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
-import { useConfig } from 'wagmi'
+import { useChainId, useConfig } from 'wagmi'
 
 export interface DataSetWithPieces extends PdpDataSet {
   pieces: Piece[]
@@ -18,6 +18,10 @@ export type UseDataSetsResult<IncludePieces extends boolean = true> = IncludePie
 
 export interface UseDataSetsProps<IncludePieces extends boolean = true> {
   address?: Address
+  /**
+   * The chain id to read from. If not provided, the connected chain will be used.
+   */
+  chainId?: number
   /**
    * Whether to load the pieces of every data set. Each data set costs at least one extra RPC call.
    * Set it to `false` for list views that only need the data sets (`hasActivePieces` tells whether a data set has pieces).
@@ -41,14 +45,16 @@ const PIECES_CONCURRENCY = 4
  */
 export function useDataSets<IncludePieces extends boolean = true>(props: UseDataSetsProps<IncludePieces>) {
   const config = useConfig()
+  const connectedChainId = useChainId({ config })
+  const chainId = props.chainId ?? connectedChainId
   const address = props.address
   const includePieces = props.includePieces ?? true
   return useQuery({
     ...props.query,
-    queryKey: ['synapse-warm-storage-data-sets', address, config.getClient().chain.id, includePieces],
+    queryKey: ['synapse-warm-storage-data-sets', address, chainId, includePieces],
     queryFn: address
       ? async () => {
-          const client = config.getClient()
+          const client = config.getClient({ chainId })
           const dataSets = await Array.fromAsync(paginate(({ cursor }) => getPdpDataSets(client, { address, cursor })))
           if (!includePieces) {
             return dataSets as UseDataSetsResult<IncludePieces>
