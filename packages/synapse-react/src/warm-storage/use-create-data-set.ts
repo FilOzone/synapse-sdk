@@ -1,5 +1,6 @@
 import * as SP from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
+import type { MetadataObject } from '@filoz/synapse-core/utils'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
@@ -18,6 +19,10 @@ export interface UseCreateDataSetVariables {
    */
   provider: PDPProvider
   cdn: boolean
+  /**
+   * Data set metadata.
+   */
+  metadata?: MetadataObject
 }
 
 export type UseCreateDataSetResult = SP.waitForCreateDataSet.ReturnType
@@ -29,7 +34,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
   const queryClient = useQueryClient()
   return useMutation({
     ...props?.mutation,
-    mutationFn: async ({ provider, cdn }: UseCreateDataSetVariables) => {
+    mutationFn: async ({ provider, cdn, metadata }: UseCreateDataSetVariables) => {
       const connectorClient = await getConnectorClient(config, {
         account: account.address,
         chainId,
@@ -40,10 +45,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
         payer: account.address,
         serviceURL: provider.pdp.serviceURL,
         cdn,
-        // metadata: {
-        //   title: 'Test Data Set',
-        //   description: 'Test Description',
-        // },
+        metadata,
       })
       props?.onHash?.(txHash)
 
