@@ -3,6 +3,7 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
 import { waitForAddPieces } from './add-pieces.ts'
+import type { Limiter } from './add-pieces-fits.ts'
 import { createPieceBatcher, type UploadInput } from './create-piece-batcher.ts'
 
 export namespace uploadPieces {
@@ -21,6 +22,8 @@ export namespace uploadPieces {
     pieces: InputPiece[]
     /** Maximum number of pieces streamed to the provider at the same time. Defaults to 4. */
     concurrency?: number
+    /** Decides whether pieces still fit in one add-pieces request. Defaults to `addPiecesFits`. */
+    limiter?: Limiter
     /** Called as a piece makes upload progress. */
     onProgress?: (index: number, bytesUploaded: number) => void
     /** Called once per add-pieces transaction hash. */
@@ -48,7 +51,7 @@ export namespace uploadPieces {
     confirmations: waitForAddPieces.OutputType[]
     /** The pieces added to the data set, in input order. */
     pieces: UploadedPiece[]
-    /** The pieces that failed to upload or to be added. */
+    /** The pieces that failed to upload or whose add-pieces transaction was not confirmed. */
     failed: { index: number; error: Error }[]
   }
 }
@@ -57,8 +60,8 @@ export namespace uploadPieces {
  * Upload pieces to an existing data set and add them in one signed request.
  *
  * Streams each piece to the data set's provider (`concurrency` at a time), then adds every parked piece in one
- * add-pieces request and waits for it to be confirmed. Pieces that fail are returned in `failed`; the others are
- * still added. Throws when no piece could be uploaded and added.
+ * add-pieces request and waits for it to be confirmed. Pieces that fail to upload, or whose add-pieces transaction is
+ * not confirmed, are returned in `failed`; the others are still added. Throws when no piece could be uploaded and added.
  *
  * @param client - The client to sign with.
  * @param options - {@link uploadPieces.OptionsType}
@@ -83,6 +86,7 @@ export async function uploadPieces(
     dataSet: options.dataSet,
     wait: { kind: 'limiter' },
     concurrency: options.concurrency ?? 4,
+    limiter: options.limiter,
   })
   const hashes = new Set<string>()
   const uploads = options.pieces.map(async (piece, index) => {
@@ -110,26 +114,47 @@ export async function uploadPieces(
   const uploaded = settled.flatMap((item, index) =>
     item.status === 'fulfilled' ? [{ index, metadata: options.pieces[index]?.metadata, result: item.value }] : []
   )
-  if (uploaded.length === 0) {
-    throw failed[0]?.error ?? new Error('No pieces to upload.')
-  }
 
+  // A failed confirmation only fails its own transaction's pieces; the others keep their piece ids.
   const statusUrls = [...new Set(uploaded.map(({ result }) => result.statusUrl))]
-  const confirmations = await Promise.all(
+  const settledConfirmations = await Promise.allSettled(
     statusUrls.map((statusUrl) => waitForAddPieces({ statusUrl, signal: options.signal }))
   )
-  const confirmationByUrl = new Map(statusUrls.map((statusUrl, i) => [statusUrl, confirmations[i]]))
+  const confirmationByUrl = new Map<string, waitForAddPieces.OutputType>()
+  const errorByUrl = new Map<string, Error>()
+  settledConfirmations.forEach((item, i) => {
+    const statusUrl = statusUrls[i] as string
+    if (item.status === 'fulfilled') {
+      confirmationByUrl.set(statusUrl, item.value)
+    } else {
+      errorByUrl.set(statusUrl, toError(item.reason))
+    }
+  })
 
-  return {
-    confirmations,
-    pieces: uploaded.map(({ index, metadata, result }) => ({
+  const pieces: uploadPieces.UploadedPiece[] = []
+  for (const { index, metadata, result } of uploaded) {
+    const error = errorByUrl.get(result.statusUrl)
+    if (error != null) {
+      failed.push({ index, error })
+      continue
+    }
+    pieces.push({
       index,
       pieceCid: result.pieceCid,
       // The provider confirms piece ids in submission order.
       pieceId: confirmationByUrl.get(result.statusUrl)?.confirmedPieceIds[result.batchIndex],
       size: result.size,
       metadata,
-    })),
+    })
+  }
+  failed.sort((a, b) => a.index - b.index)
+  if (pieces.length === 0) {
+    throw failed[0]?.error ?? new Error('No pieces to upload.')
+  }
+
+  return {
+    confirmations: [...confirmationByUrl.values()],
+    pieces,
     failed,
   }
 }
