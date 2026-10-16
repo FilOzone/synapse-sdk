@@ -16,6 +16,10 @@ import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 
 export interface UseERC20BalanceProps extends SetOptional<balance.OptionsType, 'address'> {
+  /**
+   * The chain id to read from. If not provided, the connected chain will be used.
+   */
+  chainId?: number
   query?: Omit<UseQueryOptions<balance.OutputType>, 'queryKey' | 'queryFn'>
 }
 
@@ -27,16 +31,18 @@ export interface UseERC20BalanceProps extends SetOptional<balance.OptionsType, '
  */
 export function useERC20Balance(props: UseERC20BalanceProps) {
   const config = useConfig()
-  const chain = getChain(config.state.chainId)
+  const connectedChainId = useChainId({ config })
+  const chainId = props.chainId ?? connectedChainId
+  const chain = getChain(chainId)
   const token = props.token ?? chain.contracts.usdfc.address
   const address = props.address
 
   const result = useQuery({
     ...props.query,
-    queryKey: ['synapse-erc20-balance', address, token],
+    queryKey: ['synapse-erc20-balance', address, token, chainId],
     queryFn: address
       ? async () => {
-          const result = await erc20.balance(config.getClient(), {
+          const result = await erc20.balance(config.getClient({ chainId }), {
             address,
             token,
           })
@@ -72,7 +78,7 @@ export function useApproveAllowance(props?: UseApproveAllowanceProps) {
   const chainId = useChainId({ config })
   const account = useAccount({ config })
   const queryClient = useQueryClient()
-  const chain = getChain(config.state.chainId)
+  const chain = getChain(chainId)
   const token = props?.token ?? chain.contracts.usdfc.address
 
   return useMutation({
@@ -95,7 +101,7 @@ export function useApproveAllowance(props?: UseApproveAllowanceProps) {
       })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-erc20-balance', account.address, token],
+        queryKey: ['synapse-erc20-balance', account.address, token, chainId],
       })
       return transactionReceipt
     },
