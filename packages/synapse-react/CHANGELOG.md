@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.5.0...synapse-react-v0.5.1) (2026-10-16)
+
+
+### Features
+
+* **react:** accept an optional chainId on read hooks ([182e524](https://github.com/FilOzone/synapse-sdk/commit/182e524a72c527d96bec36ab0e5b2b4a7ea13f49)), closes [#1026](https://github.com/FilOzone/synapse-sdk/issues/1026)
+* **react:** add useUploadPieces streaming multi-file upload hook ([3a9a3d5](https://github.com/FilOzone/synapse-sdk/commit/3a9a3d5be875b459935e6a28f0a7278c297d874e)), closes [#1027](https://github.com/FilOzone/synapse-sdk/issues/1027)
+* **react:** sign SP write hooks with an optional session key ([d6b4f1e](https://github.com/FilOzone/synapse-sdk/commit/d6b4f1ed3c910e636aacedc6f0c88d23a03db1ae)), closes [#1025](https://github.com/FilOzone/synapse-sdk/issues/1025)
+
+
+### Bug Fixes
+
+* **core:** default the data set payer to a session key's root wallet ([b5aa6c8](https://github.com/FilOzone/synapse-sdk/commit/b5aa6c8e93f8ff4710e548824ce9811c66a00d00)), closes [#1025](https://github.com/FilOzone/synapse-sdk/issues/1025)
+* **react:** forward useDepositAndApprove props to core ([42873ca](https://github.com/FilOzone/synapse-sdk/commit/42873ca6007e2bb61b10b47f8aba4991b5bd4d4f)), closes [#1022](https://github.com/FilOzone/synapse-sdk/issues/1022)
+* **react:** honour useDataSets query options and make pieces optional ([59cf7b1](https://github.com/FilOzone/synapse-sdk/commit/59cf7b1f54af9c6c5f6e12f9de4a0873541534fd)), closes [#1023](https://github.com/FilOzone/synapse-sdk/issues/1023)
+* **react:** let useCreateDataSet set data set metadata ([118463b](https://github.com/FilOzone/synapse-sdk/commit/118463b24dfe1c426c305337bf54ddda87d55aab)), closes [#1024](https://github.com/FilOzone/synapse-sdk/issues/1024)
+* **react:** reject a session key whose root is not the connected account ([2e6b8e0](https://github.com/FilOzone/synapse-sdk/commit/2e6b8e078654e5cbe266d47cd16ae138094e82d2))
+
 ## [0.5.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.4.0...synapse-react-v0.5.0) (2026-09-25)
 
 
