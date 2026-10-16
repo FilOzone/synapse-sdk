@@ -267,8 +267,8 @@ export type PullToNewDataSetOptions = BasePullPiecesOptions & {
   /** The address that will receive payments (service provider). Required for new data sets. */
   payee: Address
   /**
-   * The address that will pay for the storage (client). If not provided, the default is the client address.
-   * If client is from a session key this should be set to the actual payer address.
+   * The address that will pay for the storage (client). If not provided, the default is the root address
+   * for a session key client, otherwise the client address.
    */
   payer?: Address
   /** Whether the data set should use CDN. */

@@ -167,14 +167,14 @@ await SessionKey.login(rootClient, {
 
 ### Use the session key for operations
 
-Pass `sessionKey.client` to SDK operations. The session key signs the EIP-712 typed data while `sessionKey.rootAddress` is used as the payer/identity:
+Pass `sessionKey.client` to SDK operations. The session key signs the EIP-712 typed data while `sessionKey.rootAddress` is used as the payer/identity. Data set creation defaults `payer` to the root address of a session key client, so you only pass it to bill a different wallet:
 
 ```ts
 import { createDataSet, waitForCreateDataSet } from '@filoz/synapse-core/sp'
 
 const result = await createDataSet(sessionKey.client, {
   payee: providerAddress,          // Address: the SP's address
-  payer: sessionKey.rootAddress,   // Address: the root wallet paying for storage
+  // payer defaults to sessionKey.rootAddress, the root wallet paying for storage
   serviceURL: 'https://provider.example.com',
 })
 
