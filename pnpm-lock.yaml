@@ -321,6 +321,37 @@ importers:
         specifier: 4.0.2
         version: 4.0.2
 
+  packages/filecoin-encryption-envelope:
+    dependencies:
+      cborg:
+        specifier: 6.1.2
+        version: 6.1.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 'catalog:'
+        version: 2.5.9
+      '@types/mocha':
+        specifier: 'catalog:'
+        version: 10.0.10
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.2.0
+      assert:
+        specifier: ^2.1.0
+        version: 2.1.0
+      mocha:
+        specifier: 'catalog:'
+        version: 11.8.0
+      playwright-test:
+        specifier: ^14.1.12
+        version: 14.1.15
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/keysmith:
     dependencies:
       '@noble/curves':
@@ -332,14 +363,6 @@ importers:
       cborg:
         specifier: ^6.1.3
         version: 6.1.3
-  packages/filecoin-encryption-envelope:
-    dependencies:
-      cborg:
-        specifier: 6.1.2
-        version: 6.1.2
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
@@ -356,6 +379,9 @@ importers:
       assert:
         specifier: ^2.1.0
         version: 2.1.0
+      filecoin-encryption-envelope:
+        specifier: workspace:*
+        version: link:../filecoin-encryption-envelope
       mocha:
         specifier: 'catalog:'
         version: 11.8.0
@@ -3835,6 +3861,10 @@ packages:
 
   cborg@5.1.11:
     resolution: {integrity: sha512-oc6Pzg/gkTobxHZNgMmny+G99dOeBMbAmnGHcZWMKtolxZBIVwfi0Pj0khxEtNU8HMFdbT5sK0HmtgecDUPP0A==}
+    hasBin: true
+
+  cborg@6.1.2:
+    resolution: {integrity: sha512-hQfFh6FuuCDoycN68FtUpjtQx5kCtxOLA8msbpJZxjtxaMqxgHl+4GNwO+0YexH/lHmVzhhAKa0ua+vtmTRoVw==}
     hasBin: true
 
   cborg@6.1.3:
@@ -10322,6 +10352,8 @@ snapshots:
   camelcase@9.0.0: {}
 
   cborg@5.1.11: {}
+
+  cborg@6.1.2: {}
 
   cborg@6.1.3: {}
 

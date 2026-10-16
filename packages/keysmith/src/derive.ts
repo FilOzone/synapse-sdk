@@ -349,15 +349,24 @@ export function grantDescriptor(ref: KeyspaceRef, node: GrantNode): GrantDescrip
  * piece's scope or an ancestor of it. A piece holder already has the key, and
  * gets it back only for the piece whose salt it names.
  *
+ * Takes the metadata as FEE returns it (`info.appMetadata`), unvalidated, and
+ * checks every field before using it.
+ *
  * @throws If the piece is not in this format, the held scope does not contain the
  * piece's scope, or the held piece is a different piece.
  */
-export function keyForEnvelope(node: Uint8Array, metadata: PieceMetadata, holding: Holding = 'keyspace'): Uint8Array {
-  if (metadata == null || typeof metadata !== 'object') {
+export function keyForEnvelope(
+  node: Uint8Array,
+  envelopeMetadata: PieceMetadata | Readonly<Record<string, unknown>> | undefined,
+  holding: Holding = 'keyspace'
+): Uint8Array {
+  if (envelopeMetadata == null || typeof envelopeMetadata !== 'object') {
     throw new Error(
-      `A piece's envelope metadata must be an object, got ${metadata === null ? 'null' : typeof metadata}`
+      `A piece's envelope metadata must be an object, got ${envelopeMetadata === null ? 'null' : typeof envelopeMetadata}`
     )
   }
+  // Every field is checked below before it is used.
+  const metadata = envelopeMetadata as PieceMetadata
   // Format changes break key derivation, so guard first
   if (metadata['foc/v'] !== 1 || typeof metadata['foc/ks'] !== 'string') {
     throw new Error(
@@ -389,6 +398,23 @@ export function keyForEnvelope(node: Uint8Array, metadata: PieceMetadata, holdin
   // Go!
   return pieceKey(walk(node, target.slice(held.length)), metadata['foc/salt'])
 }
+
+/**
+ * A FEE key resolver for pieces this node reaches: pass it to `fee.decrypt()`,
+ * which calls it with the envelope's metadata before decrypting a byte.
+ *
+ * ```ts
+ * await encrypted.pipeThrough(fee.decrypt(Keysmith.keyResolver(kk))).pipeTo(sink)
+ * ```
+ *
+ * The metadata is not yet authenticated when FEE calls this; it is checked as
+ * strictly as any other envelope, and a tampered label derives a key that the
+ * content tags then reject.
+ */
+export const keyResolver =
+  (node: Uint8Array, holding: Holding = 'keyspace') =>
+  (info: { appMetadata?: Readonly<Record<string, unknown>> }): Uint8Array =>
+    keyForEnvelope(node, info.appMetadata, holding)
 
 /**
  * Which node a grant carries, ready to pass to {@link keyForEnvelope}.

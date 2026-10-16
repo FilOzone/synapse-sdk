@@ -58,7 +58,8 @@ export interface TypedDataSigner {
 }
 
 /** FEE envelope entries to enable key derivation/recovery */
-export interface PieceMetadata {
+// A type, not an interface, so it can be passed as FEE's `appMetadata` (a string-keyed record) as it is.
+export type PieceMetadata = {
   'foc/v': 1 // The version of this metadata format
   'foc/own': Address // The keyspace owner, lowercased.
   'foc/ks': Hex // The keyspace this piece's key belongs to

@@ -116,6 +116,7 @@
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
     "assert": "^2.1.0",
+    "filecoin-encryption-envelope": "workspace:*",
     "mocha": "catalog:",
     "playwright-test": "^14.1.12",
     "typescript": "catalog:",

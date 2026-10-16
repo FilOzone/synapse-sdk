@@ -14,8 +14,10 @@ problem: if you ever forget a key, you can always get it back for the price
 of 1 wallet operation.
 
 Keysmith **generates and derives keys**. It does not encrypt: hand the key
-it gives you to the FEE implementation along with your envelope metadata,
-and upload that through the Synapse SDK like any other bytes.
+it gives you to FEE ([`filecoin-encryption-envelope`](https://www.npmjs.com/package/filecoin-encryption-envelope))
+along with your envelope metadata, and upload that through the Synapse SDK
+like any other bytes. When reading, FEE asks Keysmith for the key once it has
+read the envelope: see `keyResolver`.
 
 ```text
 your app ──▶ @filoz/keysmith ──key──▶ FEE (envelope) ──bytes──▶ @filoz/synapse-sdk ──▶ FWSS + Curio
@@ -194,6 +196,7 @@ const target = Keysmith.writeTarget(descriptor, kk, 'agent-memory')
 const salt = Keysmith.newSalt()
 const key = Keysmith.pieceKey(target.key, salt) // hand to FEE
 const metadata = Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope }) // goes in the FEE envelope
+const encrypted = plaintext.pipeThrough(fee.encrypt({ cek: key, appMetadata: metadata })) // upload these bytes
 
 // Record the keyspace and commitment in the createDataSet call you were making anyway:
 //   metadata: { [Keysmith.KEYSPACE_ID_KEY]: ref.keyspace, [Keysmith.COMMITMENT_KEY]: commitment }
@@ -331,17 +334,21 @@ The FEE envelope carries everything a reader needs, so there is no index to
 keep in sync, and it does not matter which dataset or provider the copy came
 from.
 
-What you pass depends on which key you were given:
+FEE reads the envelope, then asks for the key: give it a `keyResolver` for
+whatever key you hold, and Keysmith derives the piece key from the envelope's
+own metadata.
 
 ```ts
+import * as fee from 'filecoin-encryption-envelope'
+
 // the keyspace key: walks down into whatever scope the metadata names
-const key = Keysmith.keyForEnvelope(kk, metadata)
+await encrypted.pipeThrough(fee.decrypt(Keysmith.keyResolver(kk))).pipeTo(sink)
 
 // a scope key: say which scope it is, and it walks down from there
-const key = Keysmith.keyForEnvelope(rk, metadata, { scope: 'agent-memory' })
+fee.decrypt(Keysmith.keyResolver(rk, { scope: 'agent-memory' }))
 
-// a piece key: nothing to derive — hand it straight to FEE
-await decrypt(blob, pk)
+// a piece key: nothing to derive, but it opens only the piece whose salt it names
+fee.decrypt(Keysmith.keyResolver(pk, { piece: salt }))
 ```
 
 `KK`, `RK` and a piece key are all 32 bytes of HKDF output, so nothing in the
@@ -350,7 +357,17 @@ delivered the key holds this information, so keep the whole grant when
 receiving a share and then use it in the derivation:
 
 ```ts
-const key = Keysmith.keyForEnvelope(node, metadata, Keysmith.holdingOf(grant))
+fee.decrypt(Keysmith.keyResolver(node, Keysmith.holdingOf(grant)))
+```
+
+The metadata FEE hands the resolver is not yet authenticated: Keysmith checks it
+as strictly as any envelope, and a tampered label yields a key the content tags
+reject. For a range read, derive the key yourself and pass it to FEE:
+
+```ts
+const info = await fee.parse(source)
+const key = Keysmith.keyForEnvelope(node, info.appMetadata, Keysmith.holdingOf(grant))
+const { stream } = await fee.decryptRange(source, key, { offset, length }, { params: info.params })
 ```
 
 ## Recovery
@@ -391,6 +408,7 @@ a new dataset's metadata too.
 | `scopeName(name)` / `scopePath(path)` | A scope name or path in canonical form, or a thrown error |
 | `pieceKey(node, salt)` | The key for one piece — hand this to FEE |
 | `keyForEnvelope(node, metadata, holding?)` | Derive a piece key from whatever node you hold |
+| `keyResolver(node, holding?)` | The same, as a FEE key resolver: `fee.decrypt(keyResolver(node))` |
 | `writeTarget(grant, key, scope?)` | For a delegate: the ref, scope and key to write a piece, refusing scopes its grant does not cover, and piece grants |
 | `holdingOf(grant)` | Which node a grant carries — keyspace, scope or piece — for `keyForEnvelope` |
 | `pieceMetadata(ref, { salt, scope?})` | What the envelope must record |

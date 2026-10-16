@@ -10,6 +10,7 @@ export {
   KEYSPACE_ID_KEY,
   KEYSPACE_KEY_TYPES,
   keyForEnvelope,
+  keyResolver,
   keyspaceId,
   keyspaceKeyMessage,
   keyspaceKeys,
