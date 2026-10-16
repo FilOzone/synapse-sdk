@@ -1,5 +1,5 @@
 {
-  "packages/synapse-sdk": "2.0.2",
+  "packages/synapse-sdk": "2.1.0",
   "packages/synapse-core": "0.10.2",
   "packages/synapse-react": "0.5.1",
   "packages/filecoin-encryption-envelope": "0.1.0"
