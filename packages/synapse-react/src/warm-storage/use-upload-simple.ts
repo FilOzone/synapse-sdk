@@ -1,5 +1,6 @@
 import * as SP from '@filoz/synapse-core/sp'
 import { type AddPiecesSuccess, upload } from '@filoz/synapse-core/sp'
+import { getPayerAddress } from '@filoz/synapse-core/utils'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useChainId, useConfig, useConnection } from 'wagmi'
 import { getSignerClient, type SessionKeySignerOptions } from '../signer.ts'
@@ -50,7 +51,7 @@ export function useUploadSimple(props: UseUploadSimpleProps) {
       const rsp = await SP.waitForAddPieces(uploadRsp)
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', props?.sessionKey?.rootAddress ?? account.address, chainId],
+        queryKey: ['synapse-warm-storage-data-sets', getPayerAddress(client.account), chainId],
       })
       return rsp
     },

@@ -1,6 +1,6 @@
 import * as SP from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
-import type { MetadataObject } from '@filoz/synapse-core/utils'
+import { getPayerAddress, type MetadataObject } from '@filoz/synapse-core/utils'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getSignerClient, type SessionKeySignerOptions } from '../signer.ts'
@@ -40,8 +40,6 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
         chainId,
         sessionKey: props?.sessionKey,
       })
-      // Core bills a session key's root wallet, so that is whose data sets change.
-      const payer = props?.sessionKey?.rootAddress ?? account.address
 
       const { txHash, statusUrl } = await SP.createDataSet(client, {
         payee: provider.payee,
@@ -54,7 +52,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
       const dataSet = await SP.waitForCreateDataSet({ statusUrl })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', payer, chainId],
+        queryKey: ['synapse-warm-storage-data-sets', getPayerAddress(client.account), chainId],
       })
       return dataSet
     },

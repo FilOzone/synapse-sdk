@@ -1,6 +1,6 @@
 import type { PieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import type { MetadataObject } from '@filoz/synapse-core/utils'
+import { getPayerAddress, type MetadataObject } from '@filoz/synapse-core/utils'
 import type { PdpDataSet } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useChainId, useConfig, useConnection } from 'wagmi'
@@ -128,7 +128,7 @@ export function useUploadPieces(props?: UseUploadPiecesProps) {
       })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', props?.sessionKey?.rootAddress ?? account.address, chainId],
+        queryKey: ['synapse-warm-storage-data-sets', getPayerAddress(client.account), chainId],
       })
       return {
         confirmations: result.confirmations,

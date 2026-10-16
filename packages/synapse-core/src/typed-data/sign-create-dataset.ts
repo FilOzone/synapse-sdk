@@ -11,6 +11,7 @@ import type {
 import { encodeAbiParameters } from 'viem'
 import { signTypedData } from 'viem/actions'
 import { asChain } from '../chains.ts'
+import { getPayerAddress } from '../utils/payer.ts'
 import { randU256 } from '../utils/rand.ts'
 import { EIP712Types, getStorageDomain, type MetadataEntry } from './type-definitions.ts'
 
@@ -58,7 +59,7 @@ export async function signCreateDataSet(client: Client<Transport, Chain, Account
 
   const keys = metadata.map((item) => item.key)
   const values = metadata.map((item) => item.value)
-  const payer = options.payer ?? defaultPayer(client.account)
+  const payer = options.payer ?? getPayerAddress(client.account)
 
   const extraData = encodeAbiParameters(signCreateDataSetAbiParameters, [
     payer,
@@ -69,19 +70,6 @@ export async function signCreateDataSet(client: Client<Transport, Chain, Account
   ])
 
   return extraData
-}
-
-/**
- * The default payer for a client account: a session key signs as itself, but its root wallet pays.
- *
- * @param account - The client account.
- * @returns The root address for a session key account, otherwise the account address.
- */
-function defaultPayer(account: Account): Address {
-  if ('rootAddress' in account && typeof account.rootAddress === 'string') {
-    return account.rootAddress as Address
-  }
-  return account.address
 }
 
 export namespace signCreateDataSet {
