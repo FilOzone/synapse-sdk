@@ -3,7 +3,7 @@ import type { StorageManagerUploadOptions } from '@filoz/synapse-sdk/storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useChainId, useConfig, useConnection } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
-import type { SessionKeySignerOptions } from '../signer.ts'
+import { assertSessionKey, type SessionKeySignerOptions } from '../signer.ts'
 
 export interface UseUploadProps
   extends Omit<StorageManagerUploadOptions, 'contexts' | 'pieceMetadata'>,
@@ -31,8 +31,9 @@ export function useUpload(props: UseUploadProps) {
         chainId,
       })
 
-      if (sessionKey && sessionKey.client.chain.id !== chainId) {
-        throw new Error(`Session key is for chain ${sessionKey.client.chain.id}, but the connected chain is ${chainId}`)
+      // The connected wallet pays, so the session key must belong to it.
+      if (sessionKey) {
+        assertSessionKey(sessionKey, { account: connectorClient.account.address, chainId })
       }
 
       const synapse = new Synapse({
@@ -47,7 +48,7 @@ export function useUpload(props: UseUploadProps) {
       })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', account.address, chainId],
+        queryKey: ['synapse-warm-storage-data-sets', connectorClient.account.address, chainId],
       })
       return rsp
     },
