@@ -41,7 +41,7 @@ export namespace signCreateDataSetAndAddPieces {
     clientDataSetId?: bigint
     /** The payee address to use for the signature. */
     payee: Address
-    /** The payer address to use for the signature. If client is from a session key this should be set to the actual payer address. */
+    /** The payer address to use for the signature. Defaults to the root address for a session key client, otherwise the client address. */
     payer?: Address
     /** Dataset metadata. */
     metadata?: MetadataEntry[]

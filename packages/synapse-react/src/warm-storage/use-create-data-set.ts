@@ -40,12 +40,11 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
         chainId,
         sessionKey: props?.sessionKey,
       })
-      // A session key signs as itself, so the payer is its root wallet.
+      // Core bills a session key's root wallet, so that is whose data sets change.
       const payer = props?.sessionKey?.rootAddress ?? account.address
 
       const { txHash, statusUrl } = await SP.createDataSet(client, {
         payee: provider.payee,
-        payer,
         serviceURL: provider.pdp.serviceURL,
         cdn,
         metadata,
