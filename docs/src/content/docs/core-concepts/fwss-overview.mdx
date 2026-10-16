@@ -28,11 +28,30 @@ Together, FWSS enables builders to depend on Filecoin not only for “store and 
 
 WarmStorage manages the complete storage marketplace:
 
-1. **Client Authentication**: Validates all client operations via EIP-712 signaturess.
+1. **Client Authentication**: Validates all client operations via EIP-712 signatures.
 2. **Payment Coordination**: Automatically creates and manages payment rails between clients and service providers.
 3. **Cost Calculation**: Determines pricing based on size, duration, and CDN usage.
 4. **Metadata Management**: Stores data set metadata and emits piece metadata for off-chain indexing.
 5. **Fault Handling**: Integrates PDP verification results with payment adjustments
+
+### Authorizing writes
+
+For the write operations on a data set — adding pieces, scheduling piece removals, and terminating
+the service — FWSS supports three authorization models, in increasing order of flexibility:
+
+1. **Payer signature (default)**: the data set's payer signs an EIP-712 message; FWSS recovers the
+   secp256k1 signer and checks it against the payer.
+2. **[Session keys](/developer-guides/access-control/session-keys/)**: the payer delegates to an ephemeral
+   secp256k1 key with time-limited, per-operation permissions recorded in the `SessionKeyRegistry`.
+   This is the recommended way to get silent, popup-free signing while keeping the standard model.
+3. **[Programmable ACLs](/developer-guides/access-control/programmable-acls/) (Data Set Authorizers)**: the payer
+   attaches a contract implementing `IDataSetAuthorizer` to a single data set. FWSS then delegates
+   the entire authorization decision for that data set's writes to the contract, which can enforce
+   any policy — verifying a **different curve** (e.g. a P256 passkey / WebAuthn assertion), requiring
+   human presence, or adding expiry, rate-limits, or a kill-switch.
+
+The three are complementary: session keys and programmable ACLs are both opt-in delegation layers on
+top of the default payer-signature model, chosen per data set.
 
 ## How FWSS works
 
