@@ -15,7 +15,9 @@ import {
   PostPieceError,
   UploadPieceError,
   WaitForAddPiecesError,
+  WaitForAddPiecesRejectedError,
   WaitForCreateDataSetError,
+  WaitForCreateDataSetRejectedError,
 } from '../src/errors/pdp.ts'
 import { AtLeastOnePieceRequiredError } from '../src/errors/warm-storage.ts'
 import { ADDRESSES, PRIVATE_KEYS } from '../src/mocks/index.ts'
@@ -457,6 +459,40 @@ InvalidSignature(address expected, address actual)
       assert.isTrue(callCount >= 2, 'Should have polled at least twice')
     })
 
+    it('should throw rejected error without polling until timeout', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      let callCount = 0
+
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/created/:tx', () => {
+          callCount++
+          return HttpResponse.json(
+            {
+              createMessageHash: mockTxHash,
+              dataSetCreated: false,
+              service: 'test-service',
+              txStatus: 'rejected',
+              ok: false,
+            },
+            { status: 200 }
+          )
+        })
+      )
+
+      try {
+        await waitForCreateDataSet({
+          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
+          pollInterval: 10,
+          timeout: 1000,
+        })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, WaitForCreateDataSetRejectedError)
+        assert.strictEqual(error.response.createMessageHash, mockTxHash)
+        assert.strictEqual(callCount, 1)
+      }
+    })
+
     it('should handle server errors', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
@@ -877,6 +913,42 @@ InvalidSignature(address expected, address actual)
       assert.typeOf(result.dataSetId, 'bigint')
       assert.deepStrictEqual(result.confirmedPieceIds, [101n, 102n])
       assert.isTrue(callCount >= 2, 'Should have polled at least twice')
+    })
+
+    it('should throw rejected error without polling until timeout', async () => {
+      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+      let callCount = 0
+
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () => {
+          callCount++
+          return HttpResponse.json(
+            {
+              txHash: mockTxHash,
+              txStatus: 'rejected',
+              dataSetId: 1,
+              pieceCount: 2,
+              addMessageOk: null,
+              piecesAdded: false,
+            },
+            { status: 200 }
+          )
+        })
+      )
+
+      try {
+        await waitForAddPieces({
+          statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
+          pollInterval: 10,
+          timeout: 1000,
+        })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, WaitForAddPiecesRejectedError)
+        assert.strictEqual(error.response.txHash, mockTxHash)
+        assert.strictEqual(error.response.dataSetId, 1n)
+        assert.strictEqual(callCount, 1)
+      }
     })
 
     it('should handle server errors', async () => {
