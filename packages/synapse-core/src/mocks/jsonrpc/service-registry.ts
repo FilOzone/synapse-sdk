@@ -1,8 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: testing */
 
 import type { ExtractAbiFunction } from 'abitype'
-import type { Address } from 'ox/Address'
-import type { Hex } from 'viem'
+import type { Address, Hex } from 'viem'
 import { decodeFunctionData, encodeAbiParameters, isAddressEqual } from 'viem'
 import * as Abis from '../../abis/index.ts'
 import type { PDPOffering, ProviderInfo } from '../../sp-registry/types.ts'
