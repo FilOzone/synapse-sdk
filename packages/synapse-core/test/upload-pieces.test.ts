@@ -65,8 +65,9 @@ function createDataSet(): PdpDataSet {
 
 /**
  * Accept add-pieces requests and confirm them with piece ids `(request + 1) * 100 + n`.
+ * Requests listed in `rejected` report a rejected transaction instead.
  */
-function addPiecesHandlers(bodies: addPiecesApiRequest.RequestBody[]) {
+function addPiecesHandlers(bodies: addPiecesApiRequest.RequestBody[], rejected: number[] = []) {
   return [
     http.post<{ id: string }, addPiecesApiRequest.RequestBody>(
       `${pdpBase}/pdp/data-sets/:id/pieces`,
@@ -82,6 +83,16 @@ function addPiecesHandlers(bodies: addPiecesApiRequest.RequestBody[]) {
     http.get<{ id: string; txHash: string }>(`${pdpBase}/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
       const request = txHashes.findIndex((txHash) => txHash === params.txHash)
       const count = bodies[request]?.pieces.length ?? 0
+      if (rejected.includes(request)) {
+        return HttpResponse.json({
+          txHash: params.txHash,
+          txStatus: 'rejected',
+          dataSetId: 1,
+          pieceCount: count,
+          addMessageOk: null,
+          piecesAdded: false,
+        })
+      }
       return HttpResponse.json({
         txHash: params.txHash,
         txStatus: 'confirmed',
@@ -188,6 +199,68 @@ describe('uploadPieces', () => {
         [0, 100n],
         [2, 101n],
       ]
+    )
+  })
+
+  it('maps piece ids across add-pieces transactions when a batch is split', async () => {
+    const bodies: addPiecesApiRequest.RequestBody[] = []
+    server.use(
+      ...streamingUploadHandlers({ baseUrl: pdpBase }),
+      findAnyPieceHandler(true, { baseUrl: pdpBase }),
+      ...addPiecesHandlers(bodies)
+    )
+    const hashes: string[] = []
+
+    const result = await uploadPieces(client, {
+      dataSet: createDataSet(),
+      pieces: [1, 2, 3, 4].map((n) => ({ data: data(n) })),
+      concurrency: 1,
+      limiter: ({ pieces }) => pieces.length > 0 && pieces.length <= 2,
+      onHash: (txHash) => hashes.push(txHash),
+    })
+
+    assert.equal(bodies.length, 2)
+    assert.deepEqual(hashes, [...txHashes])
+    assert.equal(result.confirmations.length, 2)
+    assert.deepEqual(result.failed, [])
+    assert.deepEqual(
+      result.pieces.map((piece) => [piece.index, piece.pieceId]),
+      [
+        [0, 100n],
+        [1, 101n],
+        [2, 200n],
+        [3, 201n],
+      ]
+    )
+  })
+
+  it('keeps the confirmed transaction when another one is rejected', async () => {
+    const bodies: addPiecesApiRequest.RequestBody[] = []
+    server.use(
+      ...streamingUploadHandlers({ baseUrl: pdpBase }),
+      findAnyPieceHandler(true, { baseUrl: pdpBase }),
+      ...addPiecesHandlers(bodies, [1])
+    )
+
+    const result = await uploadPieces(client, {
+      dataSet: createDataSet(),
+      pieces: [1, 2, 3, 4].map((n) => ({ data: data(n) })),
+      concurrency: 1,
+      limiter: ({ pieces }) => pieces.length > 0 && pieces.length <= 2,
+    })
+
+    assert.equal(bodies.length, 2)
+    assert.equal(result.confirmations.length, 1)
+    assert.deepEqual(
+      result.pieces.map((piece) => [piece.index, piece.pieceId]),
+      [
+        [0, 100n],
+        [1, 101n],
+      ]
+    )
+    assert.deepEqual(
+      result.failed.map((item) => item.index),
+      [2, 3]
     )
   })
 
