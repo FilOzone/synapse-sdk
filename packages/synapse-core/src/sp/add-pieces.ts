@@ -259,7 +259,8 @@ export async function waitForAddPieces(options: waitForAddPieces.OptionsType): P
       statusCodes: [202, 200], // 202 is processing, 200 is success
       shouldPoll: async (ctx) => {
         const data = (await ctx.response.clone().json()) as AddPiecesResponse
-        return data.piecesAdded === false
+        // A rejected status also has piecesAdded false, stop polling so the rejected error is thrown
+        return data.txStatus !== 'rejected' && data.piecesAdded === false
       },
     },
     signal: options.signal,

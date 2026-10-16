@@ -252,7 +252,8 @@ export async function waitForCreateDataSet(
       statusCodes: [202, 200], // 202 is processing, 200 is success
       shouldPoll: async (ctx) => {
         const data = (await ctx.response.clone().json()) as CreateDataSetResponse
-        return data.dataSetCreated === false
+        // A rejected status also has dataSetCreated false, stop polling so the rejected error is thrown
+        return data.txStatus !== 'rejected' && data.dataSetCreated === false
       },
     },
 
