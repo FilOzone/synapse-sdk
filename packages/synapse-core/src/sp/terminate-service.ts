@@ -21,6 +21,7 @@ import {
   WaitForTerminateServiceRejectedError,
 } from '../errors/pdp.ts'
 import { signTerminateService } from '../typed-data/sign-terminate-service.ts'
+import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
 
@@ -93,6 +94,8 @@ export namespace terminateServiceApiRequest {
     dataSetId: bigint
     /** The extra data carrying the signed termination authorization. {@link TypedData.signTerminateService} */
     extraData: Hex
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -137,6 +140,7 @@ export async function terminateServiceApiRequest(
     json: {
       extraData: options.extraData,
     },
+    signal: options.signal,
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
       methods: ['post'],
@@ -180,6 +184,8 @@ export namespace terminateService {
     dataSetId: bigint
     /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
     extraData?: Hex
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -234,6 +240,7 @@ export async function terminateService(
   client: Client<Transport, Chain, Account>,
   options: terminateService.OptionsType
 ): Promise<terminateService.OutputType> {
+  throwIfAborted(options.signal)
   const extraData = options.extraData ?? (await signTerminateService(client, { dataSetId: options.dataSetId }))
   return terminateServiceApiRequest({
     serviceURL: options.serviceURL,
@@ -241,6 +248,7 @@ export async function terminateService(
     extraData,
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
+    signal: options.signal,
   })
 }
 
@@ -283,6 +291,8 @@ export namespace waitForTerminateService {
     onHash?: (hash: Hash) => void
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -332,6 +342,7 @@ export async function waitForTerminateService(
         return data.fwssTerminated === null
       },
     },
+    signal: options.signal,
     timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
     schema,
   })

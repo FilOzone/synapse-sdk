@@ -1,0 +1,114 @@
+{
+  "name": "filecoin-encryption-envelope",
+  "version": "0.1.0",
+  "description": "Filecoin Encryption Envelope: COSE envelope encryption",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilOzone/synapse-sdk.git"
+  },
+  "keywords": [
+    "filecoin",
+    "encryption",
+    "cose",
+    "aes-gcm"
+  ],
+  "license": "Apache-2.0 OR MIT",
+  "bugs": {
+    "url": "https://github.com/FilOzone/synapse-sdk/issues"
+  },
+  "homepage": "https://github.com/FilOzone/synapse-sdk/tree/master/packages/filecoin-encryption-envelope",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "module": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "dist/src",
+    "dist/src/**/*.d.ts",
+    "dist/src/**/*.d.ts.map"
+  ],
+  "scripts": {
+    "build": "wireit",
+    "test": "wireit",
+    "test:node": "wireit",
+    "test:browser": "wireit",
+    "lint": "wireit",
+    "lint:fix": "biome check --fix ."
+  },
+  "wireit": {
+    "build": {
+      "command": "tsc --build --pretty",
+      "clean": "if-file-deleted",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "test": {
+      "command": "pnpm run test:node && pnpm run test:browser",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts"
+      ],
+      "output": [],
+      "dependencies": [
+        "lint"
+      ]
+    },
+    "test:node": {
+      "command": "playwright-test \"test/**/*.test.ts\" --mode node --runner mocha",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts"
+      ],
+      "output": []
+    },
+    "test:browser": {
+      "command": "playwright-test \"test/**/*.test.ts\" --runner mocha",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts"
+      ],
+      "output": []
+    },
+    "lint": {
+      "command": "biome check .",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../biome.json"
+      ],
+      "output": [],
+      "dependencies": [
+        "build"
+      ]
+    }
+  },
+  "dependencies": {
+    "cborg": "6.1.2",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@types/mocha": "catalog:",
+    "@types/node": "catalog:",
+    "assert": "^2.1.0",
+    "mocha": "catalog:",
+    "playwright-test": "^14.1.12",
+    "typescript": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

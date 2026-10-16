@@ -1,0 +1,128 @@
+/**
+ * Error categories for expected package failures. Errors from caller-provided
+ * streams may propagate unchanged.
+ *
+ * Input-validation messages name the offending value and expected shape or range.
+ */
+
+/** Base class for errors defined by this package. */
+export class EnvelopeError extends Error {
+  override name = 'EnvelopeError'
+}
+
+/** A CEK or KEK is not a 32-byte, non-zero AES-256 key. */
+export class InvalidKeyError extends EnvelopeError {
+  override name = 'InvalidKeyError'
+}
+
+/** Plaintext supplied to an encryption operation is not a byte string. */
+export class InvalidPlaintextError extends EnvelopeError {
+  override name = 'InvalidPlaintextError'
+}
+
+/** A cryptographic runtime operation failed for a reason other than authentication. */
+export class CryptoOperationError extends EnvelopeError {
+  override name = 'CryptoOperationError'
+}
+
+/**
+ * AEAD authentication failed. A wrong key and modified authenticated data
+ * are intentionally reported as the same error.
+ */
+export class AuthenticationError extends EnvelopeError {
+  override name = 'AuthenticationError'
+}
+
+/** No recipient in a valid envelope could provide a CEK. */
+export class NoUsableRecipientError extends EnvelopeError {
+  override name = 'NoUsableRecipientError'
+}
+
+/** A recipient unwrapper failed instead of declining the available recipients. */
+export class RecipientUnwrapError extends EnvelopeError {
+  override name = 'RecipientUnwrapError'
+}
+
+/** A recipient unwrapper reached its configured limit of key-unwrap attempts. */
+export class RecipientAttemptLimitError extends EnvelopeError {
+  override name = 'RecipientAttemptLimitError'
+}
+
+/** A `KeyResolver` threw or rejected instead of returning a CEK. */
+export class KeyResolutionError extends EnvelopeError {
+  override name = 'KeyResolutionError'
+}
+
+/** `chunkSize` is not an integer within `[MIN_CHUNK_SIZE, MAX_CHUNK_SIZE]`. */
+export class InvalidChunkSizeError extends EnvelopeError {
+  override name = 'InvalidChunkSizeError'
+}
+
+/** The ciphertext length cannot represent a valid object for the selected scheme. */
+export class InvalidCiphertextLengthError extends EnvelopeError {
+  override name = 'InvalidCiphertextLengthError'
+}
+
+/** A chunk count derived from a plaintext or ciphertext length exceeds `MAX_CHUNK_COUNT`. */
+export class ChunkCountExceededError extends EnvelopeError {
+  override name = 'ChunkCountExceededError'
+}
+
+/**
+ * `plaintextLength` is not a non-negative safe integer or exceeds the limit
+ * for the selected scheme or encoded layout.
+ */
+export class InvalidPlaintextLengthError extends EnvelopeError {
+  override name = 'InvalidPlaintextLengthError'
+}
+
+/** A base nonce, chunk index, or last-chunk flag is not valid for per-chunk nonce derivation. */
+export class InvalidNonceError extends EnvelopeError {
+  override name = 'InvalidNonceError'
+}
+
+/** A requested byte range cannot be served: malformed, out of bounds, or empty. HTTP 416 territory. */
+export class InvalidRangeError extends EnvelopeError {
+  override name = 'InvalidRangeError'
+}
+
+/**
+ * A random-access source's `size` is invalid, or an opened range produced
+ * fewer or more bytes than requested. A transport or source fault, not a bad
+ * ciphertext layout.
+ */
+export class InvalidSourceLengthError extends EnvelopeError {
+  override name = 'InvalidSourceLengthError'
+}
+
+/**
+ * The envelope, or a value destined for one, does not match this package's
+ * wire profile. Raised on both paths: by encode when a caller's input would
+ * produce bytes this package could not read back, and by decode on anything
+ * the profile forbids.
+ *
+ * Always thrown before any AEAD tag is checked, so it says nothing about
+ * authenticity.
+ */
+export class MalformedEnvelopeError extends EnvelopeError {
+  override name = 'MalformedEnvelopeError'
+}
+
+/**
+ * The protected header's `alg` is not one of the schemes this package
+ * implements (`ALG_AES_256_GCM` or `ALG_CHUNKED_AES_256_GCM_STREAM`).
+ */
+export class UnsupportedSchemeError extends EnvelopeError {
+  override name = 'UnsupportedSchemeError'
+}
+
+/**
+ * A `crit` (label 2) listing was rejected — wrong bucket, wrong shape, or
+ * naming a label this profile does not understand or does not actually carry.
+ *
+ * Note what is *not* an error: a `crit` naming only understood, present
+ * labels (`[16]` for `typ`) is satisfiable and must be accepted.
+ */
+export class CriticalHeaderError extends EnvelopeError {
+  override name = 'CriticalHeaderError'
+}

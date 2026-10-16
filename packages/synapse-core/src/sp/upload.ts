@@ -23,6 +23,8 @@ export namespace uploadPiece {
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
     retryDelay?: number
+    /** The signal to abort the request. */
+    signal?: AbortSignal
   }
   export type ErrorType = InvalidUploadSizeError | LocationHeaderError | TimeoutError | NetworkError | AbortError
 }
@@ -55,6 +57,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
     },
     timeout: RETRY_CONSTANTS.TIMEOUT,
+    signal: options.signal,
   })
 
   if (response.error) {
@@ -87,6 +90,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
       retries: options.retryCount,
       minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
     },
+    signal: options.signal,
   })
 
   if (uploadResponse.error) {
@@ -116,6 +120,8 @@ export namespace upload {
     data: File[]
     /** The callback to call when an event occurs. */
     onEvent?: <T extends keyof upload.Events>(event: T, data: upload.Events[T]) => void
+    /** The signal to abort the SP requests (upload, piece polling and add pieces). */
+    signal?: AbortSignal
   }
   export type OutputType = {
     pieceCid: Piece.PieceCID
@@ -151,36 +157,52 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
   const chain = asChain(client.chain)
   const serviceURL = dataSet.provider.pdp.serviceURL
 
+  // Aborted when any file fails, so sibling uploads and polls stop instead of running in the background
+  const controller = new AbortController()
+  const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal
+
+  const uploadFile = async (file: File) => {
+    const data = new Uint8Array(await file.arrayBuffer())
+    const pieceCid = await Piece.calculate(data)
+    const url = createPieceUrl({
+      cid: pieceCid.toString(),
+      cdn: dataSet.cdn,
+      address: client.account.address,
+      chain: chain,
+      serviceURL,
+    })
+    await uploadPiece({
+      data,
+      pieceCid,
+      serviceURL,
+      signal,
+    })
+    options.onEvent?.('pieceUploaded', { pieceCid, dataSet })
+
+    await findPiece({
+      pieceCid,
+      serviceURL,
+      poll: true,
+      signal,
+    })
+
+    options.onEvent?.('pieceParked', { pieceCid, url, dataSet })
+
+    return {
+      pieceCid,
+      url,
+      metadata: { name: file.name, type: file.type },
+    }
+  }
+
+  // Promise.all rejects with the first failure, so the AbortErrors from cancelled siblings are ignored
   const uploadResponses = await Promise.all(
-    options.data.map(async (file: File) => {
-      const data = new Uint8Array(await file.arrayBuffer())
-      const pieceCid = await Piece.calculate(data)
-      const url = createPieceUrl({
-        cid: pieceCid.toString(),
-        cdn: dataSet.cdn,
-        address: client.account.address,
-        chain: chain,
-        serviceURL,
-      })
-      await uploadPiece({
-        data,
-        pieceCid,
-        serviceURL,
-      })
-      options.onEvent?.('pieceUploaded', { pieceCid, dataSet })
-
-      await findPiece({
-        pieceCid,
-        serviceURL,
-        poll: true,
-      })
-
-      options.onEvent?.('pieceParked', { pieceCid, url, dataSet })
-
-      return {
-        pieceCid,
-        url,
-        metadata: { name: file.name, type: file.type },
+    options.data.map(async (file) => {
+      try {
+        return await uploadFile(file)
+      } catch (error) {
+        controller.abort()
+        throw error
       }
     })
   )
@@ -193,6 +215,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
       metadata: response.metadata,
     })),
     clientDataSetId: dataSet.clientDataSetId,
+    signal,
   })
 
   return { ...addPiecesResponse, pieces: uploadResponses }

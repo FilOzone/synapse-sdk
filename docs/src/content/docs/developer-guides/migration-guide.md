@@ -9,13 +9,19 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ---
 
-## Unreleased: inactive PDP providers
+## synapse-core 0.10.0
+
+This release retains data sets and pieces whose provider no longer has an active PDP product, so they no longer block listings or downloads from healthy providers. synapse-react 0.5.0 includes the same change.
+
+### Action: Handle null providers and piece URLs
 
 `getPdpDataSets()` and `getPdpDataSet()` retain data sets whose provider has no active, populated PDP product. Their `provider` field is now `PDPProvider | null`. Check it before accessing `provider.pdp`; data-set IDs, metadata, and on-chain state remain available.
 
 `getPieces()` also retains pieces from these data sets. Its `Piece.url` field is now `string | null`: CDN-enabled data sets can still have a CDN URL, while pieces without an available endpoint have a null URL. Disable retrieval links when the URL is null.
 
 Automatic downloads skip unavailable providers and continue trying healthy providers. Provider-dependent uploads and deletions fail explicitly for an unavailable provider. The CLI can still terminate service on chain with `datasets-terminate --on-chain`.
+
+---
 
 ## synapse-sdk 2.0.0
 

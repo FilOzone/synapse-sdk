@@ -1,5 +1,6 @@
 import { calibration, mainnet } from '@filoz/synapse-core/chains'
 import { expect } from 'chai'
+import { AbortError, TimeoutError } from 'iso-web/http'
 import { FilBeamService } from '../filbeam/service.ts'
 
 describe('FilBeamService', () => {
@@ -33,12 +34,10 @@ describe('FilBeamService', () => {
       }
 
       const mockFetch = async (input: string | URL | Request): Promise<Response> => {
-        expect(input).to.equal('https://stats.filbeam.com/data-set/test-dataset-id')
-        return {
-          status: 200,
-          statusText: 'OK',
-          json: async () => mockResponse,
-        } as Response
+        expect(input instanceof Request ? input.url : String(input)).to.equal(
+          'https://stats.filbeam.com/data-set/test-dataset-id'
+        )
+        return Response.json(mockResponse)
       }
 
       const service = new FilBeamService(mainnet, mockFetch)
@@ -57,12 +56,10 @@ describe('FilBeamService', () => {
       }
 
       const mockFetch = async (input: string | URL | Request): Promise<Response> => {
-        expect(input).to.equal('https://calibration.stats.filbeam.com/data-set/123')
-        return {
-          status: 200,
-          statusText: 'OK',
-          json: async () => mockResponse,
-        } as Response
+        expect(input instanceof Request ? input.url : String(input)).to.equal(
+          'https://calibration.stats.filbeam.com/data-set/123'
+        )
+        return Response.json(mockResponse)
       }
 
       const service = new FilBeamService(calibration, mockFetch)
@@ -76,11 +73,7 @@ describe('FilBeamService', () => {
 
     it('should handle 404 errors gracefully', async () => {
       const mockFetch = async (): Promise<Response> => {
-        return {
-          status: 404,
-          statusText: 'Not Found',
-          text: async () => 'Data set not found',
-        } as Response
+        return new Response('Data set not found', { status: 404, statusText: 'Not Found' })
       }
 
       const service = new FilBeamService(mainnet, mockFetch)
@@ -95,11 +88,7 @@ describe('FilBeamService', () => {
 
     it('should handle other HTTP errors', async () => {
       const mockFetch = async (): Promise<Response> => {
-        return {
-          status: 500,
-          statusText: 'Internal Server Error',
-          text: async () => 'Server error occurred',
-        } as Response
+        return new Response('Server error occurred', { status: 500, statusText: 'Internal Server Error' })
       }
 
       const service = new FilBeamService(mainnet, mockFetch)
@@ -114,11 +103,7 @@ describe('FilBeamService', () => {
 
     it('should validate response is an object', async () => {
       const mockFetch = async (): Promise<Response> => {
-        return {
-          status: 200,
-          statusText: 'OK',
-          json: async () => null,
-        } as Response
+        return Response.json(null)
       }
 
       const service = new FilBeamService(mainnet, mockFetch)
@@ -133,13 +118,7 @@ describe('FilBeamService', () => {
 
     it('should validate cdnEgressQuota is present', async () => {
       const mockFetch = async (): Promise<Response> => {
-        return {
-          status: 200,
-          statusText: 'OK',
-          json: async () => ({
-            cacheMissEgressQuota: '12345',
-          }),
-        } as Response
+        return Response.json({ cacheMissEgressQuota: '12345' })
       }
 
       const service = new FilBeamService(mainnet, mockFetch)
@@ -154,13 +133,7 @@ describe('FilBeamService', () => {
 
     it('should validate cacheMissEgressQuota is present', async () => {
       const mockFetch = async (): Promise<Response> => {
-        return {
-          status: 200,
-          statusText: 'OK',
-          json: async () => ({
-            cdnEgressQuota: '12345',
-          }),
-        } as Response
+        return Response.json({ cdnEgressQuota: '12345' })
       }
 
       const service = new FilBeamService(mainnet, mockFetch)
@@ -170,6 +143,44 @@ describe('FilBeamService', () => {
         expect.fail('Should have thrown an error')
       } catch (error: any) {
         expect(error.message).to.include('cacheMissEgressQuota must be a string')
+      }
+    })
+    it('should time out when the endpoint hangs', async () => {
+      const hangingFetch = (input: string | URL | Request): Promise<Response> => {
+        const signal = input instanceof Request ? input.signal : undefined
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason))
+        })
+      }
+
+      const service = new FilBeamService(mainnet, hangingFetch)
+
+      try {
+        await service.getDataSetStats('test-dataset', { timeout: 10 })
+        expect.fail('Should have thrown an error')
+      } catch (error: any) {
+        expect(TimeoutError.is(error)).to.equal(true)
+      }
+    })
+
+    it('should abort when the signal is aborted', async () => {
+      const hangingFetch = (input: string | URL | Request): Promise<Response> => {
+        const signal = input instanceof Request ? input.signal : undefined
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason))
+        })
+      }
+
+      const service = new FilBeamService(mainnet, hangingFetch)
+      const controller = new AbortController()
+      const promise = service.getDataSetStats('test-dataset', { signal: controller.signal })
+      controller.abort()
+
+      try {
+        await promise
+        expect.fail('Should have thrown an error')
+      } catch (error: any) {
+        expect(AbortError.is(error)).to.equal(true)
       }
     })
   })

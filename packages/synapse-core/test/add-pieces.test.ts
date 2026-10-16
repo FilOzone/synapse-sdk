@@ -72,6 +72,14 @@ describe('assertAddPiecesFit', () => {
     )
   })
 
+  it('should accept a PieceCID at MAX_UPLOAD_SIZE (64 GiB padded)', () => {
+    const atMax = pieceCidWithRawSize(SIZE_CONSTANTS.MAX_UPLOAD_SIZE)
+    assert.equal(atMax.size, SIZE_CONSTANTS.MAX_UPLOAD_SIZE)
+    assert.equal(atMax.paddedSize, 64n * SIZE_CONSTANTS.GiB)
+    assert.equal(Piece.paddedSizeFor(SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1), 128n * SIZE_CONSTANTS.GiB)
+    assert.doesNotThrow(() => assertAddPiecesFit({ kind: 'addPieces', pieces: [{ pieceCid: atMax }] }))
+  })
+
   it('should throw when a PieceCID is above MAX_UPLOAD_SIZE', () => {
     const tooLarge = pieceCidWithRawSize(SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1)
     assert.equal(tooLarge.size, SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1)

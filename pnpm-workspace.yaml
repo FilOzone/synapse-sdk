@@ -39,6 +39,7 @@ minimumReleaseAgeExclude:
   - iso-kv
   - iso-base
   - '@hugomrdias/docs'
+  - '@hugomrdias/commp-wasm'
   - playwright-test
 
 trustPolicy: no-downgrade

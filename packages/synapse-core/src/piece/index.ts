@@ -29,8 +29,10 @@
  * Reference: FRC-0069
  * https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md
  *
- * Core primitives (FR32, merkle, streaming hasher, size math) are derived
- * from [`@web3-storage/data-segment`](https://github.com/web3-storage/data-segment).
+ * PieceCID hashing uses the Rust/WASM hasher from
+ * [`@hugomrdias/commp-wasm`](https://github.com/hugomrdias/commp). Lower-level
+ * primitives (FR32, merkle, size math) are derived from
+ * [`@web3-storage/data-segment`](https://github.com/web3-storage/data-segment).
  * See the package README for full attribution.
  *
  * @module piece

@@ -15,6 +15,7 @@ import { asChain } from '../chains.ts'
 import { CreateDataSetError, LocationHeaderError } from '../errors/index.ts'
 import { WaitForCreateDataSetError, WaitForCreateDataSetRejectedError } from '../errors/pdp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
+import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject } from '../utils/metadata.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
@@ -30,6 +31,8 @@ export namespace createDataSetApiRequest {
     recordKeeper: Address
     /** The extra data for the create data set. */
     extraData: Hex
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -67,6 +70,7 @@ export async function createDataSetApiRequest(
       recordKeeper: options.recordKeeper,
       extraData: options.extraData,
     },
+    signal: options.signal,
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
       retries: options.retryCount,
@@ -113,6 +117,8 @@ export namespace createDataSet {
     clientDataSetId?: bigint
     /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
     recordKeeper?: Address
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -135,6 +141,7 @@ export namespace createDataSet {
  * @throws Errors {@link createDataSet.ErrorType}
  */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: createDataSet.OptionsType) {
+  throwIfAborted(options.signal)
   const chain = asChain(client.chain)
 
   // Sign and encode the create data set message
@@ -153,6 +160,7 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
     extraData,
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
+    signal: options.signal,
   })
 }
 
@@ -208,6 +216,8 @@ export namespace waitForCreateDataSet {
     statusUrl: string
     /** The timeout in milliseconds. Defaults to 5 minutes. */
     timeout?: number
+    /** The signal to abort the request. */
+    signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -242,10 +252,12 @@ export async function waitForCreateDataSet(
       statusCodes: [202, 200], // 202 is processing, 200 is success
       shouldPoll: async (ctx) => {
         const data = (await ctx.response.clone().json()) as CreateDataSetResponse
-        return data.dataSetCreated === false
+        // A rejected status also has dataSetCreated false, stop polling so the rejected error is thrown
+        return data.txStatus !== 'rejected' && data.dataSetCreated === false
       },
     },
 
+    signal: options.signal,
     timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
     schema,
   })

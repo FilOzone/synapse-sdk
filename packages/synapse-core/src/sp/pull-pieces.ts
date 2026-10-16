@@ -6,6 +6,7 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import type { MetadataEntry } from '../typed-data/type-definitions.ts'
+import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
@@ -151,7 +152,7 @@ export namespace waitForPullPiecesApiRequest {
   export type OptionsType = pullPiecesApiRequest.OptionsType & {
     /** Callback invoked on each poll with current status. */
     onStatus?: (response: pullPiecesApiRequest.ReturnType) => void
-    /** The timeout in milliseconds. Defaults to 5 minutes. */
+    /** Total time in milliseconds to wait for the pull to finish. Defaults to {@link RETRY_CONSTANTS.PULL_TIMEOUT} (2 hours). */
     timeout?: number
     /** The number of retries. Defaults to 2. */
     retryCount?: number
@@ -201,7 +202,7 @@ export async function waitForPullPiecesApiRequest(
         return data.status !== 'complete' && data.status !== 'failed'
       },
     },
-    timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
+    timeout: options.timeout ?? RETRY_CONSTANTS.PULL_TIMEOUT,
     signal: options.signal,
   })
 
@@ -347,11 +348,14 @@ async function signPullExtraData(
 /**
  * Resolve the common SP-level options from high-level pull options.
  * Signs extraData if not pre-built by the caller.
+ * Throws AbortError before signing if the signal has already been aborted, so an
+ * aborted call never triggers a wallet prompt.
  */
 async function resolvePullParams(
   client: Client<Transport, Chain, Account>,
   options: pullPieces.OptionsType
 ): Promise<pullPiecesApiRequest.OptionsType> {
+  throwIfAborted(options.signal)
   const chain = asChain(client.chain)
   return {
     serviceURL: options.serviceURL,
@@ -392,7 +396,7 @@ export namespace waitForPullPieces {
   export type OptionsType = pullPieces.OptionsType & {
     /** Callback invoked on each poll with current status. */
     onStatus?: (response: pullPieces.ReturnType) => void
-    /** The timeout in milliseconds. Defaults to 5 minutes. */
+    /** Total time in milliseconds to wait for the pull to finish. Defaults to {@link RETRY_CONSTANTS.PULL_TIMEOUT} (2 hours). */
     timeout?: number
     /** The number of retries. Defaults to 2. */
     retryCount?: number

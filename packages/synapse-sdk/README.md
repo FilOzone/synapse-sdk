@@ -30,6 +30,8 @@ pnpm install @filoz/synapse-sdk viem
 
 Note: `viem` is a peer dependency and must be installed separately.
 
+In browsers, PieceCID hashing uses WebAssembly. If your page sets a Content-Security-Policy with `script-src`, add `'wasm-unsafe-eval'` (for example `script-src 'self' 'wasm-unsafe-eval'`). Without it, the package still loads, but hashing throws an error naming the missing directive.
+
 ## Docs
 
 Check the documentation [website](https://synapse.filecoin.services/)

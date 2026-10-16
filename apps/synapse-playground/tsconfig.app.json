@@ -6,6 +6,7 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "noEmit": true,
+    "rewriteRelativeImportExtensions": false,
     "jsx": "react-jsx",
 
     "paths": {
