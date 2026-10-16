@@ -7,7 +7,14 @@ import { waitForTransactionReceipt } from 'viem/actions'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 
-export type UseDepositAndApproveVariables = Pick<DepositAndApproveOptions, 'amount'>
+/**
+ * The variables for the deposit and approve mutation.
+ *
+ * `rateAllowance`, `lockupAllowance`, `maxLockupPeriod` and `deadline` override the values passed as props.
+ */
+export type UseDepositAndApproveVariables = Pick<DepositAndApproveOptions, 'amount'> &
+  Partial<Pick<DepositAndApproveOptions, 'rateAllowance' | 'lockupAllowance' | 'maxLockupPeriod' | 'deadline'>>
+
 export interface UseDepositAndApproveProps extends Omit<DepositAndApproveOptions, 'amount'> {
   /**
    * The mutation options.
@@ -31,21 +38,29 @@ export function useDepositAndApprove(props?: UseDepositAndApproveProps) {
   const chain = getChain(chainId)
   const account = useAccount({ config })
   const queryClient = useQueryClient()
-  const token = props?.token ?? chain.contracts.usdfc.address
-  const from = props?.address ?? account.address
+  const { mutation, onHash, ...options } = props ?? {}
+  const token = options.token ?? chain.contracts.usdfc.address
+  const operator = options.operator ?? chain.contracts.fwss.address
+  const from = options.address ?? account.address
 
   return useMutation({
-    mutationFn: async ({ amount }: UseDepositAndApproveVariables) => {
+    ...mutation,
+    mutationFn: async (variables: UseDepositAndApproveVariables) => {
       const client = await getConnectorClient(config, {
         account: account.address,
         chainId,
       })
 
       const hash = await payments.depositAndApprove(client, {
-        amount,
+        ...options,
+        amount: variables.amount,
+        rateAllowance: variables.rateAllowance ?? options.rateAllowance,
+        lockupAllowance: variables.lockupAllowance ?? options.lockupAllowance,
+        maxLockupPeriod: variables.maxLockupPeriod ?? options.maxLockupPeriod,
+        deadline: variables.deadline ?? options.deadline,
       })
 
-      props?.onHash?.(hash)
+      onHash?.(hash)
       const transactionReceipt = await waitForTransactionReceipt(client, {
         hash: hash,
       })
@@ -57,11 +72,10 @@ export function useDepositAndApprove(props?: UseDepositAndApproveProps) {
         queryKey: ['synapse-erc20-balance', from, token],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-operator-approvals', from, token, chain.contracts.fwss.address],
+        queryKey: ['synapse-payments-operator-approvals', from, token, operator],
       })
 
       return transactionReceipt
     },
-    ...props?.mutation,
   })
 }
