@@ -12,5 +12,6 @@
 export * from './calibration.ts'
 export * from './erc20.ts'
 export * from './payments/index.ts'
+export * from './signer.ts'
 export * from './usdfc.ts'
 export * from './warm-storage/index.ts'
