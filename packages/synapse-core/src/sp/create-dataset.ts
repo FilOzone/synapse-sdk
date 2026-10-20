@@ -107,8 +107,8 @@ export namespace createDataSet {
     /** The service URL of the PDP API. */
     serviceURL: string
     /**
-     * The address that will pay for the storage (client). If not provided, the default is the client address.
-     * If client is from a session key this should be set to the actual payer address
+     * The address that will pay for the storage (client). If not provided, the default is the root address
+     * for a session key client, otherwise the client address.
      */
     payer?: Address
     /** The metadata for the data set. */

@@ -5,6 +5,7 @@ import { AddPiecesFlushError } from '../errors/pdp.ts'
 import { PullError } from '../errors/pull.ts'
 import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
+import { createLimit } from '../utils/concurrency.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 import { isUint8Array } from '../utils/streams.ts'
@@ -119,6 +120,11 @@ export namespace createPieceBatcher {
     payer?: Address
     metadata?: MetadataObject
     cdn?: boolean
+    /**
+     * Maximum number of `upload` and `pull` transfers parking at the same time. Others wait for a free slot.
+     * Defaults to no limit.
+     */
+    concurrency?: number
   }
   export type ReturnType = PieceBatcher
 }
@@ -157,6 +163,10 @@ export function createPieceBatcher(
     throw new ValidationError('`wait.ms` must be a non-negative number.')
   }
   const limiter = options.limiter ?? addPiecesFits
+  if (options.concurrency != null && !(options.concurrency >= 1)) {
+    throw new ValidationError('`concurrency` must be at least 1.')
+  }
+  const limit = createLimit(options.concurrency ?? Number.POSITIVE_INFINITY)
   const legacyPieceStorageIdLimit = asChain(client.chain).legacyPieceStorageIdLimit
   const datasetMetadata = options.metadata
   const cdn = options.cdn
@@ -401,15 +411,26 @@ export function createPieceBatcher(
 
   async function parkAndEnqueue(park: () => Promise<EnqueuePiece>, onParked?: OnParked): Promise<PieceResult> {
     assertOpen()
-    const parked = await track(
-      (async () => {
-        const piece = await park()
-        assertPieceCidSize(piece.pieceCid)
-        await onParked?.(piece)
-        return piece
-      })()
-    )
-    return internalEnqueue(parked)
+    // Count the piece as scheduled from now until it is in the window, so `flush()` and `close()` wait for
+    // pieces still waiting for a slot or parking.
+    beginSchedule()
+    let parked: EnqueuePiece
+    try {
+      parked = await track(
+        limit(async () => {
+          const piece = await park()
+          assertPieceCidSize(piece.pieceCid)
+          await onParked?.(piece)
+          return piece
+        })
+      )
+    } catch (error) {
+      endSchedule()
+      throw error
+    }
+    const result = internalEnqueue(parked)
+    endSchedule()
+    return result
   }
 
   async function enqueue(piece: EnqueuePiece): Promise<PieceResult> {
@@ -501,8 +522,6 @@ export function createPieceBatcher(
   }
 
   async function flush(): Promise<FlushResult | undefined> {
-    await Promise.allSettled([...inFlight])
-    await Promise.resolve()
     await scheduledIdle
     return lock(() => flushWindowInternal())
   }

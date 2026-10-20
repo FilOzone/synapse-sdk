@@ -1,13 +1,14 @@
 import { PDPProviderUnavailableError } from '@filoz/synapse-core/errors'
 import * as SP from '@filoz/synapse-core/sp'
+import { getPayerAddress } from '@filoz/synapse-core/utils'
 import type { PdpDataSet } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { TransactionReceipt } from 'viem'
 import { waitForTransactionReceipt } from 'viem/actions'
 import { useAccount, useChainId, useConfig } from 'wagmi'
-import { getConnectorClient } from 'wagmi/actions'
+import { getSignerClient, type SessionKeySignerOptions } from '../signer.ts'
 
-export interface UseDeletePieceProps {
+export interface UseDeletePieceProps extends SessionKeySignerOptions {
   /**
    * The callback to call when the hash is available.
    */
@@ -31,12 +32,13 @@ export function useDeletePiece(props: UseDeletePieceProps) {
       if (dataSet.provider == null) {
         throw new PDPProviderUnavailableError(dataSet.providerId)
       }
-      const connectorClient = await getConnectorClient(config, {
+      const client = await getSignerClient(config, {
         account: account.address,
         chainId,
+        sessionKey: props?.sessionKey,
       })
 
-      const deletePieceRsp = await SP.schedulePieceDeletion(connectorClient, {
+      const deletePieceRsp = await SP.schedulePieceDeletion(client, {
         serviceURL: dataSet.provider.pdp.serviceURL,
         dataSetId: dataSet.dataSetId,
         clientDataSetId: dataSet.clientDataSetId,
@@ -44,10 +46,10 @@ export function useDeletePiece(props: UseDeletePieceProps) {
       })
 
       props?.onHash?.(deletePieceRsp.hash)
-      const rsp = await waitForTransactionReceipt(connectorClient, deletePieceRsp)
+      const rsp = await waitForTransactionReceipt(client, deletePieceRsp)
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', account.address, connectorClient.chain.id],
+        queryKey: ['synapse-warm-storage-data-sets', getPayerAddress(client.account), chainId],
       })
       return rsp
     },

@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.10.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.10.1...synapse-core-v0.10.2) (2026-10-16)
+
+
+### Features
+
+* **core:** use @hugomrdias/commp-wasm for PieceCID hashing ([#1018](https://github.com/FilOzone/synapse-sdk/issues/1018)) ([d9bf76e](https://github.com/FilOzone/synapse-sdk/commit/d9bf76e0bd3c71967f97577a45924fd5456e6d1a))
+
+
+### Bug Fixes
+
+* **core:** default the data set payer to a session key's root wallet ([b5aa6c8](https://github.com/FilOzone/synapse-sdk/commit/b5aa6c8e93f8ff4710e548824ce9811c66a00d00)), closes [#1025](https://github.com/FilOzone/synapse-sdk/issues/1025)
+* **core:** keep confirmed pieces when another add-pieces tx fails ([f218706](https://github.com/FilOzone/synapse-sdk/commit/f2187065eee76b2a6484ff0e19807a7d29d48d89))
+* **core:** stop polling add-pieces/create-dataset status on rejected tx ([#1020](https://github.com/FilOzone/synapse-sdk/issues/1020)) ([96235c1](https://github.com/FilOzone/synapse-sdk/commit/96235c127de5891a4fa7b198bd3ebb883f161c57))
+
+
+### Chores
+
+* **synapse-core:** align ox with viem and drop ox from mocks ([#1021](https://github.com/FilOzone/synapse-sdk/issues/1021)) ([a830d0d](https://github.com/FilOzone/synapse-sdk/commit/a830d0d4356f2493c1948f90874a0ae4413ef4a5))
+* **synapse-core:** update commp-wasm to 0.1.4 ([#1030](https://github.com/FilOzone/synapse-sdk/issues/1030)) ([91b8502](https://github.com/FilOzone/synapse-sdk/commit/91b8502635d22fdb31ae2efe9c6bfe2d5379117a))
+
 ## [0.10.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.10.0...synapse-core-v0.10.1) (2026-10-09)
 
 

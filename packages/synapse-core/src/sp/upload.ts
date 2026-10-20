@@ -6,6 +6,7 @@ import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/war
 import * as Piece from '../piece/index.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
+import { getPayerAddress } from '../utils/payer.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
 import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
@@ -167,7 +168,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
     const url = createPieceUrl({
       cid: pieceCid.toString(),
       cdn: dataSet.cdn,
-      address: client.account.address,
+      address: getPayerAddress(client.account),
       chain: chain,
       serviceURL,
     })

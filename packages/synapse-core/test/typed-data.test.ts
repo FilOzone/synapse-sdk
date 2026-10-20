@@ -3,6 +3,7 @@ import { type Address, createWalletClient, decodeAbiParameters, type Hex, http, 
 import { privateKeyToAccount } from 'viem/accounts'
 import * as Chains from '../src/chains.ts'
 import * as Piece from '../src/piece/index.ts'
+import { accountFromSecp256k1 } from '../src/session-key/index.ts'
 import * as TypedData from '../src/typed-data/index.ts'
 import { getStorageDomain } from '../src/typed-data/type-definitions.ts'
 
@@ -79,6 +80,28 @@ describe('Typed Data', () => {
       decoded[3],
       FIXTURES.signatures.createDataSet.metadata.map((item) => item.value)
     )
+  })
+
+  it('should default the create data set payer to the root address of a session key', async () => {
+    const rootAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address
+    const sessionClient = createWalletClient({
+      account: accountFromSecp256k1({ privateKey: FIXTURES.privateKey, rootAddress }),
+      chain: Chains.calibration,
+      transport: http(),
+    })
+
+    const extraData = await TypedData.signCreateDataSet(sessionClient, {
+      clientDataSetId: FIXTURES.signatures.createDataSet.clientDataSetId,
+      payee: FIXTURES.signatures.createDataSet.payee,
+    })
+    assert.strictEqual(decodeAbiParameters(TypedData.signCreateDataSetAbiParameters, extraData)[0], rootAddress)
+
+    const explicit = await TypedData.signCreateDataSet(sessionClient, {
+      clientDataSetId: FIXTURES.signatures.createDataSet.clientDataSetId,
+      payee: FIXTURES.signatures.createDataSet.payee,
+      payer: account.address,
+    })
+    assert.strictEqual(decodeAbiParameters(TypedData.signCreateDataSetAbiParameters, explicit)[0], account.address)
   })
 
   it('should sign add pieces', async () => {

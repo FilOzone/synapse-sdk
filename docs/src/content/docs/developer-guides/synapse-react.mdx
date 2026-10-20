@@ -185,8 +185,50 @@ const StorageExample = () => {
 };
 ```
 
+:::tip[Listing data sets without pieces]
+`useDataSets()` loads every piece of every data set, which costs at least one extra RPC call per data set. For list views that don't show pieces, pass `includePieces: false` to get `PdpDataSet[]` instead. Each data set's `hasActivePieces` still tells you whether it holds pieces.
+:::
+
 :::caution[Piece metadata]
 Each data set returned by `useDataSets()` has a `pieces: Piece[]` array whose items have no `metadata` field. Read piece metadata from FWSS `PieceAdded` events or an indexer instead. See the [migration guide](/developer-guides/migration-guide/#action-replace-core-piece-metadata-reads) for the core API changes.
 :::
+
+### Upload several files to one data set
+
+`useUploadPieces` uploads files to a data set you choose using synapse-core only. It streams each file to the provider, adds every parked piece in one signed add-pieces request, and returns the files that failed instead of rejecting the whole upload. Pass a session key to sign without wallet prompts.
+
+```tsx twoslash
+// @lib: esnext,dom
+import type { SessionKey } from "@filoz/synapse-core/session-key";
+import type { PdpDataSet } from "@filoz/synapse-core/warm-storage";
+import { useUploadPieces } from "@filoz/synapse-react";
+
+const UploadFiles = ({ dataSet, sessionKey }: { dataSet: PdpDataSet; sessionKey?: SessionKey<"Secp256k1"> }) => {
+  const upload = useUploadPieces({
+    sessionKey,
+    onFileProgress: ({ file, bytesUploaded }) => console.log(file.name, bytesUploaded),
+    onHash: (hash) => console.log("Tx:", hash),
+  });
+
+  return (
+    <input
+      type="file"
+      multiple
+      onChange={(e) => {
+        const files = Array.from(e.target.files ?? []);
+        upload.mutate(
+          { dataSet, files, metadata: (file) => ({ name: file.name }) },
+          {
+            onSuccess: ({ pieces, failed }) => {
+              console.log("Added", pieces.map((p) => p.pieceId));
+              console.log("Retry", failed.map((f) => f.file.name));
+            },
+          }
+        );
+      }}
+    />
+  );
+};
+```
 
 Check out the [Synapse React Reference](/reference/filoz/synapse-react/toc/) for all available query and mutation hooks.

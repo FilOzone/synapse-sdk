@@ -16,6 +16,10 @@ import { getConnectorClient } from 'wagmi/actions'
 
 export interface UseAccountInfoProps extends SetOptional<accounts.OptionsType, 'address'> {
   /**
+   * The chain id to read from. If not provided, the connected chain will be used.
+   */
+  chainId?: number
+  /**
    * Whether to watch blocks.
    * @default false
    */
@@ -35,7 +39,8 @@ export interface UseAccountInfoProps extends SetOptional<accounts.OptionsType, '
  */
 export function useAccountInfo(props?: UseAccountInfoProps) {
   const config = useConfig()
-  const chainId = useChainId({ config })
+  const connectedChainId = useChainId({ config })
+  const chainId = props?.chainId ?? connectedChainId
   const chain = getChain(chainId)
   const token = props?.token ?? chain.contracts.usdfc.address
   const owner = props?.address
@@ -47,10 +52,10 @@ export function useAccountInfo(props?: UseAccountInfoProps) {
 
   const result = useQuery({
     ...props?.query,
-    queryKey: ['synapse-payments-account-info', owner, token, data?.number?.toString()],
+    queryKey: ['synapse-payments-account-info', owner, token, chainId, data?.number?.toString()],
     queryFn: owner
       ? async () => {
-          return await accounts(config.getClient(), {
+          return await accounts(config.getClient({ chainId }), {
             token,
             address: owner,
 
@@ -63,6 +68,10 @@ export function useAccountInfo(props?: UseAccountInfoProps) {
 }
 
 export interface UseOperatorApprovalsProps extends SetOptional<operatorApprovals.OptionsType, 'address'> {
+  /**
+   * The chain id to read from. If not provided, the connected chain will be used.
+   */
+  chainId?: number
   query?: Omit<UseQueryOptions<operatorApprovals.OutputType>, 'queryKey' | 'queryFn'>
 }
 
@@ -74,7 +83,8 @@ export interface UseOperatorApprovalsProps extends SetOptional<operatorApprovals
  */
 export function useOperatorApprovals(props?: UseOperatorApprovalsProps) {
   const config = useConfig()
-  const chainId = useChainId({ config })
+  const connectedChainId = useChainId({ config })
+  const chainId = props?.chainId ?? connectedChainId
   const chain = getChain(chainId)
   const token = props?.token ?? chain.contracts.usdfc.address
   const operator = props?.operator ?? chain.contracts.fwss.address
@@ -82,10 +92,10 @@ export function useOperatorApprovals(props?: UseOperatorApprovalsProps) {
 
   const result = useQuery({
     ...props?.query,
-    queryKey: ['synapse-payments-operator-approvals', address, token, operator],
+    queryKey: ['synapse-payments-operator-approvals', address, token, operator, chainId],
     queryFn: address
       ? async () => {
-          return await operatorApprovals(config.getClient(), {
+          return await operatorApprovals(config.getClient({ chainId }), {
             token,
             address,
             operator,
@@ -124,6 +134,7 @@ export function useDeposit(props?: UseDepositProps) {
   const to = props?.to ?? account.address
 
   return useMutation({
+    ...props?.mutation,
     mutationFn: async ({ amount }: UseDepositVariables) => {
       const client = await getConnectorClient(config, {
         account: account.address,
@@ -143,14 +154,13 @@ export function useDeposit(props?: UseDepositProps) {
       })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-account-info', to, token],
+        queryKey: ['synapse-payments-account-info', to, token, chainId],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-erc20-balance', to, token],
+        queryKey: ['synapse-erc20-balance', to, token, chainId],
       })
       return transactionReceipt
     },
-    ...props?.mutation,
   })
 }
 
@@ -174,6 +184,7 @@ export function useWithdraw(props?: UseWithdrawProps) {
   const token = props?.token ?? chain.contracts.usdfc.address
 
   return useMutation({
+    ...props?.mutation,
     mutationFn: async ({ amount }: UseWithdrawVariables) => {
       const client = await getConnectorClient(config, {
         account: account.address,
@@ -190,14 +201,13 @@ export function useWithdraw(props?: UseWithdrawProps) {
       })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-account-info', account.address, token],
+        queryKey: ['synapse-payments-account-info', account.address, token, chainId],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-erc20-balance', account.address, token],
+        queryKey: ['synapse-erc20-balance', account.address, token, chainId],
       })
       return transactionReceipt
     },
-    ...props?.mutation,
   })
 }
 
@@ -213,6 +223,21 @@ export type ApproveOperatorProps =
        * If not provided, the USDFC token address will be used.
        */
       token?: Address
+      /**
+       * Maximum rate the operator can use per epoch (in token base units).
+       * If not provided, maxUint256 will be used.
+       */
+      rateAllowance?: bigint
+      /**
+       * Maximum lockup amount the operator can use (in token base units).
+       * If not provided, maxUint256 will be used.
+       */
+      lockupAllowance?: bigint
+      /**
+       * Maximum lockup period in epochs the operator can set for payment rails.
+       * If not provided, the chain's default lockup period will be used.
+       */
+      maxLockupPeriod?: bigint
       /**
        * The mutation options.
        */
@@ -247,6 +272,9 @@ export function useApproveOperator(props?: ApproveOperatorProps) {
         token: props?.token,
         operator: props?.operator,
         approve: true,
+        rateAllowance: props?.rateAllowance,
+        lockupAllowance: props?.lockupAllowance,
+        maxLockupPeriod: props?.maxLockupPeriod,
       })
 
       props?.onHash?.(hash)
@@ -255,10 +283,10 @@ export function useApproveOperator(props?: ApproveOperatorProps) {
       })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-operator-approvals', account.address, token, operator],
+        queryKey: ['synapse-payments-operator-approvals', account.address, token, operator, chain.id],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-account-info', account.address, token],
+        queryKey: ['synapse-payments-account-info', account.address, token, chain.id],
       })
 
       return transactionReceipt
@@ -321,10 +349,10 @@ export function useRevokeOperator(props?: RevokeOperatorProps) {
         hash,
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-operator-approvals', account.address, token, operator],
+        queryKey: ['synapse-payments-operator-approvals', account.address, token, operator, chain.id],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-account-info', account.address, token],
+        queryKey: ['synapse-payments-account-info', account.address, token, chain.id],
       })
       return transactionReceipt
     },

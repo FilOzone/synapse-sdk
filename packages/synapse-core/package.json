@@ -1,6 +1,6 @@
 {
   "name": "@filoz/synapse-core",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "JavaScript Standard Library for Filecoin Onchain Cloud",
   "repository": {
     "type": "git",
@@ -240,7 +240,7 @@
     }
   },
   "dependencies": {
-    "@hugomrdias/commp-wasm": "0.1.3",
+    "@hugomrdias/commp-wasm": "0.1.4",
     "dnum": "2.17.0",
     "iso-web": "catalog:",
     "multiformats": "14.0.5",

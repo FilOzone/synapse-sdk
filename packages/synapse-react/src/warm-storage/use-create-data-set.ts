@@ -1,10 +1,11 @@
 import * as SP from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
+import { getPayerAddress, type MetadataObject } from '@filoz/synapse-core/utils'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useChainId, useConfig } from 'wagmi'
-import { getConnectorClient } from 'wagmi/actions'
+import { getSignerClient, type SessionKeySignerOptions } from '../signer.ts'
 
-export interface UseCreateDataSetProps {
+export interface UseCreateDataSetProps extends SessionKeySignerOptions {
   /**
    * The callback to call when the hash is available.
    */
@@ -18,6 +19,10 @@ export interface UseCreateDataSetVariables {
    */
   provider: PDPProvider
   cdn: boolean
+  /**
+   * Data set metadata.
+   */
+  metadata?: MetadataObject
 }
 
 export type UseCreateDataSetResult = SP.waitForCreateDataSet.ReturnType
@@ -29,28 +34,25 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
   const queryClient = useQueryClient()
   return useMutation({
     ...props?.mutation,
-    mutationFn: async ({ provider, cdn }: UseCreateDataSetVariables) => {
-      const connectorClient = await getConnectorClient(config, {
+    mutationFn: async ({ provider, cdn, metadata }: UseCreateDataSetVariables) => {
+      const client = await getSignerClient(config, {
         account: account.address,
         chainId,
+        sessionKey: props?.sessionKey,
       })
 
-      const { txHash, statusUrl } = await SP.createDataSet(connectorClient, {
+      const { txHash, statusUrl } = await SP.createDataSet(client, {
         payee: provider.payee,
-        payer: account.address,
         serviceURL: provider.pdp.serviceURL,
         cdn,
-        // metadata: {
-        //   title: 'Test Data Set',
-        //   description: 'Test Description',
-        // },
+        metadata,
       })
       props?.onHash?.(txHash)
 
       const dataSet = await SP.waitForCreateDataSet({ statusUrl })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-warm-storage-data-sets', account.address, config.getClient().chain.id],
+        queryKey: ['synapse-warm-storage-data-sets', getPayerAddress(client.account), chainId],
       })
       return dataSet
     },

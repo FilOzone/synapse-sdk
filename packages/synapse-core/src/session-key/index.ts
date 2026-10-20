@@ -35,7 +35,6 @@
  * if(sessionKey.hasPermission('CreateDataSet')) {
  *   const hash = await createDataSet(sessionKey.client, {
  *     payee: '0x1234567890123456789012345678901234567890',
- *     payer: sessionKey.rootAddress,
  *     serviceURL: 'https://example.com',
  *   })
  *   console.log('event created dataset:', hash)
