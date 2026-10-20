@@ -238,9 +238,13 @@ const walk = (key: Uint8Array, names: string[]): Uint8Array =>
  * non-empty, no leading or trailing whitespace, and no `/` (which would
  * indicate a *path*). Case is significant.
  *
- * @throws If the name is empty, padded with whitespace, or contains `/`.
+ * @throws If the name is empty, padded with whitespace, contains `/`, or is not well-formed Unicode.
  */
 export function scopeName(name: string): string {
+  // Lone surrogates risk two different names deriving the same key, so refuse them.
+  if (/\p{Cs}/u.test(name)) {
+    throw new Error(`A scope name must be well-formed Unicode (no lone surrogates), got ${JSON.stringify(name)}`)
+  }
   const normalised = name.normalize('NFC')
   if (normalised.length === 0 || normalised.trim() !== normalised || normalised.includes('/')) {
     throw new Error(

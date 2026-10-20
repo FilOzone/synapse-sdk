@@ -342,6 +342,15 @@ describe('scope tree', () => {
     assert.throws(() => scopeName('a/b'), /no "\/"/)
     assert.deepStrictEqual(holdingOf({ node: 'scope:super-secret/cafe\u0301' }), { scope: 'super-secret/caf\u00e9' })
   })
+
+  it('refuses lone surrogates, which would derive the same key as U+FFFD', () => {
+    // team/\ud800 and team/\ufffd encode to the same UTF-8, so they must not both be scopes.
+    assert.throws(() => scopePath('team/\ud800'), /well-formed/)
+    assert.throws(() => scopeName('x\udc00'), /well-formed/)
+    assert.throws(() => holdingOf({ node: 'scope:team/\ud800' }), /well-formed/)
+    assert.equal(scopePath('team/\ufffd'), 'team/\ufffd')
+    assert.equal(scopeName('key-\u{1F511}'), 'key-\u{1F511}') // a properly paired surrogate is fine
+  })
 })
 
 describe('writeTarget', () => {

@@ -125,9 +125,9 @@ agents or whatever.
 Keysmith is unopinionated about how scopes are used, or what’s in them, other
 than the `/` separator. The `/` allows specification of sub-scopes and finer
 divisions. Because we’re dealing with strings and need deterministic encoding
-each segment is Unicode NFC, non-empty, unpadded and without `/`; case is
-significant. Keysmith refuses a non-canonical name rather than silently
-normalising it and generating mismatched keys.
+each segment is well-formed Unicode (no lone surrogates) in NFC, non-empty,
+unpadded and without `/`; case is significant. Keysmith refuses a non-canonical
+name rather than silently normalising it and generating mismatched keys.
 
 A scope key is derived from its parent’s key, so **holding a scope means you can
 access all data and sub-scopes beneath it, but nothing above or beside it**.
