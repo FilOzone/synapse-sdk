@@ -72,6 +72,11 @@ key or something).
 under the recipient’s public key (eg a Session Key Registry key) into a
 structured grant object: about 190 bytes of CBOR.
 
+**Fetching can be gated with the same names.** A share can travel with a signed
+*claim chain* proving that a particular session key was granted access to a
+given scope. It can be verified offline against the the piece's FEE metadata.
+See [Gated retrieval](#gated-retrieval-claim-chains).
+
 **Each piece’s FEE envelope contains sufficient metadata to identify which
 key is needed to decrypt it**, so even if the Piece migrates out of its original
 FWSS dataset or was written prior to a key rollover it can be reopened by
@@ -316,8 +321,6 @@ A delegate writing pieces should start from its grant rather than assembling the
 hand. `writeTarget` takes the keyspace from the grant, checks the scope against what
 the grant covers, and walks down to the right key:
 
-## Reading a piece
-
 ```ts
 const target = Keysmith.writeTarget(grant, key, 'admin/finance/clerks')
 const salt = Keysmith.newSalt()
@@ -327,6 +330,132 @@ const metadata = Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope 
 
 ℹ️ NOTE: A piece written without a scope is readable only with the keyspace key,
 or by directly sharing its piece key.
+
+## Authenticated grants: claim chains
+
+A grant hands over a key. It says nothing about who may *fetch* the ciphertext, nor
+identify stolen grants (noting that once a key is out, it is out).
+Claim chains add a layer of authenticity on top of grants to allow relying parties
+(eg SPs gating retrievals) to verify that the presenter is the true delegate.
+
+So a share is split in two, using the same node structure and scope names:
+
+| | Claim chain | Grant |
+| --- | --- | --- |
+| Says | bearer B may fetch node N of keyspace K, and delegate D more levels | the node key, wrapped to B |
+| Seen by | the provider, on every gated request | B only, once |
+| Lifetime | until the root's `expires` | permanent |
+
+The **root** is an EIP-712 `ReadGrant` signed by the owner's wallet.
+Each **later link** is signed by the previous bearer (eg session key) and
+can only keep or narrow the scope. 
+The end of the claim chain is a **request** signed by the final bearer to prove
+they are the legitimate holder of the grant.
+
+Relying parties can checks the claim chain against the piece's FEE metadata (`foc/own`, `foc/ks`,
+`foc/scope`, `foc/salt`) with **no chain lookups required**.
+
+### Example flows
+
+#### Issuing
+
+The owner, delegating to a session key (one extra wallet prompt, beside the `KeyspaceKey` one):
+
+```ts
+const rk = Keysmith.scopeKey(kk, 'agent-memory')
+const chain = await Keysmith.rootClaim(wallet, {
+  owner, keyspace, chainId,
+  keyspaceCommitment: commitment, // foc/kc
+  node: 'scope:agent-memory',
+  nodeKey: rk,
+  bearer: sessionKeyAddress,
+  maxDepth: 1, // the bearer may delegate one more level
+  expires: sessionKeyExpiry, // optional; unix seconds
+})
+const grant = await Keysmith.wrapTo(theirPublicKey, rk, Keysmith.grantDescriptor(ref, 'scope:agent-memory'))
+const delivery = Keysmith.encodeDelivery(chain, grant) // one blob: send it like a grant
+```
+
+#### Receiving
+
+```ts
+const { key, claim, chain, grant } = await Keysmith.openDelivery(myPrivateKey, delivery)
+```
+
+`openDelivery` checks:
+ * basic integrity of the claim chain (signatures, expiry, scope narrowing)
+ * that it targets the correct key
+ * that the unwrapped key matches the commitment in its own link, which the
+link's issuer signed
+ * the owner, for a root. 
+ 
+ℹ️ NOTE: It does not know which owner you expect, so the application must check
+`claim.owner` and `claim.keyspace` itself, based on either the piece being read,
+or the dataset being written to.
+
+#### Sub-delegating a narrower node
+
+An application holding a suitably delegated session key can create onward grants:
+
+```ts
+const sub = Keysmith.writeTarget(grant, key, 'agent-memory/notes').key
+const next = await Keysmith.delegateClaim(myAccount, chain, {
+  node: 'scope:agent-memory/notes', nodeKey: sub, bearer: agentAddress, maxDepth: 0,
+})
+const theirs = Keysmith.encodeDelivery(next, await Keysmith.wrapTo(agentPublicKey, sub, Keysmith.grantDescriptor(ref, 'scope:agent-memory/notes')))
+```
+
+A link to a single piece (`node: 'piece:<salt>'`) also needs the piece's labels as
+`piece`, to check the parent reaches it, and can carry its CID as `pieceCid`.
+
+#### Asserting, as the final bearer
+
+```ts
+const request = await Keysmith.signRequest(myAccount, chain, {
+  providerId, pieceCid: CID.parse(cid).bytes, expires: Math.floor(Date.now() / 1000) + 120,
+})
+// the Authorization header value; base64url is yours (Keysmith has no text encoding)
+const header = `FOC-Grant ${base64url(Keysmith.encodePresentation(chain, request))}`
+```
+
+#### Verifying, as a relying party
+
+Verifying, as a provider: `verifyPresentation` is the reference for what a gating
+provider checks, and throws with the reason it refuses.
+
+```ts
+const claim = await Keysmith.verifyPresentation(bytes, { providerId, pieceCid, piece: envelopeLabels, chainId })
+```
+
+### Claims on the wire
+
+```text
+delivery     = [1, chain, grant]       ; to a new bearer, once; grant = encodeGrant bytes
+presentation = [1, chain, request]     ; to a provider, with each gated request
+chain        = [1*8 link]              ; root first
+
+link = {                               ; a CBOR map
+    0 => 1,                            ; v
+    1 => tstr,                         ; node: "keyspace" / "scope:<path>" / "piece:<salt>"
+  ? 2 => bstr .size 20,                ; owner               (root only)
+  ? 3 => bstr .size 16,                ; keyspace            (root only)
+    4 => bstr .size 20,                ; bearer
+    5 => uint .le 255,                 ; maxDepth
+  ? 6 => uint,                         ; chainId             (root only)
+    7 => bstr .size 16,                ; keyCommitment of the node key
+    8 => bstr .size 65,                ; EIP-712 ReadGrant signature: owner's on the root, previous bearer's after
+  ? 9 => bstr,                         ; pieceCid: piece links only; a locator, not signed
+  ? 10 => bstr .size 16,               ; keyspaceCommitment  (root only): the dataset's foc/kc
+  ? 11 => uint,                        ; expires, unix seconds (root only)
+}
+
+request = { 0 => uint, 1 => bstr, 2 => uint, 3 => bstr .size 65 }   ; providerId, pieceCid, expires, signature
+```
+
+Every link's signature covers the fields it inherits from the root, so no link can be moved
+to another claim chain, and nobody below the owner can change the root's depth, commitments or
+expiry. The EIP-712 domain is the `KeyspaceKey` one, `{ name: 'FOC Encryption', version: '1' }`;
+the types are exported as `READ_GRANT_TYPES` and `READ_REQUEST_TYPES`.
 
 ## Reading a piece
 
@@ -422,6 +551,16 @@ a new dataset's metadata too.
 | `unwrapWith(privateKey, grant)` | Open a grant, as bytes or decoded |
 | `publicKeyOf(privateKey)` | The key-agreement key to publish, derived from a private key |
 | `newSalt()` | A fresh per-piece salt |
+| `rootClaim(wallet, { owner, keyspace, chainId, keyspaceCommitment, node, nodeKey, bearer, maxDepth, expires })` | The owner-signed root of a claim chain |
+| `delegateClaim(signer, chain, { node, nodeKey, bearer, maxDepth, piece?, pieceCid? })` | A narrower link, signed by the chain's final bearer |
+| `encodeDelivery(chain, grant)` / `decodeDelivery(bytes)` | A claim chain and its grant, as one blob for the new bearer |
+| `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment |
+| `signRequest(signer, chain, { providerId, pieceCid, expires })` | A request for one piece from one provider, by the final bearer |
+| `encodePresentation(chain, request)` / `decodePresentation(bytes)` | The `Authorization: FOC-Grant` payload |
+| `verifyChain(chain, { now?, piece? })` | Check a chain on its own: signatures, expiry, narrowing |
+| `verifyPresentation(bytes, { providerId, pieceCid, piece, chainId?, now? })` | What a gating provider checks; the reference verifier |
+| `reaches(node, labels)` | Whether a node covers a piece, from its envelope labels |
+| `keyCommitmentOf(key)` | The 16-byte key commitment a link carries |
 
 ## Be aware
 
@@ -440,15 +579,23 @@ a new dataset's metadata too.
   beneath it, so settle the shape of the tree before writing data under it.
 - **scope names travel in the clear** inside the envelope, because the reader needs them to
   derive. For access labels that is a leak of *classification* — an observer learns which
-  pieces are `super-secret`, and with a tree, the shape of the hierarchy too. Prefer opaque scope ids, and keep display names in your app.
-- **Sharing cannot be undone.** A grant hands over a symmetric key; ending future delivery does not
-  recall it. To genuinely cut someone off, move that content to a new scope or keyspace
-  and re-encrypt.
+  pieces are `super-secret`, and with a tree, the shape of the hierarchy too. Prefer opaque
+  scope ids, and keep display names in your app.
+- **Sharing cannot be undone.** A grant hands over a symmetric key; ending future delivery
+  does not recall it. To genuinely cut someone off, move that content to a new scope or
+  keyspace and re-encrypt.
+- **Claim chains can expire but they cannot be revoked early.** Relying parties check
+  them without the claim chain, so revoking the bearer's session key stops its writes but
+  not its fetching  until the root's `expires`. Keep session keys short-lived if that window
+  matters, and remember to set the expiry on the claim to match.
 - **Beware grant spoofing.** A grant alone proves nothing about who made it. Anyone can
   send one to anyone, with any key inside, which could trick an application into writing
-  data encrypted under a key that the attacker holds and real users can't access. Check
-  the key before writing with it: a keyspace key against the dataset's `foc/kc` with
-  `matchesCommitment`, and a scope key by opening a known piece.
+  data encrypted under a key that the attacker holds and real users can't access. A
+  delivery narrows this: `openDelivery` checks the key against the commitment its issuer
+  signed, so once you have checked `claim.owner` is the owner you expect, a root-issued key
+  is the owner's own. A delegated key is only as honest as the delegate who signed its link.
+  For a bare grant, check the key before writing with it: a keyspace key against the
+  dataset's `foc/kc` with `matchesCommitment`, and a scope key by opening a known piece.
 - **Receiving a grant needs a private key in hand.** Session keys and services can
   unwrap; browser wallets, hardware wallets and contract accounts cannot, because none of
   them expose a key to do ECDH with. They need a signature-derived encryption key, which

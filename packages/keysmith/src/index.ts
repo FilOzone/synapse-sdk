@@ -1,6 +1,32 @@
 /**
  * Keysmith — deterministic wallet-based key derivation for Filecoin Onchain Cloud.
  */
+export type {
+  Claim,
+  ClaimChain,
+  ClaimSigner,
+  PieceLabels,
+  ReadRequest,
+  VerifiedClaim,
+} from './claims.ts'
+export {
+  decodeDelivery,
+  decodePresentation,
+  delegateClaim,
+  encodeDelivery,
+  encodePresentation,
+  keyCommitmentOf,
+  MAX_CHAIN_LENGTH,
+  MAX_REQUEST_LIFETIME,
+  openDelivery,
+  READ_GRANT_TYPES,
+  READ_REQUEST_TYPES,
+  reaches,
+  rootClaim,
+  signRequest,
+  verifyChain,
+  verifyPresentation,
+} from './claims.ts'
 export {
   COMMITMENT_KEY,
   commitment,
