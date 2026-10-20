@@ -10,8 +10,8 @@
  * A relying party checks the claims against the labels in a piece's FEE envelope
  * to check the encryption scope matches and is legitimately delegated all the way
  * up to the keyspace root.
- * 
- * In short: 
+ *
+ * In short:
  *   - Wallet signs root delegating to session key
  *   - Session key(s) can onwardly delegate narrower scopes to other session keys
  *   - Final session key signs a request for a piece to prove it holds the key delegated to
@@ -58,7 +58,6 @@ export const READ_GRANT_TYPES = {
 export const READ_REQUEST_TYPES = {
   ReadRequest: [
     { name: 'chainId', type: 'uint256' },
-    { name: 'providerId', type: 'uint256' },
     { name: 'pieceCid', type: 'bytes' },
     { name: 'expires', type: 'uint64' },
   ],
@@ -84,9 +83,8 @@ export interface ClaimChain {
   links: Claim[] // Root first
 }
 
-/** A request for one piece from one provider, signed by the chain's final bearer. */
+/** A request for one piece, from whichever provider holds it, signed by the chain's final bearer. */
 export interface ReadRequest {
-  providerId: bigint // The provider asked; a header is useless at any other
   pieceCid: Uint8Array // The piece asked for, as a binary CID
   expires: number // Unix seconds; at most MAX_REQUEST_LIFETIME ahead
   signature: Hex // The final bearer's EIP-712 ReadRequest signature
@@ -231,11 +229,11 @@ export async function delegateClaim(
   return { ...chain, links: [...chain.links, { ...link, signature }] }
 }
 
-/** Sign a request for one piece from one provider, as the chain's final bearer. */
+/** Sign a request for one piece, as the chain's final bearer. Any provider holding it may serve it. */
 export async function signRequest(
   signer: ClaimSigner,
   chain: ClaimChain,
-  input: { providerId: bigint; pieceCid: Uint8Array; expires: number }
+  input: { pieceCid: Uint8Array; expires: number }
 ): Promise<ReadRequest> {
   const signature = await signer.signTypedData({
     domain: DOMAIN,
@@ -243,7 +241,6 @@ export async function signRequest(
     primaryType: 'ReadRequest',
     message: {
       chainId: chain.chainId,
-      providerId: input.providerId,
       pieceCid: bytesToHex(input.pieceCid),
       expires: BigInt(input.expires),
     },
@@ -337,8 +334,7 @@ export async function verifyChain(
 
 /**
  * What a gating provider checks on a request, with only the header and the
- * piece's labels: the chain, the request's provider, piece, lifetime and
- * signer, and that the final node reaches the piece. A piece without
+ * piece's labels: the chain, the request's piece, lifetime and signer, and that the final node reaches the piece. A piece without
  * `foc/own` is not gated.
  *
  * @throws With the reason the request is refused.
@@ -346,7 +342,6 @@ export async function verifyChain(
 export async function verifyPresentation(
   bytes: Uint8Array,
   options: {
-    providerId: bigint
     pieceCid: Uint8Array
     piece: PieceLabels
     chainId?: bigint // The provider's chain; a header for another network is refused
@@ -358,7 +353,6 @@ export async function verifyPresentation(
   const claim = await verifyChain(chain, { now, piece: options.piece })
   if (options.chainId !== undefined && chain.chainId !== options.chainId)
     throw new Error('The chain names another network')
-  if (request.providerId !== options.providerId) throw new Error('The request names another provider')
   if (bytesToHex(request.pieceCid) !== bytesToHex(options.pieceCid)) throw new Error('The request names another piece')
   if (request.expires < now - SKEW || request.expires > now + MAX_REQUEST_LIFETIME + SKEW) {
     throw new Error('The request has expired, or is valid for too long')
@@ -369,7 +363,6 @@ export async function verifyPresentation(
     primaryType: 'ReadRequest',
     message: {
       chainId: chain.chainId,
-      providerId: request.providerId,
       pieceCid: bytesToHex(request.pieceCid),
       expires: BigInt(request.expires),
     },
@@ -535,10 +528,9 @@ export function decodeDelivery(bytes: Uint8Array): { chain: ClaimChain; grant: G
 /** A presentation: sent to a provider with each gated request, as `Authorization: FOC-Grant <base64url>`. */
 export function encodePresentation(chain: ClaimChain, request: ReadRequest): Uint8Array {
   const req = new Map<number, unknown>([
-    [0, Number(request.providerId)],
-    [1, request.pieceCid],
-    [2, request.expires],
-    [3, hexToBytes(request.signature)],
+    [0, request.pieceCid],
+    [1, request.expires],
+    [2, hexToBytes(request.signature)],
   ])
   return encode([1, encodeChainLinks(chain), req])
 }
@@ -546,15 +538,14 @@ export function encodePresentation(chain: ClaimChain, request: ReadRequest): Uin
 export function decodePresentation(bytes: Uint8Array): { chain: ClaimChain; request: ReadRequest } {
   const [, chain, req] = decodeArray(bytes, 'presentation')
   if (!(req instanceof Map)) throw new Error('A request is a map')
-  const pieceCid = req.get(1)
+  const pieceCid = req.get(0)
   if (!(pieceCid instanceof Uint8Array)) throw new Error('A request needs a piece CID')
   return {
     chain: decodeChainLinks(chain),
     request: {
-      providerId: BigInt(uintField(req, 0, "The request's provider id")),
       pieceCid,
-      expires: uintField(req, 2, "The request's expiry"),
-      signature: bytesField(req as Map<number, unknown>, 3, 65, "The request's signature"),
+      expires: uintField(req, 1, "The request's expiry"),
+      signature: bytesField(req as Map<number, unknown>, 2, 65, "The request's signature"),
     },
   }
 }

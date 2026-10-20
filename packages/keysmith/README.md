@@ -412,7 +412,7 @@ A link to a single piece (`node: 'piece:<salt>'`) also needs the piece's labels 
 
 ```ts
 const request = await Keysmith.signRequest(myAccount, chain, {
-  providerId, pieceCid: CID.parse(cid).bytes, expires: Math.floor(Date.now() / 1000) + 120,
+  pieceCid: CID.parse(cid).bytes, expires: Math.floor(Date.now() / 1000) + 120,
 })
 // the Authorization header value; base64url is yours (Keysmith has no text encoding)
 const header = `FOC-Grant ${base64url(Keysmith.encodePresentation(chain, request))}`
@@ -424,7 +424,7 @@ Verifying, as a provider: `verifyPresentation` is the reference for what a gatin
 provider checks, and throws with the reason it refuses.
 
 ```ts
-const claim = await Keysmith.verifyPresentation(bytes, { providerId, pieceCid, piece: envelopeLabels, chainId })
+const claim = await Keysmith.verifyPresentation(bytes, { pieceCid, piece: envelopeLabels, chainId })
 ```
 
 ### Claims on the wire
@@ -449,7 +449,7 @@ link = {                               ; a CBOR map
   ? 11 => uint,                        ; expires, unix seconds (root only)
 }
 
-request = { 0 => uint, 1 => bstr, 2 => uint, 3 => bstr .size 65 }   ; providerId, pieceCid, expires, signature
+request = { 0 => bstr, 1 => uint, 2 => bstr .size 65 }   ; pieceCid, expires, signature
 ```
 
 Every link's signature covers the fields it inherits from the root, so no link can be moved
@@ -555,10 +555,10 @@ a new dataset's metadata too.
 | `delegateClaim(signer, chain, { node, nodeKey, bearer, maxDepth, piece?, pieceCid? })` | A narrower link, signed by the chain's final bearer |
 | `encodeDelivery(chain, grant)` / `decodeDelivery(bytes)` | A claim chain and its grant, as one blob for the new bearer |
 | `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment |
-| `signRequest(signer, chain, { providerId, pieceCid, expires })` | A request for one piece from one provider, by the final bearer |
+| `signRequest(signer, chain, { pieceCid, expires })` | A request for one piece, by the final bearer; any provider holding it may serve it |
 | `encodePresentation(chain, request)` / `decodePresentation(bytes)` | The `Authorization: FOC-Grant` payload |
 | `verifyChain(chain, { now?, piece? })` | Check a chain on its own: signatures, expiry, narrowing |
-| `verifyPresentation(bytes, { providerId, pieceCid, piece, chainId?, now? })` | What a gating provider checks; the reference verifier |
+| `verifyPresentation(bytes, { pieceCid, piece, chainId?, now? })` | What a gating provider checks; the reference verifier |
 | `reaches(node, labels)` | Whether a node covers a piece, from its envelope labels |
 | `keyCommitmentOf(key)` | The 16-byte key commitment a link carries |
 

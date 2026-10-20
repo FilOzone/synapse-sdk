@@ -134,10 +134,10 @@ describe('claims', () => {
       maxDepth: 0,
       nodeKey: scopeKey(kk, 'team/alice'),
     })
-    const present = async (signer = b, at = now + 120, providerId = 7n) =>
-      encodePresentation(two, await signRequest(signer, two, { providerId, pieceCid: PIECE, expires: at }))
+    const present = async (signer = b, at = now + 120) =>
+      encodePresentation(two, await signRequest(signer, two, { pieceCid: PIECE, expires: at }))
     const check = (bytes: Uint8Array, piece: PieceLabels, at = now) =>
-      verifyPresentation(bytes, { providerId: 7n, pieceCid: PIECE, piece, chainId, now: at })
+      verifyPresentation(bytes, { pieceCid: PIECE, piece, chainId, now: at })
 
     assert.equal((await check(await present(), labels('team/alice'))).bearer, b.address)
     assert.equal((await check(await present(), labels('team/alice/notes'))).node, 'scope:team/alice')
@@ -146,7 +146,10 @@ describe('claims', () => {
     await assert.rejects(check(await present(a), labels('team/alice')), /not signed by the final bearer/)
     await assert.rejects(check(await present(b, now - 3600), labels('team/alice')), /expired/)
     await assert.rejects(check(await present(b, now + 3600), labels('team/alice')), /too long/)
-    await assert.rejects(check(await present(b, now + 120, 8n), labels('team/alice')), /another provider/)
+    const otherPiece = PIECE.slice()
+    otherPiece[otherPiece.length - 1] ^= 1
+    const elsewhere = encodePresentation(two, await signRequest(b, two, { pieceCid: otherPiece, expires: now + 120 }))
+    await assert.rejects(check(elsewhere, labels('team/alice')), /another piece/)
     await assert.rejects(
       check(await present(), { ...labels('team/alice'), 'foc/own': stranger.address }),
       /another owner/
@@ -167,7 +170,7 @@ describe('claims', () => {
     })
     const grant = await wrapTo(publicKeyOf(bKey), scopeKey(kk, 'x'), grantDescriptor(ref, 'scope:x'))
     assert.deepEqual(decodeDelivery(encodeDelivery(two, grant)).chain, two)
-    const request = await signRequest(b, two, { providerId: 7n, pieceCid: PIECE, expires: 1 })
+    const request = await signRequest(b, two, { pieceCid: PIECE, expires: 1 })
     assert.deepEqual(decodePresentation(encodePresentation(two, request)), { chain: two, request })
 
     const [, links, grantBytes] = decode(encodeDelivery(two, grant), { useMaps: true }) as [
