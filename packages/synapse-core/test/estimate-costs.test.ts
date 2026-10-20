@@ -45,15 +45,23 @@ describe('estimateOnboardingCost', () => {
   it('rejects non-positive inputs', () => {
     assert.throws(() => estimateOnboardingCost({ priceList, sizeInBytes: 0n, pieceCount: 1n }), /must be positive/)
     assert.throws(() => estimateOnboardingCost({ priceList, sizeInBytes: 1n, pieceCount: 0n }), /must be positive/)
+    assert.throws(
+      () => estimateOnboardingCost({ priceList, sizeInBytes: 1n, pieceCount: 1n, piecesPerAddPiecesCall: 0n }),
+      /must be positive/
+    )
+    assert.throws(
+      () => estimateOnboardingCost({ priceList, sizeInBytes: 1n, pieceCount: 1n, copies: 0n }),
+      /must be positive/
+    )
   })
 
   it('defaults to one add-pieces call per piece, like calculateUploadFees', () => {
     const result = estimateOnboardingCost({ priceList, sizeInBytes: 10n * TiB, pieceCount: 10240n })
     assert.equal(result.addPiecesCalls, 10240n)
-    assert.equal(result.fees.addPieces, (8n + 3n) * 10240n * (USDFC / 1000n))
+    assert.equal(result.fees.addPieces, 112_640_000_000_000_000_000n) // 112.64
   })
 
-  it('10 TiB in 1 GiB pieces, 100 per call, 1 copy', () => {
+  it('10 TiB in 1 GiB pieces at 100 per call charges 31.544 in add-pieces fees and a 25.62 deposit', () => {
     const result = estimateOnboardingCost({
       priceList,
       sizeInBytes: 10n * TiB,
@@ -62,27 +70,40 @@ describe('estimateOnboardingCost', () => {
     })
     assert.equal(result.addPiecesCalls, 103n)
     assert.equal(result.fees.createDataSet, (25n * USDFC) / 1000n)
-    assert.equal(result.fees.addPieces, ((8n * 103n + 3n * 10240n) * USDFC) / 1000n) // 31.544
+    assert.equal(result.fees.addPieces, 31_544_000_000_000_000_000n) // 31.544
     assert.equal(result.deposit.lifecycleReserve, USDFC / 2n)
     assertUsdfc(result.deposit.streamingLockup, (2512n * USDFC) / 100n) // 30 days of 25.12/month
   })
 
-  it('scales fees and deposit by copies', () => {
-    const one = estimateOnboardingCost({ priceList, sizeInBytes: TiB, pieceCount: 4n })
-    const two = estimateOnboardingCost({ priceList, sizeInBytes: TiB, pieceCount: 4n, copies: 2n })
-    assert.equal(two.fees.total, one.fees.total * 2n)
-    assert.equal(two.deposit.total, one.deposit.total * 2n)
+  it('charges fees and deposit once per copy', () => {
+    const result = estimateOnboardingCost({ priceList, sizeInBytes: TiB, pieceCount: 4n, copies: 2n })
+    assert.equal(result.fees.total, 138_000_000_000_000_000n) // 2 x (0.025 + 4 x 0.011)
+    assertUsdfc(result.deposit.total, 6_240_000_000_000_000_000n) // 2 x (2.62 + 0.5)
   })
 
-  it('handles a billion pieces without a list of sizes', () => {
+  it('sizes the streaming lockup by defaultLockupPeriod, not by month', () => {
+    const result = estimateOnboardingCost({
+      priceList: { ...priceList, lockups: { ...priceList.lockups, defaultLockupPeriod: 2n * EPOCHS_PER_MONTH } },
+      sizeInBytes: 10n * TiB,
+      pieceCount: 1n,
+    })
+    assertUsdfc(result.deposit.streamingLockup, 50_240_000_000_000_000_000n) // 60 days of 25.12/month
+  })
+
+  it('prices a billion pieces without a list of sizes', () => {
     const result = estimateOnboardingCost({ priceList, sizeInBytes: 10n * TiB, pieceCount: 1n << 30n })
-    assert.ok(result.fees.addPieces > 3_000_000n * USDFC)
+    assert.equal(result.fees.addPieces, 11_811_160_064_000_000_000_000_000n) // 2^30 x 0.011
   })
 })
 
 describe('estimateStorageCost', () => {
   it('rejects non-positive inputs', () => {
     assert.throws(() => estimateStorageCost({ priceList, sizeInBytes: TiB, durationInEpochs: 0n }), /must be positive/)
+    assert.throws(() => estimateStorageCost({ priceList, sizeInBytes: 0n, durationInEpochs: 1n }), /must be positive/)
+    assert.throws(
+      () => estimateStorageCost({ priceList, sizeInBytes: TiB, durationInEpochs: 1n, copies: 0n }),
+      /must be positive/
+    )
   })
 
   it('10 TiB for 12 months is 301.44 USDFC per copy', () => {
@@ -91,10 +112,9 @@ describe('estimateStorageCost', () => {
     assertUsdfc(result.total, (30144n * USDFC) / 100n)
   })
 
-  it('scales by copies', () => {
-    const one = estimateStorageCost({ priceList, sizeInBytes: TiB, durationInEpochs: EPOCHS_PER_MONTH })
-    const two = estimateStorageCost({ priceList, sizeInBytes: TiB, durationInEpochs: EPOCHS_PER_MONTH, copies: 2n })
-    assert.equal(two.total, one.total * 2n)
-    assert.equal(two.ratePerMonth, one.ratePerMonth * 2n)
+  it('charges each copy as its own data set', () => {
+    const result = estimateStorageCost({ priceList, sizeInBytes: TiB, durationInEpochs: EPOCHS_PER_MONTH, copies: 2n })
+    assert.equal(result.ratePerMonth, 5_240_000_000_000_000_000n) // 2 x (2.5 + 0.12)
+    assertUsdfc(result.total, 5_240_000_000_000_000_000n)
   })
 })

@@ -1,6 +1,5 @@
 import { ValidationError } from '../errors/base.ts'
-import { TIME_CONSTANTS } from '../utils/constants.ts'
-import { calculateEffectiveRate } from './calculate-effective-rate.ts'
+import { estimateStorageCost } from './estimate-storage-cost.ts'
 import type { getPriceList } from './price-list.ts'
 
 export namespace estimateOnboardingCost {
@@ -66,13 +65,12 @@ export function estimateOnboardingCost(params: estimateOnboardingCost.ParamsType
   const addPieces =
     (priceList.fees.addPiecesBaseFee * addPiecesCalls + priceList.fees.addPiecesPerPieceFee * pieceCount) * copies
 
-  const { ratePerEpoch } = calculateEffectiveRate({
+  const streamingLockup = estimateStorageCost({
+    priceList,
     sizeInBytes,
-    storagePerTibPerMonth: priceList.rates.storagePerTibPerMonth,
-    datasetFeePerMonth: priceList.rates.datasetFeePerMonth,
-    epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
-  })
-  const streamingLockup = ratePerEpoch * priceList.lockups.defaultLockupPeriod * copies
+    copies,
+    durationInEpochs: priceList.lockups.defaultLockupPeriod,
+  }).total
   const lifecycleReserve = priceList.lockups.lifecycleReserveTarget * copies
 
   return {
