@@ -211,6 +211,21 @@ describe('location independence', () => {
     assert.throws(() => keyForEnvelope(kk, metadata, { scope: 5 } as never), /scope path must be a string/)
   })
 
+  it('given the grant, refuses a piece from another keyspace or owner with a clear reason', async () => {
+    const kk = await kkOf(account, ref)
+    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'team/notes' })
+    const grant = grantDescriptor(ref, 'scope:team')
+    const rk = scopeKey(kk, 'team')
+    assert.deepStrictEqual(keyForEnvelope(rk, metadata, grant), keyForEnvelope(rk, metadata, holdingOf(grant)))
+    const otherKeyspace = grantDescriptor({ ...ref, keyspace: newKeyspace() }, 'scope:team')
+    assert.throws(() => keyForEnvelope(rk, metadata, otherKeyspace), /This key is for keyspace 0x.*; the piece is in/)
+    const otherOwner = grantDescriptor(
+      { ...ref, owner: privateKeyToAccount(generatePrivateKey()).address },
+      'scope:team'
+    )
+    assert.throws(() => keyForEnvelope(rk, metadata, otherOwner), /This key is from owner/)
+  })
+
   it('writes only a 16-byte hex salt', () => {
     assert.throws(() => pieceMetadata(ref, { salt: 'hello' as never }), /piece salt is hex bytes/)
     assert.throws(() => pieceMetadata(ref, { salt: '0x2a' }), /16 random bytes/)

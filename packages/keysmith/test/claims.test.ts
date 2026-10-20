@@ -16,7 +16,7 @@ import {
   verifyChain,
   verifyPresentation,
 } from '../src/claims.ts'
-import { commitment, grantDescriptor, keyspaceKeys, newSalt, scopeKey } from '../src/derive.ts'
+import { commitment, grantDescriptor, keyForEnvelope, keyspaceKeys, newSalt, scopeKey } from '../src/derive.ts'
 import { encodeGrant, publicKeyOf, wrapTo } from '../src/wrap.ts'
 
 const owner = privateKeyToAccount(generatePrivateKey())
@@ -43,23 +43,15 @@ const PIECE = hexToBytes('0x0155912024a8a2a4d3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4
 /** The root for `a`, signed by the owner. */
 async function root(node: string, maxDepth: number) {
   const { kk, commitment: kc } = await keys()
-  const key = node === 'keyspace' ? kk : scopeKey(kk, node.slice('scope:'.length))
-  const chain = await rootClaim(owner, {
-    ...ref,
-    chainId,
-    keyspaceCommitment: kc,
-    node,
-    bearer: a.address,
-    maxDepth,
-    nodeKey: key,
-    expires,
-  })
-  return { chain, kk, kc, key }
+  const { chain, nodeKey } = await rootClaim(owner, { ...ref, chainId, kk, node, bearer: a.address, maxDepth, expires })
+  return { chain, kk, kc, key: nodeKey }
 }
 
 describe('claims', () => {
   it('verifies a root signed by the owner until it expires, and refuses one signed by anyone else', async () => {
-    const { chain, kk, kc } = await root('keyspace', 1)
+    const { chain, kk, kc, key } = await root('keyspace', 1)
+    assert.deepEqual(key, kk)
+    assert.equal(`v1.${chain.keyspaceCommitment.slice(2)}`, kc)
     const claim = await verifyChain(chain, { now })
     assert.equal(claim.bearer, a.address)
     assert.equal(claim.node, 'keyspace')
@@ -67,43 +59,68 @@ describe('claims', () => {
     await assert.rejects(verifyChain(chain, { now: expires + 3600 }), /expired/)
     await assert.rejects(verifyChain({ ...chain, expires: expires + 86400 }, { now }), /not signed by the owner/)
 
-    const input = {
-      ...ref,
-      chainId,
-      keyspaceCommitment: kc,
-      node: 'keyspace',
-      bearer: a.address,
-      maxDepth: 1,
-      nodeKey: kk,
-      expires,
-    }
+    const input = { ...ref, chainId, kk, node: 'keyspace', bearer: a.address, maxDepth: 1, expires }
     await assert.rejects(rootClaim(stranger, input), /must be signed by/)
     const forged = await rootClaim(stranger, { ...input, owner: stranger.address })
-    await assert.rejects(verifyChain({ ...forged, owner: owner.address }, { now }), /not signed by the owner/)
+    await assert.rejects(verifyChain({ ...forged.chain, owner: owner.address }, { now }), /not signed by the owner/)
+    await assert.rejects(rootClaim(owner, { ...input, expires: undefined as never }), /expires must be unix seconds/)
+  })
+
+  it('derives the root key from the keyspace key, for a scope and for one piece', async () => {
+    const { kk } = await keys()
+    const base = { ...ref, chainId, kk, bearer: a.address, maxDepth: 0, expires }
+    const scoped = await rootClaim(owner, { ...base, node: 'scope:team' })
+    assert.deepEqual(scoped.nodeKey, scopeKey(kk, 'team'))
+
+    const piece = labels('team', newSalt())
+    const one = await rootClaim(owner, { ...base, node: `piece:${piece['foc/salt']}`, piece })
+    assert.deepEqual(one.nodeKey, keyForEnvelope(kk, { 'foc/v': 1, ...piece }))
+    await assert.rejects(rootClaim(owner, { ...base, node: `piece:${piece['foc/salt']}` }), /needs the piece's labels/)
     await assert.rejects(
-      rootClaim(owner, { ...input, nodeKey: scopeKey(kk, 'team') }),
-      /keyspace root carries the keyspace key/
+      rootClaim(owner, { ...base, node: `piece:${piece['foc/salt']}`, piece: labels('team') }),
+      /not for piece:/
     )
   })
 
-  it('delegates narrower links, and refuses wider, deeper or forged ones', async () => {
-    const { chain, kk } = await root('scope:team', 1)
-    const alice = { node: 'scope:team/alice', maxDepth: 0, nodeKey: scopeKey(kk, 'team/alice') }
-    const two = await delegateClaim(a, chain, { ...alice, bearer: b.address })
+  it('delegates narrower links with keys derived from the parent, and refuses wider, deeper or forged ones', async () => {
+    const { chain, kk, key: team } = await root('scope:team', 1)
+    const alice = { node: 'scope:team/alice', maxDepth: 0 }
+    const { chain: two, nodeKey } = await delegateClaim(a, chain, { ...alice, parentKey: team, bearer: b.address })
+    assert.deepEqual(nodeKey, scopeKey(kk, 'team/alice'))
     const claim = await verifyChain(two, { now })
     assert.equal(claim.node, 'scope:team/alice')
     assert.equal(claim.expires, expires)
 
+    // A key that is not the parent's cannot be delegated from: the honest path cannot mint a wrong key.
+    const random = crypto.getRandomValues(new Uint8Array(32))
     await assert.rejects(
-      delegateClaim(a, chain, { node: 'scope:other', bearer: b.address, maxDepth: 0, nodeKey: scopeKey(kk, 'other') }),
+      delegateClaim(a, chain, { ...alice, parentKey: random, bearer: b.address }),
+      /parentKey is not the key link 0 commits to/
+    )
+    await assert.rejects(
+      delegateClaim(a, chain, { node: 'scope:other', parentKey: team, bearer: b.address, maxDepth: 0 }),
       /widens scope:team to scope:other/
     )
-    await assert.rejects(delegateClaim(b, two, { ...alice, bearer: stranger.address }), /exceeds link 1's maxDepth/)
-    const forged = await delegateClaim(stranger, chain, { ...alice, bearer: b.address })
-    await assert.rejects(verifyChain(forged, { now }), /not signed by link 0's bearer/)
+    await assert.rejects(
+      delegateClaim(b, two, { ...alice, parentKey: nodeKey, bearer: stranger.address }),
+      /exceeds link 1's maxDepth/
+    )
+    const forged = await delegateClaim(stranger, chain, { ...alice, parentKey: team, bearer: b.address })
+    await assert.rejects(verifyChain(forged.chain, { now }), /not signed by link 0's bearer/)
     const deepened = { ...two, links: [two.links[0], { ...two.links[1], maxDepth: 3 }] } as typeof two
     await assert.rejects(verifyChain(deepened, { now }), /not signed by link 0's bearer/)
     await assert.rejects(verifyChain(two, { now: expires + 3600 }), /expired/)
+
+    // A piece link: the key is the piece's own, derived through the parent's scope.
+    const piece = labels('team/notes', newSalt())
+    const one = await delegateClaim(a, chain, {
+      node: `piece:${piece['foc/salt']}`,
+      parentKey: team,
+      bearer: b.address,
+      maxDepth: 0,
+      piece,
+    })
+    assert.deepEqual(one.nodeKey, keyForEnvelope(kk, { 'foc/v': 1, ...piece }))
   })
 
   it('opens a delivery, checking bearer, node and the key against its commitment', async () => {
@@ -127,17 +144,17 @@ describe('claims', () => {
   })
 
   it('verifies a presentation the way a gating provider would', async () => {
-    const { chain, kk } = await root('scope:team', 1)
-    const two = await delegateClaim(a, chain, {
+    const { chain, key: team } = await root('scope:team', 1)
+    const { chain: two } = await delegateClaim(a, chain, {
       node: 'scope:team/alice',
+      parentKey: team,
       bearer: b.address,
       maxDepth: 0,
-      nodeKey: scopeKey(kk, 'team/alice'),
     })
     const present = async (signer = b, at = now + 120) =>
       encodePresentation(two, await signRequest(signer, two, { pieceCid: PIECE, expires: at }))
-    const check = (bytes: Uint8Array, piece: PieceLabels, at = now) =>
-      verifyPresentation(bytes, { pieceCid: PIECE, piece, chainId, now: at })
+    const check = (bytes: Uint8Array, piece: PieceLabels, at = now, network = chainId) =>
+      verifyPresentation(bytes, { pieceCid: PIECE, piece, chainId: network, now: at })
 
     assert.equal((await check(await present(), labels('team/alice'))).bearer, b.address)
     assert.equal((await check(await present(), labels('team/alice/notes'))).node, 'scope:team/alice')
@@ -146,6 +163,7 @@ describe('claims', () => {
     await assert.rejects(check(await present(a), labels('team/alice')), /not signed by the final bearer/)
     await assert.rejects(check(await present(b, now - 3600), labels('team/alice')), /expired/)
     await assert.rejects(check(await present(b, now + 3600), labels('team/alice')), /too long/)
+    await assert.rejects(check(await present(), labels('team/alice'), now, 314n), /another network/)
     const otherPiece = PIECE.slice()
     otherPiece[otherPiece.length - 1] ^= 1
     const elsewhere = encodePresentation(two, await signRequest(b, two, { pieceCid: otherPiece, expires: now + 120 }))
@@ -162,11 +180,11 @@ describe('claims', () => {
 
   it('round-trips CBOR, and refuses links that repeat root fields, carry unknown ones or lack a signature', async () => {
     const { chain, kk } = await root('keyspace', 1)
-    const two = await delegateClaim(a, chain, {
+    const { chain: two } = await delegateClaim(a, chain, {
       node: 'scope:x',
+      parentKey: kk,
       bearer: b.address,
       maxDepth: 0,
-      nodeKey: scopeKey(kk, 'x'),
     })
     const grant = await wrapTo(publicKeyOf(bKey), scopeKey(kk, 'x'), grantDescriptor(ref, 'scope:x'))
     assert.deepEqual(decodeDelivery(encodeDelivery(two, grant)).chain, two)

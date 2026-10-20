@@ -356,13 +356,18 @@ export function grantDescriptor(ref: KeyspaceRef, node: GrantNode): GrantDescrip
  * Takes the metadata as FEE returns it (`info.appMetadata`), unvalidated, and
  * checks every field before using it.
  *
- * @throws If the piece is not in this format, the held scope does not contain the
- * piece's scope, or the held piece is a different piece.
+ * Pass the grant that delivered the key as `holding` where you have it: then the
+ * piece's owner and keyspace are checked against the grant too, so a key from the
+ * wrong keyspace fails here with a clear reason rather than later inside FEE.
+ *
+ * @throws If the piece is not in this format, belongs to another owner or keyspace
+ * than the grant, the held scope does not contain the piece's scope, or the held
+ * piece is a different piece.
  */
 export function keyForEnvelope(
   node: Uint8Array,
   envelopeMetadata: PieceMetadata | Readonly<Record<string, unknown>> | undefined,
-  holding: Holding = 'keyspace'
+  holder: Holding | GrantDescriptor = 'keyspace'
 ): Uint8Array {
   if (envelopeMetadata == null || typeof envelopeMetadata !== 'object') {
     throw new Error(
@@ -379,6 +384,19 @@ export function keyForEnvelope(
     )
   }
   keyspaceId(metadata['foc/ks'])
+
+  // Given the grant itself, check the piece is in the grant's keyspace before deriving anything
+  let holding: Holding
+  if (typeof holder === 'object' && 'node' in holder) {
+    const own = metadata['foc/own']
+    if (keyspaceId(holder.keyspace) !== keyspaceId(metadata['foc/ks'])) {
+      throw new Error(`This key is for keyspace ${holder.keyspace}; the piece is in keyspace ${metadata['foc/ks']}.`)
+    }
+    if (typeof own === 'string' && own.toLowerCase() !== holder.owner.toLowerCase()) {
+      throw new Error(`This key is from owner ${holder.owner}; the piece belongs to ${own}.`)
+    }
+    holding = holdingOf(holder)
+  } else holding = holder
 
   // If a direct piece grant, verify this is for the correct piece before deriving
   if (holding !== 'keyspace' && 'piece' in holding) {
@@ -416,7 +434,7 @@ export function keyForEnvelope(
  * content tags then reject.
  */
 export const keyResolver =
-  (node: Uint8Array, holding: Holding = 'keyspace') =>
+  (node: Uint8Array, holding: Holding | GrantDescriptor = 'keyspace') =>
   (info: { appMetadata?: Readonly<Record<string, unknown>> }): Uint8Array =>
     keyForEnvelope(node, info.appMetadata, holding)
 

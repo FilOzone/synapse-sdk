@@ -92,10 +92,12 @@ identities could lead to issues with recovering keys later. With user-selected
 keyspaces every copy of a Piece opens with the same key wherever it is fetched
 from.
 
-The default choice is one keyspace per dataset, and synapse stores the keyspace
-id in the dataset metadata so that applications don't need to remember it.
-Applications can override this behavior if they have good reason to, but must
-then make sure to keep track of keyspaces and know which to use at any given
+The default choice is one keyspace per dataset, with the application recording the
+keyspace id (and its commitment) in the dataset metadata when it creates the dataset,
+so it never has to remember it.
+WARNING: Synapse does not do this for you: the application must pass it through.
+Applications can diverge from  this behavior if they have good reason to, but
+must then make sure to keep track of keyspaces and know which to use at any given
 time.
 
 To re-key, or maintain a hard separation between different sections of data,
@@ -307,7 +309,7 @@ const bytes = Keysmith.encodeGrant({
 const grant = Keysmith.decodeGrant(bytes)
 // fetch grant.pieceCid, read the metadata from its envelope, then
 const node = await Keysmith.unwrapWith(myPrivateKey, grant)
-const key = Keysmith.keyForEnvelope(node, metadata, Keysmith.holdingOf(grant))
+const key = Keysmith.keyForEnvelope(node, metadata, grant) // also checks the piece is in the grant's keyspace
 ```
 
 The grant is bound to the salt rather than the CID: the salt is what the key is derived
@@ -362,19 +364,21 @@ Relying parties can checks the claim chain against the piece's FEE metadata (`fo
 The owner, delegating to a session key (one extra wallet prompt, beside the `KeyspaceKey` one):
 
 ```ts
-const rk = Keysmith.scopeKey(kk, 'agent-memory')
-const chain = await Keysmith.rootClaim(wallet, {
+const { chain, nodeKey } = await Keysmith.rootClaim(wallet, {
   owner, keyspace, chainId,
-  keyspaceCommitment: commitment, // foc/kc
+  kk, // from keyspaceKeys(): the node key and the keyspace commitment are derived from it
   node: 'scope:agent-memory',
-  nodeKey: rk,
   bearer: sessionKeyAddress,
   maxDepth: 1, // the bearer may delegate one more level
-  expires: sessionKeyExpiry, // optional; unix seconds
+  expires: sessionKeyExpiry, // required; unix seconds
 })
-const grant = await Keysmith.wrapTo(theirPublicKey, rk, Keysmith.grantDescriptor(ref, 'scope:agent-memory'))
+const grant = await Keysmith.wrapTo(theirPublicKey, nodeKey, Keysmith.grantDescriptor(ref, 'scope:agent-memory'))
 const delivery = Keysmith.encodeDelivery(chain, grant) // one blob: send it like a grant
 ```
+
+`rootClaim` derives the bearer's key itself, so the root cannot commit to a wrong one;
+wrap exactly the `nodeKey` it returns. A root for one piece also takes the piece's
+labels as `piece`.
 
 #### Receiving
 
@@ -398,12 +402,17 @@ or the dataset being written to.
 An application holding a suitably delegated session key can create onward grants:
 
 ```ts
-const sub = Keysmith.writeTarget(grant, key, 'agent-memory/notes').key
-const next = await Keysmith.delegateClaim(myAccount, chain, {
-  node: 'scope:agent-memory/notes', nodeKey: sub, bearer: agentAddress, maxDepth: 0,
+const { chain: next, nodeKey } = await Keysmith.delegateClaim(myAccount, chain, {
+  parentKey: key, // the key openDelivery() returned
+  node: 'scope:agent-memory/notes', bearer: agentAddress, maxDepth: 0,
 })
-const theirs = Keysmith.encodeDelivery(next, await Keysmith.wrapTo(agentPublicKey, sub, Keysmith.grantDescriptor(ref, 'scope:agent-memory/notes')))
+const theirs = Keysmith.encodeDelivery(next, await Keysmith.wrapTo(agentPublicKey, nodeKey, Keysmith.grantDescriptor(ref, 'scope:agent-memory/notes')))
 ```
+
+`delegateClaim` checks `parentKey` against the delegator's own link and derives the
+child's key from it, so an honest delegate cannot hand on a key that is not really below
+its own. (A dishonest one can still wrap whatever it likes: the recipient's checks are
+only as good as the delegate who signed its link.)
 
 A link to a single piece (`node: 'piece:<salt>'`) also needs the piece's labels as
 `piece`, to check the parent reaches it, and can carry its CID as `pieceCid`.
@@ -452,9 +461,10 @@ link = {                               ; a CBOR map
 request = { 0 => bstr, 1 => uint, 2 => bstr .size 65 }   ; pieceCid, expires, signature
 ```
 
-Every link's signature covers the fields it inherits from the root, so no link can be moved
-to another claim chain, and nobody below the owner can change the root's depth, commitments or
-expiry. The EIP-712 domain is the `KeyspaceKey` one, `{ name: 'FOC Encryption', version: '1' }`;
+Every link's signature covers the fields it inherits from the root, so a link cannot be moved
+under a root that differs in any of them, and nobody below the owner can change the root's
+commitments or expiry. Links name their parent by its bearer's address, not by hash, so a parent
+can be re-issued without invalidating the links beneath it. The EIP-712 domain is the `KeyspaceKey` one, `{ name: 'FOC Encryption', version: '1' }`;
 the types are exported as `READ_GRANT_TYPES` and `READ_REQUEST_TYPES`.
 
 ## Reading a piece
@@ -483,10 +493,12 @@ fee.decrypt(Keysmith.keyResolver(pk, { piece: salt }))
 `KK`, `RK` and a piece key are all 32 bytes of HKDF output, so nothing in the
 envelope says which one you are holding — you have to tell it. The grant that
 delivered the key holds this information, so keep the whole grant when
-receiving a share and then use it in the derivation:
+receiving a share and pass it to the derivation. Given the grant, Keysmith also checks
+the piece's `foc/own` and `foc/ks` against it, so a key from the wrong keyspace fails with
+a clear reason rather than as a FEE decryption error:
 
 ```ts
-fee.decrypt(Keysmith.keyResolver(node, Keysmith.holdingOf(grant)))
+fee.decrypt(Keysmith.keyResolver(node, grant))
 ```
 
 The metadata FEE hands the resolver is not yet authenticated: Keysmith checks it
@@ -495,7 +507,7 @@ reject. For a range read, derive the key yourself and pass it to FEE:
 
 ```ts
 const info = await fee.parse(source)
-const key = Keysmith.keyForEnvelope(node, info.appMetadata, Keysmith.holdingOf(grant))
+const key = Keysmith.keyForEnvelope(node, info.appMetadata, grant)
 const { stream } = await fee.decryptRange(source, key, { offset, length }, { params: info.params })
 ```
 
@@ -536,8 +548,8 @@ a new dataset's metadata too.
 | `scopeKey(kk, path)` | The key for a scope, e.g. `'super-secret/secret'` |
 | `scopeName(name)` / `scopePath(path)` | A scope name or path in canonical form, or a thrown error |
 | `pieceKey(node, salt)` | The key for one piece — hand this to FEE |
-| `keyForEnvelope(node, metadata, holding?)` | Derive a piece key from whatever node you hold |
-| `keyResolver(node, holding?)` | The same, as a FEE key resolver: `fee.decrypt(keyResolver(node))` |
+| `keyForEnvelope(node, metadata, grant or holding?)` | Derive a piece key from whatever node you hold; given the grant, also checks the piece's owner and keyspace |
+| `keyResolver(node, grant or holding?)` | The same, as a FEE key resolver: `fee.decrypt(keyResolver(node, grant))` |
 | `writeTarget(grant, key, scope?)` | For a delegate: the ref, scope and key to write a piece, refusing scopes its grant does not cover, and piece grants |
 | `holdingOf(grant)` | Which node a grant carries — keyspace, scope or piece — for `keyForEnvelope` |
 | `pieceMetadata(ref, { salt, scope?})` | What the envelope must record |
@@ -551,14 +563,14 @@ a new dataset's metadata too.
 | `unwrapWith(privateKey, grant)` | Open a grant, as bytes or decoded |
 | `publicKeyOf(privateKey)` | The key-agreement key to publish, derived from a private key |
 | `newSalt()` | A fresh per-piece salt |
-| `rootClaim(wallet, { owner, keyspace, chainId, keyspaceCommitment, node, nodeKey, bearer, maxDepth, expires })` | The owner-signed root of a claim chain |
-| `delegateClaim(signer, chain, { node, nodeKey, bearer, maxDepth, piece?, pieceCid? })` | A narrower link, signed by the chain's final bearer |
+| `rootClaim(wallet, { owner, keyspace, chainId, kk, node, bearer, maxDepth, expires, piece? })` | The owner-signed root of a claim chain → `{ chain, nodeKey }` |
+| `delegateClaim(signer, chain, { parentKey, node, bearer, maxDepth, piece?, pieceCid? })` | A narrower link, signed by the chain's final bearer, with its key derived from `parentKey` → `{ chain, nodeKey }` |
 | `encodeDelivery(chain, grant)` / `decodeDelivery(bytes)` | A claim chain and its grant, as one blob for the new bearer |
 | `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment |
 | `signRequest(signer, chain, { pieceCid, expires })` | A request for one piece, by the final bearer; any provider holding it may serve it |
 | `encodePresentation(chain, request)` / `decodePresentation(bytes)` | The `Authorization: FOC-Grant` payload |
 | `verifyChain(chain, { now?, piece? })` | Check a chain on its own: signatures, expiry, narrowing |
-| `verifyPresentation(bytes, { pieceCid, piece, chainId?, now? })` | What a gating provider checks; the reference verifier |
+| `verifyPresentation(bytes, { pieceCid, piece, chainId, now? })` | What a gating provider checks; the reference verifier |
 | `reaches(node, labels)` | Whether a node covers a piece, from its envelope labels |
 | `keyCommitmentOf(key)` | The 16-byte key commitment a link carries |
 

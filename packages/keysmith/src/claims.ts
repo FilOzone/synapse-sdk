@@ -19,8 +19,17 @@
 import { decode, encode } from 'cborg'
 import { type Address, bytesToHex, getAddress, type Hex, hexToBytes, isAddress, recoverTypedDataAddress } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { canonicalNode, commitment, DOMAIN, keyspaceId } from './derive.ts'
-import type { Grant } from './types.ts'
+import {
+  canonicalNode,
+  commitment,
+  DOMAIN,
+  grantDescriptor,
+  holdingOf,
+  keyForEnvelope,
+  keyspaceId,
+  writeTarget,
+} from './derive.ts'
+import type { Grant, GrantNode } from './types.ts'
 import { decodeGrant, encodeGrant, unwrapWith } from './wrap.ts'
 
 const STRICT = {
@@ -39,7 +48,9 @@ const SKEW = 60 // Tolerance for clock skew, in seconds
 /**
  * EIP-712 types for every link and for a request. The domain is Keysmith's
  * {@link DOMAIN}. A link's signature covers the fields it inherits from the
- * root, so no link can be moved to another chain.
+ * root, so a link cannot be moved under a root that differs in any of them.
+ * Links name their parent by its bearer's address, not by hash, so a parent
+ * can be re-issued without invalidating the links beneath it.
  */
 export const READ_GRANT_TYPES = {
   ReadGrant: [
@@ -106,12 +117,6 @@ export interface ClaimSigner {
 /** A key's commitment as the 16 bytes a claim carries. */
 export const keyCommitmentOf = (key: Uint8Array): Hex => `0x${commitment(key).slice('v1.'.length)}`
 
-const commitmentBytes = (value: string, what: string): Hex => {
-  const hex = value.startsWith('v1.') ? `0x${value.slice(3)}` : value
-  if (!/^0x[0-9a-f]{32}$/.test(hex)) throw new Error(`${what} must be a v1 commitment, got ${JSON.stringify(value)}`)
-  return hex as Hex
-}
-
 function depth(value: number): number {
   if (!Number.isInteger(value) || value < 0 || value > 255) throw new Error(`maxDepth must be 0 to 255, got ${value}`)
   return value
@@ -153,9 +158,33 @@ const recoverIssuer = (chain: ClaimChain, link: Claim) =>
   })
 
 /**
+ * The key for `node`, derived from a key the caller holds for `heldNode`, so a
+ * claim can only ever commit to a key that really sits below its issuer's.
+ * A piece node needs the piece's FEE metadata, which must name that piece.
+ */
+function keyBelow(
+  heldKey: Uint8Array,
+  heldNode: string,
+  node: string,
+  ref: { owner: Address; keyspace: Hex },
+  piece: PieceLabels | undefined
+): Uint8Array {
+  if (node.startsWith('piece:')) {
+    if (!piece) throw new Error(`${node} names a piece: deriving its key needs the piece's labels`)
+    if (canonicalNode(`piece:${piece['foc/salt']}`) !== node || keyspaceId(piece['foc/ks']) !== ref.keyspace) {
+      throw new Error(`The piece labels given are not for ${node} in keyspace ${ref.keyspace}`)
+    }
+    return keyForEnvelope(heldKey, { 'foc/v': 1, ...piece }, holdingOf({ node: heldNode }))
+  }
+  const scope = node === 'keyspace' ? undefined : node.slice('scope:'.length)
+  return writeTarget(grantDescriptor(ref, heldNode as GrantNode), heldKey, scope).key.slice()
+}
+
+/**
  * The root of a chain, signed by the owner's wallet: one EIP-712 prompt.
- * Enrtries match and are formatted the same as regular grants.
- * If aligning with Session Key Registry, set `expires` to match the SKR entry.
+ * Derives the bearer's node key from the keyspace key, so the root cannot
+ * commit to a wrong one, and hands it back to wrap for the bearer.
+ * When the bearer is a session key, set `expires` to the session key's expiry.
  *
  * @throws If `signer` is not the owner.
  */
@@ -165,68 +194,73 @@ export async function rootClaim(
     owner: Address
     keyspace: Hex
     chainId: bigint
-    keyspaceCommitment: string
+    kk: Uint8Array // The keyspace key, from keyspaceKeys()
     node: string
     bearer: Address
     maxDepth: number
-    nodeKey: Uint8Array
-    expires: number
+    expires: number // Unix seconds. Required: providers check no revocation, so this is what ends the claim
+    piece?: PieceLabels // For a piece node: the piece's envelope labels
   }
-): Promise<ClaimChain> {
+): Promise<{ chain: ClaimChain; nodeKey: Uint8Array }> {
   if (!isAddress(input.owner) || !isAddress(input.bearer)) throw new Error('owner and bearer must be addresses')
+  const ref = { owner: getAddress(input.owner), keyspace: keyspaceId(input.keyspace) }
+  const node = canonicalNode(input.node)
+  const nodeKey = keyBelow(input.kk, 'keyspace', node, ref, input.piece)
   const link = {
-    node: canonicalNode(input.node),
+    node,
     bearer: getAddress(input.bearer),
     maxDepth: depth(input.maxDepth),
-    keyCommitment: keyCommitmentOf(input.nodeKey),
-  }
-  const keyspaceCommitment = commitmentBytes(input.keyspaceCommitment, 'keyspaceCommitment')
-  if (link.node === 'keyspace' && link.keyCommitment !== keyspaceCommitment) {
-    throw new Error('A keyspace root carries the keyspace key: its key commitment must be the keyspace commitment')
+    keyCommitment: keyCommitmentOf(nodeKey),
   }
   const chain: ClaimChain = {
-    owner: getAddress(input.owner),
-    keyspace: keyspaceId(input.keyspace),
+    ...ref,
     chainId: input.chainId,
-    keyspaceCommitment,
+    keyspaceCommitment: keyCommitmentOf(input.kk),
     expires: unixSeconds(input.expires, 'expires'),
     links: [],
   }
   const signature = await signLink(owner, chain, link)
   const root = { ...link, signature }
   if ((await recoverIssuer(chain, root)) !== chain.owner) throw new Error(`The root must be signed by ${chain.owner}`)
-  return { ...chain, links: [root] }
+  return { chain: { ...chain, links: [root] }, nodeKey }
 }
 
 /**
  * Delegate: the chain's final bearer signs a narrower link for `bearer`.
+ * Takes the key the bearer holds for its own link, checks it against that
+ * link's commitment, and derives the child's key from it, so an honest
+ * delegate cannot commit to a wrong key. Hands the child key back to wrap.
  * A piece link needs the piece's labels, to check the parent's node reaches it.
  */
 export async function delegateClaim(
   signer: ClaimSigner,
   chain: ClaimChain,
   input: {
+    parentKey: Uint8Array // The key for the final link's node, as openDelivery() returned it
     node: string
     bearer: Address
     maxDepth: number
-    nodeKey: Uint8Array
     pieceCid?: Uint8Array
     piece?: PieceLabels
   }
-): Promise<ClaimChain> {
+): Promise<{ chain: ClaimChain; nodeKey: Uint8Array }> {
   const parent = chain.links.at(-1)
   if (!parent) throw new Error('A chain has at least one link')
   if (chain.links.length >= MAX_CHAIN_LENGTH) throw new Error(`A chain has at most ${MAX_CHAIN_LENGTH} links`)
+  if (keyCommitmentOf(input.parentKey) !== parent.keyCommitment) {
+    throw new Error(`parentKey is not the key link ${chain.links.length - 1} commits to`)
+  }
+  const node = canonicalNode(input.node)
+  const step = { node, bearer: getAddress(input.bearer), maxDepth: depth(input.maxDepth) }
+  checkStep(parent, step, input.piece, chain.links.length)
+  const nodeKey = keyBelow(input.parentKey, parent.node, node, chain, input.piece)
   const link = {
-    node: canonicalNode(input.node),
-    bearer: getAddress(input.bearer),
-    maxDepth: depth(input.maxDepth),
-    keyCommitment: keyCommitmentOf(input.nodeKey),
+    ...step,
+    keyCommitment: keyCommitmentOf(nodeKey),
     ...(input.pieceCid ? { pieceCid: input.pieceCid } : {}),
   }
-  checkStep(parent, link, input.piece, chain.links.length)
   const signature = await signLink(signer, chain, link)
-  return { ...chain, links: [...chain.links, { ...link, signature }] }
+  return { chain: { ...chain, links: [...chain.links, { ...link, signature }] }, nodeKey }
 }
 
 /** Sign a request for one piece, as the chain's final bearer. Any provider holding it may serve it. */
@@ -261,8 +295,8 @@ export function reaches(node: string, piece: PieceLabels): boolean {
 
 /** Check one step down a chain: the child no wider than its parent, and within its depth. */
 function checkStep(
-  parent: Omit<Claim, 'signature'>,
-  child: Omit<Claim, 'signature'>,
+  parent: Pick<Claim, 'node' | 'maxDepth'>,
+  child: Pick<Claim, 'node' | 'maxDepth'>,
   piece: PieceLabels | undefined,
   index: number
 ): void {
@@ -344,15 +378,14 @@ export async function verifyPresentation(
   options: {
     pieceCid: Uint8Array
     piece: PieceLabels
-    chainId?: bigint // The provider's chain; a header for another network is refused
+    chainId: bigint // The provider's chain; a header for another network is refused
     now?: number // Unix seconds; defaults to now
   }
 ): Promise<VerifiedClaim> {
   const { chain, request } = decodePresentation(bytes)
   const now = options.now ?? Math.floor(Date.now() / 1000)
   const claim = await verifyChain(chain, { now, piece: options.piece })
-  if (options.chainId !== undefined && chain.chainId !== options.chainId)
-    throw new Error('The chain names another network')
+  if (chain.chainId !== options.chainId) throw new Error('The chain names another network')
   if (bytesToHex(request.pieceCid) !== bytesToHex(options.pieceCid)) throw new Error('The request names another piece')
   if (request.expires < now - SKEW || request.expires > now + MAX_REQUEST_LIFETIME + SKEW) {
     throw new Error('The request has expired, or is valid for too long')
