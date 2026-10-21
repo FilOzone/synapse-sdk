@@ -82,6 +82,19 @@ jobs:
       - name: Run synapse-core tests
         run: pnpm -r --filter @filoz/synapse-core run test
 
+  test-keysmith:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/setup@v3
+        with:
+          require-lockfile: true
+      - name: Run keysmith tests
+        run: pnpm -r --filter @filoz/keysmith run test
+
   test-filecoin-encryption-envelope:
     needs: lint
     runs-on: ubuntu-latest
