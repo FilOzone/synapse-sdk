@@ -1,6 +1,7 @@
 /* globals describe it */
 
 import assert from 'assert'
+import { calculateLifecycleReserveFunding } from '../src/warm-storage/calculate-lifecycle-reserve-funding.ts'
 import { estimateOnboardingCost } from '../src/warm-storage/estimate-onboarding-cost.ts'
 import { estimateStorageCost } from '../src/warm-storage/estimate-storage-cost.ts'
 
@@ -61,7 +62,7 @@ describe('estimateOnboardingCost', () => {
     assert.equal(result.fees.addPieces, 112_640_000_000_000_000_000n) // 112.64
   })
 
-  it('10 TiB in 1 GiB pieces at 100 per call charges 31.544 in add-pieces fees and a 25.62 deposit', () => {
+  it('10 TiB in 1 GiB pieces at 100 per call charges 31.544 in add-pieces fees and reserves 31.941 for them', () => {
     const result = estimateOnboardingCost({
       priceList,
       sizeInBytes: 10n * TiB,
@@ -71,7 +72,8 @@ describe('estimateOnboardingCost', () => {
     assert.equal(result.addPiecesCalls, 103n)
     assert.equal(result.fees.createDataSet, (25n * USDFC) / 1000n)
     assert.equal(result.fees.addPieces, 31_544_000_000_000_000_000n) // 31.544
-    assert.equal(result.deposit.lifecycleReserve, USDFC / 2n)
+    // 0.5 initial plus 31.441 of replenishment: the fees are paid out of the reserve.
+    assert.equal(result.deposit.lifecycleReserve, 31_941_000_000_000_000_000n)
     assertUsdfc(result.deposit.streamingLockup, (2512n * USDFC) / 100n) // 30 days of 25.12/month
   })
 
@@ -88,6 +90,29 @@ describe('estimateOnboardingCost', () => {
       pieceCount: 1n,
     })
     assertUsdfc(result.deposit.streamingLockup, 50_240_000_000_000_000_000n) // 60 days of 25.12/month
+  })
+
+  it('includes the reserve replenishments the upload will trigger, matching the per-piece calculation', () => {
+    // 41 one-piece additions drain the 0.5 reserve past its threshold three times (Hugo, #1031 review).
+    const result = estimateOnboardingCost({ priceList, sizeInBytes: 41n * GiB, pieceCount: 41n })
+    const perPiece = calculateLifecycleReserveFunding({
+      priceList,
+      isNewDataSet: true,
+      pieceSizes: Array(41).fill(GiB),
+    })
+    assert.equal(result.deposit.lifecycleReserve, perPiece.total)
+    assert.equal(result.deposit.lifecycleReserve, 976_000_000_000_000_000n) // 0.976
+  })
+
+  it('replenishes per add-pieces call when pieces are batched', () => {
+    const result = estimateOnboardingCost({
+      priceList,
+      sizeInBytes: 41n * GiB,
+      pieceCount: 41n,
+      piecesPerAddPiecesCall: 41n,
+    })
+    // One flush of 0.025 + 0.008 + 41 x 0.003 = 0.156 fits inside the 0.5 reserve: no replenishment.
+    assert.equal(result.deposit.lifecycleReserve, USDFC / 2n)
   })
 
   it('prices a billion pieces without a list of sizes', () => {

@@ -29,8 +29,10 @@ export namespace estimateOnboardingCost {
     }
     /**
      * Funds that must be deposited before uploading, across all copies: the
-     * streaming lockup (rate x defaultLockupPeriod) plus the lifecycle reserve.
-     * This is locked, not spent; storage time is priced by {@link estimateStorageCost}.
+     * streaming lockup (rate x defaultLockupPeriod) plus the lifecycle reserve,
+     * including the replenishments the add-pieces fees will trigger. Fees are
+     * paid out of the reserve, so they are not added on top of this.
+     * Storage time is priced by {@link estimateStorageCost}.
      */
     deposit: {
       streamingLockup: bigint
@@ -71,11 +73,68 @@ export function estimateOnboardingCost(params: estimateOnboardingCost.ParamsType
     copies,
     durationInEpochs: priceList.lockups.defaultLockupPeriod,
   }).total
-  const lifecycleReserve = priceList.lockups.lifecycleReserveTarget * copies
+  const lastCallPieces = pieceCount - piecesPerCall * (addPiecesCalls - 1n)
+  const lifecycleReserve =
+    (priceList.lockups.lifecycleReserveTarget +
+      estimateReplenishment({
+        target: priceList.lockups.lifecycleReserveTarget,
+        threshold: priceList.lockups.replenishThreshold,
+        firstFlush:
+          priceList.fees.createDataSetFee +
+          priceList.fees.addPiecesBaseFee +
+          priceList.fees.addPiecesPerPieceFee * (addPiecesCalls === 1n ? lastCallPieces : piecesPerCall),
+        callFee: priceList.fees.addPiecesBaseFee + priceList.fees.addPiecesPerPieceFee * piecesPerCall,
+        lastCallFee: priceList.fees.addPiecesBaseFee + priceList.fees.addPiecesPerPieceFee * lastCallPieces,
+        calls: addPiecesCalls,
+      })) *
+    copies
 
   return {
     addPiecesCalls,
     fees: { createDataSet, addPieces, total: createDataSet + addPieces },
     deposit: { streamingLockup, lifecycleReserve, total: streamingLockup + lifecycleReserve },
   }
+}
+
+/**
+ * Lockup added by reserve replenishments over `calls` fee flushes, as
+ * {@link calculateLifecycleReserveFunding} computes per piece: before a flush
+ * of `pending`, a reserve below `pending + threshold` is refilled to
+ * `target + pending`. Every refill leaves the reserve at `target`, so the
+ * middle calls repeat in cycles that are skipped whole instead of simulated.
+ */
+function estimateReplenishment(params: {
+  target: bigint
+  threshold: bigint
+  firstFlush: bigint
+  callFee: bigint
+  lastCallFee: bigint
+  calls: bigint
+}): bigint {
+  const { target, threshold, firstFlush, callFee, lastCallFee, calls } = params
+  let reserve = target
+  let lockup = 0n
+  const flush = (pending: bigint) => {
+    if (reserve < pending + threshold) {
+      lockup += target + pending - reserve
+      reserve = target + pending
+    }
+    reserve -= pending
+  }
+  flush(firstFlush)
+  if (calls === 1n) return lockup
+  let middle = calls - 2n
+  const cycle = callFee > 0n ? (target - threshold) / callFee + 1n : 0n
+  while (middle > 0n) {
+    if (reserve === target && cycle > 0n && middle >= cycle) {
+      const cycles = middle / cycle
+      lockup += cycles * cycle * callFee
+      middle -= cycles * cycle
+      continue
+    }
+    flush(callFee)
+    middle -= 1n
+  }
+  flush(lastCallFee)
+  return lockup
 }
