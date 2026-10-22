@@ -32,6 +32,7 @@ jobs:
       contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-core') ||
       contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk') ||
       contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react') ||
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/keysmith') ||
       contains(fromJson(needs.release.outputs.paths_released), 'packages/filecoin-encryption-envelope')
     runs-on: ubuntu-latest
     permissions:
@@ -53,6 +54,9 @@ jobs:
       - name: Publish synapse-react
         if: contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react')
         run: pnpm -r --filter=./packages/synapse-react publish --access=public
+      - name: Publish keysmith
+        if: contains(fromJson(needs.release.outputs.paths_released), 'packages/keysmith')
+        run: pnpm -r --filter=./packages/keysmith publish --access=public
       - name: Publish filecoin-encryption-envelope
         if: contains(fromJson(needs.release.outputs.paths_released), 'packages/filecoin-encryption-envelope')
         run: pnpm -r --filter=./packages/filecoin-encryption-envelope publish --access=public

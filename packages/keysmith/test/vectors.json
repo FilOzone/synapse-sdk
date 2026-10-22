@@ -1,0 +1,37 @@
+{
+  "description": "Pinned Keysmith outputs for fixed inputs. A release that changes any of them orphans existing keys. The private keys are the well-known Anvil/Hardhat development keys #0 and #1: public, never for anything of value.",
+  "owner": {
+    "privateKey": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  },
+  "keyspace": "0x00112233445566778899aabbccddeeff",
+  "scope": {
+    "path": "admin/finance",
+    "key": "0xcfdd43d7d26f125efdfa8030c5415dacf96163d5b1013f0e09dc2c44a3064396"
+  },
+  "piece": {
+    "metadata": {
+      "foc/v": 1,
+      "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "foc/ks": "0x00112233445566778899aabbccddeeff",
+      "foc/scope": "admin/finance/clerks",
+      "foc/salt": "0x000102030405060708090a0b0c0d0e0f"
+    },
+    "key": "0x2fb557dd03240b061d5d05baa3030f75b2a9b910c935e909c19b8fa34bb1f2b8"
+  },
+  "recipient": {
+    "privateKey": "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+    "publicKey": "0x045e37be3bda1b6f6473cea4109645c929bae6d26d596525244cffb239468a3e1cd00c7adf30482122b34c98d2188e1e9c19d117a6ff7e8a95bfaf51502d5d16d5"
+  },
+  "grant": {
+    "cbor": "0xa70001017373636f70653a61646d696e2f66696e616e63650254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff045841049598c32429277fecc43da0ac2ffe4d334d14fece573c9fc3fc9d5e487e01fb0adf0dee2449145a13da751b24f04da19038f282588e872a39d2aed3a2c703a6de054c0f73558a7044d238bfce2dce0658305a3370055e0ba7fcc8218e3f05f0063077eb05b29c6f6e30b4a0824d5f9d6eac44adb61439f6f560c9041cf924baaeb5",
+    "aad": "0x84017373636f70653a61646d696e2f66696e616e636554f39fd6e51aad88f6f4ce6ab8827279cfffb922665000112233445566778899aabbccddeeff"
+  },
+  "pieceGrant": {
+    "cbor": "0xa7000101782870696563653a307830303031303230333034303530363037303830393061306230633064306530660254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff045841048b5b8f99eb23b71f28ec6fad63303686a883b04a58d95901d2daf4c3e9159ef39f7b87e03e0f848e8c0a791a4417329aaf7337343bf273e6d77814f08b0342a7054c6d06fd03baa006649e131bcb0658301eaa1f15f213d2d26176f7c4171f51c46daafef9bb850ad9eaf53f7d8e8a296461ddc5327f8613f1df76490721cc3225"
+  },
+  "keyspaceKey": {
+    "kk": "0xce589012fcc0fdc0bf625537e0fa701b7b1d1e8a8bcef87026ab4e61a7a85a40",
+    "commitment": "v1.6982807649650e311e4c69af4ac90417"
+  }
+}
