@@ -27,6 +27,7 @@ import {
   holdingOf,
   keyForEnvelope,
   keyspaceId,
+  scopePath,
   writeTarget,
 } from './derive.ts'
 import type { Grant, GrantNode } from './types.ts'
@@ -140,13 +141,33 @@ const grantMessage = (chain: ClaimChain, link: Omit<Claim, 'signature'>) => ({
   expires: BigInt(chain.expires),
 })
 
-const signLink = (signer: ClaimSigner, chain: ClaimChain, link: Omit<Claim, 'signature'>) =>
-  signer.signTypedData({
-    domain: DOMAIN,
-    types: READ_GRANT_TYPES,
-    primaryType: 'ReadGrant',
-    message: grantMessage(chain, link),
-  })
+// secp256k1's group order. A signature's s may be replaced by N - s (with v flipped) and still verify,
+// so only the low-s form is accepted, as EIP-2 requires of Ethereum transactions.
+const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
+
+/** A signature in the one form Keysmith writes and accepts: r ‖ s ‖ v, s at most N/2, v 27 or 28. */
+function normalSignature(signature: Hex): Hex {
+  const bytes = hexToBytes(signature)
+  if (bytes.length !== 65) throw new Error(`A signature is 65 bytes, got ${bytes.length}`)
+  let v = (bytes[64] as number) < 27 ? (bytes[64] as number) + 27 : (bytes[64] as number)
+  let s = BigInt(bytesToHex(bytes.subarray(32, 64)))
+  if (v !== 27 && v !== 28) throw new Error(`A signature's v must be 27 or 28 (or 0 or 1), got ${bytes[64]}`)
+  if (s > N >> 1n) {
+    s = N - s
+    v = v === 27 ? 28 : 27
+  }
+  return `${bytesToHex(bytes.subarray(0, 32))}${s.toString(16).padStart(64, '0')}${v.toString(16)}`
+}
+
+const signLink = async (signer: ClaimSigner, chain: ClaimChain, link: Omit<Claim, 'signature'>) =>
+  normalSignature(
+    await signer.signTypedData({
+      domain: DOMAIN,
+      types: READ_GRANT_TYPES,
+      primaryType: 'ReadGrant',
+      message: grantMessage(chain, link),
+    })
+  )
 
 const recoverIssuer = (chain: ClaimChain, link: Claim) =>
   recoverTypedDataAddress({
@@ -269,16 +290,18 @@ export async function signRequest(
   chain: ClaimChain,
   input: { pieceCid: Uint8Array; expires: number }
 ): Promise<ReadRequest> {
-  const signature = await signer.signTypedData({
-    domain: DOMAIN,
-    types: READ_REQUEST_TYPES,
-    primaryType: 'ReadRequest',
-    message: {
-      chainId: chain.chainId,
-      pieceCid: bytesToHex(input.pieceCid),
-      expires: BigInt(input.expires),
-    },
-  })
+  const signature = normalSignature(
+    await signer.signTypedData({
+      domain: DOMAIN,
+      types: READ_REQUEST_TYPES,
+      primaryType: 'ReadRequest',
+      message: {
+        chainId: chain.chainId,
+        pieceCid: bytesToHex(input.pieceCid),
+        expires: BigInt(input.expires),
+      },
+    })
+  )
   return { ...input, signature }
 }
 
@@ -289,9 +312,12 @@ const within = (parent: string, child: string) => child === parent || child.star
 /** Whether `node` reaches the piece these labels describe. */
 export function reaches(node: string, piece: PieceLabels): boolean {
   if (node === 'keyspace') return true
-  if (node.startsWith('piece:')) return node === `piece:${piece['foc/salt']}`
-  return piece['foc/scope'] != null && within(node, `scope:${piece['foc/scope']}`)
+  if (node.startsWith('piece:')) return node === pieceNodeOf(piece)
+  return piece['foc/scope'] != null && within(node, `scope:${scopePath(piece['foc/scope'])}`)
 }
+
+/** The piece node naming these labels' piece, in canonical form: labels are compared canonically, never as raw text. */
+const pieceNodeOf = (piece: PieceLabels) => canonicalNode(`piece:${piece['foc/salt']}`)
 
 /** Check one step down a chain: the child no wider than its parent, and within its depth. */
 function checkStep(
@@ -307,7 +333,7 @@ function checkStep(
   if (parent.node === 'keyspace') narrower = true
   else if (child.node.startsWith('piece:')) {
     if (!piece) throw new Error(`Link ${index} names a piece: checking it needs the piece's labels`)
-    narrower = child.node === `piece:${piece['foc/salt']}` && reaches(parent.node, piece)
+    narrower = child.node === pieceNodeOf(piece) && reaches(parent.node, piece)
   } else narrower = !parent.node.startsWith('piece:') && child.node !== 'keyspace' && within(parent.node, child.node)
   if (!narrower) throw new Error(`Link ${index} widens ${parent.node} to ${child.node}`)
 }
@@ -403,7 +429,10 @@ export async function verifyPresentation(
   })
   if (signer !== claim.bearer) throw new Error('The request is not signed by the final bearer')
   const owner = options.piece['foc/own']
-  if (owner && (owner.toLowerCase() !== claim.owner.toLowerCase() || options.piece['foc/ks'] !== claim.keyspace)) {
+  if (
+    owner &&
+    (owner.toLowerCase() !== claim.owner.toLowerCase() || keyspaceId(options.piece['foc/ks']) !== claim.keyspace)
+  ) {
     throw new Error('The piece belongs to another owner or keyspace')
   }
   if (owner && !reaches(claim.node, options.piece)) {
@@ -481,6 +510,12 @@ function bytesField(map: Map<unknown, unknown>, key: number, length: number, wha
   return bytesToHex(value)
 }
 
+function signatureField(map: Map<unknown, unknown>, key: number, what: string): Hex {
+  const signature = bytesField(map, key, 65, what)
+  if (normalSignature(signature) !== signature) throw new Error(`${what} must have a low s and v = 27 or 28`)
+  return signature
+}
+
 function uintField(map: Map<unknown, unknown>, key: number, what: string): number {
   const value = map.get(key)
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
@@ -522,7 +557,7 @@ function decodeChainLinks(value: unknown): ClaimChain {
         bearer: getAddress(bytesField(link, 4, 20, `Link ${i}'s bearer`)),
         maxDepth: depth(uintField(link, 5, `Link ${i}'s maxDepth`)),
         keyCommitment: bytesField(link, 7, 16, `Link ${i}'s keyCommitment`),
-        signature: bytesField(link, 8, 65, `Link ${i}'s signature`),
+        signature: signatureField(link, 8, `Link ${i}'s signature`),
         ...(pieceCid ? { pieceCid } : {}),
       }
     }),
@@ -535,6 +570,11 @@ function decodeArray(bytes: Uint8Array, what: string): unknown[] {
     value = decode(bytes, STRICT)
   } catch (cause) {
     throw new Error(`Not a ${what}: the bytes are not canonical CBOR`, { cause })
+  }
+  // Exactly core deterministic CBOR (RFC 8949 §4.2.1): what the bytes decode to must encode back to the
+  // same bytes. This refuses map keys out of order and ill-formed UTF-8 text, which would otherwise decode.
+  if (bytesToHex(encode(value)) !== bytesToHex(bytes)) {
+    throw new Error(`Not a ${what}: the bytes are not canonical CBOR`)
   }
   if (!Array.isArray(value) || value.length !== 3 || value[0] !== 1) throw new Error(`Not a version 1 ${what}`)
   return value
@@ -571,6 +611,9 @@ export function encodePresentation(chain: ClaimChain, request: ReadRequest): Uin
 export function decodePresentation(bytes: Uint8Array): { chain: ClaimChain; request: ReadRequest } {
   const [, chain, req] = decodeArray(bytes, 'presentation')
   if (!(req instanceof Map)) throw new Error('A request is a map')
+  for (const key of req.keys()) {
+    if (key !== 0 && key !== 1 && key !== 2) throw new Error(`The request has an unknown field ${String(key)}`)
+  }
   const pieceCid = req.get(0)
   if (!(pieceCid instanceof Uint8Array)) throw new Error('A request needs a piece CID')
   return {
@@ -578,7 +621,7 @@ export function decodePresentation(bytes: Uint8Array): { chain: ClaimChain; requ
     request: {
       pieceCid,
       expires: uintField(req, 1, "The request's expiry"),
-      signature: bytesField(req as Map<number, unknown>, 2, 65, "The request's signature"),
+      signature: signatureField(req as Map<number, unknown>, 2, "The request's signature"),
     },
   }
 }
