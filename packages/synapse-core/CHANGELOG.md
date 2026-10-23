@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.10.2...synapse-core-v0.10.3) (2026-10-23)
+
+
+### Features
+
+* **core:** add wallet-free storage cost estimators ([#1031](https://github.com/FilOzone/synapse-sdk/issues/1031)) ([e7ccd77](https://github.com/FilOzone/synapse-sdk/commit/e7ccd7763d01c64469beeb64e7ba046ce7d9b7dc))
+
 ## [0.10.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.10.1...synapse-core-v0.10.2) (2026-10-16)
 
 
