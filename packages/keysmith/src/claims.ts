@@ -123,6 +123,18 @@ function depth(value: number): number {
   return value
 }
 
+/**
+ * Claims expire; keys do not. A gating provider refuses an expired chain, so everything that would
+ * *use* a claim refuses it too, with a clear reason, while opening and decrypting with the key still works.
+ */
+function assertLive(chain: Pick<ClaimChain, 'expires'>, now: number, purpose: string): void {
+  if (chain.expires <= now) {
+    throw new Error(
+      `The claim expired at ${new Date(chain.expires * 1000).toISOString()}: get a new grant to ${purpose}`
+    )
+  }
+}
+
 function unixSeconds(value: number, what: string): number {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${what} must be unix seconds, got ${value}`)
   return value
@@ -221,6 +233,7 @@ export async function rootClaim(
     maxDepth: number
     expires: number // Unix seconds. Required: providers check no revocation, so this is what ends the claim
     piece?: PieceLabels // For a piece node: the piece's envelope labels
+    now?: number // Unix seconds; defaults to now
   }
 ): Promise<{ chain: ClaimChain; nodeKey: Uint8Array }> {
   if (!isAddress(input.owner) || !isAddress(input.bearer)) throw new Error('owner and bearer must be addresses')
@@ -240,6 +253,7 @@ export async function rootClaim(
     expires: unixSeconds(input.expires, 'expires'),
     links: [],
   }
+  assertLive(chain, input.now ?? Math.floor(Date.now() / 1000), 'issue a root')
   const signature = await signLink(owner, chain, link)
   const root = { ...link, signature }
   if ((await recoverIssuer(chain, root)) !== chain.owner) throw new Error(`The root must be signed by ${chain.owner}`)
@@ -263,10 +277,12 @@ export async function delegateClaim(
     maxDepth: number
     pieceCid?: Uint8Array
     piece?: PieceLabels
+    now?: number // Unix seconds; defaults to now
   }
 ): Promise<{ chain: ClaimChain; nodeKey: Uint8Array }> {
   const parent = chain.links.at(-1)
   if (!parent) throw new Error('A chain has at least one link')
+  assertLive(chain, input.now ?? Math.floor(Date.now() / 1000), 'delegate')
   if (chain.links.length >= MAX_CHAIN_LENGTH) throw new Error(`A chain has at most ${MAX_CHAIN_LENGTH} links`)
   if (keyCommitmentOf(input.parentKey) !== parent.keyCommitment) {
     throw new Error(`parentKey is not the key link ${chain.links.length - 1} commits to`)
@@ -284,12 +300,17 @@ export async function delegateClaim(
   return { chain: { ...chain, links: [...chain.links, { ...link, signature }] }, nodeKey }
 }
 
-/** Sign a request for one piece, as the chain's final bearer. Any provider holding it may serve it. */
+/**
+ * Sign a request for one piece, as the chain's final bearer. Any provider holding it may serve it.
+ *
+ * @throws If the chain has expired: a provider would refuse it.
+ */
 export async function signRequest(
   signer: ClaimSigner,
   chain: ClaimChain,
-  input: { pieceCid: Uint8Array; expires: number }
+  input: { pieceCid: Uint8Array; expires: number; now?: number }
 ): Promise<ReadRequest> {
+  assertLive(chain, input.now ?? Math.floor(Date.now() / 1000), 'fetch from a gating provider')
   const signature = normalSignature(
     await signer.signTypedData({
       domain: DOMAIN,
@@ -302,7 +323,7 @@ export async function signRequest(
       },
     })
   )
-  return { ...input, signature }
+  return { pieceCid: input.pieceCid, expires: input.expires, signature }
 }
 
 // ── coverage ─────────────────────────────────────────────────────────────
@@ -361,11 +382,16 @@ export async function verifyChain(
   chain: ClaimChain,
   options: { now?: number; piece?: PieceLabels } = {}
 ): Promise<VerifiedClaim> {
-  const { links } = chain
-  if (links.length < 1 || links.length > MAX_CHAIN_LENGTH) throw new Error(`A chain has 1 to ${MAX_CHAIN_LENGTH} links`)
   const now = options.now ?? Math.floor(Date.now() / 1000)
   if (chain.expires < now - SKEW)
     throw new Error(`The chain expired at ${new Date(chain.expires * 1000).toISOString()}`)
+  return verifyLinks(chain, options.piece)
+}
+
+/** Every check of a chain except its expiry. */
+async function verifyLinks(chain: ClaimChain, piece: PieceLabels | undefined): Promise<VerifiedClaim> {
+  const { links } = chain
+  if (links.length < 1 || links.length > MAX_CHAIN_LENGTH) throw new Error(`A chain has 1 to ${MAX_CHAIN_LENGTH} links`)
   const root = links[0] as Claim
   if (root.node === 'keyspace' && root.keyCommitment !== chain.keyspaceCommitment) {
     throw new Error('A keyspace root must carry the keyspace commitment')
@@ -377,7 +403,7 @@ export async function verifyChain(
     if ((await recoverIssuer(chain, link)) !== parent.bearer) {
       throw new Error(`Link ${i} is not signed by link ${i - 1}'s bearer`)
     }
-    checkStep(parent, link, options.piece, i)
+    checkStep(parent, link, piece, i)
   }
   const last = links.at(-1) as Claim
   return {
@@ -447,22 +473,27 @@ export async function verifyPresentation(
  * delegate above) signed. The keyspace commitment comes back too, for a bearer
  * that writes the keyspace's first datasets.
  *
+ * An expired delivery still opens: a key cannot expire, so decrypting with it
+ * keeps working. `expired` says the claim is spent, and `signRequest` and
+ * `delegateClaim` refuse it; get a new grant before fetching from a gating
+ * provider or sharing onward.
+ *
  * @throws With the reason the delivery is refused.
  */
 export async function openDelivery(
   privateKey: Hex,
   bytes: Uint8Array,
   options: { now?: number; piece?: PieceLabels } = {}
-): Promise<{ chain: ClaimChain; grant: Grant; claim: VerifiedClaim; key: Uint8Array }> {
+): Promise<{ chain: ClaimChain; grant: Grant; claim: VerifiedClaim; key: Uint8Array; expired: boolean }> {
   const { chain, grant } = decodeDelivery(bytes)
-  const claim = await verifyChain(chain, options)
+  const claim = await verifyLinks(chain, options.piece)
   if (claim.bearer !== privateKeyToAccount(privateKey).address) throw new Error('This delivery is for another bearer')
   assertGrantNamesClaim(grant, claim)
   const key = await unwrapWith(privateKey, grant)
   if (keyCommitmentOf(key) !== claim.keyCommitment) {
     throw new Error('The delivered key does not match the commitment in its claim')
   }
-  return { chain, grant, claim, key }
+  return { chain, grant, claim, key, expired: chain.expires <= (options.now ?? Math.floor(Date.now() / 1000)) }
 }
 
 /** A delivery's grant must name what its final link names: the wrap's descriptor and the claim are one node. */

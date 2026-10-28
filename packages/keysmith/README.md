@@ -387,11 +387,11 @@ labels as `piece`.
 #### Receiving
 
 ```ts
-const { key, claim, chain, grant } = await Keysmith.openDelivery(myPrivateKey, delivery)
+const { key, claim, chain, grant, expired } = await Keysmith.openDelivery(myPrivateKey, delivery)
 ```
 
 `openDelivery` checks:
- * basic integrity of the claim chain (signatures, expiry, scope narrowing)
+ * basic integrity of the claim chain (signatures, scope narrowing)
  * that it targets the correct key
  * that the unwrapped key matches the commitment in its own link, which the
 link's issuer signed
@@ -400,6 +400,14 @@ link's issuer signed
 ℹ️ NOTE: It does not know which owner you expect, so the application must check
 `claim.owner` and `claim.keyspace` itself, based on either the piece being read,
 or the dataset being written to.
+
+ℹ️ NOTE: **Keys don't expire; claims do.** An expired delivery still opens, because
+the key it wraps decrypts forever whatever the claim says, and `expired` reports it.
+Expiry is enforced where the claim is *used*: a gating provider refuses an expired
+chain, and so do `signRequest`, `delegateClaim` and `rootClaim`, with "get a new
+grant". So an application can keep reading what it already holds, but cannot
+fetch from a gating provider, or share onward, on an old claim. Show `expired` to
+the user rather than ignoring it: they will need a new grant before fetching.
 
 #### Sub-delegating a narrower node
 
@@ -594,11 +602,11 @@ a new dataset's metadata too.
 | `unwrapWith(privateKey, grant)` | Open a grant, as bytes or decoded |
 | `publicKeyOf(privateKey)` | The key-agreement key to publish, derived from a private key |
 | `newSalt()` | A fresh per-piece salt |
-| `rootClaim(wallet, { owner, keyspace, chainId, kk, node, bearer, maxDepth, expires, piece? })` | The owner-signed root of a claim chain → `{ chain, nodeKey }` |
-| `delegateClaim(signer, chain, { parentKey, node, bearer, maxDepth, piece?, pieceCid? })` | A narrower link, signed by the chain's final bearer, with its key derived from `parentKey` → `{ chain, nodeKey }` |
+| `rootClaim(wallet, { owner, keyspace, chainId, kk, node, bearer, maxDepth, expires, piece?, now? })` | The owner-signed root of a claim chain → `{ chain, nodeKey }`; refuses an `expires` already past |
+| `delegateClaim(signer, chain, { parentKey, node, bearer, maxDepth, piece?, pieceCid?, now? })` | A narrower link, signed by the chain's final bearer, with its key derived from `parentKey` → `{ chain, nodeKey }`; refuses an expired chain |
 | `encodeDelivery(chain, grant)` / `decodeDelivery(bytes)` | A claim chain and its grant, as one blob for the new bearer |
-| `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment |
-| `signRequest(signer, chain, { pieceCid, expires })` | A request for one piece, by the final bearer; any provider holding it may serve it |
+| `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment; opens an expired one, reporting `expired` |
+| `signRequest(signer, chain, { pieceCid, expires, now? })` | A request for one piece, by the final bearer; any provider holding it may serve it. Refuses an expired chain |
 | `encodePresentation(chain, request)` / `decodePresentation(bytes)` | The `Authorization: FOC-Grant` payload |
 | `verifyChain(chain, { now?, piece? })` | Check a chain on its own: signatures, expiry, narrowing |
 | `verifyPresentation(bytes, { pieceCid, piece, chainId, now? })` | What a gating provider checks; the reference verifier |
@@ -630,7 +638,8 @@ a new dataset's metadata too.
 - **Claim chains can expire but they cannot be revoked early.** Relying parties check
   them without the claim chain, so revoking the bearer's session key stops its writes but
   not its fetching  until the root's `expires`. Keep session keys short-lived if that window
-  matters, and remember to set the expiry on the claim to match.
+  matters, and remember to set the expiry on the claim to match. Expiry ends fetching from
+  gating providers, never decryption: a key already delivered keeps working.
 - **Beware grant spoofing.** A grant alone proves nothing about who made it. Anyone can
   send one to anyone, with any key inside, which could trick an application into writing
   data encrypted under a key that the attacker holds and real users can't access. A

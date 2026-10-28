@@ -148,7 +148,34 @@ describe('claims', () => {
     // Built elsewhere, without encodeDelivery's check: the bearer still refuses it.
     const [, links] = decode(delivery, { useMaps: true }) as [number, unknown]
     await assert.rejects(openDelivery(aKey, encode([1, links, encodeGrant(otherNode)]), { now }), /another node/)
-    await assert.rejects(openDelivery(aKey, delivery, { now: expires + 3600 }), /expired/)
+    assert.equal(opened.expired, false)
+  })
+
+  it('opens an expired delivery for its key, but refuses to use its claim', async () => {
+    const { chain, key: team } = await root('scope:team', 1)
+    const delivery = encodeDelivery(chain, await wrapTo(publicKeyOf(aKey), team, grantDescriptor(ref, 'scope:team')))
+    const later = expires + 3600
+
+    // A key does not expire: the bearer can still decrypt with it.
+    const opened = await openDelivery(aKey, delivery, { now: later })
+    assert.equal(opened.expired, true)
+    assert.deepEqual(opened.key, team)
+
+    // The claim does: anything that would present or pass it on refuses, before a provider has to.
+    await assert.rejects(
+      signRequest(a, chain, { pieceCid: PIECE, expires: later + 120, now: later }),
+      /The claim expired at .*: get a new grant to fetch from a gating provider/
+    )
+    await assert.rejects(
+      delegateClaim(a, chain, { node: 'scope:team/x', parentKey: team, bearer: b.address, maxDepth: 0, now: later }),
+      /get a new grant to delegate/
+    )
+    await assert.rejects(verifyChain(chain, { now: later }), /expired/)
+    const { kk } = await keys()
+    await assert.rejects(
+      rootClaim(owner, { ...ref, chainId, kk, node: 'keyspace', bearer: a.address, maxDepth: 0, expires, now: later }),
+      /get a new grant to issue a root/
+    )
   })
 
   it('verifies a presentation the way a gating provider would', async () => {
