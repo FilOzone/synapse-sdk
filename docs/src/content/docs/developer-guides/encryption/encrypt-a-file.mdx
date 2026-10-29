@@ -1,21 +1,29 @@
 ---
 title: Encrypt a file
-description: Encrypt files before uploading with Synapse, then download and decrypt them.
+description: Encrypt private files before storing them on Filecoin, then retrieve and decrypt them.
 sidebar:
   order: 0
 ---
 
-Encrypt files in your application before calling `synapse.storage.upload()`. After downloading with `synapse.storage.download()`, decrypt the bytes in your application.
+Store private files on Filecoin while keeping control of who can read them. Client-side encryption lets storage providers hold and serve your data without access to its contents.
 
-Keysmith provides recoverable encryption keys. The example uses two companion packages alongside Synapse; the SDK itself does not encrypt uploads automatically. Storage and payments use the usual SDK workflow.
+Your application encrypts each file before upload. Filecoin stores the encrypted bytes, and providers can prove they hold those bytes without decrypting them. A reader downloads the encrypted file and uses the appropriate key to restore its contents. This combines verifiable storage with confidentiality: providers can demonstrate that they are storing your data while the keys remain under your application's control.
 
-Encryption protects file contents. Anyone may retrieve the encrypted bytes; reading them requires the decryption key. The envelope contains public metadata.
+Keysmith manages key derivation, recovery, and sharing. It derives file keys from a signature made by the owner's wallet. Public recovery metadata travels with each encrypted file, allowing the owner to regenerate its key using a compatible wallet rather than maintain a separate secret-key backup for every file. Your application can share access to individual files or groups of files without sharing the owner's wallet credentials.
+
+This guide uses Keysmith to derive keys, Filecoin Encryption Envelope to encrypt and decrypt files, and the Synapse SDK to upload and retrieve the encrypted data.
+
+File contents are encrypted; public envelope metadata remains visible. Recovery requires a compatible owner wallet and access to the encrypted files.
+
+Encrypted bytes may be publicly retrievable; reading their contents requires the decryption key.
 
 ## Before you start
 
 This example uses **Node.js 24** and a dedicated owner account on **Calibration**. You'll need test FIL for transaction fees and test USDFC for storage; the [SDK setup guide](/getting-started/#prerequisites) links to both faucets. An upload session key cannot derive the owner's encryption keys.
 
 Add `@filoz/keysmith` and `filecoin-encryption-envelope` alongside your existing SDK dependencies. The setup below includes the tested versions and a required security override.
+
+Encrypt the file in your application before calling `synapse.storage.upload()`. Synapse uploads the bytes you provide.
 
 The complete example includes SDK initialization. When adapting it to an existing application, reuse your configured Synapse client and owner account. Key derivation and encryption belong before the upload; decryption belongs after the download.
 

@@ -1,11 +1,11 @@
 ---
 title: Keys and sharing
-description: Manage encryption keys, recover access, and share encrypted files stored with Synapse.
+description: Manage encryption keys, recover access, and share encrypted files stored on Filecoin.
 sidebar:
   order: 1
 ---
 
-Keysmith manages recoverable keys for encrypted files. The Filecoin Encryption Envelope library uses those keys to encrypt and decrypt file contents. Both run in your application around Synapse's upload and download calls.
+Keysmith manages recoverable keys for encrypted files. The Filecoin Encryption Envelope library uses those keys to encrypt and decrypt file contents. Both run in your application before upload and after retrieval.
 
 Start with [Encrypt a file](/developer-guides/encryption/encrypt-a-file/) for the complete storage example.
 
@@ -36,7 +36,9 @@ The envelope travels with the encrypted piece and identifies its keyspace. Scope
 
 Recovery requires the owner's wallet, a compatible signer that produces the same signature for the same message, and access to the encrypted bytes and their envelopes. It cannot recover a lost wallet or missing stored data.
 
-A compatible EOA wallet can sign without exposing its private key. Keysmith requires ECDSA owner signatures; smart-contract accounts cannot initialize a keyspace.
+A compatible externally owned account (EOA) wallet can sign without exposing its private key. Keysmith requires ECDSA owner signatures; smart-contract accounts cannot initialize a keyspace.
+
+Approve key-derivation requests only in applications you trust; anyone who obtains that signature can derive the keyspace's keys.
 
 Read the keyspace from the piece's envelope and check that its owner matches the account you expect. Call [`keyspaceKeys()`](/reference/filoz/keysmith/functions/keyspacekeys/) with that keyspace and owner. Use a data set's commitment only when its keyspace matches the one in the envelope.
 
