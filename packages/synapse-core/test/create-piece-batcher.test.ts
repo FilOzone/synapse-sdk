@@ -858,6 +858,31 @@ describe('createPieceBatcher', () => {
       assert.equal(addBodies[0]?.pieces.length, pullCids.length)
     })
 
+    it('should cap pull requests at DEFAULT_PULL_BATCH_SIZE pieces by default', async () => {
+      const pullBodies: PullRequestCapture[] = []
+      server.use(
+        pullPiecesPerPieceHandler(
+          () => 'complete',
+          (body) => pullBodies.push(body),
+          { baseUrl: pdpBase }
+        ),
+        addPiecesCaptureHandler(() => undefined)
+      )
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+      const cids = Array.from({ length: SIZE_CONSTANTS.DEFAULT_PULL_BATCH_SIZE + 1 }, (_, index) =>
+        pieceCidWithRawSize(300 + index)
+      )
+      const pending = cids.map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
+      await batcher.close()
+      await Promise.all(pending)
+
+      assert.deepEqual(
+        pullBodies.map((body) => body.pieces.length),
+        [SIZE_CONSTANTS.DEFAULT_PULL_BATCH_SIZE, 1]
+      )
+    })
+
     it('should split a pull window when the limiter rejects the next piece', async () => {
       const pullBodies: PullRequestCapture[] = []
       server.use(
