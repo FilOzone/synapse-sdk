@@ -3,4 +3,4 @@
 * @hugomrdias @rvagg
 
 # CODEOWNERS is last-match-wins which is why there is copy/paste between the rows.
-/docs/ @jennijuju @rjan90
+/docs/ @hugomrdias @jennijuju @rjan90
