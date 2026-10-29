@@ -36,6 +36,7 @@ export type { PaymentsOptions } from './payments.ts'
 export type { PDPVerifierOptions } from './pdp.ts'
 export type { ServiceRegistryOptions } from './service-registry.ts'
 export type { SessionKeyRegistryOptions } from './session-key-registry.ts'
+export * from './transactions.ts'
 export type { WarmStorageOptions, WarmStorageViewOptions } from './warm-storage.ts'
 
 function getMockErrorMessage(error: unknown) {

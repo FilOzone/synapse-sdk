@@ -36,52 +36,6 @@ export function createAndAddPiecesHandler(txHash: Hex, options: PDPMockOptions =
 }
 
 /**
- * Creates a handler for data set creation status check
- */
-export function dataSetCreationStatusHandler(
-  txHash: Hex,
-  response: {
-    createMessageHash: string
-    dataSetCreated: boolean
-    service: string
-    txStatus: string
-    ok: boolean | null
-    dataSetId?: number
-  },
-  options: PDPMockOptions = {}
-) {
-  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
-
-  return http.get(`${baseUrl}/pdp/data-sets/created/:txHash`, ({ params }) => {
-    if (params.txHash !== txHash) {
-      return new HttpResponse(null, { status: 404 })
-    }
-
-    return HttpResponse.json(response, { status: 200 })
-  })
-}
-
-/**
- * Creates a handler for piece addition status check
- */
-export function pieceAdditionStatusHandler(
-  dataSetId: number,
-  txHash: Hex,
-  response: any,
-  options: PDPMockOptions = {}
-) {
-  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
-
-  return http.get(`${baseUrl}/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-    if (params.id !== dataSetId.toString() || params.txHash !== txHash) {
-      return new HttpResponse(null, { status: 404 })
-    }
-
-    return HttpResponse.json(response, { status: 200 })
-  })
-}
-
-/**
  * Creates a handler for finding pieces
  */
 export function findPieceHandler(pieceCid: string, found: boolean, options: PDPMockOptions = {}) {

@@ -1,11 +1,9 @@
 import { type AbortError, HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
-import * as z from 'zod'
 import { asChain } from '../chains.ts'
 import { AddPiecesError, LocationHeaderError } from '../errors/index.ts'
 import type { AddPiecesBatchTooLargeError, InvalidUploadSizeError } from '../errors/pdp.ts'
-import { WaitForAddPiecesError, WaitForAddPiecesRejectedError } from '../errors/pdp.ts'
 import type { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
@@ -13,7 +11,6 @@ import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { type DroppedPiece, dedupePieces } from '../utils/dedupe-pieces.ts'
 import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
-import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
 import { assertAddPiecesFit } from './add-pieces-fits.ts'
 
 export namespace addPiecesApiRequest {
@@ -34,10 +31,16 @@ export namespace addPiecesApiRequest {
     retryDelay?: number
   }
   export type OutputType = {
-    /** The transaction hash. */
+    /** The original transaction hash. May not be the hash that lands on chain if Curio replaces the message by fee. */
     txHash: Hex
-    /** The status URL. */
-    statusUrl: string
+    /**
+     * The signed extra data that was submitted. Persist it with `txHash` to wait with
+     * `waitForAddPieces` or to recover with `getAddPiecesResult` after a crash.
+     * If nothing landed, resubmit this same extra data: FWSS rejects a reused nonce, so it can never add the pieces twice.
+     */
+    extraData: Hex
+    /** The number of pieces submitted. Persist it with `extraData`: recovering the piece IDs needs it. */
+    pieceCount: number
   }
   export type ErrorType = AddPiecesError | LocationHeaderError | TimeoutError | NetworkError | AbortError
   export type RequestBody = {
@@ -55,7 +58,7 @@ export namespace addPiecesApiRequest {
  * POST /pdp/data-sets/{dataSetId}/pieces
  *
  * @param options - {@link addPiecesApiRequest.OptionsType}
- * @returns Hash and status URL {@link addPiecesApiRequest.OutputType}
+ * @returns Hash, extra data and piece count {@link addPiecesApiRequest.OutputType}
  * @throws Errors {@link addPiecesApiRequest.ErrorType}
  */
 export async function addPiecesApiRequest(
@@ -93,7 +96,8 @@ export async function addPiecesApiRequest(
 
   return {
     txHash: txHash as Hex,
-    statusUrl: new URL(location, serviceURL).toString(),
+    extraData,
+    pieceCount: pieces.length,
   }
 }
 
@@ -185,110 +189,4 @@ export async function addPieces(
     signal: options.signal,
   })
   return dropped ? { ...result, dropped } : result
-}
-
-export const AddPiecesPendingSchema = z.object({
-  txHash: zHex,
-  txStatus: z.literal('pending'),
-  dataSetId: zNumberToBigInt,
-  pieceCount: z.number(),
-  addMessageOk: z.null(),
-  piecesAdded: z.literal(false),
-  /** Present once confirmed; equals txHash unless Curio replaced-by-fee. */
-  confirmedTxHash: zHex.optional(),
-})
-
-export const AddPiecesRejectedSchema = z.object({
-  txHash: zHex,
-  txStatus: z.literal('rejected'),
-  dataSetId: zNumberToBigInt,
-  pieceCount: z.number(),
-  addMessageOk: z.null(),
-  piecesAdded: z.literal(false),
-  confirmedTxHash: zHex.optional(),
-})
-
-export const AddPiecesSuccessSchema = z.object({
-  txHash: zHex,
-  txStatus: z.literal('confirmed'),
-  dataSetId: zNumberToBigInt,
-  pieceCount: z.number(),
-  addMessageOk: z.literal(true),
-  piecesAdded: z.literal(true),
-  confirmedPieceIds: z.array(zNumberToBigInt),
-  /** Hash included on chain. Equals txHash unless Curio replaced-by-fee. Use `confirmedTxHash ?? txHash` for explorers/receipts. */
-  confirmedTxHash: zHex.optional(),
-})
-
-export type AddPiecesPending = z.infer<typeof AddPiecesPendingSchema>
-export type AddPiecesRejected = z.infer<typeof AddPiecesRejectedSchema>
-export type AddPiecesSuccess = z.infer<typeof AddPiecesSuccessSchema>
-export type AddPiecesResponse = AddPiecesRejected | AddPiecesSuccess | AddPiecesPending
-export type AddPiecesOutput = AddPiecesSuccess
-
-const schema = z.discriminatedUnion('txStatus', [AddPiecesRejectedSchema, AddPiecesSuccessSchema])
-
-export namespace waitForAddPieces {
-  export type OptionsType = {
-    /** The status URL to poll. */
-    statusUrl: string
-    /** The timeout in milliseconds. Defaults to 5 minutes. */
-    timeout?: number
-    /** The signal to abort the request. */
-    signal?: AbortSignal
-    /** The number of retries. Defaults to 2. */
-    retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
-    retryDelay?: number
-    /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
-    pollInterval?: number
-  }
-  export type OutputType = AddPiecesOutput
-  export type ErrorType =
-    | WaitForAddPiecesError
-    | WaitForAddPiecesRejectedError
-    | TimeoutError
-    | NetworkError
-    | AbortError
-}
-
-/**
- * Wait for the add pieces status.
- *
- * GET /pdp/data-sets/{dataSetId}/pieces/added/{txHash}
- *
- * @param options - {@link waitForAddPieces.OptionsType}
- * @returns Status {@link waitForAddPieces.OutputType}
- * @throws Errors {@link waitForAddPieces.ErrorType}
- */
-export async function waitForAddPieces(options: waitForAddPieces.OptionsType): Promise<waitForAddPieces.OutputType> {
-  const response = await request.json.get(options.statusUrl, {
-    retry: {
-      retries: options.retryCount,
-      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
-    },
-    poll: {
-      limit: RETRY_CONSTANTS.POLL_LIMIT,
-      interval: options.pollInterval ?? RETRY_CONSTANTS.POLL_INTERVAL,
-      statusCodes: [202, 200], // 202 is processing, 200 is success
-      shouldPoll: async (ctx) => {
-        const data = (await ctx.response.clone().json()) as AddPiecesResponse
-        // A rejected status also has piecesAdded false, stop polling so the rejected error is thrown
-        return data.txStatus !== 'rejected' && data.piecesAdded === false
-      },
-    },
-    signal: options.signal,
-    timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
-    schema,
-  })
-  if (response.error) {
-    if (HttpError.is(response.error)) {
-      throw new WaitForAddPiecesError(await response.error.response.text())
-    }
-    throw response.error
-  }
-  if (response.result.txStatus === 'rejected') {
-    throw new WaitForAddPiecesRejectedError(response.result)
-  }
-  return response.result
 }
