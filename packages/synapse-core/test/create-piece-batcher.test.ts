@@ -1049,6 +1049,41 @@ describe('createPieceBatcher', () => {
       }
     })
 
+    it('should reject only the caller whose onStatus throws', async () => {
+      const addBodies: addPiecesApiRequest.RequestBody[] = []
+      server.use(
+        pullPiecesPerPieceHandler(() => 'complete', undefined, { baseUrl: pdpBase }),
+        addPiecesCaptureHandler((body) => addBodies.push(body))
+      )
+      const [throwingCid, okCid] = pullCids
+      if (throwingCid == null || okCid == null) {
+        return
+      }
+      const callbackError = new Error('onStatus failed')
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+      const settled = Promise.allSettled([
+        batcher.pull({
+          pieceCid: throwingCid,
+          sourceUrl: pullSource(throwingCid),
+          onStatus: () => {
+            throw callbackError
+          },
+        }),
+        batcher.pull({ pieceCid: okCid, sourceUrl: pullSource(okCid) }),
+      ])
+      await batcher.close()
+      const [throwing, ok] = await settled
+
+      assert.ok(throwing?.status === 'rejected' && throwing.reason === callbackError)
+      assert.equal(ok?.status, 'fulfilled')
+      assert.equal(addBodies.length, 1)
+      assert.deepEqual(
+        addBodies[0]?.pieces.map((piece) => piece.pieceCid),
+        [okCid.toString()]
+      )
+    })
+
     it('should reject an invalid pullWait', () => {
       assert.throws(
         () => createPieceBatcher(client, { dataSet: createDataSet(), pullWait: { kind: 'delay', ms: -1 } }),
