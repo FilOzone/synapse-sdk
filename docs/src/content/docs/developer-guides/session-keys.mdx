@@ -178,7 +178,7 @@ const result = await createDataSet(sessionKey.client, {
   serviceURL: 'https://provider.example.com',
 })
 
-const dataset = await waitForCreateDataSet(result)
+const dataset = await waitForCreateDataSet({ client: sessionKey.client, ...result })
 ```
 
 ### Use with the Synapse class
