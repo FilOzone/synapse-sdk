@@ -207,6 +207,42 @@ describe('Pull', () => {
       assert.strictEqual(result.status, 'failed')
     })
 
+    it('should keep polling after a failed piece until every piece settles when waitForAll is set', async () => {
+      const OTHER_PIECE_CID = 'bafkzcibcaabffs4jcd4iheeo5wisbmurjb7l4xgpmzgyzrenebvjjhsbwgx4smy'
+      let calls = 0
+      server.use(
+        http.post(`${TEST_ENDPOINT}/pdp/piece/pull`, () => {
+          calls++
+          return HttpResponse.json(
+            Mocks.pdp.createPullResponse('failed', [
+              { pieceCid: TEST_PIECE_CID, status: 'failed' },
+              { pieceCid: OTHER_PIECE_CID, status: calls < 2 ? 'inProgress' : 'complete' },
+            ])
+          )
+        })
+      )
+      const options = {
+        ...baseOptions(),
+        pieces: [
+          { pieceCid: TEST_PIECE_CID, sourceUrl: TEST_SOURCE_URL },
+          { pieceCid: OTHER_PIECE_CID, sourceUrl: `https://other-sp.example.com/piece/${OTHER_PIECE_CID}` },
+        ],
+        pollInterval: 10,
+      }
+
+      const first = await waitForPullPiecesApiRequest(options)
+      assert.strictEqual(calls, 1, 'Should stop at the first failure by default')
+      assert.strictEqual(first.pieces[1]?.status, 'inProgress')
+
+      calls = 0
+      const result = await waitForPullPiecesApiRequest({ ...options, waitForAll: true })
+      assert.strictEqual(calls, 2)
+      assert.deepStrictEqual(
+        result.pieces.map((piece) => piece.status),
+        ['failed', 'complete']
+      )
+    })
+
     it('should call onStatus callback for each poll', async () => {
       server.use(
         Mocks.pdp.pullPiecesProgressionHandler(['pending', 'inProgress', 'complete'], [{ pieceCid: TEST_PIECE_CID }])
