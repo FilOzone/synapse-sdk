@@ -303,6 +303,22 @@ describe('Pull', () => {
       )
     })
 
+    it('should fail right away when Retry-After is longer than the time left', async () => {
+      let calls = 0
+      server.use(
+        http.post(`${TEST_ENDPOINT}/pdp/piece/pull`, () => {
+          calls++
+          return new HttpResponse('pull queue backpressure', { status: 429, headers: { 'Retry-After': '60' } })
+        })
+      )
+
+      await assert.rejects(
+        waitForPullPiecesApiRequest({ ...baseOptions(), pollInterval: 10, timeout: 1000 }),
+        (error: unknown) => error instanceof PullError
+      )
+      assert.strictEqual(calls, 1)
+    })
+
     it('should still cap other retryable errors at retryCount', async () => {
       let calls = 0
       server.use(
