@@ -15,6 +15,7 @@ import { addPieces } from './add-pieces.ts'
 import {
   addPiecesFits,
   assertPieceCidSize,
+  assertPieceValid,
   type Limiter,
   type LimiterOptions,
   type LimiterPiece,
@@ -386,7 +387,7 @@ export function createPieceBatcher(
   }
 
   function internalEnqueue(incoming: EnqueuePiece): Promise<PieceResult> {
-    assertPieceCidSize(incoming.pieceCid)
+    assertPieceValid(incoming)
     beginSchedule()
     return new Promise((resolve, reject) => {
       void lock(async () => {
@@ -419,7 +420,7 @@ export function createPieceBatcher(
       parked = await track(
         limit(async () => {
           const piece = await park()
-          assertPieceCidSize(piece.pieceCid)
+          assertPieceValid(piece)
           await onParked?.(piece)
           return piece
         })

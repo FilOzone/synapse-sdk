@@ -614,6 +614,25 @@ describe('createPieceBatcher', () => {
     await batcher.close()
   })
 
+  it('should reject invalid metadata without flushing the current window', async () => {
+    const bodies: addPiecesApiRequest.RequestBody[] = []
+    server.use(addPiecesCaptureHandler((body) => bodies.push(body)))
+
+    const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+    const pending = batcher.enqueue({ pieceCid: pieceCidA })
+    await assert.rejects(
+      () => batcher.enqueue({ pieceCid: pieceCidB, metadata: { name: 'x'.repeat(97) } }),
+      /value exceeds the maximum length/
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    assert.equal(bodies.length, 0)
+    assert.equal(batcher.pending.length, 1)
+    await batcher.close()
+    await pending
+    assert.equal(bodies.length, 1)
+    assert.equal(bodies[0]?.pieces.length, 1)
+  })
+
   it('should flush leftover pieces on close and reject further work', async () => {
     const bodies: addPiecesApiRequest.RequestBody[] = []
     server.use(addPiecesCaptureHandler((body) => bodies.push(body)))
