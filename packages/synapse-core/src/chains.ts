@@ -155,6 +155,10 @@ export const mainnet: FilecoinChain = {
     retrievalDomain: 'filbeam.io',
   },
   /**
+   * Filecoin block time is 30 seconds. viem derives receipt-wait defaults from it.
+   */
+  blockTime: 30_000,
+  /**
    * Filecoin Mainnet genesis: August 24, 2020 22:00:00 UTC
    */
   genesisTimestamp: 1598306400,
@@ -249,6 +253,10 @@ export const calibration: FilecoinChain = {
   },
   testnet: true,
   /**
+   * Filecoin block time is 30 seconds. viem derives receipt-wait defaults from it.
+   */
+  blockTime: 30_000,
+  /**
    * Filecoin Calibration testnet genesis: November 1, 2022 18:13:00 UTC
    */
   genesisTimestamp: 1667326380,
@@ -320,6 +328,10 @@ export const devnet: FilecoinChain = {
   },
   filbeam: null,
   testnet: true,
+  /**
+   * foc-devnet default block delay (FOC_DEVNET_BLOCK_DELAY) is 4 seconds.
+   */
+  blockTime: 4_000,
   /**
    * Filecoin Devnet genesis: Set to 0 as placeholder. Epoch<>Date conversions (epochToDate,
    * dateToEpoch) will return incorrect results on devnet. Core contract operations
