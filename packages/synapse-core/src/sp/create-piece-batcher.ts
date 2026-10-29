@@ -24,7 +24,7 @@ import {
 } from './add-pieces-fits.ts'
 import { createDataSetAndAddPieces } from './create-dataset-add-pieces.ts'
 import { findPiece } from './find-piece.ts'
-import { type PullPieceInput, type pullPiecesApiRequest, waitForPullPieces } from './pull-pieces.ts'
+import { type PullPieceInput, waitForPullPieces } from './pull-pieces.ts'
 import { type UploadPieceStreamingData, uploadPieceStreaming } from './upload-streaming.ts'
 import { waitForAddPieces, waitForCreateDataSetAddPieces } from './wait-for-receipt.ts'
 
@@ -594,16 +594,14 @@ export function createPieceBatcher(
         }
       }
     }
-    const onStatus = (response: pullPiecesApiRequest.ReturnType) => {
-      const statuses = new Map(response.pieces.map((piece) => [piece.pieceCid, piece.status]))
-      for (const slot of slots) {
-        const pieceCid = slot.piece.pieceCid.toString()
-        const status = statuses.get(pieceCid)
-        if (slot.settled || status == null) {
+    const onStatus = (response: waitForPullPieces.ReturnType) => {
+      for (const { pieceCid, status, index } of response.pieces) {
+        const slot = slots[index]
+        if (slot == null || slot.settled) {
           continue
         }
         try {
-          slot.input.onStatus?.({ status, pieces: [{ pieceCid, status }] })
+          slot.input.onStatus?.({ status, pieces: [{ pieceCid, status, index: 0 }] })
         } catch (error) {
           // A throwing callback fails only its own pull, not the rest of the request.
           slot.reject(error)
@@ -642,7 +640,7 @@ export function createPieceBatcher(
           waitForAll: true,
         })
       }
-      // Settled pieces were handled in `onStatus`; this only reaches pieces missing from the response.
+      // Settled pieces were handled in `onStatus`; this only reaches pieces still unsettled when polling ends.
       for (const slot of slots) {
         slot.reject(new PullError('Pull failed.'))
       }
