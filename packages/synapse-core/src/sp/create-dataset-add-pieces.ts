@@ -1,16 +1,9 @@
-import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, request } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import { type Account, type Address, type Chain, type Client, type Hex, isHex, type Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { CreateDataSetError, LocationHeaderError } from '../errors/index.ts'
-import type {
-  AddPiecesBatchTooLargeError,
-  InvalidUploadSizeError,
-  WaitForAddPiecesError,
-  WaitForAddPiecesRejectedError,
-  WaitForCreateDataSetError,
-  WaitForCreateDataSetRejectedError,
-} from '../errors/pdp.ts'
+import type { AddPiecesBatchTooLargeError, InvalidUploadSizeError } from '../errors/pdp.ts'
 import type { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
@@ -18,9 +11,7 @@ import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { type DroppedPiece, dedupePieces } from '../utils/dedupe-pieces.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
-import { waitForAddPieces } from './add-pieces.ts'
 import { assertAddPiecesFit } from './add-pieces-fits.ts'
-import { waitForCreateDataSet } from './create-dataset.ts'
 
 export namespace createDataSetAndAddPiecesApiRequest {
   export type OptionsType = {
@@ -40,10 +31,16 @@ export namespace createDataSetAndAddPiecesApiRequest {
     retryDelay?: number
   }
   export type OutputType = {
-    /** The transaction hash. */
+    /** The original transaction hash. May not be the hash that lands on chain if Curio replaces the message by fee. */
     txHash: Hex
-    /** The status URL. */
-    statusUrl: string
+    /**
+     * The signed extra data that was submitted. Persist it with `txHash` to wait with
+     * `waitForCreateDataSetAddPieces` or to recover with `getCreateDataSetAndAddPiecesResult` after a crash.
+     * If nothing landed, resubmit this same extra data: FWSS rejects reused nonces, so it can never create or add twice.
+     */
+    extraData: Hex
+    /** The number of pieces submitted. Persist it with `extraData`: recovering the piece IDs needs it. */
+    pieceCount: number
   }
   export type ErrorType = CreateDataSetError | LocationHeaderError | RequestErrors
   export type RequestBody = {
@@ -62,7 +59,7 @@ export namespace createDataSetAndAddPiecesApiRequest {
  * POST /pdp/data-sets/create-and-add
  *
  * @param options - {@link createDataSetAndAddPiecesApiRequest.OptionsType}
- * @returns Hash and status URL {@link createDataSetAndAddPiecesApiRequest.OutputType}
+ * @returns Hash, extra data and piece count {@link createDataSetAndAddPiecesApiRequest.OutputType}
  * @throws Errors {@link createDataSetAndAddPiecesApiRequest.ErrorType}
  */
 export async function createDataSetAndAddPiecesApiRequest(
@@ -102,7 +99,8 @@ export async function createDataSetAndAddPiecesApiRequest(
 
   return {
     txHash: hash,
-    statusUrl: new URL(location, options.serviceURL).toString(),
+    extraData: options.extraData,
+    pieceCount: options.pieces.length,
   }
 }
 
@@ -204,78 +202,4 @@ export async function createDataSetAndAddPieces(
     signal: options.signal,
   })
   return dropped ? { ...result, dropped } : result
-}
-
-export namespace waitForCreateDataSetAddPieces {
-  export type OptionsType = {
-    /** The status URL to poll. */
-    statusUrl: string
-    /** The timeout in milliseconds for each wait. Defaults to 5 minutes. */
-    timeout?: number
-    /** The signal to abort the request. */
-    signal?: AbortSignal
-    /** The number of retries. Defaults to 2. */
-    retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
-    retryDelay?: number
-    /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
-    pollInterval?: number
-  }
-  export type ReturnType = {
-    /** Original Location / wait-key hash (not necessarily the included on-chain hash). */
-    hash: string
-    /**
-     * Hash included on chain once confirmed. Differs from hash after replace-by-fee.
-     * For explorers and receipt lookups use `confirmedTxHash ?? hash`.
-     */
-    confirmedTxHash?: string
-    dataSetId: bigint
-    piecesIds: bigint[]
-  }
-  export type ErrorType =
-    | WaitForCreateDataSetError
-    | WaitForCreateDataSetRejectedError
-    | WaitForAddPiecesError
-    | WaitForAddPiecesRejectedError
-    | RequestJsonErrors
-}
-
-/**
- * Wait for the data set creation status.
- *
- * GET /pdp/data-sets/created({txHash})
- *
- * @param options - {@link waitForCreateDataSetAddPieces.OptionsType}
- * @returns Status {@link waitForCreateDataSetAddPieces.ReturnType}
- * @throws Errors {@link waitForCreateDataSetAddPieces.ErrorType}
- */
-export async function waitForCreateDataSetAddPieces(
-  options: waitForCreateDataSetAddPieces.OptionsType
-): Promise<waitForCreateDataSetAddPieces.ReturnType> {
-  const origin = new URL(options.statusUrl).origin
-  const createdDataset = await waitForCreateDataSet({
-    statusUrl: options.statusUrl,
-    timeout: options.timeout,
-    signal: options.signal,
-    retryCount: options.retryCount,
-    retryDelay: options.retryDelay,
-    pollInterval: options.pollInterval,
-  })
-  const addedPieces = await waitForAddPieces({
-    statusUrl: new URL(
-      `/pdp/data-sets/${createdDataset.dataSetId}/pieces/added/${createdDataset.createMessageHash}`,
-      origin
-    ).toString(),
-    timeout: options.timeout,
-    signal: options.signal,
-    retryCount: options.retryCount,
-    retryDelay: options.retryDelay,
-    pollInterval: options.pollInterval,
-  })
-  return {
-    hash: createdDataset.createMessageHash,
-    confirmedTxHash: createdDataset.confirmedTxHash ?? addedPieces.confirmedTxHash,
-    dataSetId: createdDataset.dataSetId,
-    piecesIds: addedPieces.confirmedPieceIds,
-  }
 }

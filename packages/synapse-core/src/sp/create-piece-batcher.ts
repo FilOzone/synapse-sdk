@@ -20,11 +20,11 @@ import {
   type LimiterOptions,
   type LimiterPiece,
 } from './add-pieces-fits.ts'
-import { waitForCreateDataSet } from './create-dataset.ts'
 import { createDataSetAndAddPieces } from './create-dataset-add-pieces.ts'
 import { findPiece } from './find-piece.ts'
 import { waitForPullPieces } from './pull-pieces.ts'
 import { type UploadPieceStreamingData, uploadPieceStreaming } from './upload-streaming.ts'
+import { waitForAddPieces, waitForCreateDataSetAddPieces } from './wait-for-receipt.ts'
 
 export type EnqueuePiece = LimiterPiece & {
   /** Raw byte size when the piece was parked by `upload()`. */
@@ -34,11 +34,16 @@ export type EnqueuePiece = LimiterPiece & {
 export type FlushResult = {
   txHash: Hex
   confirmedTxHash?: Hex
-  statusUrl: string
+  /** The signed extra data that was submitted. Persist it with `txHash` to recover the outcome after a crash. */
+  extraData: Hex
+  /** The payer of the data set, as recorded by FWSS replay protection. */
+  payer: Address
   dataSetId: bigint
   clientDataSetId: bigint
   isNewDataSet: boolean
   pieces: EnqueuePiece[]
+  /** The on-chain outcome, already known when the flush created the data set. */
+  receipt?: waitForAddPieces.OutputType
 }
 
 export type PieceResult = FlushResult & {
@@ -265,37 +270,26 @@ export function createPieceBatcher(
 
     try {
       const isNewDataSet = dataSet == null
-      let submitted: {
-        txHash: Hex
-        confirmedTxHash?: Hex
-        statusUrl: string
-        dataSetId: bigint
-        clientDataSetId: bigint
-      }
+      let submitted: Omit<FlushResult, 'isNewDataSet' | 'pieces'>
       if (dataSet == null) {
         submitted = await flushCreate(pieces)
       } else {
+        const added = await addPieces(client, {
+          serviceURL: serviceURL(),
+          dataSetId: dataSet.dataSetId,
+          clientDataSetId: dataSet.clientDataSetId,
+          pieces,
+        })
         submitted = {
-          ...(await addPieces(client, {
-            serviceURL: serviceURL(),
-            dataSetId: dataSet.dataSetId,
-            clientDataSetId: dataSet.clientDataSetId,
-            pieces,
-          })),
+          txHash: added.txHash,
+          extraData: added.extraData,
+          payer: dataSet.payer,
           dataSetId: dataSet.dataSetId,
           clientDataSetId: dataSet.clientDataSetId,
         }
       }
 
-      const result: FlushResult = {
-        txHash: submitted.txHash,
-        ...(submitted.confirmedTxHash == null ? {} : { confirmedTxHash: submitted.confirmedTxHash }),
-        statusUrl: submitted.statusUrl,
-        dataSetId: submitted.dataSetId,
-        clientDataSetId: submitted.clientDataSetId,
-        isNewDataSet,
-        pieces,
-      }
+      const result: FlushResult = { ...submitted, isNewDataSet, pieces }
       for (const [batchIndex, slot] of batch.entries()) {
         slot.resolve({
           ...result,
@@ -320,13 +314,7 @@ export function createPieceBatcher(
     }
   }
 
-  async function flushCreate(pieces: EnqueuePiece[]): Promise<{
-    txHash: Hex
-    confirmedTxHash?: Hex
-    statusUrl: string
-    dataSetId: bigint
-    clientDataSetId: bigint
-  }> {
+  async function flushCreate(pieces: EnqueuePiece[]): Promise<Omit<FlushResult, 'isNewDataSet' | 'pieces'>> {
     if (payee == null) {
       throw new ValidationError('`payee` is required when dataSet is undefined.')
     }
@@ -339,7 +327,12 @@ export function createPieceBatcher(
       pieces,
       clientDataSetId: createClientDataSetId,
     })
-    const created = await waitForCreateDataSet({ statusUrl: submitted.statusUrl })
+    const created = await waitForCreateDataSetAddPieces({
+      client,
+      txHash: submitted.txHash,
+      extraData: submitted.extraData,
+      pieceCount: submitted.pieceCount,
+    })
     const resolved = await getPdpDataSet(client, { dataSetId: created.dataSetId })
     if (resolved == null) {
       throw new DataSetNotFoundError(created.dataSetId)
@@ -348,12 +341,11 @@ export function createPieceBatcher(
     return {
       txHash: submitted.txHash,
       ...(created.confirmedTxHash == null ? {} : { confirmedTxHash: created.confirmedTxHash }),
-      statusUrl: new URL(
-        `/pdp/data-sets/${created.dataSetId}/pieces/added/${submitted.txHash}`,
-        serviceURL()
-      ).toString(),
+      extraData: submitted.extraData,
+      payer: resolved.payer,
       dataSetId: created.dataSetId,
       clientDataSetId: createClientDataSetId,
+      receipt: created,
     }
   }
 
@@ -545,4 +537,53 @@ export function createPieceBatcher(
       return dataSet
     },
   }
+}
+
+export namespace waitForFlushReceipt {
+  export type OptionsType = Omit<
+    waitForAddPieces.OptionsType,
+    'client' | 'txHash' | 'extraData' | 'payer' | 'pieceCount'
+  >
+  export type OutputType = waitForAddPieces.OutputType
+  export type ErrorType = waitForAddPieces.ErrorType
+}
+
+/**
+ * Wait for a flushed batch to land on chain and get its piece IDs.
+ *
+ * Follows replace-by-fee replacements with {@link waitForAddPieces}. A flush that created the
+ * data set already waited for its transaction, so its outcome is returned without waiting again.
+ *
+ * @param client - The client to wait with.
+ * @param result - The flush result, from {@link PieceBatcher.flush} or any piece's result.
+ * @param options - {@link waitForFlushReceipt.OptionsType}
+ * @returns The outcome {@link waitForFlushReceipt.OutputType}. `pieceIds[batchIndex]` is a piece's ID.
+ * @throws Errors {@link waitForFlushReceipt.ErrorType}
+ *
+ * @example
+ * ```ts
+ * import { createPieceBatcher, waitForFlushReceipt } from '@filoz/synapse-core/sp'
+ *
+ * const batcher = createPieceBatcher(client, { dataSet })
+ * const result = await batcher.upload({ data: file })
+ * const { pieceIds } = await waitForFlushReceipt(client, result)
+ * const pieceId = pieceIds[result.batchIndex]
+ * ```
+ */
+export async function waitForFlushReceipt(
+  client: Client<Transport, Chain>,
+  result: FlushResult,
+  options: waitForFlushReceipt.OptionsType = {}
+): Promise<waitForFlushReceipt.OutputType> {
+  if (result.receipt != null) {
+    return result.receipt
+  }
+  return waitForAddPieces({
+    ...options,
+    client,
+    txHash: result.txHash,
+    extraData: result.extraData,
+    payer: result.payer,
+    pieceCount: result.pieces.length,
+  })
 }

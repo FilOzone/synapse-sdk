@@ -6,12 +6,11 @@ import { privateKeyToAccount } from 'viem/accounts'
 import * as Chains from '../src/chains.ts'
 import { ValidationError } from '../src/errors/base.ts'
 import { PDPProviderUnavailableError } from '../src/errors/index.ts'
-import { AddPiecesFlushError, InvalidUploadSizeError } from '../src/errors/pdp.ts'
-import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from '../src/mocks/jsonrpc/index.ts'
+import { AddPiecesFlushError, InvalidUploadSizeError, TransactionNotAppliedError } from '../src/errors/pdp.ts'
+import { ADDRESSES, JSONRPC, landedTransactions, PRIVATE_KEYS, presets } from '../src/mocks/jsonrpc/index.ts'
 import {
   createAndAddPiecesHandler,
   createPullResponse,
-  dataSetCreationStatusHandler,
   findAnyPieceHandler,
   pullPiecesWithCaptureHandler,
   streamingUploadHandlers,
@@ -20,7 +19,7 @@ import * as Piece from '../src/piece/index.ts'
 import * as Digest from '../src/piece/internal/digest.ts'
 import { PieceCID } from '../src/piece/piece-cid.ts'
 import type { addPiecesApiRequest } from '../src/sp/add-pieces.ts'
-import { createPieceBatcher, type EnqueuePiece } from '../src/sp/create-piece-batcher.ts'
+import { createPieceBatcher, type EnqueuePiece, waitForFlushReceipt } from '../src/sp/create-piece-batcher.ts'
 import * as TypedData from '../src/typed-data/index.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
 import type { PdpDataSet } from '../src/warm-storage/types.ts'
@@ -391,7 +390,10 @@ describe('createPieceBatcher', () => {
     let pullExtraData: string | undefined
     let pullDataSetId: number | undefined
     server.use(
-      JSONRPC(presets.basic),
+      JSONRPC({
+        ...presets.basic,
+        ...landedTransactions({ [mockTxHash]: { created: true, dataSetId: 1n, pieceIds: [0n] } }),
+      }),
       pullPiecesWithCaptureHandler(
         createPullResponse('complete', [{ pieceCid: pieceCidB.toString() }]),
         (request) => {
@@ -400,19 +402,7 @@ describe('createPieceBatcher', () => {
         },
         { baseUrl: pdpBase }
       ),
-      createAndAddPiecesHandler(mockTxHash, { baseUrl: pdpBase }),
-      dataSetCreationStatusHandler(
-        mockTxHash,
-        {
-          createMessageHash: mockTxHash,
-          dataSetCreated: true,
-          service: 'warm',
-          txStatus: 'confirmed',
-          ok: true,
-          dataSetId: 1,
-        },
-        { baseUrl: pdpBase }
-      )
+      createAndAddPiecesHandler(mockTxHash, { baseUrl: pdpBase })
     )
 
     const batcher = createPieceBatcher(client, {
@@ -649,20 +639,11 @@ describe('createPieceBatcher', () => {
   it('should create a data set on the first flush then switch to addPieces', async () => {
     const addBodies: addPiecesApiRequest.RequestBody[] = []
     server.use(
-      JSONRPC(presets.basic),
+      JSONRPC({
+        ...presets.basic,
+        ...landedTransactions({ [mockTxHash]: { created: true, dataSetId: 1n, pieceIds: [0n] } }),
+      }),
       createAndAddPiecesHandler(mockTxHash, { baseUrl: pdpBase }),
-      dataSetCreationStatusHandler(
-        mockTxHash,
-        {
-          createMessageHash: mockTxHash,
-          dataSetCreated: true,
-          service: 'warm',
-          txStatus: 'confirmed',
-          ok: true,
-          dataSetId: 1,
-        },
-        { baseUrl: pdpBase }
-      ),
       addPiecesCaptureHandler((body) => addBodies.push(body), mockTxHash2)
     )
 
@@ -681,8 +662,85 @@ describe('createPieceBatcher', () => {
     assert.ok(batcher.dataSet)
     assert.equal(batcher.dataSet?.dataSetId, 1n)
     assert.equal(created.txHash, mockTxHash)
+    assert.equal(created.payer, ADDRESSES.client1)
     assert.equal(added.txHash, mockTxHash2)
     assert.equal(addBodies.length, 1)
+  })
+
+  it('should reject the window with the receipt error when the create transaction was not applied', async () => {
+    server.use(
+      JSONRPC({ ...presets.basic, ...landedTransactions({ [mockTxHash]: { reverted: true } }) }),
+      createAndAddPiecesHandler(mockTxHash, { baseUrl: pdpBase })
+    )
+
+    const batcher = createPieceBatcher(client, {
+      dataSet: undefined,
+      serviceURL: pdpBase,
+      payee: ADDRESSES.payee1,
+      wait: { kind: 'limiter' },
+    })
+    const pending = batcher.enqueue({ pieceCid: pieceCidA })
+    await batcher.close()
+    const error = await pending.then(
+      () => undefined,
+      (err: unknown) => err
+    )
+    assert.ok(AddPiecesFlushError.is(error))
+    assert.ok(TransactionNotAppliedError.is(error.cause))
+    assert.equal(batcher.dataSet, undefined)
+  })
+
+  describe('waitForFlushReceipt', () => {
+    it('reads piece IDs from the add pieces receipt', async () => {
+      const bodies: addPiecesApiRequest.RequestBody[] = []
+      server.use(
+        JSONRPC({ ...presets.basic, ...landedTransactions({ [mockTxHash]: { dataSetId: 1n, pieceIds: [7n, 8n] } }) }),
+        addPiecesCaptureHandler((body) => bodies.push(body))
+      )
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+      const a = batcher.enqueue({ pieceCid: pieceCidA })
+      const b = batcher.enqueue({ pieceCid: pieceCidB })
+      await batcher.close()
+      const [resultA, resultB] = await Promise.all([a, b])
+
+      assert.equal(resultA.extraData, bodies[0]?.extraData)
+      assert.equal(resultA.payer, ADDRESSES.client1)
+      const receipt = await waitForFlushReceipt(client, resultB)
+      assert.deepEqual(receipt, {
+        txHash: mockTxHash,
+        confirmedTxHash: mockTxHash,
+        dataSetId: 1n,
+        pieceIds: [7n, 8n],
+      })
+      assert.equal(receipt.pieceIds[resultB.batchIndex], 8n)
+    })
+
+    it('returns the create receipt without waiting again', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          ...landedTransactions({ [mockTxHash]: { created: true, dataSetId: 1n, pieceIds: [0n] } }),
+        }),
+        createAndAddPiecesHandler(mockTxHash, { baseUrl: pdpBase })
+      )
+
+      const batcher = createPieceBatcher(client, {
+        dataSet: undefined,
+        serviceURL: pdpBase,
+        payee: ADDRESSES.payee1,
+        wait: { kind: 'limiter' },
+      })
+      const pending = batcher.enqueue({ pieceCid: pieceCidA })
+      await batcher.close()
+      const result = await pending
+
+      // A wait would fail: the node no longer knows the transaction
+      server.use(JSONRPC({ ...presets.basic, ...landedTransactions({}) }))
+      const receipt = await waitForFlushReceipt(client, result, { timeout: 50 })
+      assert.equal(receipt.dataSetId, 1n)
+      assert.deepEqual(receipt.pieceIds, [0n])
+    })
   })
 
   it('should limit concurrent parking with concurrency and still batch every piece', async () => {

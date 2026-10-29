@@ -14,10 +14,6 @@ import {
   LocationHeaderError,
   PostPieceError,
   UploadPieceError,
-  WaitForAddPiecesError,
-  WaitForAddPiecesRejectedError,
-  WaitForCreateDataSetError,
-  WaitForCreateDataSetRejectedError,
 } from '../src/errors/pdp.ts'
 import { AtLeastOnePieceRequiredError } from '../src/errors/warm-storage.ts'
 import { ADDRESSES, PRIVATE_KEYS } from '../src/mocks/index.ts'
@@ -50,9 +46,6 @@ import {
   terminateService,
   terminateServiceApiRequest,
   uploadPiece,
-  waitForAddPieces,
-  waitForCreateDataSet,
-  waitForCreateDataSetAddPieces,
   waitForTerminateService,
 } from '../src/sp/index.ts'
 import { uploadPieceStreaming } from '../src/sp/upload-streaming.ts'
@@ -162,7 +155,7 @@ describe('SP', () => {
         extraData,
       })
       assert.strictEqual(result.txHash, mockTxHash)
-      assert.include(result.statusUrl, mockTxHash)
+      assert.strictEqual(result.extraData, extraData)
     })
 
     it('should handle dataset creation with metadata', async () => {
@@ -196,7 +189,7 @@ describe('SP', () => {
         extraData,
       })
       assert.strictEqual(result.txHash, mockTxHash)
-      assert.include(result.statusUrl, mockTxHash)
+      assert.strictEqual(result.extraData, extraData)
     })
 
     it('should fail with bad location header', async () => {
@@ -384,171 +377,6 @@ InvalidSignature(address expected, address actual)
     })
   })
 
-  describe('waitForDataSetCreationStatus', () => {
-    it('should handle successful status check', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockResponse = {
-        createMessageHash: mockTxHash,
-        dataSetCreated: true,
-        service: 'test-service',
-        txStatus: 'confirmed',
-        ok: true,
-        dataSetId: 123,
-      }
-
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/created/:tx', ({ params }) => {
-          assert.strictEqual(params.tx, mockTxHash)
-          return HttpResponse.json(mockResponse, {
-            status: 200,
-          })
-        })
-      )
-
-      const result = await waitForCreateDataSet({
-        statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
-      })
-      assert.deepStrictEqual(result, {
-        createMessageHash: mockTxHash,
-        dataSetCreated: true,
-        service: 'test-service',
-        txStatus: 'confirmed',
-        ok: true,
-        dataSetId: 123n,
-      })
-    })
-
-    it('should handle pending then confirmed status', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      let callCount = 0
-
-      const pendingResponse = {
-        createMessageHash: mockTxHash,
-        dataSetCreated: false,
-        service: 'test-service',
-        txStatus: 'pending',
-        ok: true,
-      }
-
-      const confirmedResponse = {
-        createMessageHash: mockTxHash,
-        dataSetCreated: true,
-        service: 'test-service',
-        txStatus: 'confirmed',
-        ok: true,
-        dataSetId: 123,
-      }
-
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/created/:tx', () => {
-          callCount++
-          if (callCount === 1) {
-            return HttpResponse.json(pendingResponse, { status: 200 })
-          }
-          return HttpResponse.json(confirmedResponse, { status: 200 })
-        })
-      )
-
-      const result = await waitForCreateDataSet({
-        statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
-        pollInterval: 10,
-        timeout: 50,
-      })
-      assert.strictEqual(result.dataSetCreated, true)
-      assert.strictEqual(result.dataSetId, 123n)
-      assert.isTrue(callCount >= 2, 'Should have polled at least twice')
-    })
-
-    it('should throw rejected error without polling until timeout', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      let callCount = 0
-
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/created/:tx', () => {
-          callCount++
-          return HttpResponse.json(
-            {
-              createMessageHash: mockTxHash,
-              dataSetCreated: false,
-              service: 'test-service',
-              txStatus: 'rejected',
-              ok: false,
-            },
-            { status: 200 }
-          )
-        })
-      )
-
-      try {
-        await waitForCreateDataSet({
-          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
-          pollInterval: 10,
-          timeout: 1000,
-        })
-        assert.fail('Should have thrown')
-      } catch (error) {
-        assert.instanceOf(error, WaitForCreateDataSetRejectedError)
-        assert.strictEqual(error.response.createMessageHash, mockTxHash)
-        assert.strictEqual(callCount, 1)
-      }
-    })
-
-    it('should handle server errors', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/created/:tx', () => {
-          return HttpResponse.text('Database error', {
-            status: 500,
-          })
-        })
-      )
-
-      try {
-        await waitForCreateDataSet({
-          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
-          retryDelay: 10,
-        })
-        assert.fail('Should have thrown error for server error')
-      } catch (error) {
-        assert.instanceOf(error, WaitForCreateDataSetError)
-        assert.include(error.message, 'Failed to wait for data set creation')
-      }
-    })
-
-    it('should handle timeout', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockResponse = {
-        createMessageHash: mockTxHash,
-        dataSetCreated: true,
-        service: 'test-service',
-        txStatus: 'confirmed',
-        ok: true,
-        dataSetId: 123,
-      }
-
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/created/:tx', async () => {
-          await delay(150)
-          return HttpResponse.json(mockResponse, {
-            status: 200,
-          })
-        })
-      )
-
-      try {
-        await waitForCreateDataSet({
-          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
-          timeout: 50,
-        })
-        assert.fail('Should have thrown timeout error')
-      } catch (error) {
-        assert.instanceOf(error, TimeoutError)
-        assert.include(error.message, 'Request timed out after 50ms')
-      }
-    })
-  })
-
   describe('createDataSetAndAddPieces', () => {
     it('should handle successful data set creation', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
@@ -559,18 +387,19 @@ InvalidSignature(address expected, address actual)
         })
       )
 
+      const extraData = await TypedData.signCreateDataSetAndAddPieces(client, {
+        clientDataSetId: 0n,
+        payee: ADDRESSES.client1,
+        pieces: [{ pieceCid: Piece.from(pieceCid) }],
+      })
       const result = await createDataSetAndAddPiecesApiRequest({
         serviceURL: 'http://pdp.local',
         recordKeeper: ADDRESSES.calibration.warmStorage,
         pieces: [Piece.from(pieceCid)],
-        extraData: await TypedData.signCreateDataSetAndAddPieces(client, {
-          clientDataSetId: 0n,
-          payee: ADDRESSES.client1,
-          pieces: [{ pieceCid: Piece.from(pieceCid) }],
-        }),
+        extraData,
       })
       assert.strictEqual(result.txHash, mockTxHash)
-      assert.include(result.statusUrl, mockTxHash)
+      assert.strictEqual(result.extraData, extraData)
     })
   })
 
@@ -620,8 +449,7 @@ InvalidSignature(address expected, address actual)
       })
 
       assert.strictEqual(result.txHash, mockTxHash)
-      assert.include(result.statusUrl, mockTxHash)
-      assert.include(result.statusUrl, '/pdp/data-sets/1/pieces/added/')
+      assert.strictEqual(result.extraData, extraData)
     })
 
     it('should handle server errors appropriately', async () => {
@@ -765,7 +593,7 @@ InvalidSignature(address expected, address actual)
       })
 
       assert.strictEqual(result.txHash, mockTxHash)
-      assert.include(result.statusUrl, mockTxHash)
+      assert.strictEqual(result.extraData, extraData)
     })
 
     it('should fail with bad location header', async () => {
@@ -932,195 +760,8 @@ InvalidSignature(address expected, address actual)
     })
   })
 
-  describe('waitForAddPiecesStatus', () => {
-    it('should handle successful status check', async () => {
-      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-      const mockResponse = {
-        txHash: mockTxHash,
-        txStatus: 'confirmed',
-        dataSetId: 1,
-        pieceCount: 2,
-        addMessageOk: true,
-        confirmedPieceIds: [101, 102],
-        piecesAdded: true,
-      }
-
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', ({ params }) => {
-          assert.strictEqual(params.id, '1')
-          assert.strictEqual(params.txHash, mockTxHash)
-
-          return HttpResponse.json(mockResponse, {
-            status: 200,
-          })
-        })
-      )
-
-      const result = await waitForAddPieces({
-        statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
-      })
-      assert.deepStrictEqual(result, {
-        txHash: mockTxHash,
-        txStatus: 'confirmed',
-        dataSetId: 1n,
-        pieceCount: 2,
-        addMessageOk: true,
-        piecesAdded: true,
-        confirmedPieceIds: [101n, 102n],
-      })
-    })
-
-    it('should handle pending then confirmed status', async () => {
-      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-      let callCount = 0
-
-      const pendingResponse = {
-        txHash: mockTxHash,
-        txStatus: 'pending',
-        dataSetId: 1,
-        pieceCount: 2,
-        addMessageOk: null,
-        piecesAdded: false,
-      }
-
-      const confirmedResponse = {
-        txHash: mockTxHash,
-        txStatus: 'confirmed',
-        dataSetId: 1,
-        pieceCount: 2,
-        addMessageOk: true,
-        confirmedPieceIds: [101, 102],
-        piecesAdded: true,
-      }
-
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () => {
-          callCount++
-          // First call returns pending, subsequent calls return confirmed
-          if (callCount === 1) {
-            return HttpResponse.json(pendingResponse, { status: 200 })
-          }
-          return HttpResponse.json(confirmedResponse, { status: 200 })
-        })
-      )
-
-      const result = await waitForAddPieces({
-        statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
-        pollInterval: 10,
-      })
-
-      assert.equal(result.txStatus, 'confirmed')
-      assert.strictEqual(result.piecesAdded, true)
-      assert.typeOf(result.dataSetId, 'bigint')
-      assert.deepStrictEqual(result.confirmedPieceIds, [101n, 102n])
-      assert.isTrue(callCount >= 2, 'Should have polled at least twice')
-    })
-
-    it('should throw rejected error without polling until timeout', async () => {
-      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-      let callCount = 0
-
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () => {
-          callCount++
-          return HttpResponse.json(
-            {
-              txHash: mockTxHash,
-              txStatus: 'rejected',
-              dataSetId: 1,
-              pieceCount: 2,
-              addMessageOk: null,
-              piecesAdded: false,
-            },
-            { status: 200 }
-          )
-        })
-      )
-
-      try {
-        await waitForAddPieces({
-          statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
-          pollInterval: 10,
-          timeout: 1000,
-        })
-        assert.fail('Should have thrown')
-      } catch (error) {
-        assert.instanceOf(error, WaitForAddPiecesRejectedError)
-        assert.strictEqual(error.response.txHash, mockTxHash)
-        assert.strictEqual(error.response.dataSetId, 1n)
-        assert.strictEqual(callCount, 1)
-      }
-    })
-
-    it('should handle server errors', async () => {
-      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () => {
-          return HttpResponse.text('Database error', {
-            status: 500,
-          })
-        })
-      )
-
-      try {
-        await waitForAddPieces({
-          statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
-          retryDelay: 10,
-        })
-        assert.fail('Should have thrown error for server error')
-      } catch (error) {
-        assert.instanceOf(error, WaitForAddPiecesError)
-        assert.include(error.message, 'Failed to wait for add pieces.')
-      }
-    })
-
-    it('should handle timeout status check', async () => {
-      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-      const mockResponse = {
-        txHash: mockTxHash,
-        txStatus: 'confirmed',
-        dataSetId: 1,
-        pieceCount: 2,
-        addMessageOk: true,
-        confirmedPieceIds: [101, 102],
-        piecesAdded: true,
-      }
-
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', async ({ params }) => {
-          assert.strictEqual(params.id, '1')
-          assert.strictEqual(params.txHash, mockTxHash)
-
-          await delay(150)
-          return HttpResponse.json(mockResponse, {
-            status: 200,
-          })
-        })
-      )
-
-      try {
-        await waitForAddPieces({
-          statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
-          timeout: 50,
-        })
-      } catch (error) {
-        assert.instanceOf(error, TimeoutError)
-        assert.include(error.message, 'Request timed out after 50ms')
-      }
-    })
-  })
-
   describe('abort signal', () => {
-    const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
-    const pendingAddPieces = {
-      txHash: mockTxHash,
-      txStatus: 'pending',
-      dataSetId: 1,
-      pieceCount: 1,
-      addMessageOk: null,
-      piecesAdded: false,
-    }
 
     async function assertAborts(fn: (signal: AbortSignal) => Promise<unknown>) {
       const controller = new AbortController()
@@ -1294,114 +935,15 @@ InvalidSignature(address expected, address actual)
       assert.equal(signatures, 0)
     })
 
-    it('aborts the status pollers', async () => {
+    it('aborts the termination status poller', async () => {
       server.use(
-        http.get('http://pdp.local/pdp/data-sets/created/:tx', () =>
-          HttpResponse.json({
-            createMessageHash: mockTxHash,
-            dataSetCreated: false,
-            service: 'test-service',
-            txStatus: 'pending',
-            ok: null,
-          })
-        ),
-        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () => HttpResponse.json(pendingAddPieces)),
         http.get('http://pdp.local/pdp/data-sets/:id/terminate', () =>
           HttpResponse.json({ terminationTxHash: '', fwssTerminated: null, serviceTerminationEpoch: null })
         )
       )
       await assertAborts((signal) =>
-        waitForCreateDataSet({
-          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
-          pollInterval: 5,
-          signal,
-        })
-      )
-      await assertAborts((signal) =>
-        waitForAddPieces({
-          statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
-          pollInterval: 5,
-          signal,
-        })
-      )
-      await assertAborts((signal) =>
-        waitForCreateDataSetAddPieces({
-          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
-          pollInterval: 5,
-          signal,
-        })
-      )
-      await assertAborts((signal) =>
         waitForTerminateService({ statusUrl: 'http://pdp.local/pdp/data-sets/1/terminate', pollInterval: 5, signal })
       )
-    })
-
-    it('waitForCreateDataSetAddPieces forwards the signal to the add pieces wait', async () => {
-      let addPiecesPolls = 0
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/created/:tx', () =>
-          HttpResponse.json({
-            createMessageHash: mockTxHash,
-            dataSetCreated: true,
-            service: 'test-service',
-            txStatus: 'confirmed',
-            ok: true,
-            dataSetId: 1,
-          })
-        ),
-        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () => {
-          addPiecesPolls++
-          return HttpResponse.json(pendingAddPieces)
-        })
-      )
-      await assertAborts((signal) =>
-        waitForCreateDataSetAddPieces({
-          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
-          pollInterval: 5,
-          signal,
-        })
-      )
-      assert.isAbove(addPiecesPolls, 0)
-    })
-  })
-
-  describe('waitForCreateDataSetAddPieces', () => {
-    it('forwards the timeout to the add pieces wait', async () => {
-      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/created/:tx', () =>
-          HttpResponse.json({
-            createMessageHash: mockTxHash,
-            dataSetCreated: true,
-            service: 'test-service',
-            txStatus: 'confirmed',
-            ok: true,
-            dataSetId: 1,
-          })
-        ),
-        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () =>
-          HttpResponse.json({
-            txHash: mockTxHash,
-            txStatus: 'pending',
-            dataSetId: 1,
-            pieceCount: 1,
-            addMessageOk: null,
-            piecesAdded: false,
-          })
-        )
-      )
-
-      try {
-        await waitForCreateDataSetAddPieces({
-          statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
-          pollInterval: 10,
-          timeout: 100,
-        })
-        assert.fail('Expected a timeout')
-      } catch (error) {
-        assert.instanceOf(error, TimeoutError)
-        assert.include(error.message, 'Request timed out after 100ms')
-      }
     })
   })
 

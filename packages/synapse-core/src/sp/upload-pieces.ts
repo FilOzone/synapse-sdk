@@ -2,9 +2,8 @@ import type { Account, Chain, Client, Transport } from 'viem'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
-import { waitForAddPieces } from './add-pieces.ts'
 import type { Limiter } from './add-pieces-fits.ts'
-import { createPieceBatcher, type UploadInput } from './create-piece-batcher.ts'
+import { createPieceBatcher, type FlushResult, type UploadInput, waitForFlushReceipt } from './create-piece-batcher.ts'
 
 export namespace uploadPieces {
   export type InputPiece = {
@@ -45,10 +44,10 @@ export namespace uploadPieces {
   }
   export type OutputType = {
     /**
-     * The provider confirmations of the add-pieces transactions, one per transaction.
+     * The on-chain outcomes of the add-pieces transactions, one per transaction.
      * All pieces go in one transaction unless they don't fit in a single add-pieces request.
      */
-    confirmations: waitForAddPieces.OutputType[]
+    confirmations: waitForFlushReceipt.OutputType[]
     /** The pieces added to the data set, in input order. */
     pieces: UploadedPiece[]
     /** The pieces that failed to upload or whose add-pieces transaction was not confirmed. */
@@ -116,24 +115,24 @@ export async function uploadPieces(
   )
 
   // A failed confirmation only fails its own transaction's pieces; the others keep their piece ids.
-  const statusUrls = [...new Set(uploaded.map(({ result }) => result.statusUrl))]
+  const flushes = [...new Map(uploaded.map(({ result }) => [result.txHash, result])).values()]
   const settledConfirmations = await Promise.allSettled(
-    statusUrls.map((statusUrl) => waitForAddPieces({ statusUrl, signal: options.signal }))
+    flushes.map((result) => waitForFlushReceipt(client, result, { signal: options.signal }))
   )
-  const confirmationByUrl = new Map<string, waitForAddPieces.OutputType>()
-  const errorByUrl = new Map<string, Error>()
+  const confirmationByHash = new Map<string, waitForFlushReceipt.OutputType>()
+  const errorByHash = new Map<string, Error>()
   settledConfirmations.forEach((item, i) => {
-    const statusUrl = statusUrls[i] as string
+    const txHash = (flushes[i] as FlushResult).txHash
     if (item.status === 'fulfilled') {
-      confirmationByUrl.set(statusUrl, item.value)
+      confirmationByHash.set(txHash, item.value)
     } else {
-      errorByUrl.set(statusUrl, toError(item.reason))
+      errorByHash.set(txHash, toError(item.reason))
     }
   })
 
   const pieces: uploadPieces.UploadedPiece[] = []
   for (const { index, metadata, result } of uploaded) {
-    const error = errorByUrl.get(result.statusUrl)
+    const error = errorByHash.get(result.txHash)
     if (error != null) {
       failed.push({ index, error })
       continue
@@ -141,8 +140,8 @@ export async function uploadPieces(
     pieces.push({
       index,
       pieceCid: result.pieceCid,
-      // The provider confirms piece ids in submission order.
-      pieceId: confirmationByUrl.get(result.statusUrl)?.confirmedPieceIds[result.batchIndex],
+      // FWSS assigns piece ids in submission order.
+      pieceId: confirmationByHash.get(result.txHash)?.pieceIds[result.batchIndex],
       size: result.size,
       metadata,
     })
@@ -153,7 +152,7 @@ export async function uploadPieces(
   }
 
   return {
-    confirmations: [...confirmationByUrl.values()],
+    confirmations: [...confirmationByHash.values()],
     pieces,
     failed,
   }
