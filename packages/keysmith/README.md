@@ -452,25 +452,23 @@ const claim = await Keysmith.verifyPresentation(bytes, { pieceCid, piece: envelo
 
 A delivery is wrapped to a bearer's key, so a recipient with no key pair of their own (a
 person opening a link in a browser, say) is given one: the sender makes a key pair T, wraps
-the grant to T and names T as the bearer, and gets T's private key to the recipient. Either
-send it separately, or derive it from a password so no key travels at all:
+the grant to T and names T as the bearer, and sends T's private key to the recipient
+separately from the delivery:
 
 ```ts
-const salt = crypto.getRandomValues(new Uint8Array(16)) // travels with the link
-const T = await Keysmith.shareKeyFromPassword(password, salt)
+const T = generatePrivateKey() // viem/accounts: sent to the recipient on its own channel
 const { chain, nodeKey } = await Keysmith.rootClaim(wallet, {
   ...ref, chainId, kk, node: Keysmith.pieceNode(metadata), piece: metadata, pieceCid,
   bearer: privateKeyToAccount(T).address, maxDepth: 0, expires,
 })
 const delivery = Keysmith.encodeDelivery(chain, await Keysmith.wrapTo(Keysmith.publicKeyOf(T), nodeKey, descriptor))
 
-// recipient, with the password and the salt:
-const { key } = await Keysmith.openDelivery(await Keysmith.shareKeyFromPassword(password, salt), delivery)
+// recipient, with T:
+const { key } = await Keysmith.openDelivery(T, delivery)
 ```
 
 T also signs the recipient's requests to gating providers, so a share link fetches as well as
-decrypts. Anyone holding the link can guess passwords offline, at about a second of scrypt
-each, so use long ones.
+decrypts.
 
 ### Claims on the wire
 
@@ -631,7 +629,6 @@ a new dataset's metadata too.
 | `encodeDelivery(chain, grant)` / `decodeDelivery(bytes)` | A claim chain and its grant, as one blob for the new bearer |
 | `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment; opens an expired one, reporting `expired` |
 | `signRequest(signer, chain, { pieceCid, expires, now? })` | A request for one piece, by the final bearer; any provider holding it may serve it. Refuses an expired chain |
-| `shareKeyFromPassword(password, salt)` | A bearer's private key from a password and a 16-byte salt (`pw1`), for sharing with someone who has no key pair |
 | `encodePresentation(chain, request)` / `decodePresentation(bytes)` | The `Authorization: FOC-Grant` payload |
 | `verifyChain(chain, { now?, piece? })` | Check a chain on its own: signatures, expiry, narrowing |
 | `verifyPresentation(bytes, { pieceCid, piece, chainId, now? })` | What a gating provider checks; the reference verifier |

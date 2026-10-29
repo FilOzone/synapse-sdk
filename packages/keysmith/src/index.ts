@@ -23,7 +23,6 @@ export {
   READ_REQUEST_TYPES,
   reaches,
   rootClaim,
-  shareKeyFromPassword,
   signRequest,
   verifyChain,
   verifyPresentation,

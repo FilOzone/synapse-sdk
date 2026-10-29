@@ -16,10 +16,6 @@
  *   - Session key(s) can onwardly delegate narrower scopes to other session keys
  *   - Final session key signs a request for a piece to prove it holds the key delegated to
  */
-import { mapHashToField } from '@noble/curves/abstract/modular.js'
-import { secp256k1 } from '@noble/curves/secp256k1.js'
-import { scryptAsync } from '@noble/hashes/scrypt.js'
-import { concatBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { decode, encode } from 'cborg'
 import { type Address, bytesToHex, getAddress, type Hex, hexToBytes, isAddress, recoverTypedDataAddress } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -330,37 +326,6 @@ export async function signRequest(
     })
   )
   return { pieceCid: input.pieceCid, expires: input.expires, signature }
-}
-
-/**
- * A bearer's private key derived from a password, for a share link to someone with no key pair
- * of their own (`pw1`): wrap the grant to `publicKeyOf(key)` and name its address as the bearer,
- * and whoever knows the password can open the delivery and sign requests with it. No key
- * travels with the link; the 16-byte salt does.
- *
- * `scrypt(UTF-8(NFC(password)), "foc/share/pw1" ‖ salt, N = 2^17, r = 8, p = 1, 48 bytes)`, mapped
- * to a secp256k1 private key. `pw1` fixes every parameter. About a second in a browser: anyone
- * holding the link can guess passwords offline at that cost, so choose them accordingly.
- *
- * @throws If the password is empty or not well-formed Unicode, or the salt is not 16 bytes.
- */
-export async function shareKeyFromPassword(password: string, salt: Uint8Array): Promise<Hex> {
-  if (typeof password !== 'string' || password.length === 0) throw new Error('A share password must not be empty')
-  if (/\p{Cs}/u.test(password)) throw new Error('A share password must be well-formed Unicode (no lone surrogates)')
-  if (!(salt instanceof Uint8Array) || salt.length !== 16) {
-    throw new Error(`A share password salt is 16 bytes, got ${salt instanceof Uint8Array ? salt.length : typeof salt}`)
-  }
-  const seed = await scryptAsync(
-    utf8ToBytes(password.normalize('NFC')),
-    concatBytes(utf8ToBytes('foc/share/pw1'), salt),
-    {
-      N: 2 ** 17,
-      r: 8,
-      p: 1,
-      dkLen: 48,
-    }
-  )
-  return bytesToHex(mapHashToField(seed, secp256k1.Point.CURVE().n))
 }
 
 // ── coverage ─────────────────────────────────────────────────────────────

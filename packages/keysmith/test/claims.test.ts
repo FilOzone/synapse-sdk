@@ -12,7 +12,6 @@ import {
   openDelivery,
   type PieceLabels,
   rootClaim,
-  shareKeyFromPassword,
   signRequest,
   verifyChain,
   verifyPresentation,
@@ -367,55 +366,5 @@ describe('claims', () => {
     const delivery = encodeDelivery(chain, await wrapTo(publicKeyOf(aKey), nodeKey, grantDescriptor(ref, node)))
     assert.deepEqual(decodeDelivery(delivery).chain, chain)
     assert.deepEqual((await openDelivery(aKey, delivery, { now })).key, nodeKey)
-  })
-
-  describe('share keys from a password (pw1)', function () {
-    this.timeout(30_000) // scrypt with N = 2^17: deliberately slow
-    const salt = Uint8Array.from({ length: 16 }, (_, i) => i)
-
-    it('pins the derivation, which an independent scrypt implementation reproduces', async () => {
-      // Checked against Python's hashlib.scrypt and a hand-written mapHashToField.
-      const key = await shareKeyFromPassword('correct horse battery staple', salt)
-      assert.equal(key, '0xf7c5ee55bde2cdcfbab9c081476f3b6ca6f73b3d53bb41f41bb497fc5123165e')
-      assert.equal(privateKeyToAccount(key).address, '0xc9C7DE093cb7C6dEb9aBECBCbFa6568dAD3Afd4A')
-    })
-
-    it('normalizes to NFC, and depends on the salt', async () => {
-      const composed = await shareKeyFromPassword('caf\u00e9', salt)
-      assert.equal(composed, '0x98a8e48a44c9fdb080d5411fc6db97a9025ffc555d4ab817c435b40cb246b02e')
-      assert.equal(await shareKeyFromPassword('cafe\u0301', salt), composed)
-      assert.notEqual(
-        await shareKeyFromPassword(
-          'caf\u00e9',
-          salt.map((b) => b ^ 1)
-        ),
-        composed
-      )
-    })
-
-    it('opens a delivery wrapped to the derived key, and only with the right password', async () => {
-      const shareSalt = crypto.getRandomValues(new Uint8Array(16))
-      const T = await shareKeyFromPassword('a passphrase for the link', shareSalt)
-      const { kk } = await keys()
-      const { chain, nodeKey } = await rootClaim(owner, {
-        ...ref,
-        chainId,
-        kk,
-        node: 'scope:docs',
-        bearer: privateKeyToAccount(T).address,
-        maxDepth: 0,
-        expires,
-      })
-      const delivery = encodeDelivery(chain, await wrapTo(publicKeyOf(T), nodeKey, grantDescriptor(ref, 'scope:docs')))
-      assert.deepEqual((await openDelivery(T, delivery, { now })).key, nodeKey)
-      const wrong = await shareKeyFromPassword('a passphrase for the link!', shareSalt)
-      await assert.rejects(openDelivery(wrong, delivery, { now }), /another bearer/)
-    })
-
-    it('refuses an empty password, a lone surrogate, or a salt that is not 16 bytes', async () => {
-      await assert.rejects(shareKeyFromPassword('', salt), /must not be empty/)
-      await assert.rejects(shareKeyFromPassword('x\ud800', salt), /well-formed Unicode/)
-      await assert.rejects(shareKeyFromPassword('password', salt.subarray(1)), /salt is 16 bytes, got 15/)
-    })
   })
 })
