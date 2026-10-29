@@ -220,11 +220,9 @@ Endpoints on Curio's PDP HTTP API, called by synapse-core's SP client (`@filoz/s
 
 - `POST /pdp/data-sets` - Create data set
 - `POST /pdp/data-sets/create-and-add` - Create data set and add pieces (primary path)
-- `GET /pdp/data-sets/created/{txHash}` - Poll data set creation status
 - `GET /pdp/data-sets/{dataSetId}` - Get data set details
 - `DELETE /pdp/data-sets/{dataSetId}` - Delete data set
 - `POST /pdp/data-sets/{dataSetId}/pieces` - Add pieces to existing data set
-- `GET /pdp/data-sets/{dataSetId}/pieces/added/{txHash}` - Poll piece addition status
 - `GET /pdp/data-sets/{dataSetId}/pieces/{pieceId}` - Get piece details
 - `DELETE /pdp/data-sets/{dataSetId}/pieces/{pieceId}` - Schedule piece removal
 - `POST /pdp/piece` - Create upload session (legacy)
