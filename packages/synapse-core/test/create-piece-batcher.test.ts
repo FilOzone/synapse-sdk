@@ -828,41 +828,61 @@ describe('createPieceBatcher', () => {
       )
     })
 
-    it('should cap pull requests at MAX_PULL_PIECES and wait for room before sending more', async () => {
+    it('should split pulls into requests of PULL_BATCH_SIZE pieces sent together', async () => {
       const requestSizes: number[] = []
       const addBodies: addPiecesApiRequest.RequestBody[] = []
-      let activePieces = 0
-      let maxActivePieces = 0
+      let active = 0
+      let maxActive = 0
       server.use(
         http.post(`${pdpBase}/pdp/piece/pull`, async ({ request }) => {
           const body = (await request.json()) as PullRequestCapture
           requestSizes.push(body.pieces.length)
-          activePieces += body.pieces.length
-          maxActivePieces = Math.max(maxActivePieces, activePieces)
+          active++
+          maxActive = Math.max(maxActive, active)
           await new Promise((resolve) => setTimeout(resolve, 10))
-          activePieces -= body.pieces.length
+          active--
           return HttpResponse.json(createPullResponse('complete', body.pieces))
         }),
         addPiecesCaptureHandler((body) => addBodies.push(body))
       )
 
-      // A non-legacy data set, so the 80-piece legacy cap does not split the pull requests first.
-      const batcher = createPieceBatcher(client, {
-        dataSet: { ...createDataSet(), dataSetId: 1_000_000n },
-        wait: { kind: 'limiter' },
-      })
-      const cids = Array.from({ length: SIZE_CONSTANTS.MAX_PULL_PIECES + 2 }, (_, index) =>
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+      const cids = Array.from({ length: SIZE_CONSTANTS.PULL_BATCH_SIZE * 2 + 5 }, (_, index) =>
         pieceCidWithRawSize(300 + index)
       )
       const pending = cids.map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
       await batcher.close()
       await Promise.all(pending)
 
-      // The last two wait until the first request's pieces settle, then go out together.
-      assert.deepEqual(requestSizes, [SIZE_CONSTANTS.MAX_PULL_PIECES, 2])
-      assert.equal(maxActivePieces, SIZE_CONSTANTS.MAX_PULL_PIECES)
+      assert.deepEqual(requestSizes, [SIZE_CONSTANTS.PULL_BATCH_SIZE, SIZE_CONSTANTS.PULL_BATCH_SIZE, 5])
+      // No client-side cap on pieces in flight: the SP's 429 is the throttle.
+      assert.equal(maxActive, 3)
       assert.equal(addBodies.length, 1)
       assert.equal(addBodies[0]?.pieces.length, cids.length)
+    })
+
+    it('should wait out a full SP pull queue (429) and then settle every pull', async () => {
+      let calls = 0
+      server.use(
+        http.post(`${pdpBase}/pdp/piece/pull`, async ({ request }) => {
+          const body = (await request.json()) as PullRequestCapture
+          calls++
+          if (calls === 1) {
+            return new HttpResponse('pull queue backpressure', { status: 429, headers: { 'Retry-After': '0' } })
+          }
+          return HttpResponse.json(createPullResponse('complete', body.pieces))
+        }),
+        addPiecesCaptureHandler(() => undefined)
+      )
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet() })
+      const results = await Promise.all(
+        pullCids.slice(0, 2).map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
+      )
+      await batcher.close()
+
+      assert.equal(calls, 2)
+      assert.equal(results.length, 2)
     })
 
     it('should split a pull window when the limiter rejects the next piece', async () => {
@@ -934,7 +954,7 @@ describe('createPieceBatcher', () => {
       assert.ok(results.every((result) => result.status === 'rejected' && PullError.is(result.reason)))
     })
 
-    it('should hold pulls until flush when pullWait is limiter', async () => {
+    it('should hold pulls for pullDelay before sending them together', async () => {
       const pullBodies: PullRequestCapture[] = []
       server.use(
         pullPiecesPerPieceHandler(
@@ -945,21 +965,18 @@ describe('createPieceBatcher', () => {
         addPiecesCaptureHandler(() => undefined)
       )
 
-      const batcher = createPieceBatcher(client, {
-        dataSet: createDataSet(),
-        wait: { kind: 'limiter' },
-        pullWait: { kind: 'limiter' },
-      })
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' }, pullDelay: 50 })
       const pending = pullCids
         .slice(0, 2)
         .map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
       await new Promise((resolve) => setTimeout(resolve, 20))
       assert.equal(pullBodies.length, 0)
 
-      await batcher.close()
-      await Promise.all(pending)
+      await new Promise((resolve) => setTimeout(resolve, 60))
       assert.equal(pullBodies.length, 1)
       assert.equal(pullBodies[0]?.pieces.length, 2)
+      await batcher.close()
+      await Promise.all(pending)
     })
 
     it('should limit concurrent pull requests with concurrency', async () => {
@@ -1119,9 +1136,9 @@ describe('createPieceBatcher', () => {
       )
     })
 
-    it('should reject an invalid pullWait', () => {
+    it('should reject a negative pullDelay', () => {
       assert.throws(
-        () => createPieceBatcher(client, { dataSet: createDataSet(), pullWait: { kind: 'delay', ms: -1 } }),
+        () => createPieceBatcher(client, { dataSet: createDataSet(), pullDelay: -1 }),
         (error: unknown) => ValidationError.is(error)
       )
     })
