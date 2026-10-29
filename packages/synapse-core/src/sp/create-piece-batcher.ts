@@ -8,6 +8,7 @@ import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/war
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { throwIfAborted } from '../utils/abort.ts'
 import { createLimit, type Limit } from '../utils/concurrency.ts'
+import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 import { isUint8Array } from '../utils/streams.ts'
@@ -75,8 +76,8 @@ export type PieceBatcherWait = { kind: 'delay'; ms: number } | { kind: 'limiter'
  * - `delay`: wait `ms` after the first pull joins an empty window (`ms: 0` is one macrotask).
  * - `limiter`: no timer; sit until the next piece does not fit or `maxPieces` is reached, or `flush`/`close`.
  *
- * `maxPieces` caps the pieces in one pull request (for example to stay under an SP's pull queue cap).
- * Defaults to no cap beyond the limiter.
+ * `maxPieces` caps the pieces in one pull request, on top of the limiter. Defaults to
+ * {@link SIZE_CONSTANTS.DEFAULT_PULL_BATCH_SIZE} (Curio rejects requests above 108 unique pieces).
  */
 export type PullBatchWait = ({ kind: 'delay'; ms: number } | { kind: 'limiter' }) & { maxPieces?: number }
 
@@ -206,7 +207,7 @@ export function createPieceBatcher(
   if (pullWait.maxPieces != null && !(pullWait.maxPieces >= 1)) {
     throw new ValidationError('`pullWait.maxPieces` must be at least 1.')
   }
-  const maxPullPieces = pullWait.maxPieces ?? Number.POSITIVE_INFINITY
+  const maxPullPieces = pullWait.maxPieces ?? SIZE_CONSTANTS.DEFAULT_PULL_BATCH_SIZE
   const limiter = options.limiter ?? addPiecesFits
   if (options.concurrency != null && !(options.concurrency >= 1)) {
     throw new ValidationError('`concurrency` must be at least 1.')
