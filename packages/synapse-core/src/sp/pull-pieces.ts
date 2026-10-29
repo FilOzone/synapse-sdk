@@ -161,11 +161,20 @@ export namespace waitForPullPiecesApiRequest {
     retryDelay?: number
     /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
     pollInterval?: number
+    /**
+     * Keep polling after a piece fails, until every piece is `complete` or `failed`. Defaults to `false`: stop as
+     * soon as the overall status is `complete` or `failed` (the overall status is the worst piece status).
+     */
+    waitForAll?: boolean
   }
 
   export type ReturnType = pullPiecesApiRequest.ReturnType
 
   export type ErrorType = pullPiecesApiRequest.ErrorType
+}
+
+function isSettled(status: pullPiecesApiRequest.PullStatus): boolean {
+  return status === 'complete' || status === 'failed'
 }
 
 /**
@@ -200,7 +209,10 @@ export async function waitForPullPiecesApiRequest(
         if (options.onStatus) {
           options.onStatus(data)
         }
-        return data.status !== 'complete' && data.status !== 'failed'
+        if (options.waitForAll) {
+          return !data.pieces.every((piece) => isSettled(piece.status))
+        }
+        return !isSettled(data.status)
       },
     },
     timeout: options.timeout ?? RETRY_CONSTANTS.PULL_TIMEOUT,
@@ -466,6 +478,8 @@ export namespace waitForPullPieces {
     retryDelay?: number
     /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
     pollInterval?: number
+    /** Keep polling after a piece fails, until every piece is `complete` or `failed`. Defaults to `false`. */
+    waitForAll?: boolean
   }
 
   export type ReturnType = pullPieces.ReturnType
@@ -498,6 +512,7 @@ export async function waitForPullPieces(
     pollInterval: options.pollInterval,
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
+    waitForAll: options.waitForAll,
   })
   return toPullResult(options.pieces, response, deduped.dropped)
 }

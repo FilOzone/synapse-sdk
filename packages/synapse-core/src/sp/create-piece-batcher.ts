@@ -1,3 +1,4 @@
+import { AbortError } from 'iso-web/http'
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
@@ -5,7 +6,8 @@ import { AddPiecesFlushError } from '../errors/pdp.ts'
 import { PullError } from '../errors/pull.ts'
 import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import { createLimit } from '../utils/concurrency.ts'
+import { throwIfAborted } from '../utils/abort.ts'
+import { createLimit, type Limit } from '../utils/concurrency.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 import { isUint8Array } from '../utils/streams.ts'
@@ -22,7 +24,7 @@ import {
 } from './add-pieces-fits.ts'
 import { createDataSetAndAddPieces } from './create-dataset-add-pieces.ts'
 import { findPiece } from './find-piece.ts'
-import { waitForPullPieces } from './pull-pieces.ts'
+import { type PullPieceInput, type pullPiecesApiRequest, waitForPullPieces } from './pull-pieces.ts'
 import { type UploadPieceStreamingData, uploadPieceStreaming } from './upload-streaming.ts'
 import { waitForAddPieces, waitForCreateDataSetAddPieces } from './wait-for-receipt.ts'
 
@@ -66,6 +68,19 @@ export type UploadResult = PieceResult & {
 export type PieceBatcherWait = { kind: 'delay'; ms: number } | { kind: 'limiter' }
 
 /**
+ * When to send queued `pull()` calls as one pull request (limiter overflow, `maxPieces`, `flush()`, and `close()`
+ * always send). The limiter is the same one used for addPieces, since the pull authorization is an addPieces
+ * signature for exactly the pieces in that request.
+ *
+ * - `delay`: wait `ms` after the first pull joins an empty window (`ms: 0` is one macrotask).
+ * - `limiter`: no timer; sit until the next piece does not fit or `maxPieces` is reached, or `flush`/`close`.
+ *
+ * `maxPieces` caps the pieces in one pull request (for example to stay under an SP's pull queue cap).
+ * Defaults to no cap beyond the limiter.
+ */
+export type PullBatchWait = ({ kind: 'delay'; ms: number } | { kind: 'limiter' }) & { maxPieces?: number }
+
+/**
  * Called after the piece is on this SP, before it joins the addPieces window.
  * The callback is awaited, so a thrown error keeps the piece out of the batch
  * (retry with {@link PieceBatcher.enqueue}). {@link PieceBatcher.close} waits
@@ -89,7 +104,9 @@ export type PullInput = {
   sourceUrl: string
   metadata?: MetadataObject
   onParked?: OnParked
+  /** Called on each poll of the batched pull request, with this piece's status only. */
   onStatus?: (response: waitForPullPieces.ReturnType) => void
+  /** Stops waiting for this piece. The rest of its pull request carries on. */
   signal?: AbortSignal
 }
 
@@ -99,10 +116,20 @@ type Slot = {
   reject: (error: unknown) => void
 }
 
+type PullSlot = {
+  piece: PullPieceInput
+  input: PullInput
+  settled: boolean
+  resolve: () => void
+  reject: (error: unknown) => void
+  /** Set by the pull request carrying this slot. */
+  onSettled?: () => void
+}
+
 export type PieceBatcher = {
   /** Stream onto this SP, then join the addPieces window. */
   upload: (input: UploadInput) => Promise<UploadResult>
-  /** Pull onto this SP (own extraData), then join the addPieces window. */
+  /** Pull onto this SP in a batched pull request (see `pullWait`), then join the addPieces window. */
   pull: (input: PullInput) => Promise<PieceResult>
   /** Already on this SP. Join the addPieces window only. */
   enqueue: (piece: EnqueuePiece) => Promise<PieceResult>
@@ -117,6 +144,8 @@ export namespace createPieceBatcher {
     dataSet: PdpDataSet | undefined
     /** When to flush a window. Defaults to `{ kind: 'delay', ms: 0 }`. */
     wait?: PieceBatcherWait
+    /** When to send queued pulls as one pull request. Defaults to `{ kind: 'delay', ms: 0 }`. */
+    pullWait?: PullBatchWait
     /** Defaults to {@link addPiecesFits}. */
     limiter?: Limiter
     /** Required when `dataSet` is undefined. */
@@ -127,8 +156,8 @@ export namespace createPieceBatcher {
     metadata?: MetadataObject
     cdn?: boolean
     /**
-     * Maximum number of `upload` and `pull` transfers parking at the same time. Others wait for a free slot.
-     * Defaults to no limit.
+     * Maximum number of `upload` transfers and batched pull requests in flight at the same time. Others wait for a
+     * free slot. Defaults to no limit.
      */
     concurrency?: number
   }
@@ -138,11 +167,13 @@ export namespace createPieceBatcher {
 /**
  * Create a stateful piece batcher that parks/pulls immediately and coalesces addPieces.
  *
- * `upload` and `pull` run per-piece I/O right away (`upload` uses the
- * streaming CommP-last protocol for bytes and streams). The tumbling window
- * only batches the on-chain addPieces (or createDataSetAndAddPieces) call.
- * Pull authorization matches the eventual operation for that one piece;
- * flush signs new extraData for the whole window.
+ * `upload` runs per-piece I/O right away (streaming CommP-last protocol for
+ * bytes and streams). `pull` calls are coalesced into one pull request per
+ * `pullWait` window, with one signature and one polling loop; each `pull`
+ * promise still settles with its own piece's status. The tumbling window
+ * batches the on-chain addPieces (or createDataSetAndAddPieces) call.
+ * Pull authorization matches the operation for the pieces in that pull
+ * request; flush signs new extraData for the whole window.
  *
  * @param client - Wallet client used to sign and submit.
  * @param options - {@link createPieceBatcher.OptionsType}
@@ -168,11 +199,21 @@ export function createPieceBatcher(
   if (wait.kind === 'delay' && !(wait.ms >= 0)) {
     throw new ValidationError('`wait.ms` must be a non-negative number.')
   }
+  const pullWait: PullBatchWait = options.pullWait ?? { kind: 'delay', ms: 0 }
+  if (pullWait.kind === 'delay' && !(pullWait.ms >= 0)) {
+    throw new ValidationError('`pullWait.ms` must be a non-negative number.')
+  }
+  if (pullWait.maxPieces != null && !(pullWait.maxPieces >= 1)) {
+    throw new ValidationError('`pullWait.maxPieces` must be at least 1.')
+  }
+  const maxPullPieces = pullWait.maxPieces ?? Number.POSITIVE_INFINITY
   const limiter = options.limiter ?? addPiecesFits
   if (options.concurrency != null && !(options.concurrency >= 1)) {
     throw new ValidationError('`concurrency` must be at least 1.')
   }
   const limit = createLimit(options.concurrency ?? Number.POSITIVE_INFINITY)
+  // Pulls take a `limit` slot per pull request (in `sendPullWindow`), not per piece.
+  const unlimited: Limit = (task) => task()
   const legacyPieceStorageIdLimit = asChain(client.chain).legacyPieceStorageIdLimit
   const datasetMetadata = options.metadata
   const cdn = options.cdn
@@ -185,6 +226,9 @@ export function createPieceBatcher(
   let timer: ReturnType<typeof setTimeout> | undefined
   let timerToken: object | undefined
   let windowSlots: Slot[] = []
+  let pullSlots: PullSlot[] = []
+  let pullTimer: ReturnType<typeof setTimeout> | undefined
+  let flushing = 0
   let mutex: Promise<void> = Promise.resolve()
   const inFlight = new Set<Promise<unknown>>()
   let scheduled = 0
@@ -402,7 +446,11 @@ export function createPieceBatcher(
     })
   }
 
-  async function parkAndEnqueue(park: () => Promise<EnqueuePiece>, onParked?: OnParked): Promise<PieceResult> {
+  async function parkAndEnqueue(
+    park: () => Promise<EnqueuePiece>,
+    onParked?: OnParked,
+    parkLimit: Limit = limit
+  ): Promise<PieceResult> {
     assertOpen()
     // Count the piece as scheduled from now until it is in the window, so `flush()` and `close()` wait for
     // pieces still waiting for a slot or parking.
@@ -410,7 +458,7 @@ export function createPieceBatcher(
     let parked: EnqueuePiece
     try {
       parked = await track(
-        limit(async () => {
+        parkLimit(async () => {
           const piece = await park()
           assertPieceValid(piece)
           await onParked?.(piece)
@@ -471,40 +519,144 @@ export function createPieceBatcher(
     return { ...result, size: uploadedSize }
   }
 
+  /** Queue a piece in the pull window. Resolves once this piece is `complete` on this SP. */
+  function queuePull(input: PullInput): Promise<void> {
+    throwIfAborted(input.signal)
+    const piece: PullPieceInput = { pieceCid: input.pieceCid, sourceUrl: input.sourceUrl, metadata: input.metadata }
+    if (!fits([piece])) {
+      throw new ValidationError('Piece does not fit in a single addPieces operation.')
+    }
+    if (pullSlots.length > 0) {
+      const pieces = [...pullSlots.map((slot) => slot.piece), piece]
+      if (pieces.length > maxPullPieces || !fits(pieces)) {
+        sendPullWindow()
+      }
+    }
+    return new Promise<void>((resolve, reject) => {
+      function onAbort(this: AbortSignal): void {
+        // Still queued: drop it from the window. Already sent: stop waiting, the request carries on.
+        pullSlots = pullSlots.filter((queued) => queued !== slot)
+        slot.reject(new AbortError(this))
+      }
+      const settle = (fn: () => void) => {
+        if (slot.settled) {
+          return
+        }
+        slot.settled = true
+        input.signal?.removeEventListener('abort', onAbort)
+        fn()
+        slot.onSettled?.()
+      }
+      const slot: PullSlot = {
+        piece,
+        input,
+        settled: false,
+        resolve: () => settle(resolve),
+        reject: (error) => settle(() => reject(error)),
+      }
+      input.signal?.addEventListener('abort', onAbort, { once: true })
+      pullSlots.push(slot)
+      if (pullSlots.length >= maxPullPieces || flushing > 0) {
+        sendPullWindow()
+      } else if (pullWait.kind === 'delay' && pullTimer == null) {
+        pullTimer = setTimeout(sendPullWindow, pullWait.ms)
+      }
+    })
+  }
+
+  function sendPullWindow(): void {
+    if (pullTimer != null) {
+      clearTimeout(pullTimer)
+      pullTimer = undefined
+    }
+    if (pullSlots.length === 0) {
+      return
+    }
+    const batch = pullSlots
+    pullSlots = []
+    // `pullBatch` settles every slot itself and never rejects.
+    void limit(() => pullBatch(batch))
+  }
+
+  /** Send one pull request for the batch and settle each slot from its own piece status. */
+  async function pullBatch(batch: PullSlot[]): Promise<void> {
+    // Pieces aborted while waiting for a `limit` slot are left out of the request.
+    const slots = batch.filter((slot) => !slot.settled)
+    if (slots.length === 0) {
+      return
+    }
+    // Stop polling once no caller is waiting (every piece settled or aborted).
+    const controller = new AbortController()
+    for (const slot of slots) {
+      slot.onSettled = () => {
+        if (slots.every((other) => other.settled)) {
+          controller.abort()
+        }
+      }
+    }
+    const onStatus = (response: pullPiecesApiRequest.ReturnType) => {
+      const statuses = new Map(response.pieces.map((piece) => [piece.pieceCid, piece.status]))
+      for (const slot of slots) {
+        const pieceCid = slot.piece.pieceCid.toString()
+        const status = statuses.get(pieceCid)
+        if (slot.settled || status == null) {
+          continue
+        }
+        slot.input.onStatus?.({ status, pieces: [{ pieceCid, status }] })
+        if (status === 'complete') {
+          slot.resolve()
+        } else if (status === 'failed') {
+          slot.reject(new PullError('Pull failed.'))
+        }
+      }
+    }
+    try {
+      const pieces = slots.map((slot) => slot.piece)
+      if (dataSet == null) {
+        await waitForPullPieces(client, {
+          serviceURL: serviceURL(),
+          pieces,
+          clientDataSetId: createClientDataSetId,
+          payee: requirePayee(),
+          payer,
+          cdn,
+          metadata: datasetMetadata,
+          signal: controller.signal,
+          onStatus,
+          waitForAll: true,
+        })
+      } else {
+        await waitForPullPieces(client, {
+          serviceURL: serviceURL(),
+          pieces,
+          dataSetId: dataSet.dataSetId,
+          clientDataSetId: dataSet.clientDataSetId,
+          signal: controller.signal,
+          onStatus,
+          waitForAll: true,
+        })
+      }
+      // Settled pieces were handled in `onStatus`; this only reaches pieces missing from the response.
+      for (const slot of slots) {
+        slot.reject(new PullError('Pull failed.'))
+      }
+    } catch (error) {
+      for (const slot of slots) {
+        slot.reject(error)
+      }
+    }
+  }
+
   async function pull(input: PullInput): Promise<PieceResult> {
-    return parkAndEnqueue(async () => {
-      assertPieceCidSize(input.pieceCid)
-      const pullPiece = {
-        pieceCid: input.pieceCid,
-        sourceUrl: input.sourceUrl,
-        metadata: input.metadata,
-      }
-      const pullResult =
-        dataSet == null
-          ? await waitForPullPieces(client, {
-              serviceURL: serviceURL(),
-              pieces: [pullPiece],
-              clientDataSetId: createClientDataSetId,
-              payee: requirePayee(),
-              payer,
-              cdn,
-              metadata: datasetMetadata,
-              signal: input.signal,
-              onStatus: input.onStatus,
-            })
-          : await waitForPullPieces(client, {
-              serviceURL: serviceURL(),
-              pieces: [pullPiece],
-              dataSetId: dataSet.dataSetId,
-              clientDataSetId: dataSet.clientDataSetId,
-              signal: input.signal,
-              onStatus: input.onStatus,
-            })
-      if (pullResult.status === 'failed') {
-        throw new PullError('Pull failed.')
-      }
-      return { pieceCid: input.pieceCid, metadata: input.metadata }
-    }, input.onParked)
+    return parkAndEnqueue(
+      async () => {
+        assertPieceCidSize(input.pieceCid)
+        await queuePull(input)
+        return { pieceCid: input.pieceCid, metadata: input.metadata }
+      },
+      input.onParked,
+      unlimited
+    )
   }
 
   function requirePayee(): Address {
@@ -515,7 +667,14 @@ export function createPieceBatcher(
   }
 
   async function flush(): Promise<FlushResult | undefined> {
-    await scheduledIdle
+    // Send queued pulls now, and any that arrive while waiting, so `flush()` never waits on a pull window.
+    flushing++
+    try {
+      sendPullWindow()
+      await scheduledIdle
+    } finally {
+      flushing--
+    }
     return lock(() => flushWindowInternal())
   }
 

@@ -449,6 +449,44 @@ export function pullPiecesProgressionHandler(
   })
 }
 
+const PULL_STATUS_SEVERITY: pullPiecesApiRequest.PullStatus[] = [
+  'complete',
+  'pending',
+  'inProgress',
+  'retrying',
+  'failed',
+]
+
+/**
+ * Creates a handler that answers each requested piece with its own status, like Curio does for a batched pull.
+ * The overall status is the worst piece status (failed > retrying > inProgress > pending > complete).
+ */
+export function pullPiecesPerPieceHandler(
+  statusFor: (pieceCid: string) => pullPiecesApiRequest.PullStatus,
+  captureCallback?: (request: PullRequestCapture) => void,
+  options: PDPMockOptions = {}
+) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+
+  return http.post(`${baseUrl}/pdp/piece/pull`, async ({ request }) => {
+    const body = (await request.json()) as PullRequestCapture
+    captureCallback?.(body)
+
+    const pieces = body.pieces.map((piece) => ({ pieceCid: piece.pieceCid, status: statusFor(piece.pieceCid) }))
+    const severity = Math.max(0, ...pieces.map((piece) => PULL_STATUS_SEVERITY.indexOf(piece.status)))
+    const response: pullPiecesApiRequest.ReturnType = {
+      status: PULL_STATUS_SEVERITY[severity] ?? 'complete',
+      pieces,
+    }
+
+    if (options.debug) {
+      console.debug('SP Pull Mock: returning per-piece response', response)
+    }
+
+    return HttpResponse.json(response, { status: 200 })
+  })
+}
+
 /**
  * Helper to create a complete PullResponse
  */
