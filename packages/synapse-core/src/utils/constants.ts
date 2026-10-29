@@ -97,6 +97,15 @@ export const SIZE_CONSTANTS = {
   MAX_LEGACY_ADD_PIECES_BATCH_SIZE: 80,
 
   /**
+   * Default maximum pieces in one batched SP-to-SP pull request.
+   *
+   * Curio rejects pull requests with more than 108 unique pieces, and admits at most
+   * 108 pending pieces per client while the node is idle. 32 keeps a few requests in
+   * flight under that limit.
+   */
+  DEFAULT_PULL_BATCH_SIZE: 32,
+
+  /**
    * Payload budget (bytes) for one addPieces / createAndAdd Filecoin message.
    *
    * Filecoin messages are capped at 64 KiB. 288 bytes are reserved for message
