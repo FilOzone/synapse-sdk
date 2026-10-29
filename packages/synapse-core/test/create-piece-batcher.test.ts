@@ -7,11 +7,14 @@ import * as Chains from '../src/chains.ts'
 import { ValidationError } from '../src/errors/base.ts'
 import { PDPProviderUnavailableError } from '../src/errors/index.ts'
 import { AddPiecesFlushError, InvalidUploadSizeError, TransactionNotAppliedError } from '../src/errors/pdp.ts'
+import { PullError } from '../src/errors/pull.ts'
 import { ADDRESSES, JSONRPC, landedTransactions, PRIVATE_KEYS, presets } from '../src/mocks/jsonrpc/index.ts'
 import {
   createAndAddPiecesHandler,
   createPullResponse,
   findAnyPieceHandler,
+  type PullRequestCapture,
+  pullPiecesPerPieceHandler,
   pullPiecesWithCaptureHandler,
   streamingUploadHandlers,
 } from '../src/mocks/pdp.ts'
@@ -85,6 +88,12 @@ function createDataSet(): PdpDataSet {
       },
     },
   }
+}
+
+const pullCids = Array.from({ length: 5 }, (_, index) => pieceCidWithRawSize(200 + index))
+
+function pullSource(pieceCid: PieceCID): string {
+  return `${pdpBase}/piece/${pieceCid.toString()}`
 }
 
 function parkHandlers() {
@@ -785,5 +794,270 @@ describe('createPieceBatcher', () => {
       () => createPieceBatcher(client, { dataSet: createDataSet(), concurrency: 0 }),
       (error: unknown) => ValidationError.is(error)
     )
+  })
+
+  describe('batched pulls', () => {
+    it('should send concurrent pulls as one pull request and settle each caller', async () => {
+      const pullBodies: PullRequestCapture[] = []
+      const addBodies: addPiecesApiRequest.RequestBody[] = []
+      server.use(
+        pullPiecesPerPieceHandler(
+          () => 'complete',
+          (body) => pullBodies.push(body),
+          { baseUrl: pdpBase }
+        ),
+        addPiecesCaptureHandler((body) => addBodies.push(body))
+      )
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet() })
+      const results = await Promise.all(
+        pullCids.map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
+      )
+      await batcher.close()
+
+      assert.equal(pullBodies.length, 1)
+      assert.deepEqual(
+        pullBodies[0]?.pieces,
+        pullCids.map((pieceCid) => ({ pieceCid: pieceCid.toString(), sourceUrl: pullSource(pieceCid) }))
+      )
+      assert.equal(addBodies.length, 1)
+      assert.equal(addBodies[0]?.pieces.length, pullCids.length)
+      assert.deepEqual(
+        results.map((result) => result.pieceCid.toString()),
+        pullCids.map((pieceCid) => pieceCid.toString())
+      )
+    })
+
+    it('should send ceil(N / maxPieces) pull requests', async () => {
+      const pullBodies: PullRequestCapture[] = []
+      const addBodies: addPiecesApiRequest.RequestBody[] = []
+      server.use(
+        pullPiecesPerPieceHandler(
+          () => 'complete',
+          (body) => pullBodies.push(body),
+          { baseUrl: pdpBase }
+        ),
+        addPiecesCaptureHandler((body) => addBodies.push(body))
+      )
+
+      const batcher = createPieceBatcher(client, {
+        dataSet: createDataSet(),
+        wait: { kind: 'limiter' },
+        pullWait: { kind: 'delay', ms: 0, maxPieces: 2 },
+      })
+      const pending = pullCids.map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
+      await batcher.close()
+      await Promise.all(pending)
+
+      assert.deepEqual(
+        pullBodies.map((body) => body.pieces.length),
+        [2, 2, 1]
+      )
+      assert.equal(new Set(pullBodies.map((body) => body.extraData)).size, 3)
+      assert.equal(addBodies.length, 1)
+      assert.equal(addBodies[0]?.pieces.length, pullCids.length)
+    })
+
+    it('should split a pull window when the limiter rejects the next piece', async () => {
+      const pullBodies: PullRequestCapture[] = []
+      server.use(
+        pullPiecesPerPieceHandler(
+          () => 'complete',
+          (body) => pullBodies.push(body),
+          { baseUrl: pdpBase }
+        ),
+        addPiecesCaptureHandler(() => undefined)
+      )
+
+      const batcher = createPieceBatcher(client, {
+        dataSet: createDataSet(),
+        limiter: ({ pieces }) => pieces.length <= 3,
+      })
+      await Promise.all(pullCids.map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) })))
+      await batcher.close()
+
+      assert.deepEqual(
+        pullBodies.map((body) => body.pieces.length),
+        [3, 2]
+      )
+    })
+
+    it('should reject only the failed piece of a batched pull', async () => {
+      const failedCid = pullCids[1]?.toString()
+      const pullBodies: PullRequestCapture[] = []
+      const addBodies: addPiecesApiRequest.RequestBody[] = []
+      server.use(
+        pullPiecesPerPieceHandler(
+          (pieceCid) => (pieceCid === failedCid ? 'failed' : 'complete'),
+          (body) => pullBodies.push(body),
+          { baseUrl: pdpBase }
+        ),
+        addPiecesCaptureHandler((body) => addBodies.push(body))
+      )
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+      const settled = Promise.allSettled(
+        pullCids.slice(0, 3).map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
+      )
+      await batcher.close()
+      const [first, failed, third] = await settled
+
+      assert.equal(pullBodies.length, 1)
+      assert.equal(first?.status, 'fulfilled')
+      assert.equal(third?.status, 'fulfilled')
+      assert.equal(failed?.status, 'rejected')
+      assert.ok(failed?.status === 'rejected' && PullError.is(failed.reason))
+      assert.equal(addBodies.length, 1)
+      assert.equal(addBodies[0]?.pieces.length, 2)
+    })
+
+    it('should reject every piece when the pull request itself fails', async () => {
+      server.use(
+        http.post(`${pdpBase}/pdp/piece/pull`, () => HttpResponse.text('bad request', { status: 400 })),
+        addPiecesCaptureHandler(() => undefined)
+      )
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+      const settled = Promise.allSettled(
+        pullCids.slice(0, 2).map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
+      )
+      await batcher.close()
+      const results = await settled
+
+      assert.ok(results.every((result) => result.status === 'rejected' && PullError.is(result.reason)))
+    })
+
+    it('should hold pulls until flush when pullWait is limiter', async () => {
+      const pullBodies: PullRequestCapture[] = []
+      server.use(
+        pullPiecesPerPieceHandler(
+          () => 'complete',
+          (body) => pullBodies.push(body),
+          { baseUrl: pdpBase }
+        ),
+        addPiecesCaptureHandler(() => undefined)
+      )
+
+      const batcher = createPieceBatcher(client, {
+        dataSet: createDataSet(),
+        wait: { kind: 'limiter' },
+        pullWait: { kind: 'limiter' },
+      })
+      const pending = pullCids
+        .slice(0, 2)
+        .map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      assert.equal(pullBodies.length, 0)
+
+      await batcher.close()
+      await Promise.all(pending)
+      assert.equal(pullBodies.length, 1)
+      assert.equal(pullBodies[0]?.pieces.length, 2)
+    })
+
+    it('should limit concurrent pull requests with concurrency', async () => {
+      let requests = 0
+      let active = 0
+      let maxActive = 0
+      server.use(
+        http.post(`${pdpBase}/pdp/piece/pull`, async ({ request }) => {
+          const body = (await request.json()) as PullRequestCapture
+          requests++
+          active++
+          maxActive = Math.max(maxActive, active)
+          await new Promise((resolve) => setTimeout(resolve, 10))
+          active--
+          return HttpResponse.json(createPullResponse('complete', body.pieces))
+        }),
+        addPiecesCaptureHandler(() => undefined)
+      )
+
+      const batcher = createPieceBatcher(client, {
+        dataSet: createDataSet(),
+        concurrency: 1,
+        pullWait: { kind: 'delay', ms: 0, maxPieces: 2 },
+      })
+      const pending = pullCids.map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
+      await batcher.close()
+      await Promise.all(pending)
+
+      assert.equal(requests, 3)
+      assert.equal(maxActive, 1)
+    })
+
+    it('should leave an aborted queued pull out of the request', async () => {
+      const pullBodies: PullRequestCapture[] = []
+      server.use(
+        pullPiecesPerPieceHandler(
+          () => 'complete',
+          (body) => pullBodies.push(body),
+          { baseUrl: pdpBase }
+        ),
+        addPiecesCaptureHandler(() => undefined)
+      )
+      const [abortedCid, keptCid] = pullCids
+      if (abortedCid == null || keptCid == null) {
+        return
+      }
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+      const controller = new AbortController()
+      const aborted = batcher.pull({
+        pieceCid: abortedCid,
+        sourceUrl: pullSource(abortedCid),
+        signal: controller.signal,
+      })
+      // Attach the handler now: the aborted pull rejects long before close() returns.
+      const abortedRejects = assert.rejects(aborted, (error: Error) => error.name === 'AbortError')
+      const kept = batcher.pull({ pieceCid: keptCid, sourceUrl: pullSource(keptCid) })
+      controller.abort()
+      await batcher.close()
+
+      await abortedRejects
+      assert.equal((await kept).pieceCid.toString(), keptCid.toString())
+      assert.equal(pullBodies.length, 1)
+      assert.deepEqual(
+        pullBodies[0]?.pieces.map((piece) => piece.pieceCid),
+        [keptCid.toString()]
+      )
+    })
+
+    it('should call onStatus with only the caller piece status', async () => {
+      server.use(
+        pullPiecesPerPieceHandler(() => 'complete', undefined, { baseUrl: pdpBase }),
+        addPiecesCaptureHandler(() => undefined)
+      )
+      const seen = new Map<string, string[][]>()
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+      const pending = pullCids.slice(0, 2).map((pieceCid) =>
+        batcher.pull({
+          pieceCid,
+          sourceUrl: pullSource(pieceCid),
+          onStatus: (response) => {
+            const calls = seen.get(pieceCid.toString()) ?? []
+            calls.push(response.pieces.map((piece) => `${piece.pieceCid}:${piece.status}:${response.status}`))
+            seen.set(pieceCid.toString(), calls)
+          },
+        })
+      )
+      await batcher.close()
+      await Promise.all(pending)
+
+      for (const pieceCid of pullCids.slice(0, 2)) {
+        assert.deepEqual(seen.get(pieceCid.toString()), [[`${pieceCid.toString()}:complete:complete`]])
+      }
+    })
+
+    it('should reject an invalid pullWait', () => {
+      assert.throws(
+        () => createPieceBatcher(client, { dataSet: createDataSet(), pullWait: { kind: 'delay', ms: -1 } }),
+        (error: unknown) => ValidationError.is(error)
+      )
+      assert.throws(
+        () => createPieceBatcher(client, { dataSet: createDataSet(), pullWait: { kind: 'limiter', maxPieces: 0 } }),
+        (error: unknown) => ValidationError.is(error)
+      )
+    })
   })
 })
