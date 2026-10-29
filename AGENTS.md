@@ -239,7 +239,7 @@ Endpoints on Curio's PDP HTTP API, called by synapse-core's SP client (`@filoz/s
 
 ## Conventional Commits
 
-Auto-publishing enabled. `feat:` → minor bump, `fix:`/`chore:`/`docs:`/`test:` → patch bump. AVOID `!` or `BREAKING CHANGE` (pre-v1).
+Auto-publishing enabled. `fix:`/`chore:`/`docs:`/`test:` → patch, `feat:` → minor (patch for 0.x packages). Mark breaking changes with `!` → major (minor for 0.x packages).
 
 Format: `<type>(<scope>): <description>`
 
