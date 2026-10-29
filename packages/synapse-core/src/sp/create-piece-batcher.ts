@@ -602,7 +602,13 @@ export function createPieceBatcher(
         if (slot.settled || status == null) {
           continue
         }
-        slot.input.onStatus?.({ status, pieces: [{ pieceCid, status }] })
+        try {
+          slot.input.onStatus?.({ status, pieces: [{ pieceCid, status }] })
+        } catch (error) {
+          // A throwing callback fails only its own pull, not the rest of the request.
+          slot.reject(error)
+          continue
+        }
         if (status === 'complete') {
           slot.resolve()
         } else if (status === 'failed') {
