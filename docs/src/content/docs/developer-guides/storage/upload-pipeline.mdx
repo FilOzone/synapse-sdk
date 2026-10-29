@@ -386,6 +386,8 @@ if (pullResult.status !== "complete") {
 
 The `from` parameter accepts either a URL string (base service URL) or a function that returns a piece URL for a given PieceCID.
 
+`pullResult.pieces` has one entry per input piece, in input order, and each entry's `index` is its position in `pieces`. Set `dedupe: true` to send each PieceCID only once: repeated inputs share the first one's status and are listed in `pullResult.dropped`. When you pass a pre-signed `extraData` with `dedupe`, sign it over the deduped pieces.
+
 **Pre-signing**: `presignForCommit()` creates an EIP-712 signature that can be reused for both `pull()` and `commit()`. This avoids prompting the wallet twice. Pass the same `extraData` to both calls.
 
 ### Commit Phase

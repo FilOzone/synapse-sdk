@@ -831,6 +831,107 @@ InvalidSignature(address expected, address actual)
     })
   })
 
+  describe('dedupe', () => {
+    const pieceA = Piece.from('bafkzcibcaabffs4jcd4iheeo5wisbmurjb7l4xgpmzgyzrenebvjjhsbwgx4smy')
+    const mockTxHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
+    let pieceB: Piece.PieceCID
+    // Input 2 repeats input 0's PieceCID with different metadata.
+    let inputs: addPieces.PieceType[]
+
+    before(async () => {
+      pieceB = await Piece.calculate(new Uint8Array(1024).fill(1))
+      inputs = [
+        { pieceCid: pieceA, metadata: { first: 'a' } },
+        { pieceCid: pieceB },
+        { pieceCid: pieceA, metadata: { second: 'b' } },
+      ]
+    })
+
+    function captureAddPieces(url: string, onBody: (body: addPiecesApiRequest.RequestBody) => void) {
+      return http.post<Record<string, string>, addPiecesApiRequest.RequestBody>(url, async ({ request }) => {
+        onBody(await request.json())
+        return new HttpResponse(null, {
+          status: 201,
+          headers: { Location: `/pdp/data-sets/1/pieces/added/${mockTxHash}` },
+        })
+      })
+    }
+
+    it('addPieces submits each PieceCID once with dedupe on and keeps the first metadata', async () => {
+      let body: addPiecesApiRequest.RequestBody | undefined
+      server.use(
+        captureAddPieces('http://pdp.local/pdp/data-sets/:id/pieces', (b) => {
+          body = b
+        })
+      )
+
+      const result = await addPieces(client, {
+        serviceURL: 'http://pdp.local',
+        dataSetId: 1n,
+        clientDataSetId: 1n,
+        nonce: 1n,
+        pieces: inputs,
+        dedupe: true,
+      })
+
+      assert.deepStrictEqual(
+        body?.pieces.map((piece) => piece.pieceCid),
+        [pieceA.toString(), pieceB.toString()]
+      )
+      const [, keys, values] = decodeAbiParameters(TypedData.signAddPiecesAbiParameters, body?.extraData ?? '0x')
+      assert.deepStrictEqual(keys, [['first'], []])
+      assert.deepStrictEqual(values, [['a'], []])
+      assert.strictEqual(result.txHash, mockTxHash)
+      assert.deepStrictEqual(result.dropped, [{ index: 2, duplicateOf: 0, pieceCid: pieceA }])
+    })
+
+    it('addPieces submits duplicates unchanged when dedupe is off', async () => {
+      let body: addPiecesApiRequest.RequestBody | undefined
+      server.use(
+        captureAddPieces('http://pdp.local/pdp/data-sets/:id/pieces', (b) => {
+          body = b
+        })
+      )
+
+      const result = await addPieces(client, {
+        serviceURL: 'http://pdp.local',
+        dataSetId: 1n,
+        clientDataSetId: 1n,
+        nonce: 1n,
+        pieces: inputs,
+      })
+
+      assert.deepStrictEqual(
+        body?.pieces.map((piece) => piece.pieceCid),
+        [pieceA.toString(), pieceB.toString(), pieceA.toString()]
+      )
+      assert.notProperty(result, 'dropped')
+    })
+
+    it('createDataSetAndAddPieces submits each PieceCID once with dedupe on', async () => {
+      let body: addPiecesApiRequest.RequestBody | undefined
+      server.use(
+        captureAddPieces('http://pdp.local/pdp/data-sets/create-and-add', (b) => {
+          body = b
+        })
+      )
+
+      const result = await createDataSetAndAddPieces(client, {
+        serviceURL: 'http://pdp.local',
+        payee: ADDRESSES.client1,
+        clientDataSetId: 1n,
+        pieces: inputs,
+        dedupe: true,
+      })
+
+      assert.deepStrictEqual(
+        body?.pieces.map((piece) => piece.pieceCid),
+        [pieceA.toString(), pieceB.toString()]
+      )
+      assert.deepStrictEqual(result.dropped, [{ index: 2, duplicateOf: 0, pieceCid: pieceA }])
+    })
+  })
+
   describe('waitForAddPiecesStatus', () => {
     it('should handle successful status check', async () => {
       const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'

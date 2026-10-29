@@ -8,6 +8,7 @@ import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset
 import type { MetadataEntry } from '../typed-data/type-definitions.ts'
 import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
+import { type DroppedPiece, dedupePieces } from '../utils/dedupe-pieces.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 
@@ -242,8 +243,25 @@ export type BasePullPiecesOptions = {
   recordKeeper?: Address
   /** Optional AbortSignal to cancel the request. */
   signal?: AbortSignal
-  /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
+  /**
+   * Pre-built signed extraData. When provided, skips internal EIP-712 signing.
+   * With `dedupe: true` it must be signed over the deduped pieces.
+   */
   extraData?: Hex
+  /**
+   * Remove inputs whose PieceCID already appeared earlier in `pieces` before signing and pulling.
+   * The first input wins. Removed inputs still get a result that shares the kept input's status,
+   * and are listed in the result's `dropped`. Defaults to false.
+   */
+  dedupe?: boolean
+}
+
+/**
+ * Status of one input piece, matched back to its position in the `pieces` input.
+ */
+export type PullPieceResult = pullPiecesApiRequest.PullPieceStatus & {
+  /** Index of this piece in the `pieces` input array. */
+  index: number
 }
 
 /**
@@ -284,7 +302,14 @@ export namespace pullPieces {
    */
   export type OptionsType = PullToExistingDataSetOptions | PullToNewDataSetOptions
 
-  export type ReturnType = pullPiecesApiRequest.ReturnType
+  export type ReturnType = {
+    /** Overall status reported by the SP (worst-case across all pieces) */
+    status: pullPiecesApiRequest.PullStatus
+    /** One entry per input piece, in input order. Inputs with the same PieceCID share its status. */
+    pieces: PullPieceResult[]
+    /** With `dedupe: true`, the inputs not sent to the SP because an earlier input had the same PieceCID. */
+    dropped?: DroppedPiece[]
+  }
 
   export type ErrorType =
     | pullPiecesApiRequest.ErrorType
@@ -317,6 +342,36 @@ function toPullPieces(pieces: PullPieceInput[]): pullPiecesApiRequest.PullPieceI
     pieceCid: piece.pieceCid.toString(),
     sourceUrl: piece.sourceUrl,
   }))
+}
+
+/**
+ * Apply the `dedupe` option. Returns the options to sign and send, and the removed inputs.
+ */
+function dedupePullOptions<T extends pullPieces.OptionsType>(options: T): { options: T; dropped?: DroppedPiece[] } {
+  if (!options.dedupe) {
+    return { options }
+  }
+  const { pieces, dropped } = dedupePieces(options.pieces)
+  return { options: { ...options, pieces }, dropped }
+}
+
+/**
+ * Map the SP response back onto the caller's inputs: one result per input, in input order.
+ *
+ * The SP may return pieces in any order and reports each PieceCID once, so results are
+ * matched by PieceCID. A piece missing from the response takes the overall status.
+ */
+function toPullResult(
+  inputs: PullPieceInput[],
+  response: pullPiecesApiRequest.ReturnType,
+  dropped?: DroppedPiece[]
+): pullPieces.ReturnType {
+  const statusByCid = new Map(response.pieces.map((piece) => [piece.pieceCid, piece.status]))
+  const pieces = inputs.map((input, index) => {
+    const pieceCid = input.pieceCid.toString()
+    return { pieceCid, status: statusByCid.get(pieceCid) ?? response.status, index }
+  })
+  return dropped ? { status: response.status, pieces, dropped } : { status: response.status, pieces }
 }
 
 /**
@@ -386,7 +441,9 @@ export async function pullPieces(
   client: Client<Transport, Chain, Account>,
   options: pullPieces.OptionsType
 ): Promise<pullPieces.ReturnType> {
-  return pullPiecesApiRequest(await resolvePullParams(client, options))
+  const deduped = dedupePullOptions(options)
+  const response = await pullPiecesApiRequest(await resolvePullParams(client, deduped.options))
+  return toPullResult(options.pieces, response, deduped.dropped)
 }
 
 export namespace waitForPullPieces {
@@ -406,7 +463,7 @@ export namespace waitForPullPieces {
     pollInterval?: number
   }
 
-  export type ReturnType = pullPiecesApiRequest.ReturnType
+  export type ReturnType = pullPieces.ReturnType
 
   export type ErrorType = pullPieces.ErrorType
 }
@@ -426,13 +483,16 @@ export async function waitForPullPieces(
   client: Client<Transport, Chain, Account>,
   options: waitForPullPieces.OptionsType
 ): Promise<waitForPullPieces.ReturnType> {
-  const params = await resolvePullParams(client, options)
-  return waitForPullPiecesApiRequest({
+  const deduped = dedupePullOptions(options)
+  const params = await resolvePullParams(client, deduped.options)
+  const { onStatus } = options
+  const response = await waitForPullPiecesApiRequest({
     ...params,
-    onStatus: options.onStatus,
+    onStatus: onStatus ? (response) => onStatus(toPullResult(options.pieces, response, deduped.dropped)) : undefined,
     timeout: options.timeout,
     pollInterval: options.pollInterval,
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
   })
+  return toPullResult(options.pieces, response, deduped.dropped)
 }

@@ -16,6 +16,7 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
+import { type DroppedPiece, dedupePieces } from '../utils/dedupe-pieces.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { waitForAddPieces } from './add-pieces.ts'
 import { assertAddPiecesFit } from './add-pieces-fits.ts'
@@ -121,8 +122,16 @@ export type CreateDataSetAndAddPiecesOptions = {
   metadata?: MetadataObject
   /** The client data set id (nonce) to use for the signature. Must be unique for each data set. */
   clientDataSetId?: bigint
-  /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
+  /**
+   * Pre-built signed extraData. When provided, skips internal EIP-712 signing.
+   * With `dedupe: true` it must be signed over the deduped pieces.
+   */
   extraData?: Hex
+  /**
+   * Remove pieces whose PieceCID already appeared earlier in `pieces` before signing and submitting.
+   * The first piece's metadata wins. Removed pieces are listed in the result's `dropped`. Defaults to false.
+   */
+  dedupe?: boolean
   /** Whether the data set should use CDN. */
   cdn?: boolean
   /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
@@ -137,7 +146,10 @@ export type CreateDataSetAndAddPiecesOptions = {
 
 export namespace createDataSetAndAddPieces {
   export type OptionsType = CreateDataSetAndAddPiecesOptions
-  export type ReturnType = createDataSetAndAddPiecesApiRequest.OutputType
+  export type ReturnType = createDataSetAndAddPiecesApiRequest.OutputType & {
+    /** With `dedupe: true`, the pieces not submitted because an earlier piece had the same PieceCID. */
+    dropped?: DroppedPiece[]
+  }
   export type ErrorType =
     | createDataSetAndAddPiecesApiRequest.ErrorType
     | signCreateDataSetAndAddPieces.ErrorType
@@ -159,11 +171,12 @@ export async function createDataSetAndAddPieces(
   options: CreateDataSetAndAddPiecesOptions
 ): Promise<createDataSetAndAddPieces.ReturnType> {
   throwIfAborted(options.signal)
+  const { pieces, dropped } = options.dedupe ? dedupePieces(options.pieces) : { pieces: options.pieces }
   assertAddPiecesFit({
     kind: 'createDataSetAndAddPieces',
     metadata: options.metadata,
     cdn: options.cdn,
-    pieces: options.pieces,
+    pieces,
   })
   const chain = asChain(client.chain)
   const extraData =
@@ -175,21 +188,22 @@ export async function createDataSetAndAddPieces(
       metadata: datasetMetadataObjectToEntry(options.metadata, {
         cdn: options.cdn ?? false,
       }),
-      pieces: options.pieces.map((piece) => ({
+      pieces: pieces.map((piece) => ({
         pieceCid: piece.pieceCid,
         metadata: pieceMetadataObjectToEntry(piece.metadata),
       })),
     }))
 
-  return createDataSetAndAddPiecesApiRequest({
+  const result = await createDataSetAndAddPiecesApiRequest({
     serviceURL: options.serviceURL,
     recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
     extraData,
-    pieces: options.pieces.map((piece) => piece.pieceCid),
+    pieces: pieces.map((piece) => piece.pieceCid),
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
     signal: options.signal,
   })
+  return dropped ? { ...result, dropped } : result
 }
 
 export namespace waitForCreateDataSetAddPieces {

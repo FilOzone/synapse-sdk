@@ -11,6 +11,7 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
+import { type DroppedPiece, dedupePieces } from '../utils/dedupe-pieces.ts'
 import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
 import { assertAddPiecesFit } from './add-pieces-fits.ts'
@@ -112,8 +113,16 @@ export namespace addPieces {
     pieces: PieceType[]
     /** Optional nonce for the add pieces signature. Ignored when extraData is provided. */
     nonce?: bigint
-    /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
+    /**
+     * Pre-built signed extraData. When provided, skips internal EIP-712 signing.
+     * With `dedupe: true` it must be signed over the deduped pieces.
+     */
     extraData?: Hex
+    /**
+     * Remove pieces whose PieceCID already appeared earlier in `pieces` before signing and submitting.
+     * The first piece's metadata wins. Removed pieces are listed in the result's `dropped`. Defaults to false.
+     */
+    dedupe?: boolean
     /** The signal to abort the request. */
     signal?: AbortSignal
     /** The number of retries. Defaults to 2. */
@@ -122,7 +131,10 @@ export namespace addPieces {
     retryDelay?: number
   }
 
-  export type OutputType = addPiecesApiRequest.OutputType
+  export type OutputType = addPiecesApiRequest.OutputType & {
+    /** With `dedupe: true`, the pieces not submitted because an earlier piece had the same PieceCID. */
+    dropped?: DroppedPiece[]
+  }
   export type ErrorType =
     | addPiecesApiRequest.ErrorType
     | signAddPieces.ErrorType
@@ -146,31 +158,33 @@ export async function addPieces(
   options: addPieces.OptionsType
 ): Promise<addPieces.OutputType> {
   throwIfAborted(options.signal)
+  const { pieces, dropped } = options.dedupe ? dedupePieces(options.pieces) : { pieces: options.pieces }
   assertAddPiecesFit({
     kind: 'addPieces',
     dataSetId: options.dataSetId,
     legacyPieceStorageIdLimit: asChain(client.chain).legacyPieceStorageIdLimit,
-    pieces: options.pieces,
+    pieces,
   })
   const extraData =
     options.extraData ??
     (await signAddPieces(client, {
       clientDataSetId: options.clientDataSetId,
       nonce: options.nonce,
-      pieces: options.pieces.map((piece) => ({
+      pieces: pieces.map((piece) => ({
         pieceCid: piece.pieceCid,
         metadata: pieceMetadataObjectToEntry(piece.metadata),
       })),
     }))
-  return addPiecesApiRequest({
+  const result = await addPiecesApiRequest({
     serviceURL: options.serviceURL,
     dataSetId: options.dataSetId,
-    pieces: options.pieces.map((piece) => piece.pieceCid),
+    pieces: pieces.map((piece) => piece.pieceCid),
     extraData,
     retryCount: options.retryCount,
     retryDelay: options.retryDelay,
     signal: options.signal,
   })
+  return dropped ? { ...result, dropped } : result
 }
 
 export const AddPiecesPendingSchema = z.object({
