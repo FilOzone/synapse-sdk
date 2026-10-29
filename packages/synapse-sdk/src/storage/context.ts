@@ -42,6 +42,7 @@ import {
   datasetMetadataObjectToEntry,
   dedupePieces,
   epochToDate,
+  getPayerAddress,
   type MetadataObject,
   pieceMetadataObjectToEntry,
   randU256,
@@ -1011,13 +1012,19 @@ export class StorageContext {
         })
         options.onSubmitted?.(addPiecesResult.txHash as Hex)
 
-        const confirmation = await SP.waitForAddPieces({ statusUrl: addPiecesResult.statusUrl, signal })
-        const confirmedPieceIds = confirmation.confirmedPieceIds
+        const confirmation = await SP.waitForAddPieces({
+          client: this._client,
+          txHash: addPiecesResult.txHash,
+          extraData: addPiecesResult.extraData,
+          pieceCount: addPiecesResult.pieceCount,
+          payer: getPayerAddress(this._client.account),
+          signal,
+        })
 
         return {
           txHash: addPiecesResult.txHash as Hex,
           ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash }),
-          pieceIds: confirmedPieceIds,
+          pieceIds: confirmation.pieceIds,
           dataSetId: this._dataSetId,
           isNewDataSet: false,
         }
@@ -1037,13 +1044,19 @@ export class StorageContext {
       })
       options.onSubmitted?.(result.txHash as Hex)
 
-      const confirmation = await SP.waitForCreateDataSetAddPieces({ statusUrl: result.statusUrl, signal })
+      const confirmation = await SP.waitForCreateDataSetAddPieces({
+        client: this._client,
+        txHash: result.txHash,
+        extraData: result.extraData,
+        pieceCount: result.pieceCount,
+        signal,
+      })
       this._dataSetId = confirmation.dataSetId
 
       return {
         txHash: result.txHash as Hex,
-        ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash as Hex }),
-        pieceIds: confirmation.piecesIds,
+        ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash }),
+        pieceIds: confirmation.pieceIds,
         dataSetId: this._dataSetId,
         isNewDataSet: true,
       }
