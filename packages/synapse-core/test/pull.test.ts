@@ -271,6 +271,54 @@ describe('Pull', () => {
       )
     })
 
+    it('should keep retrying 429 past retryCount until the pull is admitted', async () => {
+      let calls = 0
+      server.use(
+        http.post(`${TEST_ENDPOINT}/pdp/piece/pull`, () => {
+          calls++
+          if (calls <= 4) {
+            return new HttpResponse('pull queue backpressure', { status: 429, headers: { 'Retry-After': '0' } })
+          }
+          return HttpResponse.json(Mocks.pdp.createPullResponse('complete', [{ pieceCid: TEST_PIECE_CID }]))
+        })
+      )
+
+      const result = await waitForPullPiecesApiRequest({ ...baseOptions(), pollInterval: 10, retryCount: 1 })
+
+      assert.strictEqual(result.status, 'complete')
+      assert.strictEqual(calls, 5)
+    })
+
+    it('should time out while the SP keeps answering 429', async () => {
+      server.use(
+        http.post(
+          `${TEST_ENDPOINT}/pdp/piece/pull`,
+          () => new HttpResponse('pull queue backpressure', { status: 429, headers: { 'Retry-After': '0' } })
+        )
+      )
+
+      await assert.rejects(
+        waitForPullPiecesApiRequest({ ...baseOptions(), pollInterval: 10, timeout: 200 }),
+        (error: Error) => error.name === 'TimeoutError'
+      )
+    })
+
+    it('should still cap other retryable errors at retryCount', async () => {
+      let calls = 0
+      server.use(
+        http.post(`${TEST_ENDPOINT}/pdp/piece/pull`, () => {
+          calls++
+          return new HttpResponse('unavailable', { status: 503 })
+        })
+      )
+
+      await assert.rejects(
+        waitForPullPiecesApiRequest({ ...baseOptions(), pollInterval: 10, retryCount: 1 }),
+        (error: unknown) => error instanceof PullError
+      )
+      assert.strictEqual(calls, 2)
+    })
+
     it('should handle server errors during polling', async () => {
       server.use(Mocks.pdp.pullPiecesErrorHandler('Internal server error', 500))
 
