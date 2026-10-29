@@ -3,6 +3,7 @@ packages:
   - examples/*
   - apps/*
   - docs
+  - docs/tooling/*
   - utils
 
 allowBuilds:
@@ -27,7 +28,7 @@ catalog:
   typescript: 6.0.3
   viem: 2.55.19
   wagmi: 3.7.6
-  zod: 4.4.3
+  zod: 4.6.6
   iso-web: ^3.1.2
 
 minimumReleaseAge: 10080
@@ -41,6 +42,16 @@ minimumReleaseAgeExclude:
   - '@hugomrdias/docs'
   - '@hugomrdias/commp-wasm'
   - playwright-test
+
+patchedDependencies:
+  '@hugomrdias/docs@0.2.0': patches/@hugomrdias__docs@0.2.0.patch
+  starlight-changelogs@0.6.0: patches/starlight-changelogs@0.6.0.patch
+
+overrides:
+  # The version-bound patch implements these helpers with Astro's current metadata API.
+  starlight-changelogs@0.6.0>@ascorbic/loader-utils: '-'
+  # GHSA-mrhx-c7xc-m3w5 is fixed in 4.6.6; keep Zod 3 consumers on their supported major.
+  zod@>=4.0.0 <4.6.6: 4.6.6
 
 trustPolicy: no-downgrade
 

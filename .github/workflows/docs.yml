@@ -80,6 +80,8 @@ jobs:
           require-lockfile: true
       - run: pnpm run check:markdown
       - run: pnpm run build
+      - name: Install Chromium for diagrams
+        run: pnpm --dir docs exec playwright install --with-deps chromium
       - run: pnpm -r --filter docs run build
       - name: Restore trusted Wrangler config
         if: inputs.pr_number != ''

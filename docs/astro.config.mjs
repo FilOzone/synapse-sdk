@@ -1,14 +1,15 @@
 import { unified } from '@astrojs/markdown-remark'
 import starlight from '@astrojs/starlight'
+import ecTwoSlash from '@filoz/docs-twoslash'
 import { llmsPlugin } from '@hugomrdias/docs/starlight-llms'
 import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
 import { defineConfig } from 'astro/config'
-import mermaid from 'astro-mermaid'
-import ecTwoSlash from 'expressive-code-twoslash'
 import rehypeExternalLinks from 'rehype-external-links'
 import starlightAutoSidebar from 'starlight-auto-sidebar'
 import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs'
 import starlightLinksValidator from 'starlight-links-validator'
+import { rehypeMermaidThemes, remarkMermaidBlocks } from './src/plugins/mermaid.ts'
+import { referenceNavigation } from './src/plugins/reference-navigation.ts'
 
 const site = 'https://docs.filecoin.cloud'
 
@@ -27,7 +28,9 @@ export default defineConfig({
     // rehype-external-links attaches to the unified processor Starlight runs.
     processor: unified({
       gfm: true,
+      remarkPlugins: [remarkMermaidBlocks],
       rehypePlugins: [
+        rehypeMermaidThemes,
         [
           rehypeExternalLinks,
           {
@@ -38,10 +41,6 @@ export default defineConfig({
     }),
   },
   integrations: [
-    mermaid({
-      theme: 'forest',
-      autoTheme: true,
-    }),
     starlight({
       title: 'Filecoin Onchain Cloud Documentation',
       description:
@@ -118,7 +117,7 @@ export default defineConfig({
         },
       ],
       editLink: {
-        baseUrl: 'https://github.com/FilOzone/synapse-sdk/edit/main/docs/',
+        baseUrl: 'https://github.com/FilOzone/synapse-sdk/edit/master/docs/',
       },
       lastUpdated: true,
       sidebar: [
@@ -201,6 +200,23 @@ export default defineConfig({
           collapsed: true,
           items: [
             {
+              label: 'Synapse SDK',
+              collapsed: true,
+              items: [
+                {
+                  autogenerate: { directory: 'reference/@filoz/synapse-sdk', collapsed: true },
+                },
+                {
+                  label: 'Encryption',
+                  collapsed: true,
+                  items: [
+                    { label: 'Keysmith API', link: '/reference/filoz/keysmith/toc/' },
+                    { label: 'Encryption envelope API', link: '/reference/filecoin-encryption-envelope/toc/' },
+                  ],
+                },
+              ],
+            },
+            {
               autogenerate: { directory: 'reference', collapsed: true },
             },
           ],
@@ -210,7 +226,7 @@ export default defineConfig({
         plugins: [
           ecTwoSlash({
             twoslashOptions: {
-              lib: ['esnext', 'dom'],
+              lib: ['esnext', 'dom', 'dom.iterable', 'dom.asynciterable'],
               compilerOptions: {
                 jsx: 4, // react-jsx
                 jsxImportSource: 'react',
@@ -228,13 +244,19 @@ export default defineConfig({
             entryPointStrategy: 'packages',
             entryPoints: ['../packages/*'],
             tsconfig: '../tsconfig.json',
+            packageOptions: {
+              compilerOptions: { lib: ['esnext', 'dom', 'dom.iterable', 'dom.asynciterable'] },
+              excludeExternals: true,
+            },
+            excludeExternals: true,
             useCodeBlocks: false,
             parametersFormat: 'table',
             indexFormat: 'table',
             groupOrder: ['classes', 'functions', 'variables', 'types', 'namespaces', '*'],
-            plugin: ['typedoc-plugin-mdn-links'],
+            plugin: ['typedoc-plugin-mdn-links', 'typedoc-plugin-missing-exports'],
           },
         }),
+        referenceNavigation(),
         llmsPlugin(),
         starlightAutoSidebar(),
         starlightChangelogs(),

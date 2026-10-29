@@ -7,7 +7,8 @@
   "workspaces": [
     "./packages/*",
     "./examples/*",
-    "./docs"
+    "./docs",
+    "./docs/tooling/*"
   ],
   "scripts": {
     "preinstall": "pnpx only-allow pnpm",

@@ -13,7 +13,12 @@
     "build": {
       "command": "astro build",
       "files": [
-        "src/**/*.ts",
+        "src/**/*",
+        "!src/content/docs/reference/**",
+        "tooling/*/*.ts",
+        "tooling/*/package.json",
+        "../pnpm-lock.yaml",
+        "../patches/*.patch",
         "tsconfig.json",
         "astro.config.mjs"
       ],
@@ -21,6 +26,7 @@
         "dist/**"
       ],
       "dependencies": [
+        "../packages/keysmith:build",
         "../packages/synapse-core:build",
         "../packages/synapse-sdk:build",
         "../packages/synapse-react:build"
@@ -30,11 +36,17 @@
       "command": "astro dev",
       "service": true,
       "files": [
-        "src/**/*.ts",
+        "src/**/*",
+        "!src/content/docs/reference/**",
+        "tooling/*/*.ts",
+        "tooling/*/package.json",
+        "../pnpm-lock.yaml",
+        "../patches/*.patch",
         "tsconfig.json",
         "astro.config.mjs"
       ],
       "dependencies": [
+        "../packages/keysmith:build",
         "../packages/synapse-core:build",
         "../packages/synapse-sdk:build",
         "../packages/synapse-react:build"
@@ -42,10 +54,12 @@
     }
   },
   "dependencies": {
+    "@filoz/keysmith": "workspace:*",
     "@filoz/synapse-core": "workspace:*",
     "@filoz/synapse-react": "workspace:*",
     "@filoz/synapse-sdk": "workspace:*",
     "@tanstack/react-query": "5.102.8",
+    "filecoin-encryption-envelope": "workspace:*",
     "starlight-auto-sidebar": "0.4.0",
     "starlight-changelogs": "0.6.0",
     "starlight-links-validator": "0.25.3",
@@ -55,18 +69,24 @@
   "devDependencies": {
     "@astrojs/markdown-remark": "7.2.4",
     "@astrojs/starlight": "0.41.7",
+    "@filoz/docs-twoslash": "workspace:*",
     "@hugomrdias/docs": "0.2.0",
+    "@types/hast": "3.0.4",
+    "@types/mdast": "4.0.4",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "astro": "7.2.4",
-    "astro-mermaid": "2.1.0",
-    "expressive-code-twoslash": "0.6.1",
-    "mermaid": "11.17.0",
+    "playwright": "1.64.1",
     "rehype-external-links": "3.0.0",
+    "rehype-mermaid": "3.0.0",
     "sharp": "0.35.3",
     "typedoc": "0.28.20",
     "typedoc-plugin-mdn-links": "5.1.1",
     "typedoc-plugin-missing-exports": "4.1.4",
+    "typescript": "catalog:",
+    "unified": "11.0.5",
+    "unist-util-visit": "5.1.0",
     "wrangler": "4.125.0"
   }
 }

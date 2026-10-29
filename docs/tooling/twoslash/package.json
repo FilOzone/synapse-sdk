@@ -1,0 +1,11 @@
+{
+  "name": "@filoz/docs-twoslash",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./index.ts",
+  "dependencies": {
+    "expressive-code-twoslash": "0.6.1",
+    "typescript": "5.9.3"
+  }
+}

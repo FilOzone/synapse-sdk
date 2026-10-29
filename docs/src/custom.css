@@ -101,3 +101,19 @@ img[src*="foc-diagram.png"] {
 .site-title span {
   display: none;
 }
+
+.mermaid-diagram {
+  overflow-x: auto;
+  margin-block: 1.5rem;
+}
+
+.mermaid-diagram svg {
+  margin-inline: auto;
+  max-width: 100%;
+  height: auto;
+}
+
+:root[data-theme="dark"] .mermaid-light,
+:root[data-theme="light"] .mermaid-dark {
+  display: none;
+}
