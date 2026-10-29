@@ -819,6 +819,9 @@ describe('Synapse', () => {
         server.use(
           Mocks.JSONRPC({
             ...Mocks.presets.basic,
+            ...Mocks.landedTransactions({
+              [FAKE_TX_HASH]: { created: true, dataSetId: BigInt(DATA_SET_ID), pieceIds: [0n] },
+            }),
             serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
             endorsements: {
               getProviderIds: () => [endorsedProviderIds],
@@ -864,25 +867,6 @@ describe('Synapse', () => {
         contexts = await synapse.storage.createContexts({
           providerIds: [1n, 2n],
         })
-        for (const provider of [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]) {
-          const pdpOptions: Mocks.pdp.PDPMockOptions = {
-            baseUrl: provider.products[0].offering.serviceURL,
-          }
-          server.use(
-            Mocks.pdp.dataSetCreationStatusHandler(
-              FAKE_TX_HASH,
-              {
-                ok: true,
-                dataSetId: DATA_SET_ID,
-                createMessageHash: FAKE_TX_HASH,
-                dataSetCreated: true,
-                service: '',
-                txStatus: 'confirmed',
-              },
-              pdpOptions
-            )
-          )
-        }
       })
 
       it('succeeds for ArrayBuffer data when upload found', async () => {
@@ -899,22 +883,6 @@ describe('Synapse', () => {
           server.use(Mocks.pdp.finalizePieceUploadHandler(mockUUID, pieceCid.toString(), pdpOptions))
           server.use(Mocks.pdp.findPieceHandler(pieceCid.toString(), found, pdpOptions))
           server.use(Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions))
-          server.use(
-            Mocks.pdp.pieceAdditionStatusHandler(
-              DATA_SET_ID,
-              FAKE_TX_HASH,
-              {
-                txHash: FAKE_TX_HASH,
-                txStatus: 'confirmed',
-                dataSetId: DATA_SET_ID,
-                pieceCount: 1,
-                addMessageOk: true,
-                piecesAdded: true,
-                confirmedPieceIds: [0],
-              },
-              pdpOptions
-            )
-          )
         }
         const result = await synapse.storage.upload(data, { contexts })
         assert.equal(result.pieceCid.toString(), pieceCid.toString())

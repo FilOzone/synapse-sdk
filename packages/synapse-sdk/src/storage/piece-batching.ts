@@ -36,7 +36,7 @@ type Entry = {
   batcher: SP.PieceBatcher
   providerId: bigint
   contexts: Set<StorageContext>
-  confirmations: Map<string, Promise<SP.waitForAddPieces.OutputType>>
+  confirmations: Map<string, Promise<SP.waitForFlushReceipt.OutputType>>
 }
 
 type TaskCallbacks = {
@@ -212,19 +212,19 @@ export class PieceBatchingService {
       this.entries.set(this.existingKey(entry.providerId, dataSet.dataSetId), Promise.resolve(entry))
     }
 
-    let confirmation = entry.confirmations.get(result.statusUrl)
+    let confirmation = entry.confirmations.get(result.txHash)
     if (confirmation == null) {
-      confirmation = SP.waitForAddPieces({ statusUrl: result.statusUrl })
-      entry.confirmations.set(result.statusUrl, confirmation)
+      confirmation = SP.waitForFlushReceipt(this.synapse.client, result)
+      entry.confirmations.set(result.txHash, confirmation)
       void confirmation.then(
-        () => entry.confirmations.delete(result.statusUrl),
-        () => entry.confirmations.delete(result.statusUrl)
+        () => entry.confirmations.delete(result.txHash),
+        () => entry.confirmations.delete(result.txHash)
       )
     }
     const confirmed = await confirmation
-    const pieceId = confirmed.confirmedPieceIds[result.batchIndex]
+    const pieceId = confirmed.pieceIds[result.batchIndex]
     if (pieceId == null) {
-      throw new Error(`Provider confirmed no piece ID at batch index ${result.batchIndex}`)
+      throw new Error(`Transaction added no piece ID at batch index ${result.batchIndex}`)
     }
 
     const confirmedTxHash = result.confirmedTxHash ?? confirmed.confirmedTxHash

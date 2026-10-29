@@ -49,6 +49,7 @@ describe('Synapse', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          ...Mocks.landedTransactions({ [FAKE_TX_HASH]: { created: true, dataSetId: 123n, pieceIds: [0n] } }),
           debug: false,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
@@ -90,23 +91,6 @@ describe('Synapse', () => {
         }),
         ...Mocks.pdp.streamingUploadHandlers(),
         Mocks.pdp.findAnyPieceHandler(true),
-        Mocks.pdp.dataSetCreationStatusHandler(FAKE_TX_HASH, {
-          createMessageHash: FAKE_TX_HASH,
-          dataSetCreated: true,
-          service: 'test-service',
-          txStatus: 'confirmed',
-          ok: true,
-          dataSetId: 123,
-        }),
-        Mocks.pdp.pieceAdditionStatusHandler(123, FAKE_TX_HASH, {
-          txHash: FAKE_TX_HASH,
-          txStatus: 'confirmed',
-          dataSetId: 123,
-          pieceCount: 1,
-          addMessageOk: true,
-          piecesAdded: true,
-          confirmedPieceIds: [0],
-        }),
         http.post(`https://pdp.example.com/pdp/data-sets/create-and-add`, async ({ request }) => {
           const body = (await request.json()) as any
           const decoded = decodeAbiParameters([{ type: 'bytes' }, { type: 'bytes' }], body.extraData)
@@ -155,6 +139,7 @@ describe('Synapse', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          ...Mocks.landedTransactions({ [FAKE_TX_HASH]: { created: true, dataSetId: 1n, pieceIds: [0n] } }),
           debug: false,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
@@ -180,23 +165,6 @@ describe('Synapse', () => {
         }),
         ...Mocks.pdp.streamingUploadHandlers(),
         Mocks.pdp.findAnyPieceHandler(true),
-        Mocks.pdp.dataSetCreationStatusHandler(FAKE_TX_HASH, {
-          createMessageHash: FAKE_TX_HASH,
-          dataSetCreated: true,
-          service: 'test-service',
-          txStatus: 'confirmed',
-          ok: true,
-          dataSetId: 1,
-        }),
-        Mocks.pdp.pieceAdditionStatusHandler(1, FAKE_TX_HASH, {
-          txHash: FAKE_TX_HASH,
-          txStatus: 'confirmed',
-          dataSetId: 1,
-          pieceCount: 1,
-          addMessageOk: true,
-          piecesAdded: true,
-          confirmedPieceIds: [0],
-        }),
         http.post(`https://pdp.example.com/pdp/data-sets/create-and-add`, () => {
           return new HttpResponse(null, {
             status: 201,
