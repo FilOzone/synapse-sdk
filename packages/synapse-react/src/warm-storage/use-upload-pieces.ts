@@ -57,7 +57,7 @@ export interface UploadedPiece {
  */
 export interface UseUploadPiecesResult {
   /**
-   * The provider confirmations of the add-pieces transactions, one per transaction.
+   * The on-chain outcomes of the add-pieces transactions, one per transaction.
    * All files go in one transaction unless they don't fit in a single add-pieces request.
    */
   confirmations: SP.waitForAddPieces.OutputType[]

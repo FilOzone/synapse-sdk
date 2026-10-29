@@ -10,7 +10,7 @@ export interface UseCreateDataSetProps extends SessionKeySignerOptions {
    * The callback to call when the hash is available.
    */
   onHash?: (hash: string) => void
-  mutation?: Omit<MutateOptions<SP.waitForCreateDataSet.ReturnType, Error, UseCreateDataSetVariables>, 'mutationFn'>
+  mutation?: Omit<MutateOptions<SP.waitForCreateDataSet.OutputType, Error, UseCreateDataSetVariables>, 'mutationFn'>
 }
 
 export interface UseCreateDataSetVariables {
@@ -25,7 +25,7 @@ export interface UseCreateDataSetVariables {
   metadata?: MetadataObject
 }
 
-export type UseCreateDataSetResult = SP.waitForCreateDataSet.ReturnType
+export type UseCreateDataSetResult = SP.waitForCreateDataSet.OutputType
 
 export function useCreateDataSet(props: UseCreateDataSetProps) {
   const config = useConfig()
@@ -41,7 +41,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
         sessionKey: props?.sessionKey,
       })
 
-      const { txHash, statusUrl } = await SP.createDataSet(client, {
+      const { txHash, extraData } = await SP.createDataSet(client, {
         payee: provider.payee,
         serviceURL: provider.pdp.serviceURL,
         cdn,
@@ -49,7 +49,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
       })
       props?.onHash?.(txHash)
 
-      const dataSet = await SP.waitForCreateDataSet({ statusUrl })
+      const dataSet = await SP.waitForCreateDataSet({ client, txHash, extraData })
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', getPayerAddress(client.account), chainId],
