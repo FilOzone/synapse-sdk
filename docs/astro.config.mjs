@@ -200,6 +200,23 @@ export default defineConfig({
           collapsed: true,
           items: [
             {
+              label: 'Synapse SDK',
+              collapsed: true,
+              items: [
+                {
+                  autogenerate: { directory: 'reference/@filoz/synapse-sdk', collapsed: true },
+                },
+                {
+                  label: 'Encryption',
+                  collapsed: true,
+                  items: [
+                    { label: 'Keysmith API', link: '/reference/filoz/keysmith/toc/' },
+                    { label: 'Encryption envelope API', link: '/reference/filecoin-encryption-envelope/toc/' },
+                  ],
+                },
+              ],
+            },
+            {
               autogenerate: { directory: 'reference', collapsed: true },
             },
           ],

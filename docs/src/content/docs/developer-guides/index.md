@@ -21,6 +21,7 @@ This page describes the available Synapse packages and how to choose the one tha
 
 - **Payments**: Deposits, withdrawals, operator approvals ([Payments Operations Guide →](/developer-guides/payments/payment-operations/))
 - **Storage**: Upload and download files to storage providers ([Storage Operations Guide →](/developer-guides/storage/storage-operations/))
+- **Encryption**: Encrypt before upload and decrypt after download with companion packages ([Encrypt a file →](/developer-guides/encryption/encrypt-a-file/))
 - **Provider Discovery**: Query registered storage providers and products
 - **Session Keys**: Delegate signing authority for automated workflows
 

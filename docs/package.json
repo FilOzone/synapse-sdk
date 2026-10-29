@@ -54,10 +54,12 @@
     }
   },
   "dependencies": {
+    "@filoz/keysmith": "workspace:*",
     "@filoz/synapse-core": "workspace:*",
     "@filoz/synapse-react": "workspace:*",
     "@filoz/synapse-sdk": "workspace:*",
     "@tanstack/react-query": "5.102.8",
+    "filecoin-encryption-envelope": "workspace:*",
     "starlight-auto-sidebar": "0.4.0",
     "starlight-changelogs": "0.6.0",
     "starlight-links-validator": "0.25.3",
