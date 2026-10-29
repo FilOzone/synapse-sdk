@@ -45,8 +45,8 @@ export const piecesUpload: Command = command(
       p.log.info(
         `Waiting for tx ${hashLink(result.txHash, chain)} to be mined...`
       )
-      const pieces = await SP.waitForAddPieces(result)
-      p.log.info(`File uploaded ${pieces.confirmedPieceIds.join(',')}`)
+      const pieces = await SP.waitForAddPieces({ client, ...result })
+      p.log.info(`File uploaded ${pieces.pieceIds.join(',')}`)
     } catch (error) {
       p.log.error((error as Error).message)
       p.outro('Please try again')
