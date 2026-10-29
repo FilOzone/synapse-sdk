@@ -449,17 +449,25 @@ export function pullPiecesProgressionHandler(
   })
 }
 
-const PULL_STATUS_SEVERITY: pullPiecesApiRequest.PullStatus[] = [
-  'complete',
-  'pending',
-  'inProgress',
-  'retrying',
-  'failed',
-]
+/**
+ * Overall pull status the way Curio's `ComputeOverallStatus` derives it: non-terminal while any piece is still
+ * running, then `failed` only when every piece failed, otherwise `complete`.
+ */
+function overallPullStatus(statuses: pullPiecesApiRequest.PullStatus[]): pullPiecesApiRequest.PullStatus {
+  for (const running of ['retrying', 'inProgress', 'pending'] as const) {
+    if (statuses.includes(running)) {
+      return running
+    }
+  }
+  if (statuses.length === 0) {
+    return 'pending'
+  }
+  return statuses.every((status) => status === 'failed') ? 'failed' : 'complete'
+}
 
 /**
  * Creates a handler that answers each requested piece with its own status, like Curio does for a batched pull.
- * The overall status is the worst piece status (failed > retrying > inProgress > pending > complete).
+ * The overall status follows Curio's rules (see `overallPullStatus`).
  */
 export function pullPiecesPerPieceHandler(
   statusFor: (pieceCid: string) => pullPiecesApiRequest.PullStatus,
@@ -473,9 +481,8 @@ export function pullPiecesPerPieceHandler(
     captureCallback?.(body)
 
     const pieces = body.pieces.map((piece) => ({ pieceCid: piece.pieceCid, status: statusFor(piece.pieceCid) }))
-    const severity = Math.max(0, ...pieces.map((piece) => PULL_STATUS_SEVERITY.indexOf(piece.status)))
     const response: pullPiecesApiRequest.ReturnType = {
-      status: PULL_STATUS_SEVERITY[severity] ?? 'complete',
+      status: overallPullStatus(pieces.map((piece) => piece.status)),
       pieces,
     }
 

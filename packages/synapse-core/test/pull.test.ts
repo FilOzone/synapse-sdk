@@ -207,7 +207,7 @@ describe('Pull', () => {
       assert.strictEqual(result.status, 'failed')
     })
 
-    it('should keep polling after a failed piece until every piece settles when waitForAll is set', async () => {
+    it('should keep polling past an overall failed status until every piece settles', async () => {
       const OTHER_PIECE_CID = 'bafkzcibcaabffs4jcd4iheeo5wisbmurjb7l4xgpmzgyzrenebvjjhsbwgx4smy'
       let calls = 0
       server.use(
@@ -230,17 +230,32 @@ describe('Pull', () => {
         pollInterval: 10,
       }
 
-      const first = await waitForPullPiecesApiRequest(options)
-      assert.strictEqual(calls, 1, 'Should stop at the first failure by default')
-      assert.strictEqual(first.pieces[1]?.status, 'inProgress')
-
-      calls = 0
-      const result = await waitForPullPiecesApiRequest({ ...options, waitForAll: true })
+      // Older Curio versions report the worst piece status, so the overall status is `failed` on the first poll.
+      const result = await waitForPullPiecesApiRequest(options)
       assert.strictEqual(calls, 2)
       assert.deepStrictEqual(
         result.pieces.map((piece) => piece.status),
         ['failed', 'complete']
       )
+    })
+
+    it('should keep polling while the response has no pieces yet', async () => {
+      let calls = 0
+      server.use(
+        http.post(`${TEST_ENDPOINT}/pdp/piece/pull`, () => {
+          calls++
+          return HttpResponse.json(
+            calls < 2
+              ? Mocks.pdp.createPullResponse('pending', [])
+              : Mocks.pdp.createPullResponse('complete', [{ pieceCid: TEST_PIECE_CID }])
+          )
+        })
+      )
+
+      const result = await waitForPullPiecesApiRequest({ ...baseOptions(), pollInterval: 10 })
+
+      assert.strictEqual(calls, 2)
+      assert.strictEqual(result.status, 'complete')
     })
 
     it('should call onStatus callback for each poll', async () => {
