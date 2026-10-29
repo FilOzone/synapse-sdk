@@ -64,7 +64,7 @@ export const sessionKeys: Command = command(
       p.log.step(
         `Waiting for tx ${hashLink(result.txHash, chain)} to be mined...`
       )
-      const dataset = await waitForCreateDataSet(result)
+      const dataset = await waitForCreateDataSet({ client, ...result })
       p.log.success(`Data set created #${dataset.dataSetId}`)
     } else {
       p.log.error('Session key does not have permission to create data set')
