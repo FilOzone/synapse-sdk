@@ -1295,6 +1295,83 @@ describe('StorageService', () => {
     })
   })
 
+  describe('pull results', () => {
+    const pdpUrl = 'https://pdp.example.com'
+
+    async function makeContext() {
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }), Mocks.PING())
+      const synapse = new Synapse({ client, source: null })
+      const warmStorageService = new WarmStorageService({ client })
+      return StorageContext.create({ synapse, warmStorageService })
+    }
+
+    it('pull maps out-of-order SP results back to input indices', async () => {
+      const service = await makeContext()
+      const pieceA = await calculate(new Uint8Array(127).fill(1))
+      const pieceB = await calculate(new Uint8Array(127).fill(2))
+      server.use(
+        Mocks.pdp.pullPiecesHandler(
+          {
+            status: 'failed',
+            pieces: [
+              { pieceCid: pieceB.toString(), status: 'failed' },
+              { pieceCid: pieceA.toString(), status: 'complete' },
+            ],
+          },
+          { baseUrl: pdpUrl }
+        )
+      )
+
+      const progress: Array<[string, string]> = []
+      const result = await service.pull({
+        pieces: [pieceA, pieceB],
+        from: pdpUrl,
+        onProgress: (pieceCid, status) => progress.push([pieceCid.toString(), status]),
+      })
+
+      assert.equal(result.status, 'failed')
+      assert.deepEqual(result.pieces, [
+        { pieceCid: pieceA, status: 'complete', index: 0 },
+        { pieceCid: pieceB, status: 'failed', index: 1 },
+      ])
+      assert.notProperty(result, 'dropped')
+      assert.deepEqual(progress, [
+        [pieceA.toString(), 'complete'],
+        [pieceB.toString(), 'failed'],
+      ])
+    })
+
+    it('pull with dedupe sends each PieceCID once and returns a result per input', async () => {
+      const service = await makeContext()
+      const pieceA = await calculate(new Uint8Array(127).fill(1))
+      const pieceB = await calculate(new Uint8Array(127).fill(2))
+      let captured: Mocks.pdp.PullRequestCapture | undefined
+      server.use(
+        Mocks.pdp.pullPiecesWithCaptureHandler(
+          Mocks.pdp.createPullResponse('complete', [{ pieceCid: pieceA.toString() }, { pieceCid: pieceB.toString() }]),
+          (req) => {
+            captured = req
+          },
+          { baseUrl: pdpUrl }
+        )
+      )
+
+      const result = await service.pull({ pieces: [pieceA, pieceB, pieceA], from: pdpUrl, dedupe: true })
+
+      assert.deepEqual(
+        captured?.pieces.map((piece) => piece.pieceCid),
+        [pieceA.toString(), pieceB.toString()]
+      )
+      assert.equal(result.status, 'complete')
+      assert.deepEqual(result.pieces, [
+        { pieceCid: pieceA, status: 'complete', index: 0 },
+        { pieceCid: pieceB, status: 'complete', index: 1 },
+        { pieceCid: pieceA, status: 'complete', index: 2 },
+      ])
+      assert.deepEqual(result.dropped, [{ index: 2, duplicateOf: 0, pieceCid: pieceA }])
+    })
+  })
+
   describe('upload', () => {
     it('should handle errors in batch processing gracefully', async () => {
       server.use(

@@ -40,6 +40,7 @@ import {
   calculateLastProofDate,
   createPieceUrlPDP,
   datasetMetadataObjectToEntry,
+  dedupePieces,
   epochToDate,
   type MetadataObject,
   pieceMetadataObjectToEntry,
@@ -887,11 +888,12 @@ export class StorageContext {
    * @returns Status per piece ('complete' or 'failed') and overall result
    */
   async pull(options: PullOptions): Promise<PullResult> {
-    const { pieces, from, signal, onProgress, extraData, timeout } = options
+    const { pieces, from, signal, onProgress, extraData, timeout, dedupe } = options
 
     // The SP estimateGas-validates the eventual addPieces, so an oversized batch
     // fails there too; reject early for a clear error on non-presigned paths.
-    this.assertPiecesFitMessage(pieces.map((pieceCid) => ({ pieceCid })))
+    const piecesToFit = pieces.map((pieceCid) => ({ pieceCid }))
+    this.assertPiecesFitMessage(dedupe ? dedupePieces(piecesToFit).pieces : piecesToFit)
 
     const getSourceUrl = (pieceCid: PieceCID): string => {
       if (typeof from === 'string') {
@@ -908,10 +910,7 @@ export class StorageContext {
     const handleProgressResponse = onProgress
       ? (response: SP.waitForPullPieces.ReturnType) => {
           for (const piece of response.pieces) {
-            const pieceCid = pieces.find((p) => p.toString() === piece.pieceCid)
-            if (pieceCid) {
-              onProgress(pieceCid, piece.status)
-            }
+            onProgress(pieces[piece.index], piece.status)
           }
         }
       : undefined
@@ -924,6 +923,7 @@ export class StorageContext {
         onStatus: handleProgressResponse,
         extraData,
         timeout,
+        dedupe,
       }
 
       const pullOptions = this._dataSetId
@@ -945,20 +945,22 @@ export class StorageContext {
         pullOptions as SP.waitForPullPieces.OptionsType
       )
 
-      const pieceResults = response.pieces.map((piece: { pieceCid: string; status: string }) => {
-        const pieceCid = pieces.find((p) => p.toString() === piece.pieceCid)
-        return {
-          pieceCid: pieceCid as PieceCID,
-          status: piece.status === 'complete' ? ('complete' as const) : ('failed' as const),
-        }
-      })
+      const pieceResults = response.pieces.map((piece) => ({
+        pieceCid: pieces[piece.index],
+        status: piece.status === 'complete' ? ('complete' as const) : ('failed' as const),
+        index: piece.index,
+      }))
 
-      const allComplete = pieceResults.every((p: { status: string }) => p.status === 'complete')
+      const allComplete = pieceResults.every((p) => p.status === 'complete')
 
-      return {
+      const result: PullResult = {
         status: allComplete ? 'complete' : 'failed',
         pieces: pieceResults,
       }
+      if (response.dropped) {
+        result.dropped = response.dropped
+      }
+      return result
     } catch (error) {
       throw createError('StorageContext', 'pull', 'Failed to pull pieces from source provider', error)
     }
