@@ -406,6 +406,51 @@ describe('Pull', () => {
       )
     })
 
+    it('reports a piece missing from the response as pending, then failed once the SP finishes', async () => {
+      const pieces = [
+        { pieceCid: Piece.from(TEST_PIECE_CID), sourceUrl: sourceUrl(TEST_PIECE_CID) },
+        { pieceCid: Piece.from(PIECE_CID_2), sourceUrl: sourceUrl(PIECE_CID_2) },
+      ]
+
+      server.use(Mocks.pdp.pullPiecesProgressionHandler(['inProgress', 'complete'], [{ pieceCid: TEST_PIECE_CID }]))
+      const working = await pullPieces(client, { ...existing, extraData: TEST_EXTRA_DATA, pieces })
+      assert.deepStrictEqual(working.pieces[1], { pieceCid: PIECE_CID_2, status: 'pending', index: 1 })
+
+      const finished = await pullPieces(client, { ...existing, extraData: TEST_EXTRA_DATA, pieces })
+      assert.deepStrictEqual(finished.pieces, [
+        { pieceCid: TEST_PIECE_CID, status: 'complete', index: 0 },
+        { pieceCid: PIECE_CID_2, status: 'failed', index: 1 },
+      ])
+    })
+
+    it('keeps a missing piece pending while other pieces are still pulling after a failure', async () => {
+      const PIECE_CID_3 = 'bafkzcibcaabffs4jcd4iheeo5wisbmurjb7l4xgpmzgyzrenebvjjhsbwgx4smy'
+      server.use(
+        Mocks.pdp.pullPiecesHandler({
+          status: 'failed',
+          pieces: [
+            { pieceCid: TEST_PIECE_CID, status: 'failed' },
+            { pieceCid: PIECE_CID_2, status: 'inProgress' },
+          ],
+        })
+      )
+
+      const result = await pullPieces(client, {
+        ...existing,
+        extraData: TEST_EXTRA_DATA,
+        pieces: [TEST_PIECE_CID, PIECE_CID_2, PIECE_CID_3].map((pieceCid) => ({
+          pieceCid: Piece.from(pieceCid),
+          sourceUrl: sourceUrl(pieceCid),
+        })),
+      })
+
+      assert.deepStrictEqual(result.pieces, [
+        { pieceCid: TEST_PIECE_CID, status: 'failed', index: 0 },
+        { pieceCid: PIECE_CID_2, status: 'inProgress', index: 1 },
+        { pieceCid: PIECE_CID_3, status: 'pending', index: 2 },
+      ])
+    })
+
     it('reports an empty dropped list with dedupe on and no duplicates', async () => {
       server.use(Mocks.pdp.pullPiecesHandler(Mocks.pdp.createPullResponse('complete', [{ pieceCid: TEST_PIECE_CID }])))
 

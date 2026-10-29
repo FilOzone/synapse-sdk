@@ -359,7 +359,9 @@ function dedupePullOptions<T extends pullPieces.OptionsType>(options: T): { opti
  * Map the SP response back onto the caller's inputs: one result per input, in input order.
  *
  * The SP may return pieces in any order and reports each PieceCID once, so results are
- * matched by PieceCID. A piece missing from the response takes the overall status.
+ * matched by PieceCID. A piece missing from the response is `failed` once the SP has
+ * finished (every reported piece is `complete` or `failed`), and `pending` until then.
+ * The overall status alone is not enough: it is `failed` as soon as any piece fails.
  */
 function toPullResult(
   inputs: PullPieceInput[],
@@ -367,9 +369,12 @@ function toPullResult(
   dropped?: DroppedPiece[]
 ): pullPieces.ReturnType {
   const statusByCid = new Map(response.pieces.map((piece) => [piece.pieceCid, piece.status]))
+  const settled = (status: pullPiecesApiRequest.PullStatus) => status === 'complete' || status === 'failed'
+  const finished = settled(response.status) && response.pieces.every((piece) => settled(piece.status))
+  const missing = finished ? 'failed' : 'pending'
   const pieces = inputs.map((input, index) => {
     const pieceCid = input.pieceCid.toString()
-    return { pieceCid, status: statusByCid.get(pieceCid) ?? response.status, index }
+    return { pieceCid, status: statusByCid.get(pieceCid) ?? missing, index }
   })
   return dropped ? { status: response.status, pieces, dropped } : { status: response.status, pieces }
 }
