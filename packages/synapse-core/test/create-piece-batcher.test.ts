@@ -1036,7 +1036,9 @@ describe('createPieceBatcher', () => {
           sourceUrl: pullSource(pieceCid),
           onStatus: (response) => {
             const calls = seen.get(pieceCid.toString()) ?? []
-            calls.push(response.pieces.map((piece) => `${piece.pieceCid}:${piece.status}:${response.status}`))
+            calls.push(
+              response.pieces.map((piece) => `${piece.pieceCid}:${piece.status}:${response.status}:${piece.index}`)
+            )
             seen.set(pieceCid.toString(), calls)
           },
         })
@@ -1045,8 +1047,34 @@ describe('createPieceBatcher', () => {
       await Promise.all(pending)
 
       for (const pieceCid of pullCids.slice(0, 2)) {
-        assert.deepEqual(seen.get(pieceCid.toString()), [[`${pieceCid.toString()}:complete:complete`]])
+        assert.deepEqual(seen.get(pieceCid.toString()), [[`${pieceCid.toString()}:complete:complete:0`]])
       }
+    })
+
+    it('should settle every caller when two pulls in one window share a PieceCID', async () => {
+      const pullBodies: PullRequestCapture[] = []
+      server.use(
+        pullPiecesPerPieceHandler(
+          (pieceCid) => (pieceCid === pullCids[1].toString() ? 'failed' : 'complete'),
+          (body) => pullBodies.push(body),
+          { baseUrl: pdpBase }
+        ),
+        addPiecesCaptureHandler(() => undefined)
+      )
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet() })
+      const [first, failed, second] = await Promise.allSettled(
+        [pullCids[0], pullCids[1], pullCids[0]].map((pieceCid) =>
+          batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) })
+        )
+      )
+      await batcher.close()
+
+      assert.equal(pullBodies.length, 1)
+      assert.equal(pullBodies[0]?.pieces.length, 3)
+      assert.equal(first.status, 'fulfilled')
+      assert.equal(second.status, 'fulfilled')
+      assert.equal(failed.status, 'rejected')
     })
 
     it('should reject only the caller whose onStatus throws', async () => {
