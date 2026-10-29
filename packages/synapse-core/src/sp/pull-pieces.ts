@@ -381,8 +381,7 @@ function toPullResult(
   dropped?: DroppedPiece[]
 ): pullPieces.ReturnType {
   const statusByCid = new Map(response.pieces.map((piece) => [piece.pieceCid, piece.status]))
-  const settled = (status: pullPiecesApiRequest.PullStatus) => status === 'complete' || status === 'failed'
-  const finished = settled(response.status) && response.pieces.every((piece) => settled(piece.status))
+  const finished = isSettled(response.status) && response.pieces.every((piece) => isSettled(piece.status))
   const missing = finished ? 'failed' : 'pending'
   const pieces = inputs.map((input, index) => {
     const pieceCid = input.pieceCid.toString()
