@@ -670,7 +670,6 @@ export function createPieceBatcher(
           metadata: datasetMetadata,
           signal: controller.signal,
           onStatus,
-          waitForAll: true,
         })
       } else {
         await waitForPullPieces(client, {
@@ -680,7 +679,6 @@ export function createPieceBatcher(
           clientDataSetId: dataSet.clientDataSetId,
           signal: controller.signal,
           onStatus,
-          waitForAll: true,
         })
       }
       // Settled pieces were handled in `onStatus`; this only reaches pieces still unsettled when polling ends.
