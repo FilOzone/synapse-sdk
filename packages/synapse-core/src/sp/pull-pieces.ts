@@ -158,7 +158,7 @@ export namespace waitForPullPiecesApiRequest {
     timeout?: number
     /**
      * The number of retries for errors other than 429. Defaults to 2. A 429 (the SP's pull queue is full) waits for
-     * `Retry-After` and retries until `timeout`.
+     * `Retry-After` and retries until `timeout`, and fails right away when `Retry-After` is longer than the time left.
      */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
@@ -181,15 +181,12 @@ function isSettled(status: pullPiecesApiRequest.PullStatus): boolean {
   return status === 'complete' || status === 'failed'
 }
 
-/** Status codes retried up to `retryCount` times (iso-web's defaults, minus 429). */
-const PULL_RETRY_STATUS_CODES = [408, 413, 500, 502, 503, 504]
-
 /**
  * Retry options for the pull wait.
  *
  * Curio answers a new pull with 429 and `Retry-After` while its pull queue is full. Those retries wait for
- * `Retry-After` and do not count against `retryCount`, so a full queue only ends the wait at `timeout`.
- * Other retryable errors are retried up to `retryCount` times.
+ * `Retry-After` and do not count against `retryCount`, so a full queue only ends the wait at `timeout` (or right
+ * away when `Retry-After` is longer than the time left). Other retryable errors are retried up to `retryCount` times.
  */
 function pullWaitRetryOptions(options: waitForPullPiecesApiRequest.OptionsType): RetryOptions {
   const retryCount = options.retryCount ?? 2
@@ -198,19 +195,14 @@ function pullWaitRetryOptions(options: waitForPullPiecesApiRequest.OptionsType):
     methods: ['post'],
     retries: Number.POSITIVE_INFINITY,
     minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
-    // Bound the exponential backoff, which keeps growing across 429 retries.
+    // Bound the backoff, which keeps growing across 429s that come without `Retry-After`.
     maxTimeout: RETRY_CONSTANTS.POLL_INTERVAL,
-    shouldRetry: ({ error }) => {
-      if (HttpError.is(error)) {
-        if (error.code === 429) {
-          return true
-        }
-        if (!PULL_RETRY_STATUS_CODES.includes(error.code)) {
-          return false
-        }
-      } else if (!(error instanceof TypeError)) {
-        // p-retry only lets network errors through as TypeError.
+    shouldRetry: ({ error, defaultShouldRetry }) => {
+      if (!defaultShouldRetry) {
         return false
+      }
+      if (HttpError.is(error) && error.code === 429) {
+        return true
       }
       failures++
       return failures <= retryCount
@@ -510,7 +502,7 @@ export namespace waitForPullPieces {
     timeout?: number
     /**
      * The number of retries for errors other than 429. Defaults to 2. A 429 (the SP's pull queue is full) waits for
-     * `Retry-After` and retries until `timeout`.
+     * `Retry-After` and retries until `timeout`, and fails right away when `Retry-After` is longer than the time left.
      */
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
