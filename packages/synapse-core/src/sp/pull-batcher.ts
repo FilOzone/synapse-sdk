@@ -1,13 +1,11 @@
 import { AbortError } from 'iso-web/http'
 import type { Account, Chain, Client, Transport } from 'viem'
-import { ValidationError } from '../errors/base.ts'
 import { PullError } from '../errors/pull.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { throwIfAborted } from '../utils/abort.ts'
 import type { Limit } from '../utils/concurrency.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
-import type { LimiterPiece } from './add-pieces-fits.ts'
 import {
   type PullPieceInput,
   type PullToExistingDataSetOptions,
@@ -33,8 +31,6 @@ export type PullTarget =
 export namespace createPullBatcher {
   export type OptionsType = {
     target: () => PullTarget
-    /** Whether pieces fit in one addPieces operation (the pull authorization is an addPieces signature). */
-    fits: (pieces: LimiterPiece[]) => boolean
     /** Wraps each pull request, for example to share a concurrency limit. */
     limit?: Limit
     /** Milliseconds to wait after a pull joins an empty queue before sending. Defaults to 0 (one macrotask). */
@@ -60,8 +56,12 @@ type QueuedPull = {
 }
 
 /**
- * Coalesce pulls into pull requests of up to {@link SIZE_CONSTANTS.PULL_BATCH_SIZE} pieces that fit one addPieces
- * operation, each with one signature and one polling loop. Each pull settles from its own piece's status.
+ * Coalesce pulls into pull requests of up to {@link SIZE_CONSTANTS.PULL_BATCH_SIZE} pieces, each with one signature
+ * and one polling loop. Each pull settles from its own piece's status.
+ *
+ * The signature is an addPieces authorization for the request's pieces. Requests are not split by an addPieces
+ * limiter: even with maximum metadata, far more than {@link SIZE_CONSTANTS.PULL_BATCH_SIZE} pieces fit one addPieces
+ * message, and the legacy data set cap is higher too.
  *
  * There is no client-side cap on pieces in flight: when the SP's pull queue is full it answers 429 with
  * `Retry-After`, and {@link waitForPullPieces} waits and retries.
@@ -78,9 +78,6 @@ export function createPullBatcher(
   function pull(input: PullBatchInput): Promise<void> {
     throwIfAborted(input.signal)
     const piece: PullPieceInput = { pieceCid: input.pieceCid, sourceUrl: input.sourceUrl, metadata: input.metadata }
-    if (!options.fits([piece])) {
-      throw new ValidationError('Piece does not fit in a single addPieces operation.')
-    }
     return new Promise<void>((resolve, reject) => {
       const queued: QueuedPull = {
         piece,
@@ -117,17 +114,8 @@ export function createPullBatcher(
     clearTimeout(timer)
     timer = undefined
     while (queue.length > 0) {
-      // Longest prefix up to the batch size that fits the limiter. A single piece always fits, as `pull` checks.
-      let size = 1
-      while (
-        size < queue.length &&
-        size < SIZE_CONSTANTS.PULL_BATCH_SIZE &&
-        options.fits(queue.slice(0, size + 1).map((queued) => queued.piece))
-      ) {
-        size++
-      }
-      const batch = queue.slice(0, size)
-      queue = queue.slice(size)
+      const batch = queue.slice(0, SIZE_CONSTANTS.PULL_BATCH_SIZE)
+      queue = queue.slice(SIZE_CONSTANTS.PULL_BATCH_SIZE)
       // `send` settles every pull itself and never rejects.
       void limit(() => send(batch))
     }
