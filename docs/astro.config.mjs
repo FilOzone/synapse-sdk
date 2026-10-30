@@ -238,7 +238,8 @@ export default defineConfig({
         llmsPlugin(),
         starlightAutoSidebar(),
         starlightChangelogs(),
-        starlightLinksValidator(),
+        // The validator wipes the content layer cache on every build, so only run it when asked
+        ...(process.env.CHECK_LINKS ? [starlightLinksValidator()] : []),
       ],
     }),
   ],

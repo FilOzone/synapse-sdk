@@ -12,6 +12,11 @@
   "wireit": {
     "build": {
       "command": "astro build",
+      "env": {
+        "CHECK_LINKS": {
+          "external": true
+        }
+      },
       "files": [
         "src/**/*.ts",
         "tsconfig.json",

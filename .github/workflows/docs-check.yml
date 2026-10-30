@@ -81,3 +81,5 @@ jobs:
       - name: Build docs
         if: needs.changes.outputs.docs_build_required == 'true'
         run: pnpm -r --filter docs run build
+        env:
+          CHECK_LINKS: 1

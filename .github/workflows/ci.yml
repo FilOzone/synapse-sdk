@@ -45,6 +45,8 @@ jobs:
         run: pnpm run build
       - name: Build docs
         run: pnpm -r --filter docs run build
+        env:
+          CHECK_LINKS: 1
   test-synapse-sdk:
     needs: lint
     strategy:

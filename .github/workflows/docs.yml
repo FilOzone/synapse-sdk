@@ -81,6 +81,8 @@ jobs:
       - run: pnpm run check:markdown
       - run: pnpm run build
       - run: pnpm -r --filter docs run build
+        env:
+          CHECK_LINKS: 1
       - name: Restore trusted Wrangler config
         if: inputs.pr_number != ''
         run: |
