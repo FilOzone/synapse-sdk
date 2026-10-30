@@ -10,8 +10,9 @@
  */
 
 export { AbortError, NetworkError, TimeoutError } from 'iso-web/http'
+// Moved to `@filoz/synapse-core/utils`; re-exported so existing `sp` imports keep working.
+export * from '../utils/add-pieces-fits.ts'
 export * from './add-pieces.ts'
-export * from './add-pieces-fits.ts'
 export * from './create-dataset.ts'
 export * from './create-dataset-add-pieces.ts'
 export * from './create-piece-batcher.ts'
