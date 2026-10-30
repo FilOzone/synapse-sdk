@@ -45,7 +45,7 @@ jobs:
 
             # Keep in sync with ci.yml pull_request.paths. CI already builds docs for these changes.
             case "$file" in
-              packages/*|apps/*|.github/workflows/ci.yml|package.json|pnpm-lock.yaml|pnpm-workspace.yaml)
+              packages/*|apps/*|patches/*|.github/workflows/ci.yml|package.json|pnpm-lock.yaml|pnpm-workspace.yaml)
                 full_ci_changed=true
                 ;;
             esac
@@ -78,6 +78,9 @@ jobs:
       - name: Build packages
         if: needs.changes.outputs.docs_build_required == 'true'
         run: pnpm run build
+      - name: Install Chromium for diagrams
+        if: needs.changes.outputs.docs_build_required == 'true'
+        run: pnpm --dir docs exec playwright install --with-deps chromium
       - name: Build docs
         if: needs.changes.outputs.docs_build_required == 'true'
         run: pnpm -r --filter docs run build

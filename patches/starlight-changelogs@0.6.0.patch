@@ -1,0 +1,95 @@
+diff --git a/libs/conditional-headers.ts b/libs/conditional-headers.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..0598e43c3a7ef1c08ae5fd7c3ad3cf054666824c
+--- /dev/null
++++ b/libs/conditional-headers.ts
+@@ -0,0 +1,44 @@
++/*
++ * Conditional request behavior from @ascorbic/loader-utils 1.0.2 (MIT),
++ * adapted to Astro's current LoaderContext metadata interface.
++ * https://github.com/ascorbic/astro-loaders/tree/main/packages/utils
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in all
++ * copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++import type { LoaderContext } from 'astro/loaders'
++
++type Metadata = LoaderContext['meta']
++
++export function getConditionalHeaders({ init, meta }: { init?: HeadersInit; meta: Metadata }): Headers {
++  const headers = new Headers(init)
++  const etag = meta.get('etag')
++  const modified = meta.get('last-modified')
++  if (etag) headers.set('If-None-Match', etag)
++  else if (modified) headers.set('If-Modified-Since', modified)
++  return headers
++}
++
++export function storeConditionalHeaders({ headers, meta }: { headers: Headers; meta: Metadata }): void {
++  meta.delete('etag')
++  meta.delete('last-modified')
++  const etag = headers.get('etag')
++  const modified = headers.get('last-modified')
++  if (etag) meta.set('etag', etag)
++  else if (modified) meta.set('last-modified', modified)
++}
+diff --git a/package.json b/package.json
+index cdecd522660b4804d5acefe93d297625b188ffcb..b1a938f315ef91d82f00ec5802d8dd6092b39657 100644
+--- a/package.json
++++ b/package.json
+@@ -13,7 +13,6 @@
+     "./package.json": "./package.json"
+   },
+   "dependencies": {
+-    "@ascorbic/loader-utils": "^1.0.2",
+     "github-slugger": "^2.0.0",
+     "mdast-util-from-markdown": "^2.0.3",
+     "mdast-util-to-markdown": "^2.1.2",
+diff --git a/providers/gitea.ts b/providers/gitea.ts
+index 360a2003af0f2c309ed98cbfce8c3fafa64b1c56..44fafd91262149017c4f694a17ab09fd21d5867c 100644
+--- a/providers/gitea.ts
++++ b/providers/gitea.ts
+@@ -1,4 +1,4 @@
+-import { getConditionalHeaders, storeConditionalHeaders } from '@ascorbic/loader-utils'
++import { getConditionalHeaders, storeConditionalHeaders } from '../libs/conditional-headers'
+ import type { LoaderContext } from 'astro/loaders'
+ import { z } from 'astro/zod'
+ 
+diff --git a/providers/github.ts b/providers/github.ts
+index 62218173dd56348e893d68785ec505de189981bf..b8ad66eece75e1a7b02a85feebddee655276e247 100644
+--- a/providers/github.ts
++++ b/providers/github.ts
+@@ -1,4 +1,4 @@
+-import { getConditionalHeaders, storeConditionalHeaders } from '@ascorbic/loader-utils'
++import { getConditionalHeaders, storeConditionalHeaders } from '../libs/conditional-headers'
+ import type { LoaderContext } from 'astro/loaders'
+ import { z } from 'astro/zod'
+ 
+diff --git a/providers/markdown.ts b/providers/markdown.ts
+index 0b8fe7578ea3020f5ee1816cea1f44ad2f3f6d8e..d52ebe560c924243238bd0e6ae4c67085865f6e8 100644
+--- a/providers/markdown.ts
++++ b/providers/markdown.ts
+@@ -1,7 +1,7 @@
+ import { existsSync, promises as fs } from 'node:fs'
+ import { fileURLToPath } from 'node:url'
+ 
+-import { getConditionalHeaders, storeConditionalHeaders } from '@ascorbic/loader-utils'
++import { getConditionalHeaders, storeConditionalHeaders } from '../libs/conditional-headers'
+ import type { LoaderContext } from 'astro/loaders'
+ import type { z } from 'astro/zod'
+ import type { Node, RootContent } from 'mdast'
