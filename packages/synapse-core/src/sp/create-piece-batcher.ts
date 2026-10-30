@@ -116,7 +116,7 @@ export namespace createPieceBatcher {
      * `SIZE_CONSTANTS.PULL_BATCH_SIZE` pieces. Defaults to 0 (one macrotask).
      */
     pullDelay?: number
-    /** Defaults to {@link addPiecesFits}. */
+    /** Sizes the addPieces windows; batched pull requests are not split by it. Defaults to {@link addPiecesFits}. */
     limiter?: Limiter
     /** Required when `dataSet` is undefined. */
     serviceURL?: string
@@ -197,7 +197,7 @@ export function createPieceBatcher(
   let scheduled = 0
   let scheduledIdle = Promise.resolve()
   let resolveScheduledIdle: () => void = () => undefined
-  const pulls = createPullBatcher(client, { target: pullTarget, fits, limit, delay: options.pullDelay })
+  const pulls = createPullBatcher(client, { target: pullTarget, limit, delay: options.pullDelay })
 
   function serviceURL(): string {
     if (dataSet != null) {
@@ -501,6 +501,10 @@ export function createPieceBatcher(
     return parkAndEnqueue(
       async () => {
         assertPieceCidSize(input.pieceCid)
+        // Checked before pulling so a piece that can never be added is not pulled first.
+        if (!fits([input])) {
+          throw new ValidationError('Piece does not fit in a single addPieces operation.')
+        }
         await pulls.pull(input)
         return { pieceCid: input.pieceCid, metadata: input.metadata }
       },
