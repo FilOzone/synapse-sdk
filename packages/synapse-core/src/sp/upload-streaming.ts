@@ -1,4 +1,4 @@
-import { HttpError, request } from 'iso-web/http'
+import { HttpError, NetworkError, request } from 'iso-web/http'
 import {
   InvalidUploadSizeError,
   LocationHeaderError,
@@ -193,8 +193,10 @@ export async function uploadPieceStreaming(
       throw new UploadPieceError(`Failed to upload piece: ${await uploadResponse.error.response.text()}`)
     }
     // undici reports redirect: 'error' as a network error caused by 'unexpected redirect'
-    const cause = uploadResponse.error.cause
-    if (cause instanceof Error && cause.message === 'unexpected redirect') {
+    if (
+      NetworkError.is(uploadResponse.error) &&
+      (uploadResponse.error.cause as Error)?.message === 'unexpected redirect'
+    ) {
       throw new UploadRedirectError(uploadURL.href, uploadResponse.error)
     }
     throw uploadResponse.error
