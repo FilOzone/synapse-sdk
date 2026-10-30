@@ -176,6 +176,7 @@ export async function uploadPieceStreaming(
     body: fetchBody,
     headers,
     timeout: false, // No timeout for streaming upload
+    redirect: 'error', // 'follow' buffers the whole body for a possible replay
     signal: options.signal,
     ...fetchOptions,
   })
