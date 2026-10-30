@@ -76,6 +76,20 @@ export class UploadPieceError extends SynapseError {
   }
 }
 
+export class UploadRedirectError extends SynapseError {
+  override name: 'UploadRedirectError' = 'UploadRedirectError'
+
+  constructor(url: string, cause: Error) {
+    super(`The storage provider redirected the upload at ${url}; its registered serviceURL may be out of date.`, {
+      cause,
+    })
+  }
+
+  static override is(value: unknown): value is UploadRedirectError {
+    return isSynapseError(value) && value.name === 'UploadRedirectError'
+  }
+}
+
 export class FindPieceError extends SynapseError {
   override name: 'FindPieceError' = 'FindPieceError'
 
