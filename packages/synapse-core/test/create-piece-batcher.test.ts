@@ -632,6 +632,84 @@ describe('createPieceBatcher', () => {
     assert.equal(bodies[0]?.pieces.length, 1)
   })
 
+  it('should submit the valid pieces and reject only the piece with invalid metadata', async () => {
+    const bodies: addPiecesApiRequest.RequestBody[] = []
+    server.use(addPiecesCaptureHandler((body) => bodies.push(body)))
+
+    // A limiter that ignores metadata, so the batcher cannot rely on the default one throwing.
+    const batcher = createPieceBatcher(client, {
+      dataSet: createDataSet(),
+      wait: { kind: 'limiter' },
+      limiter: (options) => options.pieces.length > 0,
+    })
+    const goodP = pullCids.slice(0, 3).map((pieceCid, i) => batcher.enqueue({ pieceCid, metadata: { name: `${i}` } }))
+    const badP = batcher.enqueue({ pieceCid: pieceCidA, metadata: { name: 'x'.repeat(97) } })
+    await assert.rejects(badP, /value exceeds the maximum length/)
+    await batcher.close()
+    const good = await Promise.all(goodP)
+
+    assert.equal(bodies.length, 1)
+    assert.deepEqual(
+      bodies[0]?.pieces.map((piece) => piece.pieceCid),
+      pullCids.slice(0, 3).map((cid) => cid.toString())
+    )
+    for (const result of good) {
+      assert.equal(result.txHash, mockTxHash)
+      assert.equal(result.pieces.length, 3)
+    }
+  })
+
+  it('should reject an upload with invalid metadata before uploading', async () => {
+    let requests = 0
+    server.use(
+      http.all(`${pdpBase}/*`, () => {
+        requests++
+        return HttpResponse.text('unexpected', { status: 500 })
+      })
+    )
+
+    const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+    const metadata = { name: 'x'.repeat(97) }
+    await assert.rejects(
+      () => batcher.upload({ data: new Uint8Array(127).fill(1), metadata }),
+      /value exceeds the maximum length/
+    )
+    await assert.rejects(
+      () => batcher.upload({ data: new Uint8Array(127).fill(1), pieceCid: pieceCidA, metadata }),
+      /value exceeds the maximum length/
+    )
+    await batcher.close()
+    assert.equal(requests, 0)
+  })
+
+  it('should reject every piece in the window on a window-wide failure', async () => {
+    let attempts = 0
+    server.use(
+      http.post(`${pdpBase}/pdp/data-sets/:id/pieces`, () => {
+        attempts++
+        return HttpResponse.text('internal error', { status: 500 })
+      })
+    )
+
+    const batcher = createPieceBatcher(client, { dataSet: createDataSet(), wait: { kind: 'limiter' } })
+    const pending = [batcher.enqueue({ pieceCid: pieceCidA }), batcher.enqueue({ pieceCid: pieceCidB })]
+    await batcher.close()
+    const errors = await Promise.all(
+      pending.map((p) =>
+        p.then(
+          () => undefined,
+          (error: unknown) => error
+        )
+      )
+    )
+
+    assert.equal(attempts, 1)
+    assert.deepEqual(
+      errors.map((error) => AddPiecesFlushError.is(error) && error.pieceCid.toString()),
+      [pieceCidA.toString(), pieceCidB.toString()]
+    )
+  })
+
   it('should flush leftover pieces on close and reject further work', async () => {
     const bodies: addPiecesApiRequest.RequestBody[] = []
     server.use(addPiecesCaptureHandler((body) => bodies.push(body)))
