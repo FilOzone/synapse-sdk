@@ -6,14 +6,13 @@ import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/war
 import type { PieceCID } from '../piece/piece-cid.ts'
 import {
   addPiecesFits,
-  assertPieceCidSize,
   assertPieceValid,
   type Limiter,
   type LimiterOptions,
   type LimiterPiece,
 } from '../utils/add-pieces-fits.ts'
 import { createLimit, type Limit } from '../utils/concurrency.ts'
-import type { MetadataObject } from '../utils/metadata.ts'
+import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 import { isUint8Array } from '../utils/streams.ts'
 import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
@@ -145,6 +144,11 @@ export namespace createPieceBatcher {
  * batches the on-chain addPieces (or createDataSetAndAddPieces) call.
  * Pull authorization matches the operation for the pieces in that pull
  * request; flush signs new extraData for the whole window.
+ *
+ * Invalid metadata or an out-of-bounds PieceCID size rejects only that piece
+ * when it is passed to `upload`/`pull`/`enqueue`, before any network work; it
+ * never joins a pull request or a window. A failed flush (signing, RPC, SP or
+ * chain errors) rejects every piece in the window with {@link AddPiecesFlushError}.
  *
  * @param client - Wallet client used to sign and submit.
  * @param options - {@link createPieceBatcher.OptionsType}
@@ -433,9 +437,11 @@ export function createPieceBatcher(
       endSchedule()
       throw error
     }
-    const result = internalEnqueue(parked)
-    endSchedule()
-    return result
+    try {
+      return internalEnqueue(parked)
+    } finally {
+      endSchedule()
+    }
   }
 
   async function enqueue(piece: EnqueuePiece): Promise<PieceResult> {
@@ -457,8 +463,11 @@ export function createPieceBatcher(
     }
     let uploadedSize: number | undefined
     const result = await parkAndEnqueue(async () => {
-      if (input.pieceCid != null) {
-        assertPieceCidSize(input.pieceCid)
+      // Checked before uploading, so a piece that can never be added is not uploaded.
+      if (input.pieceCid == null) {
+        pieceMetadataObjectToEntry(input.metadata)
+      } else {
+        assertPieceValid({ pieceCid: input.pieceCid, metadata: input.metadata })
       }
       const uploaded = await uploadPieceStreaming({
         serviceURL: serviceURL(),
