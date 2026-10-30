@@ -1,0 +1,31 @@
+---
+title: Access Control
+description: Control who may fetch encrypted data, with expiring, delegable permissions. Coming soon.
+sidebar:
+  order: 3
+  badge:
+    text: Coming soon
+    variant: note
+---
+
+:::note[Coming soon]
+Storage providers don't enforce access control yet. Today, anyone can fetch any piece, and [encryption](/developer-guides/private-data/encryption/) is what keeps data private.
+:::
+
+[Encryption](/developer-guides/private-data/encryption/) decides who can *read* a piece. Access control will decide who can *fetch* it: a storage provider serves a gated piece only to a request it can verify. This adds what keys alone can't:
+
+- **Expiry:** access ends at a set time, although a key, once shared, never stops working.
+- **Delegation you can narrow:** each step can only keep or narrow what it hands on, down to a single piece.
+- **Fetching without the ciphertext going public:** someone who isn't allowed to fetch a piece can't get its bytes.
+
+## How it will work
+
+Access is described by a **claim chain**, which uses the same keyspaces, scopes and pieces as [Grants](/developer-guides/private-data/sharing/):
+
+1. The owner wallet signs the root claim: this bearer may fetch this part of the keyspace, until this time.
+2. Each bearer may sign a narrower claim for the next one.
+3. The final bearer signs each request. The provider checks the chain against the piece's envelope metadata, with no chain lookups, and serves the piece or refuses it.
+
+A claim chain travels with a Grant, so one delivery hands over both the right to fetch and the key to read.
+
+Keysmith already builds and verifies claim chains, so you can try them now. See [Authenticated grants: claim chains](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#authenticated-grants-claim-chains) in the Keysmith README.
