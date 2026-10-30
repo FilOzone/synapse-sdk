@@ -98,6 +98,8 @@ export function toChain(devnetInfo: VersionedDevnetInfo): FilecoinChain {
     },
     filbeam: null,
     testnet: true,
+    // foc-devnet default block delay (FOC_DEVNET_BLOCK_DELAY) is 4 seconds.
+    blockTime: 4_000,
     /**
      * Devnet genesis: Set to 0 as placeholder. Epoch<>Date conversions
      * will return incorrect results on devnet. Core contract operations
