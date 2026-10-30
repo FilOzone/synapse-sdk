@@ -37,6 +37,7 @@ import * as SP from '@filoz/synapse-core/sp'
 import { schedulePieceDeletions, type UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { signAddPieces, signCreateDataSetAndAddPieces } from '@filoz/synapse-core/typed-data'
 import {
+  assertAddPiecesFit,
   calculateLastProofDate,
   createPieceUrlPDP,
   datasetMetadataObjectToEntry,
@@ -168,7 +169,7 @@ export class StorageContext {
   }
 
   private assertPiecesFitMessage(pieces: Array<{ pieceCid: PieceCID; metadata?: MetadataObject }>): void {
-    SP.assertAddPiecesFit(
+    assertAddPiecesFit(
       this._dataSetId
         ? {
             kind: 'addPieces',
