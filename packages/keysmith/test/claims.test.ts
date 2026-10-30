@@ -1,7 +1,7 @@
 import assert from 'assert'
 import { decode, encode } from 'cborg'
 import type { Hex } from 'viem'
-import { hexToBytes } from 'viem'
+import { bytesToHex, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
   decodeDelivery,
@@ -16,7 +16,15 @@ import {
   verifyChain,
   verifyPresentation,
 } from '../src/claims.ts'
-import { commitment, grantDescriptor, keyForEnvelope, keyspaceKeys, newSalt, scopeKey } from '../src/derive.ts'
+import {
+  canonicalNode,
+  commitment,
+  grantDescriptor,
+  keyForEnvelope,
+  keyspaceKeys,
+  newSalt,
+  scopeKey,
+} from '../src/derive.ts'
 import { encodeGrant, publicKeyOf, wrapTo } from '../src/wrap.ts'
 
 const owner = privateKeyToAccount(generatePrivateKey())
@@ -140,7 +148,34 @@ describe('claims', () => {
     // Built elsewhere, without encodeDelivery's check: the bearer still refuses it.
     const [, links] = decode(delivery, { useMaps: true }) as [number, unknown]
     await assert.rejects(openDelivery(aKey, encode([1, links, encodeGrant(otherNode)]), { now }), /another node/)
-    await assert.rejects(openDelivery(aKey, delivery, { now: expires + 3600 }), /expired/)
+    assert.equal(opened.expired, false)
+  })
+
+  it('opens an expired delivery for its key, but refuses to use its claim', async () => {
+    const { chain, key: team } = await root('scope:team', 1)
+    const delivery = encodeDelivery(chain, await wrapTo(publicKeyOf(aKey), team, grantDescriptor(ref, 'scope:team')))
+    const later = expires + 3600
+
+    // A key does not expire: the bearer can still decrypt with it.
+    const opened = await openDelivery(aKey, delivery, { now: later })
+    assert.equal(opened.expired, true)
+    assert.deepEqual(opened.key, team)
+
+    // The claim does: anything that would present or pass it on refuses, before a provider has to.
+    await assert.rejects(
+      signRequest(a, chain, { pieceCid: PIECE, expires: later + 120, now: later }),
+      /The claim expired at .*: get a new grant to fetch from a gating provider/
+    )
+    await assert.rejects(
+      delegateClaim(a, chain, { node: 'scope:team/x', parentKey: team, bearer: b.address, maxDepth: 0, now: later }),
+      /get a new grant to delegate/
+    )
+    await assert.rejects(verifyChain(chain, { now: later }), /expired/)
+    const { kk } = await keys()
+    await assert.rejects(
+      rootClaim(owner, { ...ref, chainId, kk, node: 'keyspace', bearer: a.address, maxDepth: 0, expires, now: later }),
+      /get a new grant to issue a root/
+    )
   })
 
   it('verifies a presentation the way a gating provider would', async () => {
@@ -205,5 +240,131 @@ describe('claims', () => {
     assert.throws(() => decodeDelivery(redo(without(l0, 8), l1)), /signature must be 65 bytes/)
     assert.throws(() => decodeDelivery(redo(without(l0, 11), l1)), /root expiry/)
     assert.throws(() => decodeDelivery(encode([2, links, grantBytes])), /version 1 delivery/)
+  })
+
+  it('accepts only the one encoding: core deterministic CBOR, known request fields, low-s v=27/28 signatures', async () => {
+    const { chain, key: team } = await root('scope:team', 1)
+    const { chain: two } = await delegateClaim(a, chain, {
+      node: 'scope:team/alice',
+      parentKey: team,
+      bearer: b.address,
+      maxDepth: 0,
+    })
+    const bytes = encodePresentation(two, await signRequest(b, two, { pieceCid: PIECE, expires: now + 120 }))
+    const check = (presentation: Uint8Array, piece = labels('team/alice')) =>
+      verifyPresentation(presentation, { pieceCid: PIECE, piece, chainId, now })
+    assert.ok(await check(bytes))
+    const [, links, req] = decode(bytes, { useMaps: true }) as [number, Map<number, unknown>[], Map<number, unknown>]
+
+    // A request field nobody defined.
+    await assert.rejects(check(encode([1, links, new Map([...req, [3, 0]])])), /The request has an unknown field 3/)
+    // Map keys out of order: decodes, but is not the deterministic encoding.
+    const reversed = new Uint8Array([
+      0x83, // an array of 3
+      ...encode(1),
+      ...encode(links),
+      0xa3,
+      ...encode(2),
+      ...encode(req.get(2)),
+      ...encode(1),
+      ...encode(req.get(1)),
+      ...encode(0),
+      ...encode(req.get(0)),
+    ])
+    await assert.rejects(check(reversed), /not canonical CBOR/)
+    // Ill-formed UTF-8 in a node: would decode to U+FFFD, the same text as a different encoding.
+    const node = new TextEncoder().encode('scope:team/alice')
+    const start = bytes.findIndex((_, i) => node.every((byte, j) => bytes[i + j] === byte))
+    const at = start + node.length - 1
+    const badUtf8 = bytes.slice()
+    badUtf8[at] = 0xff
+    await assert.rejects(check(badUtf8), /not canonical CBOR/)
+
+    // Signatures: the same signature with a high s, or with v = 0/1, is refused.
+    const signature = req.get(2) as Uint8Array
+    const n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
+    const highS = hexToBytes(
+      `0x${bytesToHex(signature.subarray(0, 32)).slice(2)}${(n - BigInt(bytesToHex(signature.subarray(32, 64)))).toString(16).padStart(64, '0')}${signature[64] === 27 ? '1c' : '1b'}`
+    )
+    await assert.rejects(check(encode([1, links, new Map([...req, [2, highS]])])), /low s and v = 27 or 28/)
+    const v01 = signature.slice()
+    v01[64] = (v01[64] as number) - 27
+    await assert.rejects(check(encode([1, links, new Map([...req, [2, v01]])])), /low s and v = 27 or 28/)
+
+    // A signer that returns v = 0/1 or a high s still produces the one accepted form.
+    const loose = {
+      signTypedData: async (args: Parameters<typeof owner.signTypedData>[0]) => {
+        const sig = hexToBytes(await owner.signTypedData(args))
+        const s = BigInt(bytesToHex(sig.subarray(32, 64)))
+        const high = (n - s).toString(16).padStart(64, '0')
+        return `${bytesToHex(sig.subarray(0, 32))}${high}${sig[64] === 27 ? '01' : '00'}` as Hex
+      },
+    }
+    const { kk } = await keys()
+    const { chain: fromLoose } = await rootClaim(loose, {
+      ...ref,
+      chainId,
+      kk,
+      node: 'keyspace',
+      bearer: a.address,
+      maxDepth: 0,
+      expires,
+    })
+    assert.deepEqual(
+      decodeDelivery(encodeDelivery(fromLoose, await wrapTo(publicKeyOf(aKey), kk, grantDescriptor(ref, 'keyspace'))))
+        .chain,
+      fromLoose
+    )
+    assert.ok(await verifyChain(fromLoose, { now }))
+  })
+
+  it('compares piece labels in canonical form, and names a piece by a 16-byte salt', async () => {
+    const { chain, key: team } = await root('scope:team', 1)
+    const { chain: cafe } = await delegateClaim(a, chain, {
+      node: 'scope:team/caf\u00e9',
+      parentKey: team,
+      bearer: b.address,
+      maxDepth: 0,
+    })
+    const bytes = encodePresentation(cafe, await signRequest(b, cafe, { pieceCid: PIECE, expires: now + 120 }))
+    const check = (piece: PieceLabels) => verifyPresentation(bytes, { pieceCid: PIECE, piece, chainId, now })
+    assert.ok(await check(labels('team/cafe\u0301'))) // the same scope, decomposed
+    assert.ok(await check({ ...labels('team/caf\u00e9'), 'foc/ks': keyspace.toUpperCase().replace('0X', '0x') }))
+
+    const piece = labels('team', newSalt())
+    const one = await delegateClaim(a, chain, {
+      node: `piece:${piece['foc/salt']}`,
+      parentKey: team,
+      bearer: b.address,
+      maxDepth: 0,
+      piece,
+    })
+    const upper = { ...piece, 'foc/salt': piece['foc/salt'].toUpperCase().replace('0X', '0x') }
+    const request = await signRequest(b, one.chain, { pieceCid: PIECE, expires: now + 120 })
+    assert.ok(
+      await verifyPresentation(encodePresentation(one.chain, request), { pieceCid: PIECE, piece: upper, chainId, now })
+    )
+    assert.throws(() => canonicalNode('piece:0xab'), /16-byte salt/)
+  })
+
+  it("carries a piece root's locator, unsigned, through a delivery", async () => {
+    const { kk } = await keys()
+    const piece = labels('team', newSalt())
+    const node = `piece:${piece['foc/salt']}` as const
+    const { chain, nodeKey } = await rootClaim(owner, {
+      ...ref,
+      chainId,
+      kk,
+      node,
+      bearer: a.address,
+      maxDepth: 0,
+      expires,
+      piece,
+      pieceCid: PIECE,
+    })
+    assert.deepEqual(chain.links[0]?.pieceCid, PIECE)
+    const delivery = encodeDelivery(chain, await wrapTo(publicKeyOf(aKey), nodeKey, grantDescriptor(ref, node)))
+    assert.deepEqual(decodeDelivery(delivery).chain, chain)
+    assert.deepEqual((await openDelivery(aKey, delivery, { now })).key, nodeKey)
   })
 })

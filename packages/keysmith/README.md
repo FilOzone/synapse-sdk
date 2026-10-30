@@ -43,6 +43,10 @@ pnpm --filter @filoz/keysmith test     # node + browser
 keys). If a change alters any of them, existing keys would be orphaned. Other
 implementations can test themselves against the same file.
 
+`test/claims-vectors.json` does the same for claim chains: presentations a gating provider
+must serve or refuse (with the step that refuses them), the EIP-712 type strings, and the
+digests of a link and a request, for implementations in other languages.
+
 ## Core concepts
 
 - **Keyspace** is the top level concept: the keyspace key forms the root of the
@@ -383,11 +387,11 @@ labels as `piece`.
 #### Receiving
 
 ```ts
-const { key, claim, chain, grant } = await Keysmith.openDelivery(myPrivateKey, delivery)
+const { key, claim, chain, grant, expired } = await Keysmith.openDelivery(myPrivateKey, delivery)
 ```
 
 `openDelivery` checks:
- * basic integrity of the claim chain (signatures, expiry, scope narrowing)
+ * basic integrity of the claim chain (signatures, scope narrowing)
  * that it targets the correct key
  * that the unwrapped key matches the commitment in its own link, which the
 link's issuer signed
@@ -396,6 +400,14 @@ link's issuer signed
 ℹ️ NOTE: It does not know which owner you expect, so the application must check
 `claim.owner` and `claim.keyspace` itself, based on either the piece being read,
 or the dataset being written to.
+
+ℹ️ NOTE: **Keys don't expire; claims do.** An expired delivery still opens, because
+the key it wraps decrypts forever whatever the claim says, and `expired` reports it.
+Expiry is enforced where the claim is *used*: a gating provider refuses an expired
+chain, and so do `signRequest`, `delegateClaim` and `rootClaim`, with "get a new
+grant". So an application can keep reading what it already holds, but cannot
+fetch from a gating provider, or share onward, on an old claim. Show `expired` to
+the user rather than ignoring it: they will need a new grant before fetching.
 
 #### Sub-delegating a narrower node
 
@@ -436,36 +448,85 @@ provider checks, and throws with the reason it refuses.
 const claim = await Keysmith.verifyPresentation(bytes, { pieceCid, piece: envelopeLabels, chainId })
 ```
 
+#### Sharing with someone who has no key pair
+
+A delivery is wrapped to a bearer's key, so a recipient with no key pair of their own (a
+person opening a link in a browser, say) is given one: the sender makes a key pair T, wraps
+the grant to T and names T as the bearer, and sends T's private key to the recipient
+separately from the delivery:
+
+```ts
+const T = generatePrivateKey() // viem/accounts: sent to the recipient on its own channel
+const { chain, nodeKey } = await Keysmith.rootClaim(wallet, {
+  ...ref, chainId, kk, node: Keysmith.pieceNode(metadata), piece: metadata, pieceCid,
+  bearer: privateKeyToAccount(T).address, maxDepth: 0, expires,
+})
+const delivery = Keysmith.encodeDelivery(chain, await Keysmith.wrapTo(Keysmith.publicKeyOf(T), nodeKey, descriptor))
+
+// recipient, with T:
+const { key } = await Keysmith.openDelivery(T, delivery)
+```
+
+T also signs the recipient's requests to gating providers, so a share link fetches as well as
+decrypts.
+
 ### Claims on the wire
 
 ```text
-delivery     = [1, chain, grant]       ; to a new bearer, once; grant = encodeGrant bytes
-presentation = [1, chain, request]     ; to a provider, with each gated request
-chain        = [1*8 link]              ; root first
+delivery     = [1, chain, grant]           ; to a new bearer, once; grant = encodeGrant() bytes
+presentation = [1, chain, request]         ; to a provider, with each gated request
+chain        = [root-link, 0*7 link]       ; root first, at most 8 links
 
-link = {                               ; a CBOR map
-    0 => 1,                            ; v
-    1 => tstr,                         ; node: "keyspace" / "scope:<path>" / "piece:<salt>"
-  ? 2 => bstr .size 20,                ; owner               (root only)
-  ? 3 => bstr .size 16,                ; keyspace            (root only)
-    4 => bstr .size 20,                ; bearer
-    5 => uint .le 255,                 ; maxDepth
-  ? 6 => uint,                         ; chainId             (root only)
-    7 => bstr .size 16,                ; keyCommitment of the node key
-    8 => bstr .size 65,                ; EIP-712 ReadGrant signature: owner's on the root, previous bearer's after
-  ? 9 => bstr,                         ; pieceCid: piece links only; a locator, not signed
-  ? 10 => bstr .size 16,               ; keyspaceCommitment  (root only): the dataset's foc/kc
-  ? 11 => uint,                        ; expires, unix seconds (root only)
+root-link = {
+   0 => 1,                                 ; v
+   1 => node,
+   2 => bstr .size 20,                     ; owner
+   3 => bstr .size 16,                     ; keyspace
+   4 => bstr .size 20,                     ; bearer
+   5 => uint .le 255,                      ; maxDepth
+   6 => uint .le 9007199254740991,         ; chainId
+   7 => bstr .size 16,                     ; keyCommitment of the node key
+   8 => signature,                         ; the owner's
+ ? 9 => bstr,                              ; pieceCid: a locator only, never signed or checked
+  10 => bstr .size 16,                     ; keyspaceCommitment: the dataset's foc/kc, without "v1."
+  11 => uint .le 9007199254740991,         ; expires, unix seconds
+}
+link = {                                   ; every link after the root: no other keys
+   0 => 1,
+   1 => node,
+   4 => bstr .size 20,                     ; bearer
+   5 => uint .le 255,                      ; maxDepth
+   7 => bstr .size 16,                     ; keyCommitment
+   8 => signature,                         ; the previous link's bearer's
+ ? 9 => bstr,                              ; pieceCid locator
+}
+request = {                                ; exactly these keys
+   0 => bstr,                              ; pieceCid: the binary CID of the piece being fetched
+   1 => uint .le 9007199254740991,         ; expires, unix seconds
+   2 => signature,                         ; the final bearer's, over ReadRequest
 }
 
-request = { 0 => bstr, 1 => uint, 2 => bstr .size 65 }   ; pieceCid, expires, signature
+node      = "keyspace" / tstr              ; or "scope:" + canonical scope path, or "piece:0x" + 32 lowercase hex digits
+signature = bstr .size 65                  ; r ‖ s ‖ v, with s ≤ n/2 (low s) and v = 27 or 28
 ```
+
+Decoders accept exactly one encoding of each value: the bytes must be core deterministic CBOR
+(RFC 8949 §4.2.1), which `decodeDelivery` and `decodePresentation` check by re-encoding what they
+decoded. So map keys must be in order and text must be well-formed UTF-8, besides the usual
+minimal integers, definite lengths, no tags, no duplicate keys and no trailing bytes. Integers
+must fit in 53 bits. Unknown keys are refused everywhere. A node must be in canonical form
+(`canonicalNode(node) === node`). `rootClaim`, `delegateClaim` and `signRequest` normalize
+whatever their signer returns to low s and v = 27 or 28.
+
+The piece labels are compared in canonical form, never as raw text: `foc/own` as an address,
+`foc/ks` and `foc/salt` as lowercase hex, `foc/scope` after `scopePath()`.
 
 Every link's signature covers the fields it inherits from the root, so a link cannot be moved
 under a root that differs in any of them, and nobody below the owner can change the root's
 commitments or expiry. Links name their parent by its bearer's address, not by hash, so a parent
-can be re-issued without invalidating the links beneath it. The EIP-712 domain is the `KeyspaceKey` one, `{ name: 'FOC Encryption', version: '1' }`;
-the types are exported as `READ_GRANT_TYPES` and `READ_REQUEST_TYPES`.
+can be re-issued without invalidating the links beneath it. The EIP-712 domain is the
+`KeyspaceKey` one, `{ name: 'FOC Encryption', version: '1' }`; the types are exported as
+`READ_GRANT_TYPES` and `READ_REQUEST_TYPES`.
 
 ## Reading a piece
 
@@ -563,11 +624,11 @@ a new dataset's metadata too.
 | `unwrapWith(privateKey, grant)` | Open a grant, as bytes or decoded |
 | `publicKeyOf(privateKey)` | The key-agreement key to publish, derived from a private key |
 | `newSalt()` | A fresh per-piece salt |
-| `rootClaim(wallet, { owner, keyspace, chainId, kk, node, bearer, maxDepth, expires, piece? })` | The owner-signed root of a claim chain → `{ chain, nodeKey }` |
-| `delegateClaim(signer, chain, { parentKey, node, bearer, maxDepth, piece?, pieceCid? })` | A narrower link, signed by the chain's final bearer, with its key derived from `parentKey` → `{ chain, nodeKey }` |
+| `rootClaim(wallet, { owner, keyspace, chainId, kk, node, bearer, maxDepth, expires, piece?, pieceCid?, now? })` | The owner-signed root of a claim chain → `{ chain, nodeKey }`; refuses an `expires` already past |
+| `delegateClaim(signer, chain, { parentKey, node, bearer, maxDepth, piece?, pieceCid?, now? })` | A narrower link, signed by the chain's final bearer, with its key derived from `parentKey` → `{ chain, nodeKey }`; refuses an expired chain |
 | `encodeDelivery(chain, grant)` / `decodeDelivery(bytes)` | A claim chain and its grant, as one blob for the new bearer |
-| `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment |
-| `signRequest(signer, chain, { pieceCid, expires })` | A request for one piece, by the final bearer; any provider holding it may serve it |
+| `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment; opens an expired one, reporting `expired` |
+| `signRequest(signer, chain, { pieceCid, expires, now? })` | A request for one piece, by the final bearer; any provider holding it may serve it. Refuses an expired chain |
 | `encodePresentation(chain, request)` / `decodePresentation(bytes)` | The `Authorization: FOC-Grant` payload |
 | `verifyChain(chain, { now?, piece? })` | Check a chain on its own: signatures, expiry, narrowing |
 | `verifyPresentation(bytes, { pieceCid, piece, chainId, now? })` | What a gating provider checks; the reference verifier |
@@ -599,7 +660,8 @@ a new dataset's metadata too.
 - **Claim chains can expire but they cannot be revoked early.** Relying parties check
   them without the claim chain, so revoking the bearer's session key stops its writes but
   not its fetching  until the root's `expires`. Keep session keys short-lived if that window
-  matters, and remember to set the expiry on the claim to match.
+  matters, and remember to set the expiry on the claim to match. Expiry ends fetching from
+  gating providers, never decryption: a key already delivered keeps working.
 - **Beware grant spoofing.** A grant alone proves nothing about who made it. Anyone can
   send one to anyone, with any key inside, which could trick an application into writing
   data encrypted under a key that the attacker holds and real users can't access. A

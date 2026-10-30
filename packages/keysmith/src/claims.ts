@@ -27,6 +27,7 @@ import {
   holdingOf,
   keyForEnvelope,
   keyspaceId,
+  scopePath,
   writeTarget,
 } from './derive.ts'
 import type { Grant, GrantNode } from './types.ts'
@@ -122,6 +123,18 @@ function depth(value: number): number {
   return value
 }
 
+/**
+ * Claims expire; keys do not. A gating provider refuses an expired chain, so everything that would
+ * *use* a claim refuses it too, with a clear reason, while opening and decrypting with the key still works.
+ */
+function assertLive(chain: Pick<ClaimChain, 'expires'>, now: number, purpose: string): void {
+  if (chain.expires <= now) {
+    throw new Error(
+      `The claim expired at ${new Date(chain.expires * 1000).toISOString()}: get a new grant to ${purpose}`
+    )
+  }
+}
+
 function unixSeconds(value: number, what: string): number {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${what} must be unix seconds, got ${value}`)
   return value
@@ -140,13 +153,33 @@ const grantMessage = (chain: ClaimChain, link: Omit<Claim, 'signature'>) => ({
   expires: BigInt(chain.expires),
 })
 
-const signLink = (signer: ClaimSigner, chain: ClaimChain, link: Omit<Claim, 'signature'>) =>
-  signer.signTypedData({
-    domain: DOMAIN,
-    types: READ_GRANT_TYPES,
-    primaryType: 'ReadGrant',
-    message: grantMessage(chain, link),
-  })
+// secp256k1's group order. A signature's s may be replaced by N - s (with v flipped) and still verify,
+// so only the low-s form is accepted, as EIP-2 requires of Ethereum transactions.
+const N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
+
+/** A signature in the one form Keysmith writes and accepts: r ‖ s ‖ v, s at most N/2, v 27 or 28. */
+function normalSignature(signature: Hex): Hex {
+  const bytes = hexToBytes(signature)
+  if (bytes.length !== 65) throw new Error(`A signature is 65 bytes, got ${bytes.length}`)
+  let v = (bytes[64] as number) < 27 ? (bytes[64] as number) + 27 : (bytes[64] as number)
+  let s = BigInt(bytesToHex(bytes.subarray(32, 64)))
+  if (v !== 27 && v !== 28) throw new Error(`A signature's v must be 27 or 28 (or 0 or 1), got ${bytes[64]}`)
+  if (s > N >> 1n) {
+    s = N - s
+    v = v === 27 ? 28 : 27
+  }
+  return `${bytesToHex(bytes.subarray(0, 32))}${s.toString(16).padStart(64, '0')}${v.toString(16)}`
+}
+
+const signLink = async (signer: ClaimSigner, chain: ClaimChain, link: Omit<Claim, 'signature'>) =>
+  normalSignature(
+    await signer.signTypedData({
+      domain: DOMAIN,
+      types: READ_GRANT_TYPES,
+      primaryType: 'ReadGrant',
+      message: grantMessage(chain, link),
+    })
+  )
 
 const recoverIssuer = (chain: ClaimChain, link: Claim) =>
   recoverTypedDataAddress({
@@ -200,6 +233,8 @@ export async function rootClaim(
     maxDepth: number
     expires: number // Unix seconds. Required: providers check no revocation, so this is what ends the claim
     piece?: PieceLabels // For a piece node: the piece's envelope labels
+    pieceCid?: Uint8Array // Where a piece root's piece lives: a locator only, not signed
+    now?: number // Unix seconds; defaults to now
   }
 ): Promise<{ chain: ClaimChain; nodeKey: Uint8Array }> {
   if (!isAddress(input.owner) || !isAddress(input.bearer)) throw new Error('owner and bearer must be addresses')
@@ -211,6 +246,7 @@ export async function rootClaim(
     bearer: getAddress(input.bearer),
     maxDepth: depth(input.maxDepth),
     keyCommitment: keyCommitmentOf(nodeKey),
+    ...(input.pieceCid ? { pieceCid: input.pieceCid } : {}),
   }
   const chain: ClaimChain = {
     ...ref,
@@ -219,6 +255,7 @@ export async function rootClaim(
     expires: unixSeconds(input.expires, 'expires'),
     links: [],
   }
+  assertLive(chain, input.now ?? Math.floor(Date.now() / 1000), 'issue a root')
   const signature = await signLink(owner, chain, link)
   const root = { ...link, signature }
   if ((await recoverIssuer(chain, root)) !== chain.owner) throw new Error(`The root must be signed by ${chain.owner}`)
@@ -242,10 +279,12 @@ export async function delegateClaim(
     maxDepth: number
     pieceCid?: Uint8Array
     piece?: PieceLabels
+    now?: number // Unix seconds; defaults to now
   }
 ): Promise<{ chain: ClaimChain; nodeKey: Uint8Array }> {
   const parent = chain.links.at(-1)
   if (!parent) throw new Error('A chain has at least one link')
+  assertLive(chain, input.now ?? Math.floor(Date.now() / 1000), 'delegate')
   if (chain.links.length >= MAX_CHAIN_LENGTH) throw new Error(`A chain has at most ${MAX_CHAIN_LENGTH} links`)
   if (keyCommitmentOf(input.parentKey) !== parent.keyCommitment) {
     throw new Error(`parentKey is not the key link ${chain.links.length - 1} commits to`)
@@ -263,23 +302,30 @@ export async function delegateClaim(
   return { chain: { ...chain, links: [...chain.links, { ...link, signature }] }, nodeKey }
 }
 
-/** Sign a request for one piece, as the chain's final bearer. Any provider holding it may serve it. */
+/**
+ * Sign a request for one piece, as the chain's final bearer. Any provider holding it may serve it.
+ *
+ * @throws If the chain has expired: a provider would refuse it.
+ */
 export async function signRequest(
   signer: ClaimSigner,
   chain: ClaimChain,
-  input: { pieceCid: Uint8Array; expires: number }
+  input: { pieceCid: Uint8Array; expires: number; now?: number }
 ): Promise<ReadRequest> {
-  const signature = await signer.signTypedData({
-    domain: DOMAIN,
-    types: READ_REQUEST_TYPES,
-    primaryType: 'ReadRequest',
-    message: {
-      chainId: chain.chainId,
-      pieceCid: bytesToHex(input.pieceCid),
-      expires: BigInt(input.expires),
-    },
-  })
-  return { ...input, signature }
+  assertLive(chain, input.now ?? Math.floor(Date.now() / 1000), 'fetch from a gating provider')
+  const signature = normalSignature(
+    await signer.signTypedData({
+      domain: DOMAIN,
+      types: READ_REQUEST_TYPES,
+      primaryType: 'ReadRequest',
+      message: {
+        chainId: chain.chainId,
+        pieceCid: bytesToHex(input.pieceCid),
+        expires: BigInt(input.expires),
+      },
+    })
+  )
+  return { pieceCid: input.pieceCid, expires: input.expires, signature }
 }
 
 // ── coverage ─────────────────────────────────────────────────────────────
@@ -289,9 +335,12 @@ const within = (parent: string, child: string) => child === parent || child.star
 /** Whether `node` reaches the piece these labels describe. */
 export function reaches(node: string, piece: PieceLabels): boolean {
   if (node === 'keyspace') return true
-  if (node.startsWith('piece:')) return node === `piece:${piece['foc/salt']}`
-  return piece['foc/scope'] != null && within(node, `scope:${piece['foc/scope']}`)
+  if (node.startsWith('piece:')) return node === pieceNodeOf(piece)
+  return piece['foc/scope'] != null && within(node, `scope:${scopePath(piece['foc/scope'])}`)
 }
+
+/** The piece node naming these labels' piece, in canonical form: labels are compared canonically, never as raw text. */
+const pieceNodeOf = (piece: PieceLabels) => canonicalNode(`piece:${piece['foc/salt']}`)
 
 /** Check one step down a chain: the child no wider than its parent, and within its depth. */
 function checkStep(
@@ -307,7 +356,7 @@ function checkStep(
   if (parent.node === 'keyspace') narrower = true
   else if (child.node.startsWith('piece:')) {
     if (!piece) throw new Error(`Link ${index} names a piece: checking it needs the piece's labels`)
-    narrower = child.node === `piece:${piece['foc/salt']}` && reaches(parent.node, piece)
+    narrower = child.node === pieceNodeOf(piece) && reaches(parent.node, piece)
   } else narrower = !parent.node.startsWith('piece:') && child.node !== 'keyspace' && within(parent.node, child.node)
   if (!narrower) throw new Error(`Link ${index} widens ${parent.node} to ${child.node}`)
 }
@@ -335,11 +384,16 @@ export async function verifyChain(
   chain: ClaimChain,
   options: { now?: number; piece?: PieceLabels } = {}
 ): Promise<VerifiedClaim> {
-  const { links } = chain
-  if (links.length < 1 || links.length > MAX_CHAIN_LENGTH) throw new Error(`A chain has 1 to ${MAX_CHAIN_LENGTH} links`)
   const now = options.now ?? Math.floor(Date.now() / 1000)
   if (chain.expires < now - SKEW)
     throw new Error(`The chain expired at ${new Date(chain.expires * 1000).toISOString()}`)
+  return verifyLinks(chain, options.piece)
+}
+
+/** Every check of a chain except its expiry. */
+async function verifyLinks(chain: ClaimChain, piece: PieceLabels | undefined): Promise<VerifiedClaim> {
+  const { links } = chain
+  if (links.length < 1 || links.length > MAX_CHAIN_LENGTH) throw new Error(`A chain has 1 to ${MAX_CHAIN_LENGTH} links`)
   const root = links[0] as Claim
   if (root.node === 'keyspace' && root.keyCommitment !== chain.keyspaceCommitment) {
     throw new Error('A keyspace root must carry the keyspace commitment')
@@ -351,7 +405,7 @@ export async function verifyChain(
     if ((await recoverIssuer(chain, link)) !== parent.bearer) {
       throw new Error(`Link ${i} is not signed by link ${i - 1}'s bearer`)
     }
-    checkStep(parent, link, options.piece, i)
+    checkStep(parent, link, piece, i)
   }
   const last = links.at(-1) as Claim
   return {
@@ -403,7 +457,10 @@ export async function verifyPresentation(
   })
   if (signer !== claim.bearer) throw new Error('The request is not signed by the final bearer')
   const owner = options.piece['foc/own']
-  if (owner && (owner.toLowerCase() !== claim.owner.toLowerCase() || options.piece['foc/ks'] !== claim.keyspace)) {
+  if (
+    owner &&
+    (owner.toLowerCase() !== claim.owner.toLowerCase() || keyspaceId(options.piece['foc/ks']) !== claim.keyspace)
+  ) {
     throw new Error('The piece belongs to another owner or keyspace')
   }
   if (owner && !reaches(claim.node, options.piece)) {
@@ -418,22 +475,27 @@ export async function verifyPresentation(
  * delegate above) signed. The keyspace commitment comes back too, for a bearer
  * that writes the keyspace's first datasets.
  *
+ * An expired delivery still opens: a key cannot expire, so decrypting with it
+ * keeps working. `expired` says the claim is spent, and `signRequest` and
+ * `delegateClaim` refuse it; get a new grant before fetching from a gating
+ * provider or sharing onward.
+ *
  * @throws With the reason the delivery is refused.
  */
 export async function openDelivery(
   privateKey: Hex,
   bytes: Uint8Array,
   options: { now?: number; piece?: PieceLabels } = {}
-): Promise<{ chain: ClaimChain; grant: Grant; claim: VerifiedClaim; key: Uint8Array }> {
+): Promise<{ chain: ClaimChain; grant: Grant; claim: VerifiedClaim; key: Uint8Array; expired: boolean }> {
   const { chain, grant } = decodeDelivery(bytes)
-  const claim = await verifyChain(chain, options)
+  const claim = await verifyLinks(chain, options.piece)
   if (claim.bearer !== privateKeyToAccount(privateKey).address) throw new Error('This delivery is for another bearer')
   assertGrantNamesClaim(grant, claim)
   const key = await unwrapWith(privateKey, grant)
   if (keyCommitmentOf(key) !== claim.keyCommitment) {
     throw new Error('The delivered key does not match the commitment in its claim')
   }
-  return { chain, grant, claim, key }
+  return { chain, grant, claim, key, expired: chain.expires <= (options.now ?? Math.floor(Date.now() / 1000)) }
 }
 
 /** A delivery's grant must name what its final link names: the wrap's descriptor and the claim are one node. */
@@ -481,6 +543,12 @@ function bytesField(map: Map<unknown, unknown>, key: number, length: number, wha
   return bytesToHex(value)
 }
 
+function signatureField(map: Map<unknown, unknown>, key: number, what: string): Hex {
+  const signature = bytesField(map, key, 65, what)
+  if (normalSignature(signature) !== signature) throw new Error(`${what} must have a low s and v = 27 or 28`)
+  return signature
+}
+
 function uintField(map: Map<unknown, unknown>, key: number, what: string): number {
   const value = map.get(key)
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
@@ -522,7 +590,7 @@ function decodeChainLinks(value: unknown): ClaimChain {
         bearer: getAddress(bytesField(link, 4, 20, `Link ${i}'s bearer`)),
         maxDepth: depth(uintField(link, 5, `Link ${i}'s maxDepth`)),
         keyCommitment: bytesField(link, 7, 16, `Link ${i}'s keyCommitment`),
-        signature: bytesField(link, 8, 65, `Link ${i}'s signature`),
+        signature: signatureField(link, 8, `Link ${i}'s signature`),
         ...(pieceCid ? { pieceCid } : {}),
       }
     }),
@@ -535,6 +603,11 @@ function decodeArray(bytes: Uint8Array, what: string): unknown[] {
     value = decode(bytes, STRICT)
   } catch (cause) {
     throw new Error(`Not a ${what}: the bytes are not canonical CBOR`, { cause })
+  }
+  // Exactly core deterministic CBOR (RFC 8949 §4.2.1): what the bytes decode to must encode back to the
+  // same bytes. This refuses map keys out of order and ill-formed UTF-8 text, which would otherwise decode.
+  if (bytesToHex(encode(value)) !== bytesToHex(bytes)) {
+    throw new Error(`Not a ${what}: the bytes are not canonical CBOR`)
   }
   if (!Array.isArray(value) || value.length !== 3 || value[0] !== 1) throw new Error(`Not a version 1 ${what}`)
   return value
@@ -571,6 +644,9 @@ export function encodePresentation(chain: ClaimChain, request: ReadRequest): Uin
 export function decodePresentation(bytes: Uint8Array): { chain: ClaimChain; request: ReadRequest } {
   const [, chain, req] = decodeArray(bytes, 'presentation')
   if (!(req instanceof Map)) throw new Error('A request is a map')
+  for (const key of req.keys()) {
+    if (key !== 0 && key !== 1 && key !== 2) throw new Error(`The request has an unknown field ${String(key)}`)
+  }
   const pieceCid = req.get(0)
   if (!(pieceCid instanceof Uint8Array)) throw new Error('A request needs a piece CID')
   return {
@@ -578,7 +654,7 @@ export function decodePresentation(bytes: Uint8Array): { chain: ClaimChain; requ
     request: {
       pieceCid,
       expires: uintField(req, 1, "The request's expiry"),
-      signature: bytesField(req as Map<number, unknown>, 2, 65, "The request's signature"),
+      signature: signatureField(req as Map<number, unknown>, 2, "The request's signature"),
     },
   }
 }
