@@ -1,8 +1,8 @@
 import type { Account, Chain, Client, Transport } from 'viem'
 import type { PieceCID } from '../piece/piece-cid.ts'
+import type { Limiter } from '../utils/add-pieces-fits.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
-import type { Limiter } from './add-pieces-fits.ts'
 import { createPieceBatcher, type FlushResult, type UploadInput, waitForFlushReceipt } from './create-piece-batcher.ts'
 
 export namespace uploadPieces {

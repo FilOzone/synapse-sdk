@@ -6,15 +6,15 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPiecesAbiParameters } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSetAbiParameters } from '../typed-data/sign-create-dataset.ts'
 import { signcreateDataSetAndAddPiecesAbiParameters } from '../typed-data/sign-create-dataset-add-pieces.ts'
-import { compactPieceMetadata } from '../utils/compact-piece-metadata.ts'
-import { SIZE_CONSTANTS } from '../utils/constants.ts'
+import type { PdpDataSet } from '../warm-storage/types.ts'
+import { compactPieceMetadata } from './compact-piece-metadata.ts'
+import { SIZE_CONSTANTS } from './constants.ts'
 import {
   datasetMetadataObjectToEntry,
   type MetadataEntry,
   type MetadataObject,
   pieceMetadataObjectToEntry,
-} from '../utils/metadata.ts'
-import type { PdpDataSet } from '../warm-storage/types.ts'
+} from './metadata.ts'
 
 /** Dummy secp256k1 signature used only to size extraData. */
 const DUMMY_SIGNATURE = `0x${'00'.repeat(65)}` as Hex
@@ -81,7 +81,7 @@ export namespace checkAddPiecesFit {
  *
  * @example
  * ```ts
- * import { checkAddPiecesFit } from '@filoz/synapse-core/sp'
+ * import { checkAddPiecesFit } from '@filoz/synapse-core/utils'
  *
  * const result = checkAddPiecesFit({ kind: 'addPieces', dataSetId, pieces })
  * if (!result.fits && result.reason === 'invalid-metadata') {
@@ -124,7 +124,7 @@ export namespace addPiecesFits {
  *
  * @example
  * ```ts
- * import { addPiecesFits } from '@filoz/synapse-core/sp'
+ * import { addPiecesFits } from '@filoz/synapse-core/utils'
  *
  * const fits = addPiecesFits({
  *   kind: 'addPieces',
@@ -155,7 +155,7 @@ export namespace maxFittingPieces {
  *
  * @example
  * ```ts
- * import { maxFittingPieces } from '@filoz/synapse-core/sp'
+ * import { maxFittingPieces } from '@filoz/synapse-core/utils'
  *
  * const count = maxFittingPieces({ kind: 'addPieces', dataSetId, legacyPieceStorageIdLimit, pieces })
  * const batch = pieces.slice(0, count)
