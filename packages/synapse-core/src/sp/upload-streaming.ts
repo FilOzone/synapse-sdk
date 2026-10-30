@@ -1,5 +1,11 @@
 import { HttpError, request } from 'iso-web/http'
-import { InvalidUploadSizeError, LocationHeaderError, PostPieceError, UploadPieceError } from '../errors/pdp.ts'
+import {
+  InvalidUploadSizeError,
+  LocationHeaderError,
+  PostPieceError,
+  UploadPieceError,
+  UploadRedirectError,
+} from '../errors/pdp.ts'
 import * as Piece from '../piece/index.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -31,7 +37,7 @@ export namespace uploadPieceStreaming {
     size: number
   }
 
-  export type ErrorType = InvalidUploadSizeError | PostPieceError | LocationHeaderError
+  export type ErrorType = InvalidUploadSizeError | PostPieceError | LocationHeaderError | UploadRedirectError
 }
 
 /**
@@ -172,7 +178,8 @@ export async function uploadPieceStreaming(
     headers['Content-Length'] = (size ?? totalSize).toString()
   }
 
-  const uploadResponse = await request.put(new URL(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL), {
+  const uploadURL = new URL(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL)
+  const uploadResponse = await request.put(uploadURL, {
     body: fetchBody,
     headers,
     timeout: false, // No timeout for streaming upload
@@ -184,6 +191,11 @@ export async function uploadPieceStreaming(
   if (uploadResponse.error) {
     if (HttpError.is(uploadResponse.error)) {
       throw new UploadPieceError(`Failed to upload piece: ${await uploadResponse.error.response.text()}`)
+    }
+    // undici reports redirect: 'error' as a network error caused by 'unexpected redirect'
+    const cause = uploadResponse.error.cause
+    if (cause instanceof Error && cause.message === 'unexpected redirect') {
+      throw new UploadRedirectError(uploadURL.href, uploadResponse.error)
     }
     throw uploadResponse.error
   }
