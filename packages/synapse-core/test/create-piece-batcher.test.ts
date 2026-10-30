@@ -934,6 +934,37 @@ describe('createPieceBatcher', () => {
       assert.equal(requests, 0)
     })
 
+    it('should reject a pull with invalid metadata with its own error and still pull the rest', async () => {
+      const pullBodies: PullRequestCapture[] = []
+      server.use(
+        pullPiecesPerPieceHandler(
+          () => 'complete',
+          (body) => pullBodies.push(body),
+          { baseUrl: pdpBase }
+        ),
+        addPiecesCaptureHandler(() => undefined)
+      )
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet() })
+      const [bad, good] = await Promise.allSettled([
+        batcher.pull({
+          pieceCid: pullCids[0] as PieceCID,
+          sourceUrl: pullSource(pullCids[0] as PieceCID),
+          metadata: { key: 'v'.repeat(97) },
+        }),
+        batcher.pull({ pieceCid: pullCids[1] as PieceCID, sourceUrl: pullSource(pullCids[1] as PieceCID) }),
+      ])
+      await batcher.close()
+
+      assert.equal(bad?.status, 'rejected')
+      assert.match(String((bad as PromiseRejectedResult).reason?.message), /Metadata value exceeds the maximum length/)
+      assert.equal(good?.status, 'fulfilled')
+      assert.deepEqual(
+        pullBodies.map((body) => body.pieces.map((piece) => piece.pieceCid)),
+        [[pullCids[1]?.toString()]]
+      )
+    })
+
     it('should reject only the failed piece of a batched pull', async () => {
       const failedCid = pullCids[1]?.toString()
       const pullBodies: PullRequestCapture[] = []
