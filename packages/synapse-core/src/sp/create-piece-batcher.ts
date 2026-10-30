@@ -4,13 +4,6 @@ import { ValidationError } from '../errors/base.ts'
 import { AddPiecesFlushError } from '../errors/pdp.ts'
 import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import { createLimit, type Limit } from '../utils/concurrency.ts'
-import type { MetadataObject } from '../utils/metadata.ts'
-import { randU256 } from '../utils/rand.ts'
-import { isUint8Array } from '../utils/streams.ts'
-import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
-import type { PdpDataSet } from '../warm-storage/types.ts'
-import { addPieces } from './add-pieces.ts'
 import {
   addPiecesFits,
   assertPieceCidSize,
@@ -18,7 +11,14 @@ import {
   type Limiter,
   type LimiterOptions,
   type LimiterPiece,
-} from './add-pieces-fits.ts'
+} from '../utils/add-pieces-fits.ts'
+import { createLimit, type Limit } from '../utils/concurrency.ts'
+import type { MetadataObject } from '../utils/metadata.ts'
+import { randU256 } from '../utils/rand.ts'
+import { isUint8Array } from '../utils/streams.ts'
+import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
+import type { PdpDataSet } from '../warm-storage/types.ts'
+import { addPieces } from './add-pieces.ts'
 import { createDataSetAndAddPieces } from './create-dataset-add-pieces.ts'
 import { findPiece } from './find-piece.ts'
 import { createPullBatcher, type PullBatchInput, type PullTarget } from './pull-batcher.ts'
