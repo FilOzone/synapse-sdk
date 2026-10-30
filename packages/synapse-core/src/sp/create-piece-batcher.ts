@@ -500,8 +500,9 @@ export function createPieceBatcher(
   async function pull(input: PullInput): Promise<PieceResult> {
     return parkAndEnqueue(
       async () => {
-        assertPieceCidSize(input.pieceCid)
-        // Checked before pulling so a piece that can never be added is not pulled first.
+        // Checked before pulling, so a piece that can never be added is not pulled, and bad metadata fails only its
+        // own pull rather than the signing of the whole pull request.
+        assertPieceValid(input)
         if (!fits([input])) {
           throw new ValidationError('Piece does not fit in a single addPieces operation.')
         }
