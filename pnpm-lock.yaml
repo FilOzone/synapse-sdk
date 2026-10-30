@@ -25,8 +25,8 @@ catalogs:
       specifier: 1.3.0
       version: 1.3.0
     iso-web:
-      specifier: ^3.1.2
-      version: 3.1.2
+      specifier: ^4.0.0
+      version: 4.0.0
     mocha:
       specifier: ^11.7.4
       version: 11.8.0
@@ -405,7 +405,7 @@ importers:
         version: 2.17.0
       iso-web:
         specifier: 'catalog:'
-        version: 3.1.2
+        version: 4.0.0
       multiformats:
         specifier: 14.0.5
         version: 14.0.5
@@ -534,7 +534,7 @@ importers:
         version: 6.2.2
       iso-web:
         specifier: 'catalog:'
-        version: 3.1.2
+        version: 4.0.0
       mocha:
         specifier: 'catalog:'
         version: 11.8.0
@@ -5099,8 +5099,8 @@ packages:
   iso-web@1.4.3:
     resolution: {integrity: sha512-8XWpz+9WqAk1obMwajwv0waMBy7uCFFGDwW2SGI3fbFO/wt+FRxf2o6DvHoadPuV+wquvz+BAq3sX+oOW+fckQ==}
 
-  iso-web@3.1.2:
-    resolution: {integrity: sha512-OpWz+KNH4vYNVvpc6T1z/zkZtT6iTQXYjc0sIbkPDwYEM5Qurg0LYESrEHloxb6xj5T/2rrnsTtaYlUSIzgicg==}
+  iso-web@4.0.0:
+    resolution: {integrity: sha512-VHaDNWgJNi2tzq1bi88azwQHeE6CtoHsANYwLvmAV3E2+gNq4JYTfZZqfeOPEtmS4ckdfmNObsToNw7c6F9vYw==}
 
   isomorphic-timers-promises@1.0.1:
     resolution: {integrity: sha512-u4sej9B1LPSxTGKB/HiuzvEQnXH0ECYkSVQU39koSwmFAxhlEAFl9RdTvLv4TOTQUgBS5O3O5fwUxk6byBZ+IQ==}
@@ -6028,8 +6028,8 @@ packages:
     resolution: {integrity: sha512-J5ApzjyRkkf601HpEeykoiCvzHQjWxPAHhyjFcEUP2SWq0+35NKh8TLhpLw+Dkq5TZBFvUM6UigdE9hIVYTl5w==}
     engines: {node: '>=20'}
 
-  p-retry@8.0.0:
-    resolution: {integrity: sha512-kFVqH1HxOHp8LupNsOys7bSV09VYTRLxarH/mokO4Rqhk6wGi70E0jh4VzvVGXfEVNggHoHLAMWsQqHyU1Ey9A==}
+  p-retry@8.0.1:
+    resolution: {integrity: sha512-NAigyu8hfvJe7MsS18mnc4is0MZtau3QMdBklaJKK23oBQb6occO3UPM3vHmTckW8KhfyjMZaUOqdTFEYliHgg==}
     engines: {node: '>=22'}
 
   p-some@7.0.0:
@@ -11870,13 +11870,12 @@ snapshots:
       iso-kv: 3.2.0
       p-retry: 7.1.1
 
-  iso-web@3.1.2:
+  iso-web@4.0.0:
     dependencies:
       '@standard-schema/spec': 1.1.0
       delay: 7.0.0
       is-network-error: 1.3.2
-      iso-kv: 3.2.0
-      p-retry: 8.0.0
+      p-retry: 8.0.1
 
   isomorphic-timers-promises@1.0.1: {}
 
@@ -13040,7 +13039,7 @@ snapshots:
     dependencies:
       is-network-error: 1.3.2
 
-  p-retry@8.0.0:
+  p-retry@8.0.1:
     dependencies:
       is-network-error: 1.3.2
 
