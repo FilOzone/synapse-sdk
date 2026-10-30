@@ -885,15 +885,16 @@ describe('createPieceBatcher', () => {
       assert.equal(results.length, 2)
     })
 
-    it('should split a pull window when the limiter rejects the next piece', async () => {
+    it('should not split a pull request by the addPieces limiter', async () => {
       const pullBodies: PullRequestCapture[] = []
+      const addBodies: addPiecesApiRequest.RequestBody[] = []
       server.use(
         pullPiecesPerPieceHandler(
           () => 'complete',
           (body) => pullBodies.push(body),
           { baseUrl: pdpBase }
         ),
-        addPiecesCaptureHandler(() => undefined)
+        addPiecesCaptureHandler((body) => addBodies.push(body))
       )
 
       const batcher = createPieceBatcher(client, {
@@ -905,8 +906,32 @@ describe('createPieceBatcher', () => {
 
       assert.deepEqual(
         pullBodies.map((body) => body.pieces.length),
+        [5]
+      )
+      // The limiter still sizes the addPieces windows.
+      assert.deepEqual(
+        addBodies.map((body) => body.pieces.length),
         [3, 2]
       )
+    })
+
+    it('should reject a pull that cannot sit in an addPieces batch alone without pulling it', async () => {
+      let requests = 0
+      server.use(
+        http.post(`${pdpBase}/pdp/piece/pull`, () => {
+          requests++
+          return HttpResponse.json({}, { status: 500 })
+        })
+      )
+
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), limiter: () => false })
+      await assert.rejects(
+        () => batcher.pull({ pieceCid: pieceCidA, sourceUrl: pullSource(pieceCidA) }),
+        (error: unknown) => error instanceof ValidationError && /single addPieces operation/.test(error.message)
+      )
+      await batcher.close()
+
+      assert.equal(requests, 0)
     })
 
     it('should reject only the failed piece of a batched pull', async () => {
@@ -996,12 +1021,11 @@ describe('createPieceBatcher', () => {
         addPiecesCaptureHandler(() => undefined)
       )
 
-      const batcher = createPieceBatcher(client, {
-        dataSet: createDataSet(),
-        concurrency: 1,
-        limiter: ({ pieces }) => pieces.length <= 2,
-      })
-      const pending = pullCids.map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
+      const batcher = createPieceBatcher(client, { dataSet: createDataSet(), concurrency: 1 })
+      const cids = Array.from({ length: SIZE_CONSTANTS.PULL_BATCH_SIZE * 2 + 5 }, (_, index) =>
+        pieceCidWithRawSize(300 + index)
+      )
+      const pending = cids.map((pieceCid) => batcher.pull({ pieceCid, sourceUrl: pullSource(pieceCid) }))
       await batcher.close()
       await Promise.all(pending)
 
