@@ -18,9 +18,13 @@
         }
       },
       "files": [
-        "src/**/*.ts",
+        "src/**",
+        "public/**",
         "tsconfig.json",
         "astro.config.mjs"
+      ],
+      "packageLocks": [
+        "pnpm-lock.yaml"
       ],
       "output": [
         "dist/**"
