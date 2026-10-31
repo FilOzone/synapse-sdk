@@ -16,20 +16,21 @@ function h(tagName, properties, children = []) {
   return { type: 'element', tagName, properties, children }
 }
 
-// Built as hast rather than a raw string so MDX can compile it too
+// Built as hast rather than a raw string so MDX can compile it too. Keys are the
+// literal attribute names: Sätteri's MDX output doesn't map hast property names
 const copyIcon = () =>
   h(
     'svg',
     {
-      ariaHidden: 'true',
+      'aria-hidden': 'true',
       viewBox: '0 0 24 24',
       width: '16',
       height: '16',
       fill: 'none',
       stroke: 'currentColor',
-      strokeWidth: '2',
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
     },
     [
       h('rect', { x: '9', y: '9', width: '13', height: '13', rx: '2' }),

@@ -57,7 +57,7 @@
     "wagmi": "catalog:"
   },
   "devDependencies": {
-    "@astrojs/markdown-remark": "7.2.4",
+    "@astrojs/markdown-satteri": "0.3.7",
     "@astrojs/starlight": "0.41.7",
     "@hugomrdias/docs": "0.2.0",
     "@shikijs/twoslash": "4.4.3",
@@ -66,7 +66,6 @@
     "astro": "7.2.4",
     "astro-mermaid": "2.1.0",
     "mermaid": "11.17.0",
-    "rehype-external-links": "3.0.0",
     "sharp": "0.35.3",
     "typedoc": "0.28.20",
     "typedoc-plugin-mdn-links": "5.1.1",

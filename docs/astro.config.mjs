@@ -1,14 +1,14 @@
-import { unified } from '@astrojs/markdown-remark'
+import { satteri } from '@astrojs/markdown-satteri'
 import starlight from '@astrojs/starlight'
 import { llmsPlugin } from '@hugomrdias/docs/starlight-llms'
 import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
 import { transformerTwoslash } from '@shikijs/twoslash'
 import { defineConfig } from 'astro/config'
 import mermaid from 'astro-mermaid'
-import rehypeExternalLinks from 'rehype-external-links'
 import starlightAutoSidebar from 'starlight-auto-sidebar'
 import starlightLinksValidator from 'starlight-links-validator'
 import { codeBlocksScript, transformerCodeBlocks } from './src/code-blocks.mjs'
+import { externalLinks } from './src/external-links.mjs'
 
 const site = 'https://docs.filecoin.cloud'
 
@@ -40,18 +40,8 @@ export default defineConfig({
         transformerCodeBlocks(),
       ],
     },
-    // rehype-external-links attaches to the unified processor Starlight runs.
-    processor: unified({
-      gfm: true,
-      rehypePlugins: [
-        [
-          rehypeExternalLinks,
-          {
-            target: '_blank',
-          },
-        ],
-      ],
-    }),
+    // Starlight, mermaid and the links validator add their own Sätteri plugins
+    processor: satteri({ hastPlugins: [externalLinks] }),
   },
   integrations: [
     mermaid({
