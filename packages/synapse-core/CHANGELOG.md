@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.11.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.10.3...synapse-core-v0.11.0) (2026-10-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** wait for SP-submitted transactions on chain instead of statusUrl
+
+### Features
+
+* **core:** add input index to pull results and opt-in PieceCID dedupe ([#1052](https://github.com/FilOzone/synapse-sdk/issues/1052)) ([942aed2](https://github.com/FilOzone/synapse-sdk/commit/942aed2a44cec4c4d301ae45b23f40686b7eef34))
+* **core:** non-throwing addPiecesFits and maxFittingPieces helper ([#1056](https://github.com/FilOzone/synapse-sdk/issues/1056)) ([4a8ea2c](https://github.com/FilOzone/synapse-sdk/commit/4a8ea2ca93656faeabbd6eab5ed5e6718e77a6ca))
+* **core:** wait for SP-submitted transactions on chain instead of statusUrl ([5203d91](https://github.com/FilOzone/synapse-sdk/commit/5203d9125c4d117e5f5891d664952cb6cf271875)), closes [#1049](https://github.com/FilOzone/synapse-sdk/issues/1049)
+
+
+### Bug Fixes
+
+* **core:** set Filecoin block time on chain definitions ([#1064](https://github.com/FilOzone/synapse-sdk/issues/1064)) ([9ecb970](https://github.com/FilOzone/synapse-sdk/commit/9ecb97012e01514c13aaa2fdc8b9533fb97e7ce0))
+
+
+### Chores
+
+* **deps:** update iso-web to 4.0.0 ([#1065](https://github.com/FilOzone/synapse-sdk/issues/1065)) ([7c8086b](https://github.com/FilOzone/synapse-sdk/commit/7c8086bf51b0f1604be044cf98276b87e3943a85))
+
 ## [0.10.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.10.2...synapse-core-v0.10.3) (2026-10-23)
 
 
