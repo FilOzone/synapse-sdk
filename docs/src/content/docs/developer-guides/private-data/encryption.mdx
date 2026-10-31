@@ -1,0 +1,131 @@
+---
+title: Encryption
+description: Encrypt data before upload, with keys derived from the owner's wallet.
+sidebar:
+  order: 1
+---
+
+Data stored on Filecoin Onchain Cloud is public: any provider holding a piece serves it, and anyone with its CID can fetch it. To keep data private, encrypt it before upload. Providers then store and prove ciphertext like any other bytes, and only holders of the key can read it.
+
+Three packages share the work:
+
+| Package | Role |
+| --- | --- |
+| [`filecoin-encryption-envelope`](https://github.com/FilOzone/synapse-sdk/tree/master/packages/filecoin-encryption-envelope) (FEE) | The encrypted format: an envelope header, then the ciphertext. Streams, range reads |
+| [`@filoz/keysmith`](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith) | The keys: derives every encryption key from one wallet signature, and shares them |
+| [`@filoz/synapse-sdk`](/developer-guides/synapse/) | Storage: uploads the encrypted bytes, unchanged |
+
+```text
+your app ──▶ Keysmith ──key──▶ FEE ──encrypted bytes──▶ Synapse SDK ──▶ storage providers
+```
+
+Neither the SDK nor the providers see a key or the plaintext. Encryption and decryption happen in your app, in Node.js or the browser.
+
+```bash
+npm install @filoz/keysmith filecoin-encryption-envelope
+```
+
+## Key concepts
+
+- **Keyspace**: a random 16-byte id that groups the keys for a set of data, usually one data set. Its root key comes from the owner wallet signing a fixed message once, so nothing has to be stored: the wallet can always derive every key again.
+- **Scope**: a named branch of a keyspace, such as `agent-memory` or `finance/invoices`. Its key opens everything below it, and nothing above or beside it.
+- **Piece key**: every piece has its own key, derived from a random salt. One piece can be shared without sharing anything else.
+- **Envelope metadata**: each envelope records its owner, keyspace, scope and salt. That's enough to find the right key, whichever data set or provider a copy is fetched from.
+
+See [Keysmith's core concepts](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#core-concepts) for the derivation tree.
+
+## Encrypt and upload
+
+The owner wallet signs once to create the keyspace. Keysmith then derives a key for the piece, FEE encrypts with it, and the SDK uploads the result:
+
+```ts
+import * as Keysmith from '@filoz/keysmith'
+import * as fee from 'filecoin-encryption-envelope'
+import { Synapse } from '@filoz/synapse-sdk'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const account = privateKeyToAccount('0x...')
+const synapse = Synapse.create({ account, source: 'my-app' })
+
+// A new keyspace: the wallet signs twice, so Keysmith can check it signs deterministically.
+const ref = { owner: account.address, keyspace: Keysmith.newKeyspace() }
+const { kk, commitment, descriptor } = await Keysmith.keyspaceKeys(account, ref)
+
+// A key for this piece, in the 'documents' scope, and the metadata its envelope records.
+const target = Keysmith.writeTarget(descriptor, kk, 'documents')
+const salt = Keysmith.newSalt()
+const key = Keysmith.pieceKey(target.key, salt)
+const appMetadata = Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope })
+
+const plaintext = new Blob(['Quarterly numbers']).stream()
+const encrypted = plaintext.pipeThrough(fee.encrypt({ cek: key, appMetadata }))
+
+const { pieceCid } = await synapse.storage.upload(encrypted, {
+  // Record the keyspace on the data set, so you can find it again from the chain.
+  metadata: {
+    [Keysmith.KEYSPACE_ID_KEY]: ref.keyspace,
+    [Keysmith.COMMITMENT_KEY]: commitment,
+  },
+})
+```
+
+:::caution[Record the keyspace]
+The SDK does not record the keyspace for you. Without the keyspace id you can't derive its keys, so store it somewhere you can read back. The data set metadata, as above, is the default: uploads with the same `metadata` then share the data set, one keyspace per data set.
+:::
+
+## Download and decrypt
+
+The envelope says which key it needs, so give FEE a key resolver and Keysmith derives the piece key from the envelope's own metadata:
+
+```ts
+const bytes = await synapse.storage.download({ pieceCid })
+
+const decrypted = new Blob([bytes]).stream().pipeThrough(fee.decrypt(Keysmith.keyResolver(kk)))
+const text = await new Response(decrypted).text()
+```
+
+In a later session, derive `kk` again from the wallet. With the recorded commitment it takes one signature, and the commitment confirms the key is the right one:
+
+```ts
+const { kk } = await Keysmith.keyspaceKeys(account, ref, { commitment })
+```
+
+FEE also reads byte ranges without decrypting the whole piece: see [Reading a piece](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#reading-a-piece).
+
+## Encrypting with session keys
+
+A [session key](/developer-guides/session-keys/) can't sign for the wallet, so it can't derive the keyspace key itself. Instead, the owner gives it a **Grant**: the keyspace key, or a scope key, wrapped to the session key's public key. With that, the session key encrypts and decrypts without the wallet:
+
+```ts
+// Session key side: open the Grant the owner sent.
+const node = await Keysmith.unwrapWith(sessionPrivateKey, grantBytes)
+const grant = Keysmith.decodeGrant(grantBytes)
+
+// Write: writeTarget refuses scopes the Grant doesn't cover.
+const target = Keysmith.writeTarget(grant, node, 'documents')
+
+// Read: the Grant tells Keysmith which key it holds.
+fee.decrypt(Keysmith.keyResolver(node, grant))
+```
+
+Creating Grants is covered in [Sharing](/developer-guides/private-data/sharing/). The session key still needs the `CreateDataSet` and `AddPieces` permissions to store what it encrypts.
+
+## With Filecoin Pin
+
+[Filecoin Pin](/core-concepts/filecoin-pin/) does all of this from the command line:
+
+```bash
+filecoin-pin add ./report.pdf --encrypt
+filecoin-pin get <encrypted-root-cid> ./out
+```
+
+`filecoin-pin login --scopes createDataSet,addPieces,encrypt` sets up a session key with a Grant from the Filecoin Cloud console. See [Encrypted Uploads](https://github.com/filecoin-project/filecoin-pin#encrypted-uploads) in the Filecoin Pin README.
+
+## Things to know
+
+- **The ciphertext is public.** Anyone can fetch it; only key holders can read it. Its size is visible too, and so is any piece or data set metadata you set, such as a file name.
+- **Keys don't expire and can't be revoked.** Anyone who has a key keeps it. To stop sharing new data, start a new keyspace.
+- **The wallet is the recovery path.** Every key derives from the owner wallet, so losing the wallet loses the data. See [Recovery](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#recovery).
+- **The wallet must sign deterministically** (RFC 6979). Keysmith checks this when it creates a keyspace.
+
+See [Be aware](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#be-aware) in the Keysmith README for the full list.

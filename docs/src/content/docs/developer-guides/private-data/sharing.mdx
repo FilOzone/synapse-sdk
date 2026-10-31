@@ -1,0 +1,87 @@
+---
+title: Sharing
+description: Share encrypted data with session keys, apps and people, from a whole keyspace down to one piece.
+sidebar:
+  order: 2
+---
+
+Encrypted data is shared by giving the recipient a key, never by re-encrypting. Keysmith wraps a key to the recipient's public key in a small object called a **Grant**, about 190 bytes. Your app delivers it: nothing is written on chain.
+
+The recipient needs a secp256k1 key pair, such as a [session key](/developer-guides/session-keys/), a service or an agent. For people with no key pair, use a [Share link](#share-links).
+
+## What a Grant can share
+
+| Grant for | The recipient can |
+| --- | --- |
+| The **keyspace** | Read and write everything in it, and share any part of it onward |
+| A **scope**, e.g. `documents` | Read and write that scope and the scopes below it, past and future, and share them onward |
+| One **piece** | Read that piece, and nothing else |
+
+A scope Grant is the usual choice: it gives an app or session key one branch of your data without exposing the rest.
+
+:::note[Reading and writing go together]
+A keyspace or scope key both encrypts and decrypts, so its holder can write new pieces under it as well as read. Storing them is controlled separately, by the session key's `AddPieces` permission. Keep the two in step.
+:::
+
+## Share a scope
+
+The recipient publishes its public key; the owner, or anyone holding a key above the scope, wraps the scope key to it:
+
+```ts
+import * as Keysmith from '@filoz/keysmith'
+
+// Recipient: publish the public key for its private key.
+const theirPublicKey = Keysmith.publicKeyOf(theirPrivateKey)
+
+// Owner: wrap the 'documents' scope key to it.
+const scopeKey = Keysmith.scopeKey(kk, 'documents')
+const grant = await Keysmith.wrapTo(theirPublicKey, scopeKey, Keysmith.grantDescriptor(ref, 'scope:documents'))
+const grantBytes = Keysmith.encodeGrant(grant) // send these
+```
+
+The recipient opens it with `unwrapWith`, then reads and writes as shown in [Encrypting with session keys](/developer-guides/private-data/encryption/#encrypting-with-session-keys). Sharing the whole keyspace works the same way, with `kk` and `'keyspace'`.
+
+## Share one piece
+
+A piece Grant wraps that piece's key, and can carry the piece's CID so the recipient knows what to fetch:
+
+```ts
+// appMetadata is the piece's envelope metadata, as it was encrypted.
+const pieceKey = Keysmith.keyForEnvelope(kk, appMetadata)
+const descriptor = Keysmith.grantDescriptor(ref, Keysmith.pieceNode(appMetadata))
+const grantBytes = Keysmith.encodeGrant({
+  ...(await Keysmith.wrapTo(theirPublicKey, pieceKey, descriptor)),
+  pieceCid, // where to fetch it
+})
+```
+
+The recipient opens the Grant with `unwrapWith`, fetches `grant.pieceCid`, and decrypts with `fee.decrypt(Keysmith.keyResolver(node, grant))`. Keysmith refuses any other piece. See [Sharing a single piece](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#sharing-a-single-piece).
+
+## Share links
+
+A Share link shares one piece with someone who has no key pair, such as a person opening a link in a browser. [Filecoin Pin](/core-concepts/filecoin-pin/) makes them for its encrypted uploads. A link is a piece Grant wrapped to a throwaway key pair made for that link, with the throwaway private key, the **Access key**, sent with it:
+
+- **Open link (default):** the link carries the Access key, so the link alone opens the piece, like "anyone with the link".
+- **Restricted link:** the Access key is sent separately, by another channel, so the link alone opens nothing.
+
+```text
+<viewer>#v1/<encryptedRootCid>&d=<grant>[&k=fak1_<accessKey>]
+```
+
+Everything is in the URL fragment, so no server sees it. The link opens in the Filecoin encryption viewer, which fetches the piece over IPFS and decrypts it in the browser.
+
+From the command line:
+
+```bash
+filecoin-pin get-share-link <encrypted-root-cid>               # open link
+filecoin-pin get-share-link <encrypted-root-cid> --restricted  # link + Access key
+filecoin-pin get ./out --share '<link>'
+```
+
+See [Share Links](https://github.com/filecoin-project/filecoin-pin#share-links) in the Filecoin Pin README.
+
+## Things to know
+
+- **Grants can't be revoked.** A key, once shared, opens what it covers for good, including future pieces under a shared scope or keyspace. To stop sharing, write new data under a new keyspace. For one piece, remove it and upload it again, which encrypts it with a new key.
+- **Grants don't expire.** Time-limited access comes from controlling who may fetch, not from the key: see [Access Control](/developer-guides/private-data/access-control/).
+- **Check who a Grant is from.** A Grant names its owner and keyspace. If your app accepts Grants from others, check those before trusting what it opens.
