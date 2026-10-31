@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.5.1...synapse-react-v0.6.0) (2026-10-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **react:** wait for created data sets and added pieces on chain
+
+### Features
+
+* **react:** wait for created data sets and added pieces on chain ([14a29cc](https://github.com/FilOzone/synapse-sdk/commit/14a29cc34497c3ffb5ce99117ff00b7ce64af05d)), closes [#1049](https://github.com/FilOzone/synapse-sdk/issues/1049)
+
 ## [0.5.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.5.0...synapse-react-v0.5.1) (2026-10-16)
 
 
