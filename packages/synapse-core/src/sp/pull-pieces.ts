@@ -1,4 +1,5 @@
 import { HttpError, type RequestErrors, request } from 'iso-web/http'
+import type { MaybeResult, RetryOptions } from 'iso-web/types'
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { PullError } from '../errors/pull.ts'
@@ -27,8 +28,10 @@ export namespace pullPiecesApiRequest {
    * - `complete`: Piece successfully downloaded and verified
    * - `failed`: Piece permanently failed after exhausting retries
    *
-   * Overall response status reflects the worst-case across all pieces:
-   * failed > retrying > inProgress > pending > complete
+   * Overall response status stays `retrying`, `inProgress` or `pending` (in that order) while any piece is still
+   * running. Once every piece is `complete` or `failed`, it is `failed` only when every piece failed, otherwise
+   * `complete`, so an overall `complete` can include failed pieces: check each piece's status. Older Curio versions
+   * reported the worst piece status instead (`failed` as soon as any piece failed).
    */
   export type PullStatus = 'pending' | 'inProgress' | 'retrying' | 'complete' | 'failed'
 
@@ -75,7 +78,7 @@ export namespace pullPiecesApiRequest {
   }
 
   export type ReturnType = {
-    /** Overall status (worst-case across all pieces) */
+    /** Overall status. Can be `complete` while some pieces failed; see {@link PullStatus}. */
     status: PullStatus
     /** Per-piece status */
     pieces: PullPieceStatus[]
@@ -110,6 +113,22 @@ function buildPullRequestBody(options: pullPiecesApiRequest.OptionsType): pullPi
 }
 
 /**
+ * Turn a pull endpoint response into its JSON body, or throw: an HTTP error becomes a {@link PullError} with the SP's
+ * response text.
+ */
+async function parsePullResponse(
+  response: MaybeResult<Response, RequestErrors>
+): Promise<pullPiecesApiRequest.ReturnType> {
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      throw new PullError(await response.error.response.text())
+    }
+    throw response.error
+  }
+  return (await response.result.json()) as pullPiecesApiRequest.ReturnType
+}
+
+/**
  * Initiate a piece pull request or get status of an existing one.
  *
  * POST /pdp/piece/pull
@@ -135,47 +154,82 @@ export async function pullPiecesApiRequest(
     },
     signal: options.signal,
   })
+  return parsePullResponse(response)
+}
 
-  if (response.error) {
-    if (HttpError.is(response.error)) {
-      throw new PullError(await response.error.response.text())
-    }
-    throw response.error
-  }
-
-  return (await response.result.json()) as pullPiecesApiRequest.ReturnType
+/**
+ * Options for waiting until a pull finishes, shared by {@link waitForPullPiecesApiRequest} and {@link waitForPullPieces}.
+ */
+export type PullWaitOptions = {
+  /** Total time in milliseconds to wait for the pull to finish. Defaults to {@link RETRY_CONSTANTS.PULL_TIMEOUT} (2 hours). */
+  timeout?: number
+  /**
+   * The number of retries for errors other than 429. Defaults to 2. A 429 (the SP's pull queue is full) waits for
+   * `Retry-After` and retries until `timeout`, and fails right away when `Retry-After` is longer than the time left.
+   */
+  retryCount?: number
+  /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
+  retryDelay?: number
+  /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
+  pollInterval?: number
 }
 
 export namespace waitForPullPiecesApiRequest {
   /**
    * Options for polling pull status.
    */
-  export type OptionsType = pullPiecesApiRequest.OptionsType & {
-    /** Callback invoked on each poll with current status. */
-    onStatus?: (response: pullPiecesApiRequest.ReturnType) => void
-    /** Total time in milliseconds to wait for the pull to finish. Defaults to {@link RETRY_CONSTANTS.PULL_TIMEOUT} (2 hours). */
-    timeout?: number
-    /** The number of retries. Defaults to 2. */
-    retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
-    retryDelay?: number
-    /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
-    pollInterval?: number
-  }
+  export type OptionsType = pullPiecesApiRequest.OptionsType &
+    PullWaitOptions & {
+      /** Callback invoked on each poll with current status. */
+      onStatus?: (response: pullPiecesApiRequest.ReturnType) => void
+    }
 
   export type ReturnType = pullPiecesApiRequest.ReturnType
 
   export type ErrorType = pullPiecesApiRequest.ErrorType
 }
 
+function isSettled(status: pullPiecesApiRequest.PullStatus): boolean {
+  return status === 'complete' || status === 'failed'
+}
+
+/**
+ * Retry options for the pull wait.
+ *
+ * Curio answers a new pull with 429 and `Retry-After` while its pull queue is full. Those retries wait for
+ * `Retry-After` and do not count against `retryCount`, so a full queue only ends the wait at `timeout` (or right
+ * away when `Retry-After` is longer than the time left). Other retryable errors are retried up to `retryCount` times.
+ */
+function pullWaitRetryOptions(options: PullWaitOptions): RetryOptions {
+  const retryCount = options.retryCount ?? 2
+  let failures = 0
+  return {
+    methods: ['post'],
+    retries: Number.POSITIVE_INFINITY,
+    minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    // Bound the backoff, which keeps growing across 429s that come without `Retry-After`.
+    maxTimeout: RETRY_CONSTANTS.POLL_INTERVAL,
+    shouldRetry: ({ error, defaultShouldRetry }) => {
+      if (!defaultShouldRetry) {
+        return false
+      }
+      if (HttpError.is(error) && error.code === 429) {
+        return true
+      }
+      failures++
+      return failures <= retryCount
+    },
+  }
+}
+
 /**
  * Wait for pull pieces completion API request.
  *
- * Repeatedly calls the pull endpoint until all pieces are complete or any piece fails.
+ * Repeatedly calls the pull endpoint until every piece is `complete` or `failed`.
  * Since the endpoint is idempotent, this effectively polls for status updates.
  *
  * @param options - {@link waitForPullPiecesApiRequest.OptionsType}
- * @returns The final status when complete or failed. {@link waitForPullPiecesApiRequest.ReturnType}
+ * @returns The final status once every piece is complete or failed. {@link waitForPullPiecesApiRequest.ReturnType}
  * @throws Errors {@link waitForPullPiecesApiRequest.ErrorType}
  */
 export async function waitForPullPiecesApiRequest(
@@ -185,11 +239,7 @@ export async function waitForPullPiecesApiRequest(
 
   const response = await request.post(url, {
     json: buildPullRequestBody(options),
-    retry: {
-      methods: ['post'],
-      retries: options.retryCount,
-      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
-    },
+    retry: pullWaitRetryOptions(options),
     poll: {
       limit: RETRY_CONSTANTS.POLL_LIMIT,
       interval: options.pollInterval ?? RETRY_CONSTANTS.POLL_INTERVAL,
@@ -200,21 +250,15 @@ export async function waitForPullPiecesApiRequest(
         if (options.onStatus) {
           options.onStatus(data)
         }
-        return data.status !== 'complete' && data.status !== 'failed'
+        // Go by each piece, not the overall status, which older Curio versions report as `failed` while
+        // other pieces are still pulling. No pieces yet means the SP has not started.
+        return data.pieces.length === 0 || !data.pieces.every((piece) => isSettled(piece.status))
       },
     },
     timeout: options.timeout ?? RETRY_CONSTANTS.PULL_TIMEOUT,
     signal: options.signal,
   })
-
-  if (response.error) {
-    if (HttpError.is(response.error)) {
-      throw new PullError(await response.error.response.text())
-    }
-    throw response.error
-  }
-
-  return (await response.result.json()) as waitForPullPiecesApiRequest.ReturnType
+  return parsePullResponse(response)
 }
 
 /**
@@ -303,7 +347,7 @@ export namespace pullPieces {
   export type OptionsType = PullToExistingDataSetOptions | PullToNewDataSetOptions
 
   export type ReturnType = {
-    /** Overall status reported by the SP (worst-case across all pieces) */
+    /** Overall status reported by the SP. Can be `complete` while some pieces failed; see {@link pullPiecesApiRequest.PullStatus}. */
     status: pullPiecesApiRequest.PullStatus
     /** One entry per input piece, in input order. Inputs with the same PieceCID share its status. */
     pieces: PullPieceResult[]
@@ -360,8 +404,9 @@ function dedupePullOptions<T extends pullPieces.OptionsType>(options: T): { opti
  *
  * The SP may return pieces in any order and reports each PieceCID once, so results are
  * matched by PieceCID. A piece missing from the response is `failed` once the SP has
- * finished (every reported piece is `complete` or `failed`), and `pending` until then.
- * The overall status alone is not enough: it is `failed` as soon as any piece fails.
+ * finished, and `pending` until then. Finished means a terminal overall status and every
+ * reported piece `complete` or `failed`: older Curio versions report an overall `failed`
+ * while other pieces are still pulling, and an empty piece list has no piece statuses.
  */
 function toPullResult(
   inputs: PullPieceInput[],
@@ -369,8 +414,7 @@ function toPullResult(
   dropped?: DroppedPiece[]
 ): pullPieces.ReturnType {
   const statusByCid = new Map(response.pieces.map((piece) => [piece.pieceCid, piece.status]))
-  const settled = (status: pullPiecesApiRequest.PullStatus) => status === 'complete' || status === 'failed'
-  const finished = settled(response.status) && response.pieces.every((piece) => settled(piece.status))
+  const finished = isSettled(response.status) && response.pieces.every((piece) => isSettled(piece.status))
   const missing = finished ? 'failed' : 'pending'
   const pieces = inputs.map((input, index) => {
     const pieceCid = input.pieceCid.toString()
@@ -455,18 +499,11 @@ export namespace waitForPullPieces {
   /**
    * Options for waiting for pull pieces completion.
    */
-  export type OptionsType = pullPieces.OptionsType & {
-    /** Callback invoked on each poll with current status. */
-    onStatus?: (response: pullPieces.ReturnType) => void
-    /** Total time in milliseconds to wait for the pull to finish. Defaults to {@link RETRY_CONSTANTS.PULL_TIMEOUT} (2 hours). */
-    timeout?: number
-    /** The number of retries. Defaults to 2. */
-    retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
-    retryDelay?: number
-    /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
-    pollInterval?: number
-  }
+  export type OptionsType = pullPieces.OptionsType &
+    PullWaitOptions & {
+      /** Callback invoked on each poll with current status. */
+      onStatus?: (response: pullPieces.ReturnType) => void
+    }
 
   export type ReturnType = pullPieces.ReturnType
 
@@ -476,12 +513,12 @@ export namespace waitForPullPieces {
 /**
  * Wait for pull pieces completion.
  *
- * Repeatedly calls the pull endpoint until all pieces are complete or any piece fails.
+ * Repeatedly calls the pull endpoint until every piece is `complete` or `failed`.
  * Since the endpoint is idempotent, this effectively polls for status updates.
  *
  * @param client - The viem client with account for signing.
  * @param options - {@link waitForPullPieces.OptionsType}
- * @returns The final status when complete or failed. {@link waitForPullPieces.ReturnType}
+ * @returns The final status once every piece is complete or failed. {@link waitForPullPieces.ReturnType}
  * @throws Errors {@link waitForPullPieces.ErrorType}
  */
 export async function waitForPullPieces(
