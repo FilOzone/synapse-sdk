@@ -4,10 +4,10 @@ import { llmsPlugin } from '@hugomrdias/docs/starlight-llms'
 import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
 import { transformerTwoslash } from '@shikijs/twoslash'
 import { defineConfig } from 'astro/config'
-import mermaid from 'astro-mermaid'
 import starlightAutoSidebar from 'starlight-auto-sidebar'
 import starlightLinksValidator from 'starlight-links-validator'
 import { codeBlocksScript, transformerCodeBlocks } from './src/code-blocks.mjs'
+import { mermaidDiagrams } from './src/diagrams.mjs'
 import { externalLinks } from './src/external-links.mjs'
 
 const site = 'https://docs.filecoin.cloud'
@@ -40,21 +40,17 @@ export default defineConfig({
         transformerCodeBlocks(),
       ],
     },
-    // Starlight, mermaid and the links validator add their own Sätteri plugins
-    processor: satteri({ hastPlugins: [externalLinks] }),
+    // Starlight and the links validator add their own Sätteri plugins
+    processor: satteri({ mdastPlugins: [mermaidDiagrams], hastPlugins: [externalLinks] }),
   },
   integrations: [
-    mermaid({
-      theme: 'forest',
-      autoTheme: true,
-    }),
     starlight({
       title: 'Filecoin Onchain Cloud Documentation',
       description:
         'Filecoin Onchain Cloud provides transparent storage, retrieval, and payments on the Filecoin network.',
       logo: { src: './src/assets/foc-logo.svg', alt: 'foc' },
       favicon: 'favicon.ico',
-      customCss: ['@shikijs/twoslash/style-rich.css', './src/code.css', './src/custom.css'],
+      customCss: ['@shikijs/twoslash/style-rich.css', './src/code.css', './src/diagrams.css', './src/custom.css'],
       head: [
         { tag: 'script', content: codeBlocksScript },
         {
