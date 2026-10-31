@@ -2,12 +2,13 @@ import { unified } from '@astrojs/markdown-remark'
 import starlight from '@astrojs/starlight'
 import { llmsPlugin } from '@hugomrdias/docs/starlight-llms'
 import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
+import { transformerTwoslash } from '@shikijs/twoslash'
 import { defineConfig } from 'astro/config'
 import mermaid from 'astro-mermaid'
-import ecTwoSlash from 'expressive-code-twoslash'
 import rehypeExternalLinks from 'rehype-external-links'
 import starlightAutoSidebar from 'starlight-auto-sidebar'
 import starlightLinksValidator from 'starlight-links-validator'
+import { codeBlocksScript, transformerCodeBlocks } from './src/code-blocks.mjs'
 
 const site = 'https://docs.filecoin.cloud'
 
@@ -23,6 +24,22 @@ export default defineConfig({
     '/getting-started/preview-packages/': '/developer-guides/preview-packages/',
   },
   markdown: {
+    shikiConfig: {
+      themes: { light: 'night-owl-light', dark: 'night-owl' },
+      transformers: [
+        transformerTwoslash({
+          explicitTrigger: true,
+          twoslashOptions: {
+            compilerOptions: {
+              lib: ['lib.esnext.d.ts', 'lib.dom.d.ts'],
+              jsx: 4, // react-jsx
+              jsxImportSource: 'react',
+            },
+          },
+        }),
+        transformerCodeBlocks(),
+      ],
+    },
     // rehype-external-links attaches to the unified processor Starlight runs.
     processor: unified({
       gfm: true,
@@ -47,8 +64,9 @@ export default defineConfig({
         'Filecoin Onchain Cloud provides transparent storage, retrieval, and payments on the Filecoin network.',
       logo: { src: './src/assets/foc-logo.svg', alt: 'foc' },
       favicon: 'favicon.ico',
-      customCss: ['./src/custom.css'],
+      customCss: ['@shikijs/twoslash/style-rich.css', './src/code.css', './src/custom.css'],
       head: [
+        { tag: 'script', content: codeBlocksScript },
         {
           tag: 'link',
           attrs: {
@@ -182,19 +200,7 @@ export default defineConfig({
           ],
         },
       ],
-      expressiveCode: {
-        plugins: [
-          ecTwoSlash({
-            twoslashOptions: {
-              lib: ['esnext', 'dom'],
-              compilerOptions: {
-                jsx: 4, // react-jsx
-                jsxImportSource: 'react',
-              },
-            },
-          }),
-        ],
-      },
+      expressiveCode: false,
       plugins: [
         docsPlugin({
           outputDirectory: 'reference',

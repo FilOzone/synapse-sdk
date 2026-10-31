@@ -42,9 +42,6 @@ minimumReleaseAgeExclude:
   - '@hugomrdias/commp-wasm'
   - playwright-test
 
-patchedDependencies:
-  expressive-code-twoslash@0.6.1: patches/expressive-code-twoslash@0.6.1.patch
-
 trustPolicy: no-downgrade
 
 trustPolicyExclude:

@@ -1,0 +1,131 @@
+/* Shiki dual themes: light is inlined, dark comes from --shiki-dark vars */
+/* biome-ignore-start lint/complexity/noImportantStyles: must beat Shiki's inline styles */
+:root[data-theme="dark"] .astro-code {
+  background-color: var(--shiki-dark-bg) !important;
+}
+
+:root[data-theme="dark"] .astro-code span {
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}
+
+/* Multi-line popup types are a nested Shiki <pre> with its own inline background */
+.twoslash .twoslash-popup-code pre.shiki {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  white-space: pre-wrap;
+  background-color: transparent !important;
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: must beat Shiki's inline styles */
+
+/* Code block frame (see src/code-blocks.mjs) */
+.code-block {
+  position: relative;
+  margin-inline: 0;
+}
+
+.code-block > pre {
+  margin: 0;
+  border-radius: 0.25rem;
+}
+
+.code-block-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  padding: 0.375rem 1rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-bottom: 0;
+  border-radius: 0.25rem 0.25rem 0 0;
+  background: var(--sl-color-gray-6);
+  color: var(--sl-color-gray-2);
+  font-family: var(--__sl-font-mono);
+  font-size: var(--sl-text-xs);
+}
+
+.code-block > .code-block-title + pre {
+  margin-top: 0;
+  border-radius: 0 0 0.25rem 0.25rem;
+}
+
+/* Terminal frames get window dots instead of a file tab */
+.code-block.is-terminal .code-block-title::before {
+  content: "";
+  flex: none;
+  width: 2.25rem;
+  height: 0.625rem;
+  background: radial-gradient(circle, currentColor 0.25rem, transparent 0.3rem) 0 / 0.75rem 100% repeat-x;
+  opacity: 0.5;
+}
+
+.code-block-copy {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.25rem;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-gray-2);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.code-block:hover .code-block-copy,
+.code-block-copy:focus-visible,
+.code-block-copy[data-copied] {
+  opacity: 1;
+}
+
+.code-block-copy[data-copied] {
+  color: var(--sl-color-green);
+  border-color: var(--sl-color-green);
+}
+
+@media (hover: none) {
+  .code-block-copy {
+    opacity: 0.8;
+  }
+}
+
+/* Twoslash popups */
+:root {
+  --twoslash-popup-bg: var(--sl-color-bg);
+  --twoslash-border-color: var(--sl-color-gray-5);
+  --twoslash-docs-color: var(--sl-color-gray-2);
+  --twoslash-docs-font: var(--__sl-font);
+}
+
+/* Fixed so the scrolling <pre> can't clip them, positioned by the client script */
+.twoslash .twoslash-hover .twoslash-popup-container,
+.twoslash .twoslash-error-hover .twoslash-popup-container {
+  position: fixed;
+  transform: none;
+  max-width: min(40rem, calc(100vw - 1rem));
+  max-height: 50vh;
+  overflow: auto;
+  /* Scrolling to the end of a popup shouldn't scroll the page away from it */
+  overscroll-behavior: contain;
+}
+
+.twoslash .twoslash-popup-arrow {
+  display: none;
+}
+
+.twoslash .twoslash-popup-code {
+  white-space: pre-wrap;
+}
+
+.twoslash .twoslash-popup-docs {
+  white-space: normal;
+}
