@@ -7,7 +7,6 @@ import mermaid from 'astro-mermaid'
 import ecTwoSlash from 'expressive-code-twoslash'
 import rehypeExternalLinks from 'rehype-external-links'
 import starlightAutoSidebar from 'starlight-auto-sidebar'
-import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs'
 import starlightLinksValidator from 'starlight-links-validator'
 
 const site = 'https://docs.filecoin.cloud'
@@ -174,29 +173,6 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Changelogs',
-          collapsed: true,
-          items: [
-            ...makeChangelogsSidebarLinks([
-              {
-                type: 'all',
-                base: 'changelog-sdk',
-                label: '@filoz/synapse-sdk',
-              },
-              {
-                type: 'all',
-                base: 'changelog-core',
-                label: '@filoz/synapse-core',
-              },
-              {
-                type: 'all',
-                base: 'changelog-react',
-                label: '@filoz/synapse-react',
-              },
-            ]),
-          ],
-        },
-        {
           label: 'Reference',
           collapsed: true,
           items: [
@@ -237,7 +213,6 @@ export default defineConfig({
         }),
         llmsPlugin(),
         starlightAutoSidebar(),
-        starlightChangelogs(),
         // The validator wipes the content layer cache on every build, so only run it when asked
         ...(process.env.CHECK_LINKS ? [starlightLinksValidator()] : []),
       ],
