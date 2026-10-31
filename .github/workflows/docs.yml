@@ -1,10 +1,9 @@
-# Builds and checks the docs. Pull requests get a Worker Preview with its URL
-# commented on the PR, deleted when the PR closes. Releases (called from
+# Builds and checks the docs. Same-repo pull requests upload the built site,
+# which docs-preview.yml deploys as a Worker Preview. Releases (called from
 # release-please.yml) and manual runs from master deploy production.
 name: documentation
 on:
   pull_request:
-    types: [opened, synchronize, reopened, closed]
     paths:
       - docs/**
       - packages/**
@@ -18,19 +17,13 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  pull-requests: write
 concurrency:
   group: docs-${{ github.event.pull_request.number || 'production' }}
-  # Newer pushes and closing replace PR runs; production deploys run one after another
+  # Newer pushes replace PR runs; production deploys run one after another
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-env:
-  PREVIEW_NAME: pr-${{ github.event.pull_request.number }}
-  # Runs for fork and Dependabot pull requests get no secrets, so those are only built and checked
-  CAN_PREVIEW: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
 jobs:
   docs:
     name: Build docs
-    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -42,36 +35,15 @@ jobs:
       - run: pnpm -r --filter docs run build
         env:
           CHECK_LINKS: 1
-      - name: Deploy preview docs
-        if: env.CAN_PREVIEW == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          # Omitting --env targets the top-level synapse-dev Worker, not production
-          pnpm --dir docs exec wrangler preview --name "$PREVIEW_NAME" --json > "$RUNNER_TEMP/preview.json"
-          url="$(jq -r '.preview.urls[0] // empty' "$RUNNER_TEMP/preview.json")"
-          if [ -z "$url" ]; then
-            echo "No Preview URL in the Wrangler output"
-            cat "$RUNNER_TEMP/preview.json"
-            exit 1
-          fi
-
-          # Keep one preview comment per PR, updated on each push
-          marker='<!-- docs-preview -->'
-          body="$(printf '%s\n**Docs preview:** %s\n\nBuilt from %s.' "$marker" "$url" "$PR_SHA")"
-          comment_id="$(gh api --paginate "repos/$REPOSITORY/issues/$PR_NUMBER/comments" \
-            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -1)"
-          if [ -n "$comment_id" ]; then
-            gh api -X PATCH "repos/$REPOSITORY/issues/comments/$comment_id" -f body="$body" > /dev/null
-          else
-            gh api -X POST "repos/$REPOSITORY/issues/$PR_NUMBER/comments" -f body="$body" > /dev/null
-          fi
-          echo "Docs preview: $url" >> "$GITHUB_STEP_SUMMARY"
+      # Same-repo PRs hand the built site to docs-preview.yml, which deploys it
+      # without running any PR code. Fork and Dependabot PRs get no preview.
+      - name: Upload site for preview
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-dist
+          path: docs/dist
+          retention-days: 1
       - name: Deploy production docs
         if: github.event_name != 'pull_request' && github.ref_name == 'master'
         run: pnpm --dir docs exec wrangler deploy --env production
@@ -85,19 +57,3 @@ jobs:
           name: wrangler-logs
           path: ~/.config/.wrangler/logs/*.log
           if-no-files-found: ignore
-  delete-preview:
-    name: Delete docs preview
-    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/setup@v3
-        with:
-          require-lockfile: true
-      - name: Delete preview
-        # A PR closed before any preview was built has nothing to delete
-        continue-on-error: true
-        run: pnpm --dir docs exec wrangler preview delete --name "$PREVIEW_NAME" --skip-confirmation
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

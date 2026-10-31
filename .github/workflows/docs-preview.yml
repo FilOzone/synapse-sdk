@@ -1,0 +1,116 @@
+# Deploys docs previews for same-repo pull requests and deletes them when the PR
+# closes. Both triggers run this file from master and never run PR code: the
+# site comes prebuilt from the "documentation" run, the Wrangler config and
+# version from master. Fork and Dependabot PRs get no preview.
+name: docs-preview
+on:
+  workflow_run:
+    workflows: [documentation]
+    types: [completed]
+  pull_request_target:
+    types: [closed]
+    paths:
+      - docs/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - tsconfig.json
+      - .github/.markdownlint-cli2.jsonc
+      - .github/workflows/docs.yml
+permissions:
+  contents: read
+concurrency:
+  group: docs-preview-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
+  # A newer build or closing the PR replaces a pending deploy
+  cancel-in-progress: true
+jobs:
+  deploy:
+    name: Deploy docs preview
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: docs
+      - uses: actions/download-artifact@v8
+        with:
+          name: docs-dist
+          path: docs/dist
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Deploy preview
+        working-directory: docs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          PR_SHA: ${{ github.event.workflow_run.head_sha }}
+          # Labels the Preview with the PR branch instead of master
+          GITHUB_HEAD_REF: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "No pull request for this run"
+            exit 1
+          fi
+          wrangler_version="$(jq -r .devDependencies.wrangler package.json)"
+          npx --yes "wrangler@$wrangler_version" preview --name "pr-$PR_NUMBER" --json > "$RUNNER_TEMP/preview.json"
+          url="$(jq -r '.preview.urls[0] // empty' "$RUNNER_TEMP/preview.json")"
+          if [ -z "$url" ]; then
+            echo "No Preview URL in the Wrangler output"
+            cat "$RUNNER_TEMP/preview.json"
+            exit 1
+          fi
+
+          # Keep one preview comment per PR, updated on each push
+          marker='<!-- docs-preview -->'
+          body="$(printf '%s\n**Docs preview:** %s\n\nBuilt from %s.' "$marker" "$url" "$PR_SHA")"
+          comment_id="$(gh api --paginate "repos/$REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -1)"
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$REPOSITORY/issues/comments/$comment_id" -f body="$body" > /dev/null
+          else
+            gh api -X POST "repos/$REPOSITORY/issues/$PR_NUMBER/comments" -f body="$body" > /dev/null
+          fi
+          echo "Docs preview: $url" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload Wrangler logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wrangler-logs
+          path: ~/.config/.wrangler/logs/*.log
+          if-no-files-found: ignore
+  delete:
+    name: Delete docs preview
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      # pull_request_target checks out master, not the PR
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: docs
+      - name: Delete preview
+        working-directory: docs
+        # A PR closed before any preview was built has nothing to delete
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          wrangler_version="$(jq -r .devDependencies.wrangler package.json)"
+          npx --yes "wrangler@$wrangler_version" preview delete --name "pr-$PR_NUMBER" --skip-confirmation
