@@ -8,8 +8,13 @@ sidebar:
     variant: note
 ---
 
-:::note[Coming soon]
-Storage providers don't enforce access control yet. Today, anyone can fetch any piece, and [encryption](/developer-guides/private-data/encryption/) is what keeps data private.
+:::tip[What You'll Learn]
+How storage providers will decide who may fetch an encrypted piece, not just who can read it.
+
+Key things to know:
+- Storage providers don't enforce access control yet. Today, anyone can fetch any piece, and [encryption](/developer-guides/private-data/encryption/) is what keeps data private.
+- Keysmith can already build and check the signed permissions that providers will verify, so you can build against them now.
+- This document is a high-level overview. For more details and power-users, refer to the [Keysmith README](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#authenticated-grants-claim-chains).
 :::
 
 [Encryption](/developer-guides/private-data/encryption/) decides who can *read* a piece. Access control will decide who can *fetch* it: a storage provider serves a gated piece only to a request it can verify. This adds what keys alone can't:
@@ -28,4 +33,27 @@ Access is described by a **claim chain**, which uses the same keyspaces, scopes 
 
 A claim chain travels with a Grant, so one delivery hands over both the right to fetch and the key to read.
 
-Keysmith already builds and verifies claim chains, so you can try them now. See [Authenticated grants: claim chains](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#authenticated-grants-claim-chains) in the Keysmith README.
+## Scenarios
+
+### Giving a session key time-limited access
+
+The owner wallet signs a root claim naming the session key, the part of the keyspace it may fetch, how many more levels it may delegate, and when access ends. That costs one extra wallet prompt. The claim and the matching Grant go to the session key together, as one delivery, and the session key checks both when it opens them.
+
+See [Issuing](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#issuing) and [Receiving](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#receiving) in the Keysmith README.
+
+### Passing narrower access to a sub-agent
+
+A session key with room to delegate signs the next link in the chain for a sub-agent, for the same or a narrower part of the keyspace. It can never widen access or extend the owner's expiry.
+
+See [Sub-delegating a narrower node](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#sub-delegating-a-narrower-node) in the Keysmith README.
+
+### Fetching a gated piece
+
+The final bearer signs a short-lived request for one piece and sends it, with the chain, to the provider. The provider checks the whole chain against the piece's envelope, offline, and serves the piece or says why it refused.
+
+See [Asserting, as the final bearer](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#asserting-as-the-final-bearer) and [Verifying, as a relying party](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#verifying-as-a-relying-party) in the Keysmith README.
+
+## Things to know
+
+- **Claims expire, but can't be revoked early.** Revoking a session key stops its writes, not its fetching, until the claim expires. Keep expiries short if that window matters.
+- **A claim is not a key.** Once a key is shared it stays shared; a claim only limits who can fetch the ciphertext.

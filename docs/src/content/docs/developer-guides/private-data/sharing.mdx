@@ -5,72 +5,76 @@ sidebar:
   order: 2
 ---
 
-Encrypted data is shared by giving the recipient a key, never by re-encrypting. Keysmith wraps a key to the recipient's public key in a small object called a **Grant**, about 190 bytes. Your app delivers it: nothing is written on chain.
+:::tip[What You'll Learn]
+How to share encrypted data with other sessions, agents and people, including people who are not (necessarily) in your FWSS account.
 
-The recipient needs a secp256k1 key pair, such as a [session key](/developer-guides/session-keys/), a service or an agent. For people with no key pair, use a [Share link](#share-links).
+Key things to know:
+- There are 2 ways to share encrypted data:
+  - To share part or all of your datasets with another session under your account (eg another agent running in a different context), use *Grants*
+  - To share an individual data upload with 3rd parties outside your account, use *Share links*.
+- You can only share access to data you yourself have access to.
+- Once data has been shared, access cannot be revoked except through re-keying.
+- This document is a high-level overview of the main principles of sharing. For more details and power-users, refer to the [Keysmith README](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith).
+:::
 
-## What a Grant can share
+Encrypted data is shared by giving the recipient a key, never by re-encrypting. For collaborative read-write sessions, this is achieved by giving the [sessions](/developer-guides/session-keys/) access to a shared area in a Keysmith keyspace (or the whole keyspace for full access to everything). For sharing individual pieces of uploaded data, [Share links](#sharing-an-individual-piece-with-anyone-share-links) can be created that enable access to the data without the need for the recipient to have a wallet or session key.
+
+## How it works
+
+Keysmith shares a key by wrapping it in a **Grant**: a small object, about 190 bytes, that only the recipient's private key can open. Your app delivers it however it likes, and nothing is written on chain. The recipient must hold a private key, such as a session key, a service or an agent. Browser and hardware wallets can't open Grants, because they never expose a private key.
+
+What the recipient can do depends on which key from the [key tree](/developer-guides/private-data/encryption/#how-it-works) you wrap:
 
 | Grant for | The recipient can |
 | --- | --- |
-| The **keyspace** | Read and write everything in it, and share any part of it onward |
-| A **scope**, e.g. `documents` | Read and write that scope and the scopes below it, past and future, and share them onward |
+| The **keyspace** | Read and write everything, and share any part of it onward |
+| A **scope**, e.g. `documents` | Read and write only data in and below that scope, and share it onward |
 | One **piece** | Read that piece, and nothing else |
 
 A scope Grant is the usual choice: it gives an app or session key one branch of your data without exposing the rest.
+
+At the current time the packaged `filecoin-pin` utility and Filecoin Pay login console only support sharing the entire keyspace, meaning that all delegated sessions have access to all data in a user's dataset. However the Keysmith API supports finer-grained sharing of just a subset of data uploads for fine-grained encryption control. For details of how this works, refer to [The key derivation tree](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#the-key-derivation-tree) in the Keysmith README.
 
 :::note[Reading and writing go together]
 A keyspace or scope key both encrypts and decrypts, so its holder can write new pieces under it as well as read. Storing them is controlled separately, by the session key's `AddPieces` permission. Keep the two in step.
 :::
 
-## Share a scope
+## Scenarios
 
-The recipient publishes its public key; the owner, or anyone holding a key above the scope, wraps the scope key to it:
+### Giving a session its first access to encryption keys
 
-```ts
-import * as Keysmith from '@filoz/keysmith'
+The encryption key hierarchy is rooted in the dataset owner's wallet, so at least one wallet ceremony is required to delegate encryption to a working session key. The wallet derives the keyspace key, wraps it (or a scope key) to the session key's public key, and the session key keeps the Grant from then on.
 
-// Recipient: publish the public key for its private key.
-const theirPublicKey = Keysmith.publicKeyOf(theirPrivateKey)
+To do this, either:
+- **With a browser wallet** such as MetaMask, run `filecoin-pin login --scopes createDataSet,addPieces,encrypt` and follow the instructions in the Filecoin Cloud console. The console wraps the keyspace key for the new session key. See [Group key Grants](https://github.com/filecoin-project/filecoin-pin#group-key-grants) in the Filecoin Pin README.
+- **With the wallet key available in code**, use Keysmith directly: derive the keyspace key, then wrap it, or a scope key, to the session key. See [Sharing the entire keyspace](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#sharing-the-entire-keyspace) and [Sharing a scope](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#sharing-a-scope) in the Keysmith README.
 
-// Owner: wrap the 'documents' scope key to it.
-const scopeKey = Keysmith.scopeKey(kk, 'documents')
-const grant = await Keysmith.wrapTo(theirPublicKey, scopeKey, Keysmith.grantDescriptor(ref, 'scope:documents'))
-const grantBytes = Keysmith.encodeGrant(grant) // send these
-```
+### An agent and sub-agent working together
 
-The recipient opens it with `unwrapWith`, then reads and writes as shown in [Encrypting with session keys](/developer-guides/private-data/encryption/#encrypting-with-session-keys). Sharing the whole keyspace works the same way, with `kk` and `'keyspace'`.
+Once an agent has a Grant, it can share what it holds with anyone else it's working with, without going back to the wallet. It can pass on the same key, or derive a narrower one below it: an agent holding `agent-memory` can give a sub-agent just `agent-memory/notes`. Keys only derive downward, so the sub-agent can never reach back up to `agent-memory` or across to anything else.
 
-## Share one piece
+See [Sharing a scope](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#sharing-a-scope) in the Keysmith README.
 
-A piece Grant wraps that piece's key, and can carry the piece's CID so the recipient knows what to fetch:
+### Sharing an individual piece with another session or service
 
-```ts
-// appMetadata is the piece's envelope metadata, as it was encrypted.
-const pieceKey = Keysmith.keyForEnvelope(kk, appMetadata)
-const descriptor = Keysmith.grantDescriptor(ref, Keysmith.pieceNode(appMetadata))
-const grantBytes = Keysmith.encodeGrant({
-  ...(await Keysmith.wrapTo(theirPublicKey, pieceKey, descriptor)),
-  pieceCid, // where to fetch it
-})
-```
+To share one piece and nothing else, wrap that piece's own key to the recipient's public key. Only that recipient can open the Grant, and the key inside opens only that piece: Keysmith refuses any other. The Grant can also carry the piece's CID, so the recipient knows what to fetch. This is the more secure way to share one piece, because the Grant is useless to anyone who intercepts it.
 
-The recipient opens the Grant with `unwrapWith`, fetches `grant.pieceCid`, and decrypts with `fee.decrypt(Keysmith.keyResolver(node, grant))`. Keysmith refuses any other piece. See [Sharing a single piece](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#sharing-a-single-piece).
+See [Sharing a single piece](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#sharing-a-single-piece) in the Keysmith README.
 
-## Share links
+### Sharing an individual piece with anyone: Share links
 
-A Share link shares one piece with someone who has no key pair, such as a person opening a link in a browser. [Filecoin Pin](/core-concepts/filecoin-pin/) makes them for its encrypted uploads. A link is a piece Grant wrapped to a throwaway key pair made for that link, with the throwaway private key, the **Access key**, sent with it:
+When the recipient has no key pair, such as a person opening a link in a browser, use a **Share link**. It's a piece Grant wrapped to a throwaway key pair made just for that link, with the throwaway private key, the **Access key**, handed over too. Whoever holds the link and the Access key can read the piece: it works like a bearer token.
 
 - **Open link (default):** the link carries the Access key, so the link alone opens the piece, like "anyone with the link".
 - **Restricted link:** the Access key is sent separately, by another channel, so the link alone opens nothing.
 
-```text
-<viewer>#v1/<encryptedRootCid>&d=<grant>[&k=fak1_<accessKey>]
-```
+Everything sits in the URL fragment, so no server sees it. The link opens in the Filecoin encryption viewer, which fetches the piece over IPFS and decrypts it in the browser.
 
-Everything is in the URL fragment, so no server sees it. The link opens in the Filecoin encryption viewer, which fetches the piece over IPFS and decrypts it in the browser.
+Share links are built from the same piece Grant as above: see [Sharing a single piece](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#sharing-a-single-piece) in the Keysmith README.
 
-From the command line:
+### Share links from the command line
+
+[Filecoin Pin](/core-concepts/filecoin-pin/) makes Share links for its encrypted uploads:
 
 ```bash
 filecoin-pin get-share-link <encrypted-root-cid>               # open link
@@ -83,5 +87,7 @@ See [Share Links](https://github.com/filecoin-project/filecoin-pin#share-links) 
 ## Things to know
 
 - **Grants can't be revoked.** A key, once shared, opens what it covers for good, including future pieces under a shared scope or keyspace. To stop sharing, write new data under a new keyspace. For one piece, remove it and upload it again, which encrypts it with a new key.
-- **Grants don't expire.** Time-limited access comes from controlling who may fetch, not from the key: see [Access Control](/developer-guides/private-data/access-control/).
-- **Check who a Grant is from.** A Grant names its owner and keyspace. If your app accepts Grants from others, check those before trusting what it opens.
+- **Grants don't expire.** Time-limited access will come from controlling who may fetch, not from the key: see [Access Control](/developer-guides/private-data/access-control/).
+- **Check who a Grant is from.** Anyone can send anyone a Grant. If your app accepts Grants, check the owner and keyspace it names before writing data with it.
+
+See [Be aware](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith#be-aware) in the Keysmith README for the full list.
