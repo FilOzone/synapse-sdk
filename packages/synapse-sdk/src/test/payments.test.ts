@@ -716,6 +716,8 @@ describe('PaymentsService', () => {
     })
 
     it('should throw when already approved and amount === 0', async () => {
+      // fund() reads the price list first: without a mock that read goes to the live RPC
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       try {
         await payments.fund({
           amount: 0n,
