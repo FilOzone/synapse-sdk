@@ -1,0 +1,208 @@
+---
+title: Share encrypted data
+description: Give session keys, agents and other people access to encrypted files, from a whole keyspace down to one piece.
+sidebar:
+  order: 2
+---
+
+Share encrypted data by giving the recipient a key, not by re-encrypting the data. Keysmith wraps the key with a **grant** that only the recipient's private key can open. Nothing is written on chain or passes through servers: your application delivers and stores it. [A tree of keys](/developer-guides/encryption/keysmith-encryption-keys/#a-tree-of-keys) explains how the keys relate.
+
+| Key shared | What the recipient can decrypt |
+| --- | --- |
+| Keyspace key | Every piece in the keyspace. |
+| Scope key | Pieces in that scope and its descendants, including future pieces. |
+| Piece key | One piece, effectively read-only. |
+| Share link | One piece. |
+
+:::note[]
+The examples follow on from [Encrypt a file](/developer-guides/encryption/encrypt-a-file/): `keyspaceKey` and `ref` come from `keyspaceKeys()`, and `through()` is the stream helper defined there.
+:::
+
+## Share a keyspace or scope with a session key
+
+A [session key](/developer-guides/session-keys/) cannot sign as the owner, so it cannot derive encryption keys itself. Instead, the owner wraps a key to the session key's public key. Share a scope rather than the whole keyspace when the session needs only one branch of your data.
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import { generatePrivateKey } from 'viem/accounts'
+
+declare const keyspaceKey: Uint8Array
+declare const ref: Keysmith.KeyspaceRef
+const sessionPrivateKey = generatePrivateKey()
+// ---cut---
+// The session key publishes its key-agreement public key.
+const sessionPublicKey = Keysmith.publicKeyOf(sessionPrivateKey)
+
+// Share the whole keyspace...
+const keyspaceGrant = await Keysmith.wrapTo(sessionPublicKey, keyspaceKey, Keysmith.grantDescriptor(ref, 'keyspace'))
+
+// ...or one scope and the scopes beneath it.
+const scopeGrant = await Keysmith.wrapTo(
+  sessionPublicKey,
+  Keysmith.scopeKey(keyspaceKey, 'agent-memory'),
+  Keysmith.grantDescriptor(ref, 'scope:agent-memory'),
+)
+
+// Bytes to send or store. Use Base64 or similar over a text channel.
+const bytes = Keysmith.encodeGrant(scopeGrant)
+```
+
+The grant covers encryption only. To store the encrypted data the session key also needs the `CreateDataSet` and `AddPieces` [permissions](/developer-guides/session-keys/#permissions). Always keep the two in step: the Filecoin Pay Console does this for you on `filecoin-pin login`, but if you do your own session key management or use the owner key directly, you'll need to take care of this yourself.
+
+## Encrypt and decrypt with a received grant
+
+The recipient opens the grant with its private key. [`writeTarget()`](/reference/filoz/keysmith/functions/writetarget/) then picks the key for a new piece: it takes the keyspace from the grant and refuses a scope the grant does not cover.
+
+Anyone can send anyone a grant, so check that it names the owner and keyspace you expect before writing with it.
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import * as fee from 'filecoin-encryption-envelope'
+import type { Hex } from 'viem'
+
+declare const sessionPrivateKey: Hex
+declare const bytes: Uint8Array
+declare const expected: Keysmith.KeyspaceRef
+declare const original: Uint8Array
+declare const downloaded: Uint8Array
+declare function through(bytes: Uint8Array, transform: ReadableWritablePair<Uint8Array, Uint8Array>): Promise<Uint8Array>
+// ---cut---
+const grant = Keysmith.decodeGrant(bytes)
+if (grant.owner !== expected.owner.toLowerCase() || grant.keyspace !== expected.keyspace) {
+  throw new Error('This grant is for another keyspace')
+}
+const key = await Keysmith.unwrapWith(sessionPrivateKey, grant)
+
+// Encrypt a new piece in the agent-memory scope.
+const target = Keysmith.writeTarget(grant, key, 'agent-memory')
+const salt = Keysmith.newSalt()
+const encrypted = await through(original, fee.encrypt({
+  cek: Keysmith.pieceKey(target.key, salt),
+  appMetadata: Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope }),
+  contentLength: original.byteLength,
+}))
+
+// Decrypt any piece the grant covers.
+const restored = await through(downloaded, fee.decrypt(Keysmith.keyResolver(key, grant)))
+```
+
+## Pass a narrower scope on
+
+A recipient holding a scope can share a scope beneath it, for example with a sub-agent, without involving the owner's wallet. Keys derive only downward, so the sub-agent cannot reach data outside of the narrow area allowed.
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import type { Hex } from 'viem'
+
+declare const grant: Keysmith.Grant
+declare const key: Uint8Array
+declare const subAgentPublicKey: Hex
+// ---cut---
+const notes = Keysmith.writeTarget(grant, key, 'agent-memory/notes')
+const subGrant = await Keysmith.wrapTo(
+  subAgentPublicKey,
+  notes.key,
+  Keysmith.grantDescriptor(notes.ref, 'scope:agent-memory/notes'),
+)
+```
+
+## Share one piece
+
+There are 2 supported ways to share a single piece:
+
+* **Using a piece grant**: securely wraps the piece decryption key to a known recipient (eg another agent running under a different session in your account), the same as any other Keysmith key operation.
+* **Using Share links**: creates a bearer credential with all necessary key material inside. Less secure, but enables sharing with anyone, even if they have no wallet, special tools, or indeed any relationship with Filecoin at all.
+
+### Grant a single piece
+
+To share one piece and nothing else, wrap that piece's key. The grant names the piece by its salt; add its PieceCID so the recipient knows what to fetch. This key is effectively decrypt-only because a new upload (eg 'editing a file') would change the contents and salt, so a new piece key would be derived up upload.
+
+Anyone holding a key in the hierarchy above the piece can share it. Read the piece's envelope metadata with [`parse()`](/reference/filecoin-encryption-envelope/functions/parse/):
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import type { PieceCID } from '@filoz/synapse-sdk'
+import * as fee from 'filecoin-encryption-envelope'
+import type { Hex } from 'viem'
+
+declare const keyspaceKey: Uint8Array
+declare const ref: Keysmith.KeyspaceRef
+declare const encrypted: Uint8Array
+declare const pieceCid: PieceCID
+declare const recipientPublicKey: Hex
+// ---cut---
+const { appMetadata } = await fee.parse(encrypted)
+const metadata = appMetadata as Keysmith.PieceMetadata
+const grant = await Keysmith.wrapTo(
+  recipientPublicKey,
+  Keysmith.keyForEnvelope(keyspaceKey, metadata),
+  Keysmith.grantDescriptor(ref, Keysmith.pieceNode(metadata)),
+)
+// The PieceCID is informational: it is not part of what the grant authenticates.
+const bytes = Keysmith.encodeGrant({ ...grant, pieceCid: pieceCid.toString() })
+```
+
+The recipient fetches the piece and decrypts it:
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import { Synapse } from '@filoz/synapse-sdk'
+import * as fee from 'filecoin-encryption-envelope'
+import type { Hex } from 'viem'
+
+declare const synapse: Synapse
+declare const recipientPrivateKey: Hex
+declare const bytes: Uint8Array
+declare function through(bytes: Uint8Array, transform: ReadableWritablePair<Uint8Array, Uint8Array>): Promise<Uint8Array>
+// ---cut---
+const grant = Keysmith.decodeGrant(bytes)
+const key = await Keysmith.unwrapWith(recipientPrivateKey, grant)
+const downloaded = await synapse.storage.download({ pieceCid: String(grant.pieceCid) })
+const restored = await through(downloaded, fee.decrypt(Keysmith.keyResolver(key, grant)))
+```
+
+### Share link a single piece
+
+A **share link** shares one piece with someone who has no key pair, such as a person opening a link in a browser. It is a piece grant wrapped to a throwaway key pair made for that link. The throwaway private key, the **access key**, is handed over too, so whoever holds both can read the piece, like a bearer token.
+
+* **Open link:** the link carries the access key, so the link alone opens the piece, like "anyone with the link".
+* **Restricted link:** the access key is sent separately, by another channel, so the link alone opens nothing.
+
+The key material sits in the URL fragment, which browsers do not send to any server. The link opens in a viewer that fetches the piece and decrypts it in the browser.
+
+[Filecoin Pin](/core-concepts/filecoin-pin/) creates share links from the command line.
+
+## From the command line
+
+:::note[]
+At the current time the packaged `filecoin-pin` utility and Filecoin Pay login console only support sharing the entire Keyspace, meaning that all delegated sessions have access to all data in a user's dataset. However the Keysmith API supports finer-grained sharing of just a subset of data uploads for fine-grained encryption control.
+:::
+
+Filecoin Pin encrypts, shares and decrypts without any code:
+
+```sh
+# Log in with a session key that can encrypt. The console sends it a grant.
+filecoin-pin login --scopes createDataSet,addPieces,encrypt
+
+# Encrypt and upload, then share one upload.
+filecoin-pin add ./report.pdf --encrypt
+filecoin-pin get-share-link <encrypted-root-cid>               # open link
+filecoin-pin get-share-link <encrypted-root-cid> --restricted  # link and a separate access key
+
+# The recipient downloads and decrypts.
+filecoin-pin get ./out --share '<link>'
+```
+
+Filecoin Pin and its login console share the whole keyspace with a session key. For a single scope, use Keysmith directly as above.
+
+See [Encrypted Uploads](https://github.com/filecoin-project/filecoin-pin#encrypted-uploads) and [Share Links](https://github.com/filecoin-project/filecoin-pin#share-links) in the Filecoin Pin README.
+
+## Limits
+
+* **Grants cannot be revoked or expire.** A shared key keeps opening what it covers, including future pieces under a shared scope.
+* **Check who a Grant is from.** Ensure that the sender's key commitment matches the sender you expected. If your app accepts Grants from someone else they could send you a key from the wrong keyspace, and make your data unrecoverable. The Keysmith API (and `filecoin-pin` utility) provide simple functionality to do this and keep you safe.

@@ -2,7 +2,7 @@
 title: Encrypt a file
 description: Encrypt private files before storing them on Filecoin, then retrieve and decrypt them.
 sidebar:
-  order: 0
+  order: 1
 ---
 
 Store private files on Filecoin while keeping control of who can read them. Client-side encryption lets storage providers hold and serve your data without access to its contents.
@@ -189,4 +189,4 @@ Each run creates a new keyspace and new data sets. In an application, read and r
 - **Only some copies succeed:** those copies are already stored and billed. Inspect the [upload result](/developer-guides/storage/upload-pipeline/#when-upload-returns) before retrying.
 - **Decryption fails:** check that the key and envelope belong to the same keyspace. Modified or truncated encrypted data also fails authentication; do not use partial output.
 
-For recovery, sharing, and storage permissions, see [Keys and sharing](/developer-guides/encryption/keys-and-sharing/).
+For recovery, sharing, and storage permissions, see [Keys and sharing](/developer-guides/encryption/keysmith-encryption-keys/).

@@ -1,0 +1,158 @@
+---
+title: Keysmith encryption keys
+description: Manage encryption keys, recover access, and share encrypted files stored on Filecoin.
+sidebar:
+  order: 0
+---
+
+:::note[Jump straight in]
+This page covers the details of how keys are managed and used. If you want to jump straight into it, start with [Encrypt a file](/developer-guides/encryption/encrypt-a-file/) for the complete storage example.
+:::
+
+## Keysmith and FEE
+
+The [Keysmith package](/reference/filoz/keysmith/toc/) takes the hard work out of encryption key management for files stored on FoC. No matter where you access your data from, or how far in the future, or if you forget all your application passwords...only your wallet is required to recover everything.
+
+Three packages share the work:
+
+| Package | Role |
+| --- | --- |
+| [`filecoin-encryption-envelope`](https://github.com/FilOzone/synapse-sdk/tree/master/packages/filecoin-encryption-envelope) (FEE) | The encrypted format: an envelope header, then the ciphertext. Supports streams and range reads |
+| [`@filoz/keysmith`](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith) | The keys: derives every encryption key from one wallet signature, and enables fine-grained sharing |
+| [`@filoz/synapse-sdk`](/developer-guides/synapse/) | Storage: uploads the encrypted bytes, unchanged |
+
+Simply:
+
+```text
+your app ──▶ Keysmith ──key──▶ FEE ──encrypted bytes──▶ Synapse SDK ──▶ storage providers
+```
+
+## A tree of keys
+
+Keysmith derives encryption keys for data as a tree, starting with the wallet (which can always see everything) and then allowing application-defined tightening of access to smaller groups until you reach the individual piece key.
+
+```mermaid
+graph TD
+    W(["Owner's wallet signature"]) --> KK["Keyspace key"]
+    KK --> S1["Scope: app-data"]
+    KK --> S2["Scope: photos"]
+    KK -. salt .-> P0("Piece key")
+    S1 --> S3["Scope: app-data/notes"]
+    S1 -. salt .-> P1("Piece key")
+    S2 -. salt .-> P2("Piece key")
+    S3 -. salt .-> P3("Piece key")
+```
+
+The concepts that enable this are:
+
+* The **keyspace** is an application-chosen identifier for a tree of encryption keys. Keysmith derives its root key from the owner's wallet signature. Every key in the keyspace is derived from this, enabling full recovery from just another wallet operation. The application can choose to have one or many keyspaces depending on the need for hard cryptographic separation.
+* **Encryption scopes** group pieces within a keyspace, enabling fine-grained separation of key access. Scopes can contain other scopes: a holder of `app-data` can derive keys for `app-data/notes`, but a holder of `app-data/notes` cannot derive keys for its parent or sibling scopes.
+* Each **piece** gets its own key, derived from its keyspace (and optional scope) and a random salt. The salt is saved in the FEE metadata so that the piece can always be recovered by a suitably authorized client.
+
+For deeper details, refer to the [Keysmith README](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith).
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const account = privateKeyToAccount('0x...')
+// ---cut---
+// The owner's wallet signs to derive the keyspace's root key.
+const ref = { owner: account.address, keyspace: Keysmith.newKeyspace() }
+const { kk: keyspaceKey } = await Keysmith.keyspaceKeys(account, ref)
+
+// Scope keys derive from the keyspace key, and nested scopes from their parents.
+const appData = Keysmith.scopeKey(keyspaceKey, 'app-data')
+const notes = Keysmith.scopeKey(appData, 'notes') 
+
+// Or, a holder of the keyspaceKey can derive nested scopes in one shot
+// const notes = Keysmith.scopeKey(keyspaceKey, 'app-data/notes')
+
+// Each piece gets its own key, from a fresh salt.
+const salt = Keysmith.newSalt()
+const key = Keysmith.pieceKey(notes, salt)
+```
+
+## Recovery metadata
+
+Nothing is required from the chain or any secrets store to recover keys and data: the application only needs the keyspace metadata when *writing* data, and the piece's FEE metadata when *reading*.
+
+| Location | What it records | Purpose |
+| --- | --- | --- |
+| Each piece's envelope | Owner, keyspace, scope, and salt | Identify the key needed to decrypt that piece. |
+| Data set metadata | Keyspace and commitment | Identify the derivation tree that the piece's key lives in. |
+
+Synapse SDK does not derive or add these automatically so the application needs to do this. Generate the FEE metadata entries with [`pieceMetadata()`](/reference/filoz/keysmith/functions/piecemetadata/), and pass the data set entries explicitly through the SDK's `metadata` option.
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import { Synapse } from '@filoz/synapse-sdk'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const account = privateKeyToAccount('0x...')
+const synapse = Synapse.create({ account, source: 'my-app' })
+const ref = { owner: account.address, keyspace: Keysmith.newKeyspace() }
+declare const encrypted: Uint8Array
+// ---cut---
+const { kk: keyspaceKey, commitment, descriptor } = await Keysmith.keyspaceKeys(account, ref)
+
+// Envelope entries: pass these to FEE as appMetadata when encrypting the piece.
+const target = Keysmith.writeTarget(descriptor, keyspaceKey, 'app-data/notes')
+const salt = Keysmith.newSalt()
+const appMetadata = Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope })
+
+// Data set entries: pass these to the SDK when uploading.
+const metadata = {
+  [Keysmith.KEYSPACE_ID_KEY]: ref.keyspace,
+  [Keysmith.COMMITMENT_KEY]: commitment,
+}
+await synapse.storage.upload(encrypted, { metadata })
+```
+
+The FEE envelope lives with the encrypted piece and identifies all that is needed to decrypt it. Scope names, owner addresses, and salts are all stored in clear and visible to anyone. *Do not put secrets in these fields*.
+
+## Recover keys
+
+:::warning[Avoid over-exposure of the wallet]
+By rooting the derivation tree in the owner wallet, data protected by Keysmith are extremely resilient and recoverable. However this does mean that abuse of the wallet key could lead to compromise of the secrets.
+
+As with any crypto wallet operation, only approve key-derivation requests in applications you trust, and always read the sign message carefully.
+:::
+
+To recover a key for a piece you have found, read the keyspace from the piece's envelope and check that its owner matches the account you expect, then call [`keyspaceKeys()`](/reference/filoz/keysmith/functions/keyspacekeys/) with that keyspace and owner.
+
+The data set metadata is optional. If you've lost it, or it records a different keyspace, recovery still works without the commitment: Keysmith asks the wallet to sign twice instead of once.
+
+Pass the recovered key to [`keyResolver()`](/reference/filoz/keysmith/functions/keyresolver/) when decrypting. Keysmith derives the piece key entirely from that piece's metadata, so everything you need to recover the data is self-contained.
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import * as fee from 'filecoin-encryption-envelope'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const account = privateKeyToAccount('0x...') // Or use your wallet
+declare const downloaded: Uint8Array
+declare const dataSetMetadata: Record<string, string> | undefined // Optional, if you still have it
+
+// ---cut---
+// The envelope names the keyspace and its owner.
+const { appMetadata } = await fee.parse(downloaded)
+const envelope = appMetadata as Keysmith.PieceMetadata
+if (envelope['foc/own'] !== account.address.toLowerCase()) {
+  throw new Error('This piece belongs to another owner')
+}
+const ref = { owner: account.address, keyspace: envelope['foc/ks'] }
+
+// Use the data set's commitment only if it records the same keyspace.
+// Without it, recovery still works: the wallet just needs to sign twice.
+const commitment = dataSetMetadata?.[Keysmith.KEYSPACE_ID_KEY] === ref.keyspace
+  ? dataSetMetadata[Keysmith.COMMITMENT_KEY]
+  : undefined
+const { kk: keyspaceKey } = await Keysmith.keyspaceKeys(account, ref, { commitment })
+
+// Now we have the key, pipe this piece, or any other in the keyspace, through this to decrypt it.
+const decryptor = fee.decrypt(Keysmith.keyResolver(keyspaceKey))
+```
