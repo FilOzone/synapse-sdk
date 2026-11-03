@@ -1377,10 +1377,13 @@ describe('createPieceBatcher', () => {
         },
       })
       const good = batcher.enqueue({ pieceCid: pieceCidA })
-      const bad = batcher.enqueue({ pieceCid: pieceCidB, metadata: { name: 'x'.repeat(97) } })
+      const bad = assert.rejects(
+        batcher.enqueue({ pieceCid: pieceCidB, metadata: { name: 'x'.repeat(97) } }),
+        /value exceeds the maximum length/
+      )
       await batcher.close()
       await good
-      await assert.rejects(bad, /value exceeds the maximum length/)
+      await bad
 
       assert.equal(submitted.length, 1)
       assert.deepEqual(submitted[0]?.pieces, [{ pieceCid: pieceCidA.toString() }])
@@ -1421,9 +1424,12 @@ describe('createPieceBatcher', () => {
           throw persistError
         },
       })
-      const pending = batcher.enqueue({ pieceCid: pieceCidA })
+      const rejected = assert.rejects(
+        batcher.enqueue({ pieceCid: pieceCidA }),
+        (error: unknown) => error === persistError
+      )
       assert.equal(await batcher.flush(), undefined)
-      await assert.rejects(pending, (error: unknown) => error === persistError)
+      await rejected
       assert.equal(posts, 1)
       await batcher.close()
     })
@@ -1475,9 +1481,9 @@ describe('createPieceBatcher', () => {
           throw new Error('crash')
         },
       })
-      const lost = crashing.enqueue({ pieceCid: pieceCidA })
+      const lost = assert.rejects(crashing.enqueue({ pieceCid: pieceCidA }), /crash/)
       await crashing.flush()
-      await assert.rejects(lost, /crash/)
+      await lost
       const batch: SubmittedBatch = JSON.parse(persisted)
       assert.equal(batch.kind, 'createDataSetAndAddPieces')
       assert.ok(!('dataSetId' in batch))
@@ -1527,11 +1533,12 @@ describe('createPieceBatcher', () => {
           }
         },
       })
-      const first = batcher.enqueue({ pieceCid: pieceCidA })
+      // The first window rejects while the second is still being added: handle it before closing.
+      const first = assert.rejects(batcher.enqueue({ pieceCid: pieceCidA }), /persist failed/)
       const second = batcher.enqueue({ pieceCid: pieceCidB })
       await batcher.close()
 
-      await assert.rejects(first, /persist failed/)
+      await first
       const added = await second
       assert.equal(creates, 1)
       assert.equal(addBodies.length, 1)
@@ -1552,14 +1559,14 @@ describe('createPieceBatcher', () => {
           throw new Error('persist failed')
         },
       })
-      const first = batcher.enqueue({ pieceCid: pieceCidA })
+      const first = assert.rejects(batcher.enqueue({ pieceCid: pieceCidA }), /persist failed/)
       await batcher.flush()
-      await assert.rejects(first, /persist failed/)
+      await first
       assert.equal(batcher.dataSet, undefined)
 
-      const second = batcher.enqueue({ pieceCid: pieceCidB })
+      const second = assert.rejects(batcher.enqueue({ pieceCid: pieceCidB }), /persist failed/)
       await batcher.close()
-      await assert.rejects(second, /persist failed/)
+      await second
       assert.equal(creates, 2)
     })
 
