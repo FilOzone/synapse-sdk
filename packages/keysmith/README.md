@@ -3,9 +3,9 @@
 Deterministic key derivation for robust, recoverable encryption of data on
 Filecoin Onchain Cloud.
 
-Private data on Filecoin uses the Filecoin Encryption Envelope (FEE), such 
-that the data stored as pieces with an SP consist of the plaintext envelope 
-followed by encrypted bytes. 
+Private data on Filecoin uses the Filecoin Encryption Envelope (FEE), such
+that the data stored as pieces with an SP consist of the plaintext envelope
+followed by encrypted bytes.
 
 Keysmith provides a mechanism for generating piece encryption keys in a
 derivation tree rooted from the dataset owner's wallet, enabling fine-grained
@@ -66,7 +66,7 @@ of data with others on a safe, ad-hoc basis.
 stored (except for convenience, eg caching of grants for agent sessions), and
 the wallet alone is sufficient to recover all the Piece encryption keys in a
 payer’s datsets (eg in the event that they lose their cached pieces or session
-key or something). 
+key or something).
 
 **Keys are shared by wrapping an encryption key** (any layer of the hierarchy)
 under the recipient’s public key (eg a Session Key Registry key) into a
@@ -114,13 +114,13 @@ signatures the signing must happen in a wallet or library tha supports RFC
 
 ## The key derivation tree
 
-Each keyspace has its own root key, `KK`. From it are derived **scope** keys 
+Each keyspace has its own root key, `KK`. From it are derived **scope** keys
 — access labels such as `agent-memory` or `super-secret` — and from either of
 those, keys for individual Pieces.
 
 A scope is a user/application-chosen access label (string) such as
 `agent-memory` or `super-secret`. Scopes are the intermediate nodes of the
-derivation tree, between the all powerful root and single Pieces and allow 
+derivation tree, between the all powerful root and single Pieces and allow
 elegation of portions of the entire keyspace to non-owner actors, processes,
 agents or whatever.
 
@@ -139,7 +139,7 @@ Examples:
 `top-secret/secret/official`. A holder of `top-secret/secret` can grant an agent
 access to `top-secret/secret/official` and they can happily operate in that
 `official` layer without being able to walk back up the tree.
-- Naive RBAC: `super-admin` contains `super-admin/admin`, which contains 
+- Naive RBAC: `super-admin` contains `super-admin/admin`, which contains
 `super-admin/admin/user`. A holder of `super-admin` can grant a session key access
 to `super-admin/admin` and they can happily manage `users`without being able to
 walk back up the tree.
@@ -165,9 +165,9 @@ however maintain key recovery metadata in two places:
 - **No key material lives on chain.** The keyspace id is public by design; the commitment is a one-way function of a key that is never published.
 - **Every piece names its owner.** `foc/own` lets a provider serve the piece only to a grant chain rooted at that owner. For verification only: not used in key derivation.
 - **All you need when you need it:**
-    - When **reading**, the envelope metadata is enough for the caller to know which of
+  - When **reading**, the envelope metadata is enough for the caller to know which of
     their derived/granted keys they need to decrypt.
-    - When **writing**, the dataset metadata is enough for the caller to derive the
+  - When **writing**, the dataset metadata is enough for the caller to derive the
     right encryption key for their new Piece.
 - **Scope names travel in the clear.** The reader needs them to derive, so an observer
 learns which pieces are `super-secret`, and with a tree, the shape of the hierarchy.
@@ -180,7 +180,7 @@ keyspace id goes on chain; no key does.
 ## Initializing a keyspace
 
 Starting a keyspace and rooting it in the wallet requires 2 wallet signatures
-(one to generate the key and the second to verify determinism). 
+(one to generate the key and the second to verify determinism).
 
 To initialize and write an initial piece to a new dataset:
 
@@ -252,7 +252,7 @@ grant = {                 ; a CBOR map
 The authenticated data is `[v, node, owner, keyspace]` as deterministic CBOR
 (RFC 8949 §4.2.1), with the owner and keyspace as bytes, so every implementation
 builds the same bytes. `decodeGrant` accepts only canonical CBOR: no indefinite
-lengths, duplicate keys, tags, trailing bytes or unknown numbered fields. 
+lengths, duplicate keys, tags, trailing bytes or unknown numbered fields.
 
 When sending a grant to a recipient over a text channel, use a safe
 deterministic encoding such as Base64.
@@ -288,9 +288,10 @@ const grant = await Keysmith.wrapTo(theirPublicKey, rk, Keysmith.grantDescriptor
 ```
 
 The recipient can then:
- * read everything in `agent-memory` scope: all past and future pieces.
- * write new pieces to the `agent-memory` scope
- * access, create and delegate sub-scopes (eg `agent-memory/conversations/1234`)
+
+- read everything in `agent-memory` scope: all past and future pieces.
+- write new pieces to the `agent-memory` scope
+- access, create and delegate sub-scopes (eg `agent-memory/conversations/1234`)
 
 ## Sharing a single piece
 
@@ -350,7 +351,7 @@ So a share is split in two, using the same node structure and scope names:
 
 The **root** is an EIP-712 `ReadGrant` signed by the owner's wallet.
 Each **later link** is signed by the previous bearer (eg session key) and
-can only keep or narrow the scope. 
+can only keep or narrow the scope.
 The end of the claim chain is a **request** signed by the final bearer to prove
 they are the legitimate holder of the grant.
 
@@ -387,12 +388,13 @@ const { key, claim, chain, grant } = await Keysmith.openDelivery(myPrivateKey, d
 ```
 
 `openDelivery` checks:
- * basic integrity of the claim chain (signatures, expiry, scope narrowing)
- * that it targets the correct key
- * that the unwrapped key matches the commitment in its own link, which the
+
+- basic integrity of the claim chain (signatures, expiry, scope narrowing)
+- that it targets the correct key
+- that the unwrapped key matches the commitment in its own link, which the
 link's issuer signed
- * the owner, for a root. 
- 
+- the owner, for a root.
+
 ℹ️ NOTE: It does not know which owner you expect, so the application must check
 `claim.owner` and `claim.keyspace` itself, based on either the piece being read,
 or the dataset being written to.
@@ -582,7 +584,7 @@ a new dataset's metadata too.
   whole estate. Day-to-day reads never sign, so a prompt is itself an anomaly.
 - **Determinism is checked on every call**, because the whole scheme rests on it. For a
   new keyspace `keyspaceKeys` signs the same message twice and refuses a signer that
-  disagrees with itself; for an existing one, it verifies the commitment in `foc/kc` and refuses a key that does not match. 
+  disagrees with itself; for an existing one, it verifies the commitment in `foc/kc` and refuses a key that does not match.
 - **Scopes form a tree, not a graph.** Each scope has exactly one parent, so a scope cannot
   inherit from two (`finance-lead` over both `finance` and `audit`), and each piece carries
   one scope. Both need keys wrapped per parent rather than derived — and somewhere to keep
@@ -612,5 +614,3 @@ a new dataset's metadata too.
   unwrap; browser wallets, hardware wallets and contract accounts cannot, because none of
   them expose a key to do ECDH with. They need a signature-derived encryption key, which
   is not in this package yet.
-
-

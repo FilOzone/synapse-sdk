@@ -1,0 +1,25 @@
+/* Ondine diagrams (see src/diagrams.mjs) take their colors from Starlight's theme */
+.ondine {
+  --ondine-bg: var(--sl-color-bg);
+  --ondine-fg: var(--sl-color-white);
+  --ondine-muted: var(--sl-color-gray-2);
+  --ondine-surface-alt: var(--sl-color-gray-6);
+  --ondine-accent: var(--sl-color-accent);
+  /* Ondine sizes labels for a monospace font */
+  --ondine-font: var(--__sl-font-mono);
+  --ondine-radius: 0.25rem;
+  --ondine-stroke: 1.5px;
+}
+
+.diagram {
+  margin-inline: 0;
+  overflow-x: auto;
+}
+
+.diagram > svg {
+  display: block;
+  margin-inline: auto;
+  /* Starlight caps every svg at 100%. Fitted diagrams set that inline themselves;
+     sequence diagrams keep their natural size and the figure scrolls instead */
+  max-width: none;
+}

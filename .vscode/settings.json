@@ -37,7 +37,5 @@
   "starlightLinks.configDirectories": ["./docs"],
   "knip.configFilePath": ".github/knip.jsonc",
   "js/ts.tsdk.path": "node_modules/typescript/lib",
-  "cSpell.words": [
-    "keyspace"
-  ]
+  "cSpell.words": ["keyspace"]
 }

@@ -1,121 +1,55 @@
-# Cloudflare Workers Git integration already previews same-repo branches outside this repo.
-# The manual PR preview path is for reviewed fork PRs and uploads a non-production Worker version.
+# Builds and checks the docs. Same-repo pull requests upload the built site,
+# which docs-preview.yml deploys as a Worker Preview. Releases (called from
+# release-please.yml) and manual runs from master deploy production.
 name: documentation
 on:
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: "Trusted PR number to deploy as a preview. Runs PR code with Cloudflare secrets; only use after review. Leave empty to deploy master to production."
-        required: false
-        default: ""
-        type: string
-      pr_sha:
-        description: "Required with pr_number. Full 40-character commit SHA that was reviewed and trusted."
-        required: false
-        default: ""
-        type: string
+  pull_request:
+    paths:
+      - docs/**
+      - packages/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - tsconfig.json
+      - .github/.markdownlint-cli2.jsonc
+      - .github/workflows/docs.yml
   workflow_call:
-    inputs:
-      pr_number:
-        required: false
-        default: ""
-        type: string
-      pr_sha:
-        required: false
-        default: ""
-        type: string
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: docs
-  cancel-in-progress: false
+  group: docs-${{ github.event.pull_request.number || 'production' }}
+  # Newer pushes replace PR runs; production deploys run one after another
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  publish:
+  docs:
+    name: Build docs
     runs-on: ubuntu-latest
-    if: github.ref_name == 'master'
     steps:
-      - name: Validate PR preview inputs
-        env:
-          PR_NUMBER: ${{ inputs.pr_number }}
-          PR_SHA: ${{ inputs.pr_sha }}
-        run: |
-          if [ -z "$PR_NUMBER" ] && [ -n "$PR_SHA" ]; then
-            echo "pr_sha requires pr_number"
-            exit 1
-          fi
-
-          if [ -n "$PR_NUMBER" ]; then
-            case "$PR_NUMBER" in
-              *[!0-9]*)
-                echo "pr_number must be numeric"
-                exit 1
-                ;;
-            esac
-
-            if ! [[ "$PR_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
-              echo "pr_sha must be a full 40-character hex commit SHA"
-              exit 1
-            fi
-          fi
-      - name: Checkout Repository
-        if: inputs.pr_number == ''
-        uses: actions/checkout@v7
-      - name: Checkout trusted PR
-        if: inputs.pr_number != ''
-        uses: actions/checkout@v7
-        with:
-          ref: refs/pull/${{ inputs.pr_number }}/head
-      - name: Verify trusted PR SHA
-        if: inputs.pr_number != ''
-        env:
-          PR_SHA: ${{ inputs.pr_sha }}
-        run: |
-          checked_out_sha="$(git rev-parse HEAD)"
-          if [ "$checked_out_sha" != "$PR_SHA" ]; then
-            echo "Checked out ${checked_out_sha}, expected ${PR_SHA}. Review the new PR head and rerun."
-            exit 1
-          fi
+      - uses: actions/checkout@v7
       - uses: pnpm/setup@v3
         with:
           require-lockfile: true
       - run: pnpm run check:markdown
       - run: pnpm run build
       - run: pnpm -r --filter docs run build
-      - name: Restore trusted Wrangler config
-        if: inputs.pr_number != ''
-        run: |
-          git fetch origin master --depth=1
-          git checkout FETCH_HEAD -- docs/wrangler.json
+        env:
+          CHECK_LINKS: 1
+      # Same-repo PRs hand the built site to docs-preview.yml, which deploys it
+      # without running any PR code. Fork and Dependabot PRs get no preview.
+      - name: Upload site for preview
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-dist
+          path: docs/dist
+          retention-days: 1
       - name: Deploy production docs
-        if: inputs.pr_number == ''
+        if: github.event_name != 'pull_request' && github.ref_name == 'master'
         run: pnpm --dir docs exec wrangler deploy --env production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - name: Deploy preview docs
-        if: inputs.pr_number != ''
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-          PR_SHA: ${{ inputs.pr_sha }}
-        run: |
-          set -o pipefail
-          deploy_status=0
-          pnpm --dir docs exec wrangler versions upload --preview-alias "pr-${PR_NUMBER}" --tag "pr-${PR_NUMBER}" --message "Trusted preview for PR #${PR_NUMBER} at ${PR_SHA}" | tee wrangler-output.txt || deploy_status=$?
-          {
-            echo "### Docs preview"
-            echo
-            echo "Trusted PR: #${PR_NUMBER}"
-            echo "Trusted SHA: ${PR_SHA}"
-            echo
-            echo "Wrangler exit status: ${deploy_status}"
-            echo
-            echo '```'
-            cat wrangler-output.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          exit "$deploy_status"
       - name: Upload Wrangler logs
         if: failure()
         uses: actions/upload-artifact@v7

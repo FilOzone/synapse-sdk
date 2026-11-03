@@ -12,10 +12,19 @@
   "wireit": {
     "build": {
       "command": "astro build",
+      "env": {
+        "CHECK_LINKS": {
+          "external": true
+        }
+      },
       "files": [
-        "src/**/*.ts",
+        "src/**",
+        "public/**",
         "tsconfig.json",
         "astro.config.mjs"
+      ],
+      "packageLocks": [
+        "pnpm-lock.yaml"
       ],
       "output": [
         "dist/**"
@@ -47,26 +56,23 @@
     "@filoz/synapse-sdk": "workspace:*",
     "@tanstack/react-query": "5.102.8",
     "starlight-auto-sidebar": "0.4.0",
-    "starlight-changelogs": "0.6.0",
     "starlight-links-validator": "0.25.3",
     "viem": "catalog:",
     "wagmi": "catalog:"
   },
   "devDependencies": {
-    "@astrojs/markdown-remark": "7.2.4",
+    "@astrojs/markdown-satteri": "0.3.7",
     "@astrojs/starlight": "0.41.7",
     "@hugomrdias/docs": "0.2.0",
+    "@shikijs/twoslash": "4.4.3",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "astro": "7.2.4",
-    "astro-mermaid": "2.1.0",
-    "expressive-code-twoslash": "0.6.1",
-    "mermaid": "11.17.0",
-    "rehype-external-links": "3.0.0",
+    "ondine": "0.0.3",
     "sharp": "0.35.3",
     "typedoc": "0.28.20",
     "typedoc-plugin-mdn-links": "5.1.1",
     "typedoc-plugin-missing-exports": "4.1.4",
-    "wrangler": "4.125.0"
+    "wrangler": "4.152.0"
   }
 }
