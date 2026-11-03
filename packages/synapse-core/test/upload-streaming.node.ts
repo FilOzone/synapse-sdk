@@ -37,7 +37,7 @@ async function withServer(putStatus: number, fn: (serviceURL: string) => Promise
 describe('uploadPieceStreaming over HTTP', () => {
   it('does not buffer the streamed body', async function () {
     this.timeout(60_000)
-    const total = 1024 * MiB
+    const total = 512 * MiB
     let sent = 0
     const baseline = process.memoryUsage().arrayBuffers
     let peak = 0
@@ -54,7 +54,7 @@ describe('uploadPieceStreaming over HTTP', () => {
       const result = await uploadPieceStreaming({ serviceURL, data, pieceCid })
       assert.strictEqual(result.size, total)
     })
-    assert.isBelow(peak, 256 * MiB, `arrayBuffers grew by ${Math.round(peak / MiB)} MiB`)
+    assert.isBelow(peak, 128 * MiB, `arrayBuffers grew by ${Math.round(peak / MiB)} MiB`)
   })
 
   for (const status of [307, 308]) {
