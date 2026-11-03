@@ -56,7 +56,7 @@
     "@filoz/synapse-sdk": "workspace:*",
     "@tanstack/react-query": "5.102.8",
     "starlight-auto-sidebar": "0.4.0",
-    "starlight-links-validator": "0.25.3",
+    "starlight-links-validator": "0.27.0",
     "viem": "catalog:",
     "wagmi": "catalog:"
   },
