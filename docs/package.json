@@ -64,7 +64,7 @@
     "@astrojs/markdown-satteri": "0.3.7",
     "@astrojs/starlight": "0.41.7",
     "@hugomrdias/docs": "0.2.0",
-    "@shikijs/twoslash": "4.4.3",
+    "@shikijs/twoslash": "4.5.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "astro": "7.2.4",
