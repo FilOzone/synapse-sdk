@@ -69,11 +69,13 @@ jobs:
             exit 1
           fi
           wrangler_version="$(jq -r .devDependencies.wrangler package.json)"
-          pnpm --silent dlx "wrangler@$wrangler_version" preview --name "pr-$PR_NUMBER" --json > "$RUNNER_TEMP/preview.json"
-          url="$(jq -r '.preview.urls[0] // empty' "$RUNNER_TEMP/preview.json")"
+          pnpm --silent dlx "wrangler@$wrangler_version" preview --name "pr-$PR_NUMBER" --json > "$RUNNER_TEMP/preview.out"
+          # Wrangler prints upload progress to stdout even with --json; the
+          # JSON result comes last and starts with a line that is just "{"
+          url="$(sed -n '/^{$/,$p' "$RUNNER_TEMP/preview.out" | jq -r '.preview.urls[0] // empty' || true)"
           if [ -z "$url" ]; then
             echo "No Preview URL in the Wrangler output"
-            cat "$RUNNER_TEMP/preview.json"
+            cat "$RUNNER_TEMP/preview.out"
             exit 1
           fi
 
