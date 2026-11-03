@@ -716,6 +716,8 @@ describe('PaymentsService', () => {
     })
 
     it('should throw when already approved and amount === 0', async () => {
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
+
       try {
         await payments.fund({
           amount: 0n,
@@ -723,7 +725,7 @@ describe('PaymentsService', () => {
         })
         assert.fail('expected fund to throw')
       } catch (error) {
-        assert.include((error as Error).message, 'fund')
+        assert.include((error as Error).message, 'Nothing to fund')
       }
     })
 
