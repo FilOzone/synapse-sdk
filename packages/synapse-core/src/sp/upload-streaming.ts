@@ -154,7 +154,7 @@ export async function uploadPieceStreaming(
   // full TransformStream chain so CommP calculation and progress tracking
   // both execute regardless of path.
   let fetchBody: ReadableStream | Blob
-  let fetchOptions: Record<string, string> = {}
+  let fetchOptions: { duplex?: 'half'; redirect?: RequestRedirect } = {}
   // PUT /pdp/piece/uploads/{uuid}
   const headers: Record<string, string> = {
     'Content-Type': 'application/octet-stream',
@@ -162,7 +162,8 @@ export async function uploadPieceStreaming(
 
   if (supportsStreamingFetchBody()) {
     fetchBody = bodyStream
-    fetchOptions = { duplex: 'half' }
+    // 'follow' buffers the whole streamed body for a possible replay
+    fetchOptions = { duplex: 'half', redirect: 'error' }
     // Length on a ReadableStream body is conveyed via chunked encoding.
   } else {
     const chunks: Uint8Array[] = []
@@ -183,7 +184,6 @@ export async function uploadPieceStreaming(
     body: fetchBody,
     headers,
     timeout: false, // No timeout for streaming upload
-    redirect: 'error', // 'follow' buffers the whole body for a possible replay
     signal: options.signal,
     ...fetchOptions,
   })
@@ -193,6 +193,8 @@ export async function uploadPieceStreaming(
       throw new UploadPieceError(`Failed to upload piece: ${await uploadResponse.error.response.text()}`)
     }
     // undici reports redirect: 'error' as a network error caused by 'unexpected redirect'
+    // (pinned by the redirect tests in upload-streaming.node.ts). Browsers raise a generic
+    // TypeError instead, so they get the plain NetworkError.
     if (
       NetworkError.is(uploadResponse.error) &&
       (uploadResponse.error.cause as Error)?.message === 'unexpected redirect'
