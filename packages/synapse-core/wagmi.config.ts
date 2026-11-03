@@ -7,7 +7,7 @@ import { ZodValidationError } from './src/errors/base.ts'
 import { zAddress } from './src/utils/schemas.ts'
 
 // GIT_REF can be one of: '<branch name>', '<commit>' or 'tags/<tag>'
-const FILECOIN_SERVICES_GIT_REF = 'd53b16b4cd258c11f5c18ea1432958511426bdc1' // v1.4.0 deployments
+const FILECOIN_SERVICES_GIT_REF = '649e23f3329abf6a24d01c30359958ee7d0e0948' // v1.5.0
 const FILECOIN_SERVICES_REF = FILECOIN_SERVICES_GIT_REF.replace(/^(?![a-f0-9]{40}$)/, 'refs/')
 const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${FILECOIN_SERVICES_REF}/service_contracts/abi`
 const DEPLOYMENTS_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${FILECOIN_SERVICES_REF}/service_contracts/deployments.json`
