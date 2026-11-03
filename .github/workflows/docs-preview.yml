@@ -42,6 +42,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           sparse-checkout: docs
+      # pnpm, and Node from devEngines.runtime (the runner's default Node is too old)
+      - uses: pnpm/setup@v3
+        with:
+          install: false
       - uses: actions/download-artifact@v8
         with:
           name: docs-dist
@@ -65,7 +69,7 @@ jobs:
             exit 1
           fi
           wrangler_version="$(jq -r .devDependencies.wrangler package.json)"
-          npx --yes "wrangler@$wrangler_version" preview --name "pr-$PR_NUMBER" --json > "$RUNNER_TEMP/preview.json"
+          pnpm --silent dlx "wrangler@$wrangler_version" preview --name "pr-$PR_NUMBER" --json > "$RUNNER_TEMP/preview.json"
           url="$(jq -r '.preview.urls[0] // empty' "$RUNNER_TEMP/preview.json")"
           if [ -z "$url" ]; then
             echo "No Preview URL in the Wrangler output"
@@ -103,6 +107,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           sparse-checkout: docs
+      - uses: pnpm/setup@v3
+        with:
+          install: false
       - name: Delete preview
         working-directory: docs
         # A PR closed before any preview was built has nothing to delete
@@ -113,4 +120,4 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           wrangler_version="$(jq -r .devDependencies.wrangler package.json)"
-          npx --yes "wrangler@$wrangler_version" preview delete --name "pr-$PR_NUMBER" --skip-confirmation
+          pnpm dlx "wrangler@$wrangler_version" preview delete --name "pr-$PR_NUMBER" --skip-confirmation
