@@ -2,7 +2,7 @@
 title: Encrypt a file
 description: Encrypt private files before storing them on Filecoin, then retrieve and decrypt them.
 sidebar:
-  order: 0
+  order: 1
 ---
 
 Store private files on Filecoin while keeping control of who can read them. Client-side encryption lets storage providers hold and serve your data without access to its contents.
@@ -19,7 +19,7 @@ Encrypted bytes may be publicly retrievable; reading their contents requires the
 
 ## Before you start
 
-This example uses **Node.js 24** and a dedicated owner account on **Calibration**. You'll need test FIL for transaction fees and test USDFC for storage; the [SDK setup guide](/getting-started/#prerequisites) links to both faucets. An upload session key cannot derive the owner's encryption keys.
+This example uses **Node.js 24** and a dedicated owner account on **Calibration**. You'll need test FIL for transaction fees and test USDFC for storage; the [SDK setup guide](/getting-started/#prerequisites) links to both faucets. An upload session key [cannot derive the owner's encryption keys](/developer-guides/encryption/share-encrypted-data/#share-a-keyspace-or-scope-with-a-session-key).
 
 Add `@filoz/keysmith` and `filecoin-encryption-envelope` alongside your existing SDK dependencies. The setup below includes the tested versions and a required security override.
 
@@ -189,4 +189,4 @@ Each run creates a new keyspace and new data sets. In an application, read and r
 - **Only some copies succeed:** those copies are already stored and billed. Inspect the [upload result](/developer-guides/storage/upload-pipeline/#when-upload-returns) before retrying.
 - **Decryption fails:** check that the key and envelope belong to the same keyspace. Modified or truncated encrypted data also fails authentication; do not use partial output.
 
-For recovery, sharing, and storage permissions, see [Keys and sharing](/developer-guides/encryption/keys-and-sharing/).
+For recovery, sharing, and storage permissions, see [Keys and sharing](/developer-guides/encryption/keysmith-encryption-keys/).
