@@ -118,7 +118,7 @@ There are 2 supported ways to share a single piece:
 
 ### Grant a single piece
 
-To share one piece and nothing else, wrap that piece's key. The grant names the piece by its salt; add its PieceCID so the recipient knows what to fetch. This key is effectively decrypt-only because a new upload (eg 'editing a file') would change the contents and salt, so a new piece key would be derived up upload.
+To share one piece and nothing else, wrap that piece's key. The grant names the piece by its salt; add its PieceCID so the recipient knows what to fetch. This key is effectively decrypt-only because a new upload (eg 'editing a file') would change the contents and salt, so a new piece key would be derived on upload.
 
 Anyone holding a key in the hierarchy above the piece can share it. Read the piece's envelope metadata with [`parse()`](/reference/filecoin-encryption-envelope/functions/parse/):
 
@@ -197,8 +197,6 @@ filecoin-pin get-share-link <encrypted-root-cid> --restricted  # link and a sepa
 # The recipient downloads and decrypts.
 filecoin-pin get ./out --share '<link>'
 ```
-
-Filecoin Pin and its login console share the whole keyspace with a session key. For a single scope, use Keysmith directly as above.
 
 See [Encrypted Uploads](https://github.com/filecoin-project/filecoin-pin#encrypted-uploads) and [Share Links](https://github.com/filecoin-project/filecoin-pin#share-links) in the Filecoin Pin README.
 

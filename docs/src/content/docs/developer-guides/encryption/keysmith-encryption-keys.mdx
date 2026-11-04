@@ -11,7 +11,7 @@ This page covers the details of how keys are managed and used. If you want to ju
 
 ## Keysmith and FEE
 
-The [Keysmith package](/reference/filoz/keysmith/toc/) takes the hard work out of encryption key management for files stored on FoC. No matter where you access your data from, or how far in the future, or if you forget all your application passwords...only your wallet is required to recover everything.
+The [Keysmith package](/reference/filoz/keysmith/toc/) takes the hard work out of encryption key management for files stored on Filecoin. No matter where you access your data from, or how far in the future, or if you forget all your application passwords...only your wallet is required to recover everything.
 
 Three packages share the work:
 
@@ -49,7 +49,15 @@ The concepts that enable this are:
 * **Encryption scopes** group pieces within a keyspace, enabling fine-grained separation of key access. Scopes can contain other scopes: a holder of `app-data` can derive keys for `app-data/notes`, but a holder of `app-data/notes` cannot derive keys for its parent or sibling scopes.
 * Each **piece** gets its own key, derived from its keyspace (and optional scope) and a random salt. The salt is saved in the FEE metadata so that the piece can always be recovered by a suitably authorized client.
 
-For deeper details, refer to the [Keysmith README](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith).
+⚠️ Keysmith derives a **symmetric** hierarchy of keys from the root signature: this has significant benefits, but also some things to watch out for:
+
+* ✅ No need for a centralized auth server: everything stays on the client and is truly point to point.
+* ✅ No need to re-encrypt files or update any kind of stored list when sharing with new parties
+* ✅ Nothing to lose: as long as you still have your wallet you can get everything back
+* ⚠️ No true revocation: once you've given someone a symmetric key they effectively have encrypt/decrypt capability forever.
+* ⚠️ No true expiry: for the same reason as above. Manage scopes carefully, and only share as little of the keyspace as needed for the use case (potentially just single pieces).
+
+For deeper details on limits and lifecycle, refer to the [Keysmith README](https://github.com/FilOzone/synapse-sdk/tree/master/packages/keysmith).
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -73,6 +81,51 @@ const notes = Keysmith.scopeKey(appData, 'notes')
 const salt = Keysmith.newSalt()
 const key = Keysmith.pieceKey(notes, salt)
 ```
+
+## Fine-tuning access to encryption keys
+
+**Scopes** are the intermediate nodes on the tree of keys between the all powerful
+root keyspace key and single piece keys. They allow delegation of *a portion of*
+the entire keyspace to non-owner actors, processes, or agents. A scope key is derived
+from its parent’s key, so **holding a scope means you can access all data and sub-scopes
+beneath it, but nothing above or beside it**, , allowing apps/users to limit
+access to different session keys/apps.
+
+Just like scopes in other security protocols they are highly flexible and
+user/application-defined, and can model metaphors like ‘subfolders’, or ‘roles’,
+or ‘security classification’. Any of these metaphors (and more!) work, but it
+would be very dangerous to try to mix them! So pick the one that works best for
+your application and stick with it consistently.
+
+The **scope** is a user/application-chosen access label (string) such as
+`agent-memory` or `super-secret`. Keysmith is unopinionated about how scopes 
+are used, or what’s in them, other than the `/` separator. The `/` allows
+specification of sub-scopes and finer divisions. Because we’re dealing with
+strings and need deterministic encoding each segment must be well-formed Unicode
+(no lone surrogates), case-sensitive, non-empty, unpadded and without `/`.
+
+Examples:
+- **Clearance levels/MLS**: `top-secret` contains `top-secret/secret`, which contains
+`top-secret/secret/official`. A holder of `top-secret/secret` can grant an agent
+access to `top-secret/secret/official` and they can happily operate in that
+`official` layer without being able to walk back up the tree.
+- **Naive RBAC roles**: `super-admin` contains `super-admin/admin`, which contains
+`super-admin/admin/user`. A holder of `super-admin` can grant a session key access
+to `super-admin/admin` and they can happily manage `users` without being able to
+walk back up the tree.
+- **Groups**: `agents`, `teams/a-team`, `teams/tiger-team`. Holders of `agents` are
+disjoint from the other groups. A holder of `teams` is able to see an delegate data
+of all teams, while holders of `teams/a-team` and `teams/tiger-team` are kept
+separate and cannot read and write each other's data.
+
+By convention, `filecoin-pin` and the Filecoin Pay Console adopt the 'groups' model.
+
+This may look counter-intuitive, starting at most privileged and walking outward,
+or specifying the whole `top-secret/secret/official` rather than just `official`,
+but this enables verifiers to walk the entire path to look at and verify
+where the grant came from (all the way back to the root). The actual node key
+shared is only the last element of the path. So you can **verify up**, but only
+**derive and decrypt** down.
 
 ## Recovery metadata
 

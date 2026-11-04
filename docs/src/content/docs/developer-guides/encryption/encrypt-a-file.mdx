@@ -19,7 +19,7 @@ Encrypted bytes may be publicly retrievable; reading their contents requires the
 
 ## Before you start
 
-This example uses **Node.js 24** and a dedicated owner account on **Calibration**. You'll need test FIL for transaction fees and test USDFC for storage; the [SDK setup guide](/getting-started/#prerequisites) links to both faucets. An upload session key cannot derive the owner's encryption keys.
+This example uses **Node.js 24** and a dedicated owner account on **Calibration**. You'll need test FIL for transaction fees and test USDFC for storage; the [SDK setup guide](/getting-started/#prerequisites) links to both faucets. An upload session key [cannot derive the owner's encryption keys](/developer-guides/encryption/share-encrypted-data/#share-a-keyspace-or-scope-with-a-session-key).
 
 Add `@filoz/keysmith` and `filecoin-encryption-envelope` alongside your existing SDK dependencies. The setup below includes the tested versions and a required security override.
 
