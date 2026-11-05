@@ -1,0 +1,33 @@
+diff --git a/docs-plugin.ts b/docs-plugin.ts
+index 4a52226765b2fd8d4a57c555cbf80548bf9cd057..51e70599a98bc62964e5518cc380b3f9018865d0 100644
+--- a/docs-plugin.ts
++++ b/docs-plugin.ts
+@@ -128,6 +128,7 @@ export function docsPlugin(options: DocsPluginOptions = {}): StarlightPlugin {
+             outputs: [{ name: 'markdown', path: output.path }],
+             readme: 'none',
+             packageOptions: {
++              ...options.typeDocOptions?.packageOptions,
+               readme: 'none',
+             },
+           })
+@@ -176,6 +177,10 @@ ${event.contents}`
+           } else {
+             reflections = await app.convert()
+ 
++            if (app.logger.hasErrors()) {
++              throw new Error('TypeDoc conversion reported errors')
++            }
++
+             if (
+               (!reflections?.groups || reflections.groups.length === 0) &&
+               !reflections?.children?.some(
+@@ -188,8 +193,7 @@ ${event.contents}`
+             await app.generateOutputs(reflections)
+           }
+         } catch (error) {
+-          // biome-ignore lint/suspicious/noConsole: log error
+-          console.error(error)
++          throw error
+         }
+       },
+     },

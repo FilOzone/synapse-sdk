@@ -6,6 +6,7 @@ on:
     paths:
       - "packages/**"
       - "apps/**"
+      - "patches/**"
       - .github/workflows/ci.yml
       - package.json
       - pnpm-lock.yaml
@@ -14,6 +15,7 @@ on:
     paths:
       - "packages/**"
       - "apps/**"
+      - "patches/**"
       - .github/workflows/ci.yml
       - package.json
       - pnpm-lock.yaml

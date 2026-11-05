@@ -19,7 +19,10 @@
       },
       "files": [
         "src/**",
+        "!src/content/docs/reference/**",
         "public/**",
+        "../pnpm-lock.yaml",
+        "../patches/*.patch",
         "tsconfig.json",
         "astro.config.mjs"
       ],
@@ -30,6 +33,7 @@
         "dist/**"
       ],
       "dependencies": [
+        "../packages/keysmith:build",
         "../packages/synapse-core:build",
         "../packages/synapse-sdk:build",
         "../packages/synapse-react:build"
@@ -39,11 +43,16 @@
       "command": "astro dev",
       "service": true,
       "files": [
-        "src/**/*.ts",
+        "src/**",
+        "!src/content/docs/reference/**",
+        "public/**",
+        "../pnpm-lock.yaml",
+        "../patches/*.patch",
         "tsconfig.json",
         "astro.config.mjs"
       ],
       "dependencies": [
+        "../packages/keysmith:build",
         "../packages/synapse-core:build",
         "../packages/synapse-sdk:build",
         "../packages/synapse-react:build"
@@ -51,10 +60,12 @@
     }
   },
   "dependencies": {
+    "@filoz/keysmith": "workspace:*",
     "@filoz/synapse-core": "workspace:*",
     "@filoz/synapse-react": "workspace:*",
     "@filoz/synapse-sdk": "workspace:*",
     "@tanstack/react-query": "5.102.8",
+    "filecoin-encryption-envelope": "workspace:*",
     "starlight-auto-sidebar": "0.4.0",
     "starlight-links-validator": "0.27.0",
     "viem": "catalog:",
@@ -65,6 +76,7 @@
     "@astrojs/starlight": "0.41.7",
     "@hugomrdias/docs": "0.2.0",
     "@shikijs/twoslash": "4.5.0",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "astro": "7.2.4",
@@ -73,6 +85,7 @@
     "typedoc": "0.28.20",
     "typedoc-plugin-mdn-links": "5.1.1",
     "typedoc-plugin-missing-exports": "4.1.4",
+    "typescript": "catalog:",
     "wrangler": "4.152.0"
   }
 }

@@ -1,0 +1,18 @@
+---
+title: Access Control
+description: Control who may fetch encrypted data, with expiring, delegable claims. Coming soon.
+sidebar:
+  order: 3
+  badge:
+    text: Coming soon
+    variant: note
+---
+
+:::note[Preview - Coming Soon]
+Read access control is not yet enforced by Storage Providers, but this functionality is planned soon!
+
+Today anyone can fetch any piece, and [encryption](/developer-guides/encryption/encrypt-a-file/) is what keeps data private by controlling who can *read* the data.
+Soon, Access Control will decide who can *fetch* it.
+
+Access will be authorized with an `Authorization` header using exactly the same keyspaces, scopes and piece identifiers as encryption [grants](/developer-guides/encryption/share-encrypted-data/). This ensures that read ACL and encryption key access stay in sync, enabling applications fine-grained control over what is shared, with whom, without adding another layer of complexity. Bear this in mind if you are currently developing an application and trying to decide on how to design your protection and sharing scheme.
+:::
