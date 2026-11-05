@@ -8,7 +8,12 @@ import { signCreateDataSetAbiParameters } from '../typed-data/sign-create-datase
 import { signcreateDataSetAndAddPiecesAbiParameters } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { compactPieceMetadata } from '../utils/compact-piece-metadata.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
+import {
+  datasetMetadataObjectToEntry,
+  type MetadataEntry,
+  type MetadataObject,
+  pieceMetadataObjectToEntry,
+} from '../utils/metadata.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
 
 /** Dummy secp256k1 signature used only to size extraData. */
@@ -47,6 +52,60 @@ function isLegacyDataSet(options: LimiterOptions): boolean {
 /** `true` if `pieces` still fit in one addPieces / createAndAdd operation. */
 export type Limiter = (options: LimiterOptions) => boolean
 
+/** Why a piece list does not fit in one addPieces / createAndAdd message. */
+export type AddPiecesFitResult =
+  | { fits: true }
+  | { fits: false; reason: 'empty' | 'legacy-count' | 'too-large' }
+  | {
+      fits: false
+      reason: 'invalid-metadata'
+      /** Index of the first piece with invalid metadata. Undefined when the data set metadata is invalid. */
+      index?: number
+      /** The validation error. */
+      cause: unknown
+    }
+
+export namespace checkAddPiecesFit {
+  export type OptionsType = LimiterOptions
+  export type OutputType = AddPiecesFitResult
+}
+
+/**
+ * Whether a candidate piece list fits in one addPieces / createAndAdd message, and why not.
+ *
+ * Same checks as {@link addPiecesFits}, but returns the failure reason. Invalid metadata is
+ * reported with the index of the first bad piece instead of throwing.
+ *
+ * @param options - {@link checkAddPiecesFit.OptionsType}
+ * @returns The fit result {@link checkAddPiecesFit.OutputType}
+ *
+ * @example
+ * ```ts
+ * import { checkAddPiecesFit } from '@filoz/synapse-core/sp'
+ *
+ * const result = checkAddPiecesFit({ kind: 'addPieces', dataSetId, pieces })
+ * if (!result.fits && result.reason === 'invalid-metadata') {
+ *   console.log('bad piece at', result.index)
+ * }
+ * ```
+ */
+export function checkAddPiecesFit(options: checkAddPiecesFit.OptionsType): checkAddPiecesFit.OutputType {
+  if (options.pieces.length < 1) {
+    return { fits: false, reason: 'empty' }
+  }
+  if (isLegacyDataSet(options) && options.pieces.length > SIZE_CONSTANTS.MAX_LEGACY_ADD_PIECES_BATCH_SIZE) {
+    return { fits: false, reason: 'legacy-count' }
+  }
+  const prepared = prepare(options)
+  if (prepared.invalid != null) {
+    return { fits: false, reason: 'invalid-metadata', index: prepared.invalid.index, cause: prepared.invalid.cause }
+  }
+  if (estimatePreparedSize(prepared, options.pieces.length) > SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE) {
+    return { fits: false, reason: 'too-large' }
+  }
+  return { fits: true }
+}
+
 export namespace addPiecesFits {
   export type OptionsType = LimiterOptions
   export type OutputType = boolean
@@ -57,7 +116,8 @@ export namespace addPiecesFits {
  *
  * Checks estimated encoded-params size against {@link SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE}.
  * Legacy data sets also have an 80-piece cap when their ID and chain cutoff are supplied.
- * Empty `pieces` does not fit.
+ * Empty `pieces` or invalid metadata does not fit. Never throws; use {@link checkAddPiecesFit}
+ * for the reason.
  *
  * @param options - {@link addPiecesFits.OptionsType}
  * @returns Whether the pieces fit {@link addPiecesFits.OutputType}
@@ -75,13 +135,55 @@ export namespace addPiecesFits {
  * ```
  */
 export function addPiecesFits(options: addPiecesFits.OptionsType): addPiecesFits.OutputType {
-  if (options.pieces.length < 1) {
-    return false
+  return checkAddPiecesFit(options).fits
+}
+
+export namespace maxFittingPieces {
+  export type OptionsType = LimiterOptions
+  export type OutputType = number
+}
+
+/**
+ * Length of the longest prefix of `options.pieces` that fits in one addPieces / createAndAdd message.
+ *
+ * Equivalent to the largest `n` for which {@link addPiecesFits} returns `true` on `pieces.slice(0, n)`,
+ * or `0` if none fit. Stops before the first piece with invalid metadata. Binary searches the prefix
+ * length, encoding the calldata O(log n) times instead of once per piece. Never throws.
+ *
+ * @param options - {@link maxFittingPieces.OptionsType}
+ * @returns Number of leading pieces that fit {@link maxFittingPieces.OutputType}
+ *
+ * @example
+ * ```ts
+ * import { maxFittingPieces } from '@filoz/synapse-core/sp'
+ *
+ * const count = maxFittingPieces({ kind: 'addPieces', dataSetId, legacyPieceStorageIdLimit, pieces })
+ * const batch = pieces.slice(0, count)
+ * ```
+ */
+export function maxFittingPieces(options: maxFittingPieces.OptionsType): maxFittingPieces.OutputType {
+  const prepared = prepare(options)
+  let hi = prepared.pieceMetadata.length
+  if (isLegacyDataSet(options)) {
+    hi = Math.min(hi, SIZE_CONSTANTS.MAX_LEGACY_ADD_PIECES_BATCH_SIZE)
   }
-  if (isLegacyDataSet(options) && options.pieces.length > SIZE_CONSTANTS.MAX_LEGACY_ADD_PIECES_BATCH_SIZE) {
-    return false
+  // Calldata size never shrinks as the prefix grows, so the fitting prefixes are contiguous from 0.
+  const fits = (count: number) => estimatePreparedSize(prepared, count) <= SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE
+  if (hi === 0 || fits(hi)) {
+    return hi
   }
-  return estimateAddPiecesCalldataSize(options) <= SIZE_CONSTANTS.MAX_ADD_PIECES_MESSAGE_SIZE
+  // Invariant: prefix `lo` fits (or lo = 0), prefix `hi + 1` does not.
+  let lo = 0
+  hi -= 1
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2)
+    if (fits(mid)) {
+      lo = mid
+    } else {
+      hi = mid - 1
+    }
+  }
+  return lo
 }
 
 /**
@@ -98,6 +200,19 @@ export function assertPieceCidSize(pieceCid: PieceCID): void {
 }
 
 /**
+ * Throw if a piece can never be added: its PieceCID size is outside Curio's upload bounds or its
+ * metadata exceeds the contract limits. Use it to reject bad pieces before any network work.
+ *
+ * @param piece - The piece to check.
+ * @throws {@link InvalidUploadSizeError} when the PieceCID size is below {@link SIZE_CONSTANTS.MIN_UPLOAD_SIZE} or above {@link SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
+ * @throws Error when the piece metadata exceeds the contract limits
+ */
+export function assertPieceValid(piece: LimiterPiece): void {
+  assertPieceCidSize(piece.pieceCid)
+  pieceMetadataObjectToEntry(piece.metadata)
+}
+
+/**
  * Throw if `pieces` is empty, a PieceCID is outside Curio's size bounds, or the
  * list does not fit in one addPieces / createAndAdd message.
  *
@@ -105,6 +220,7 @@ export function assertPieceCidSize(pieceCid: PieceCID): void {
  * @throws {@link AtLeastOnePieceRequiredError} when `pieces` is empty
  * @throws {@link InvalidUploadSizeError} when a PieceCID size is below {@link SIZE_CONSTANTS.MIN_UPLOAD_SIZE} or above {@link SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
  * @throws {@link AddPiecesBatchTooLargeError} when a piece-count or message-size limit is exceeded
+ * @throws Error when data set or piece metadata exceeds the contract limits
  */
 export function assertAddPiecesFit(options: LimiterOptions): void {
   if (options.pieces.length < 1) {
@@ -113,44 +229,88 @@ export function assertAddPiecesFit(options: LimiterOptions): void {
   for (const piece of options.pieces) {
     assertPieceCidSize(piece.pieceCid)
   }
-  if (!addPiecesFits(options)) {
+  const result = checkAddPiecesFit(options)
+  if (!result.fits) {
+    if (result.reason === 'invalid-metadata') {
+      throw result.cause
+    }
     throw new AddPiecesBatchTooLargeError(options.pieces.length)
   }
 }
 
 /**
  * Estimated on-chain calldata size in bytes for the given piece list.
+ *
+ * @throws Error when data set or piece metadata exceeds the contract limits
  */
 export function estimateAddPiecesCalldataSize(options: LimiterOptions): number {
-  const extraData = dummyExtraData(options)
-  const pieceData = options.pieces.map((piece) => ({ data: toHex(piece.pieceCid.bytes) }))
+  const prepared = prepare(options)
+  if (prepared.invalid != null) {
+    throw prepared.invalid.cause
+  }
+  return estimatePreparedSize(prepared, options.pieces.length)
+}
+
+/** Encoded inputs reused across size estimates for different prefix lengths. */
+type PreparedPieces = {
+  /** Encoded create-data-set extraData. Undefined for `addPieces`. */
+  createExtraData?: Hex
+  /** Piece data for the valid prefix. */
+  pieceData: { data: Hex }[]
+  /** Metadata entries for the valid prefix (pieces before the first invalid one). */
+  pieceMetadata: MetadataEntry[][]
+  invalid?: { index?: number; cause: unknown }
+}
+
+/** Validate metadata and encode what does not depend on the prefix length. Never throws. */
+function prepare(options: LimiterOptions): PreparedPieces {
+  let createExtraData: Hex | undefined
+  if (options.kind === 'createDataSetAndAddPieces') {
+    let createEntries: MetadataEntry[]
+    try {
+      createEntries = datasetMetadataObjectToEntry(options.metadata, { cdn: options.cdn ?? false })
+    } catch (cause) {
+      return { pieceData: [], pieceMetadata: [], invalid: { cause } }
+    }
+    createExtraData = encodeAbiParameters(signCreateDataSetAbiParameters, [
+      zeroAddress,
+      0n,
+      createEntries.map((entry) => entry.key),
+      createEntries.map((entry) => entry.value),
+      DUMMY_SIGNATURE,
+    ])
+  }
+  const pieceData: { data: Hex }[] = []
+  const pieceMetadata: MetadataEntry[][] = []
+  for (const [index, piece] of options.pieces.entries()) {
+    try {
+      pieceMetadata.push(pieceMetadataObjectToEntry(piece.metadata))
+    } catch (cause) {
+      return { createExtraData, pieceData, pieceMetadata, invalid: { index, cause } }
+    }
+    pieceData.push({ data: toHex(piece.pieceCid.bytes) })
+  }
+  return { createExtraData, pieceData, pieceMetadata }
+}
+
+/** Calldata size for the first `count` prepared pieces. */
+function estimatePreparedSize(prepared: PreparedPieces, count: number): number {
+  const extraData = dummyExtraData(prepared, count)
   const calldata = encodeFunctionData({
     abi: pdpVerifierAbi,
     functionName: 'addPieces',
-    args: [0n, zeroAddress, pieceData, extraData],
+    args: [0n, zeroAddress, prepared.pieceData.slice(0, count), extraData],
   })
   return size(calldata)
 }
 
-function dummyExtraData(options: LimiterOptions): Hex {
-  const addPiecesExtraData = dummyAddPiecesExtraData(options.pieces)
-  if (options.kind === 'addPieces') {
-    return addPiecesExtraData
-  }
-  const createEntries = datasetMetadataObjectToEntry(options.metadata, { cdn: options.cdn ?? false })
-  const createExtraData = encodeAbiParameters(signCreateDataSetAbiParameters, [
-    zeroAddress,
-    0n,
-    createEntries.map((entry) => entry.key),
-    createEntries.map((entry) => entry.value),
-    DUMMY_SIGNATURE,
-  ])
-  return encodeAbiParameters(signcreateDataSetAndAddPiecesAbiParameters, [createExtraData, addPiecesExtraData])
-}
-
-function dummyAddPiecesExtraData(pieces: LimiterPiece[]): Hex {
-  const metadataKV = compactPieceMetadata(pieces.map((piece) => pieceMetadataObjectToEntry(piece.metadata)))
+function dummyExtraData(prepared: PreparedPieces, count: number): Hex {
+  const metadataKV = compactPieceMetadata(prepared.pieceMetadata.slice(0, count))
   const keys = metadataKV.map((entries) => entries.map((entry) => entry.key))
   const values = metadataKV.map((entries) => entries.map((entry) => entry.value))
-  return encodeAbiParameters(signAddPiecesAbiParameters, [0n, keys, values, DUMMY_SIGNATURE])
+  const addPiecesExtraData = encodeAbiParameters(signAddPiecesAbiParameters, [0n, keys, values, DUMMY_SIGNATURE])
+  if (prepared.createExtraData == null) {
+    return addPiecesExtraData
+  }
+  return encodeAbiParameters(signcreateDataSetAndAddPiecesAbiParameters, [prepared.createExtraData, addPiecesExtraData])
 }

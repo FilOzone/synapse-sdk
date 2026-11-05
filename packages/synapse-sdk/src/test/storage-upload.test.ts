@@ -7,10 +7,11 @@
 import type { AccountClient } from '@filoz/synapse-core'
 import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
+import type { addPiecesApiRequest } from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
-import { createWalletClient, http as viemHttp } from 'viem'
+import { createWalletClient, type Hex, numberToHex, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { Synapse } from '../synapse.ts'
 import type { PieceCID } from '../types.ts'
@@ -18,6 +19,27 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 
 // mock server for testing
 const server = setup()
+
+/**
+ * Accept add-pieces requests and land each one on chain in `landed`: its transaction adds the request's
+ * pieces with the next piece IDs, starting at 0. Serve `landed` with `Mocks.landedTransactions`.
+ */
+function addPiecesOnChain(landed: Record<Hex, Mocks.LandedTransaction>, onRequest?: () => void) {
+  let nextPieceId = 0n
+  return http.post<{ id: string }, addPiecesApiRequest.RequestBody>(
+    `https://pdp.example.com/pdp/data-sets/:id/pieces`,
+    async ({ request, params }) => {
+      onRequest?.()
+      const { pieces } = await request.json()
+      const txHash = numberToHex(Object.keys(landed).length + 1, { size: 32 })
+      landed[txHash] = { dataSetId: BigInt(params.id), pieceIds: pieces.map(() => nextPieceId++) }
+      return new HttpResponse(null, {
+        status: 201,
+        headers: { Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}` },
+      })
+    }
+  )
+}
 
 describe('Storage Upload', () => {
   let client: AccountClient
@@ -38,39 +60,14 @@ describe('Storage Upload', () => {
   })
 
   it('should support parallel uploads', async () => {
-    let nextPieceId = 0
+    const landed: Record<Hex, Mocks.LandedTransaction> = {}
     let uploadCompleteCount = 0
     server.use(
-      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false, ...Mocks.landedTransactions(landed) }),
       Mocks.PING(),
       ...Mocks.pdp.streamingUploadHandlers(),
       Mocks.pdp.findAnyPieceHandler(true),
-      http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
-        const txHash = `0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef12345${nextPieceId}`
-        nextPieceId++
-        return new HttpResponse(null, {
-          status: 201,
-          headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
-          },
-        })
-      }),
-      http.get<{ id: string; txHash: string }>(
-        `https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`,
-        ({ params }) => {
-          const response = {
-            addMessageOk: true,
-            confirmedPieceIds: [0, 1, 2],
-            dataSetId: parseInt(params.id, 10),
-            pieceCount: 3,
-            piecesAdded: true,
-            txHash: params.txHash,
-            txStatus: 'confirmed',
-          }
-
-          return HttpResponse.json(response, { status: 200 })
-        }
-      )
+      addPiecesOnChain(landed)
     )
     const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({
@@ -114,42 +111,14 @@ describe('Storage Upload', () => {
   })
 
   it('should commit each upload independently', async () => {
+    const landed: Record<Hex, Mocks.LandedTransaction> = {}
     let addPiecesCalls = 0
-    let nextPieceId = 0
     server.use(
-      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false, ...Mocks.landedTransactions(landed) }),
       Mocks.PING(),
       ...Mocks.pdp.streamingUploadHandlers(),
       Mocks.pdp.findAnyPieceHandler(true),
-      http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
-        const txHash = `0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef12345${nextPieceId}`
-        nextPieceId++
-        return new HttpResponse(null, {
-          status: 201,
-          headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
-          },
-        })
-      }),
-      http.get<{ id: string; txHash: string }>(
-        `https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`,
-        ({ params }) => {
-          addPiecesCalls++
-          const pieceId = Number.parseInt(params.txHash.slice(-1), 10)
-          return HttpResponse.json(
-            {
-              addMessageOk: true,
-              confirmedPieceIds: [pieceId],
-              dataSetId: parseInt(params.id, 10),
-              pieceCount: 1,
-              piecesAdded: true,
-              txHash: params.txHash,
-              txStatus: 'confirmed',
-            },
-            { status: 200 }
-          )
-        }
-      )
+      addPiecesOnChain(landed, () => addPiecesCalls++)
     )
     const synapse = new Synapse({ client, source: null, pieceBatching: false })
     const context = await synapse.storage.createContext({
@@ -182,11 +151,12 @@ describe('Storage Upload', () => {
 
   it('should expose flush for limiter-based batching', async () => {
     let addPiecesCalls = 0
-    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
     server.use(
       Mocks.JSONRPC({
         ...Mocks.presets.basic,
         debug: false,
+        ...Mocks.landedTransactions({ [txHash]: { created: true, dataSetId: 123n, pieceIds: [10n, 11n] } }),
         warmStorageView: {
           ...Mocks.presets.basic.warmStorageView,
           getDataSet: ([dataSetId]) => [
@@ -235,23 +205,6 @@ describe('Storage Upload', () => {
             Location: `/pdp/data-sets/created/${txHash}`,
           },
         })
-      }),
-      Mocks.pdp.dataSetCreationStatusHandler(txHash, {
-        createMessageHash: txHash,
-        dataSetCreated: true,
-        service: 'test-service',
-        txStatus: 'confirmed',
-        ok: true,
-        dataSetId: 123,
-      }),
-      Mocks.pdp.pieceAdditionStatusHandler(123, txHash, {
-        addMessageOk: true,
-        confirmedPieceIds: [10, 11],
-        dataSetId: 123,
-        pieceCount: 2,
-        piecesAdded: true,
-        txHash,
-        txStatus: 'confirmed',
       })
     )
     const synapse = new Synapse({
@@ -277,36 +230,13 @@ describe('Storage Upload', () => {
     const pdpOptions = {
       baseUrl: 'https://pdp.example.com',
     }
-    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    const landed: Record<Hex, Mocks.LandedTransaction> = {}
     server.use(
-      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false, ...Mocks.landedTransactions(landed) }),
       Mocks.PING(),
       ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
       Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
-      http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
-        return new HttpResponse(null, {
-          status: 201,
-          headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
-          },
-        })
-      }),
-      http.get<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-        addPiecesCalls++
-
-        return HttpResponse.json(
-          {
-            addMessageOk: true,
-            confirmedPieceIds: [0],
-            dataSetId: parseInt(params.id, 10),
-            pieceCount: 1,
-            piecesAdded: true,
-            txHash,
-            txStatus: 'confirmed',
-          },
-          { status: 200 }
-        )
-      })
+      addPiecesOnChain(landed, () => addPiecesCalls++)
     )
     const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({
@@ -325,39 +255,16 @@ describe('Storage Upload', () => {
 
   it('should accept data up to 200 MiB', async () => {
     let addPiecesCalls = 0
-    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    const landed: Record<Hex, Mocks.LandedTransaction> = {}
     const pdpOptions = {
       baseUrl: 'https://pdp.example.com',
     }
     server.use(
-      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false, ...Mocks.landedTransactions(landed) }),
       Mocks.PING(),
       ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
       Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
-      http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
-        return new HttpResponse(null, {
-          status: 201,
-          headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
-          },
-        })
-      }),
-      http.get<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-        addPiecesCalls++
-
-        return HttpResponse.json(
-          {
-            addMessageOk: true,
-            confirmedPieceIds: [0],
-            dataSetId: parseInt(params.id, 10),
-            pieceCount: 1,
-            piecesAdded: true,
-            txHash,
-            txStatus: 'confirmed',
-          },
-          { status: 200 }
-        )
-      })
+      addPiecesOnChain(landed, () => addPiecesCalls++)
     )
     const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({
@@ -382,37 +289,16 @@ describe('Storage Upload', () => {
       providerId?: bigint
       pieces?: { pieceId: bigint; pieceCid: PieceCID }[]
     } | null = null
-    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    const landed: Record<Hex, Mocks.LandedTransaction> = {}
     const pdpOptions = {
       baseUrl: 'https://pdp.example.com',
     }
     server.use(
-      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false, ...Mocks.landedTransactions(landed) }),
       Mocks.PING(),
       ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
       Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
-      http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
-        return new HttpResponse(null, {
-          status: 201,
-          headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
-          },
-        })
-      }),
-      http.get<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-        return HttpResponse.json(
-          {
-            addMessageOk: true,
-            confirmedPieceIds: [0],
-            dataSetId: parseInt(params.id, 10),
-            pieceCount: 1,
-            piecesAdded: true,
-            txHash,
-            txStatus: 'confirmed',
-          },
-          { status: 200 }
-        )
-      })
+      addPiecesOnChain(landed)
     )
     const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({
@@ -460,34 +346,13 @@ describe('Storage Upload', () => {
     const pdpOptions = {
       baseUrl: 'https://pdp.example.com',
     }
-    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    const landed: Record<Hex, Mocks.LandedTransaction> = {}
     server.use(
-      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false, ...Mocks.landedTransactions(landed) }),
       Mocks.PING(),
       ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
       Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
-      http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
-        return new HttpResponse(null, {
-          status: 201,
-          headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
-          },
-        })
-      }),
-      http.get<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-        return HttpResponse.json(
-          {
-            addMessageOk: true,
-            confirmedPieceIds: [0],
-            dataSetId: parseInt(params.id, 10),
-            pieceCount: 1,
-            piecesAdded: true,
-            txHash,
-            txStatus: 'confirmed',
-          },
-          { status: 200 }
-        )
-      })
+      addPiecesOnChain(landed)
     )
     const synapse = new Synapse({ client, source: null })
     const context = await synapse.storage.createContext({

@@ -1,5 +1,5 @@
 import * as SP from '@filoz/synapse-core/sp'
-import { type AddPiecesSuccess, upload } from '@filoz/synapse-core/sp'
+import { upload } from '@filoz/synapse-core/sp'
 import { getPayerAddress } from '@filoz/synapse-core/utils'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useChainId, useConfig, useConnection } from 'wagmi'
@@ -11,7 +11,7 @@ export interface UseUploadSimpleProps extends SessionKeySignerOptions {
    * The callback to call when the hash is available.
    */
   onHash?: (hash: string) => void
-  mutation?: Omit<MutateOptions<AddPiecesSuccess, Error, UseUploadSimpleVariables>, 'mutationFn'>
+  mutation?: Omit<MutateOptions<SP.waitForAddPieces.OutputType, Error, UseUploadSimpleVariables>, 'mutationFn'>
 }
 
 export interface UseUploadSimpleVariables {
@@ -48,7 +48,7 @@ export function useUploadSimple(props: UseUploadSimpleProps) {
       })
 
       props?.onHash?.(uploadRsp.txHash)
-      const rsp = await SP.waitForAddPieces(uploadRsp)
+      const rsp = await SP.waitForAddPieces({ client, ...uploadRsp })
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', getPayerAddress(client.account), chainId],

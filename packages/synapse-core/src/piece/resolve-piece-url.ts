@@ -198,6 +198,8 @@ export async function findPieceOnProviders(serviceURLs: string[], pieceCid: Piec
     const result = await request.head(new URL(`piece/${pieceCid.toString()}`, serviceURL), {
       signal: _signal,
       retry: true,
+      // iso-web's default budget for `retry: true` is 18s; keep the 5s cap across all attempts
+      timeout: 5000,
     })
     if (result.error) {
       throw result.error

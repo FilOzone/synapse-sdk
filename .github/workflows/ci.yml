@@ -6,6 +6,7 @@ on:
     paths:
       - "packages/**"
       - "apps/**"
+      - "patches/**"
       - .github/workflows/ci.yml
       - package.json
       - pnpm-lock.yaml
@@ -14,6 +15,7 @@ on:
     paths:
       - "packages/**"
       - "apps/**"
+      - "patches/**"
       - .github/workflows/ci.yml
       - package.json
       - pnpm-lock.yaml
@@ -43,8 +45,6 @@ jobs:
         run: pnpm run lint
       - name: Build
         run: pnpm run build
-      - name: Build docs
-        run: pnpm -r --filter docs run build
   test-synapse-sdk:
     needs: lint
     strategy:

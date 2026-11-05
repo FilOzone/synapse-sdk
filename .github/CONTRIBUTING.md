@@ -188,7 +188,7 @@ git commit -m "chore: update dependencies"
 git commit -m "feat: add CDN support for downloads"
 git commit -m "feat(storage): implement batch upload operations"
 
-# Major releases (X.y.z) - AVOID UNTIL M1
+# Breaking changes: major (X.y.z), or minor (0.X.y) for 0.x packages
 git commit -m "feat!: remove deprecated payment methods"
 git commit -m "fix: update API signature
 

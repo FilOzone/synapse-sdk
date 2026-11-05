@@ -57,7 +57,7 @@ export const datasetsCreate: Command = command(
       p.log.info(
         `Waiting for tx ${hashLink(result.txHash, chain)} to be mined...`
       )
-      const dataset = await sp.waitForCreateDataSet(result)
+      const dataset = await sp.waitForCreateDataSet({ client, ...result })
 
       p.log.info(`Data set created #${dataset.dataSetId}`)
     } catch (error) {
