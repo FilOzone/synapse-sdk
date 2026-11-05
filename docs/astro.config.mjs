@@ -1,14 +1,14 @@
-import { unified } from '@astrojs/markdown-remark'
+import { satteri } from '@astrojs/markdown-satteri'
 import starlight from '@astrojs/starlight'
-import ecTwoSlash from '@filoz/docs-twoslash'
 import { llmsPlugin } from '@hugomrdias/docs/starlight-llms'
 import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
+import { transformerTwoslash } from '@shikijs/twoslash'
 import { defineConfig } from 'astro/config'
-import rehypeExternalLinks from 'rehype-external-links'
 import starlightAutoSidebar from 'starlight-auto-sidebar'
-import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs'
 import starlightLinksValidator from 'starlight-links-validator'
-import { rehypeMermaidThemes, remarkMermaidBlocks } from './src/plugins/mermaid.ts'
+import { codeBlocksScript, transformerCodeBlocks } from './src/code-blocks.mjs'
+import { mermaidDiagrams } from './src/diagrams.mjs'
+import { externalLinks } from './src/external-links.mjs'
 import { referenceNavigation } from './src/plugins/reference-navigation.ts'
 
 const site = 'https://docs.filecoin.cloud'
@@ -25,20 +25,24 @@ export default defineConfig({
     '/getting-started/preview-packages/': '/developer-guides/preview-packages/',
   },
   markdown: {
-    // rehype-external-links attaches to the unified processor Starlight runs.
-    processor: unified({
-      gfm: true,
-      remarkPlugins: [remarkMermaidBlocks],
-      rehypePlugins: [
-        rehypeMermaidThemes,
-        [
-          rehypeExternalLinks,
-          {
-            target: '_blank',
+    shikiConfig: {
+      themes: { light: 'night-owl-light', dark: 'night-owl' },
+      transformers: [
+        transformerTwoslash({
+          explicitTrigger: true,
+          twoslashOptions: {
+            compilerOptions: {
+              lib: ['lib.esnext.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts', 'lib.dom.asynciterable.d.ts'],
+              jsx: 4, // react-jsx
+              jsxImportSource: 'react',
+            },
           },
-        ],
+        }),
+        transformerCodeBlocks(),
       ],
-    }),
+    },
+    // Starlight and the links validator add their own Sätteri plugins
+    processor: satteri({ mdastPlugins: [mermaidDiagrams], hastPlugins: [externalLinks] }),
   },
   integrations: [
     starlight({
@@ -47,8 +51,9 @@ export default defineConfig({
         'Filecoin Onchain Cloud provides transparent storage, retrieval, and payments on the Filecoin network.',
       logo: { src: './src/assets/foc-logo.svg', alt: 'foc' },
       favicon: 'favicon.ico',
-      customCss: ['./src/custom.css'],
+      customCss: ['@shikijs/twoslash/style-rich.css', './src/code.css', './src/diagrams.css', './src/custom.css'],
       head: [
+        { tag: 'script', content: codeBlocksScript },
         {
           tag: 'link',
           attrs: {
@@ -173,29 +178,6 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Changelogs',
-          collapsed: true,
-          items: [
-            ...makeChangelogsSidebarLinks([
-              {
-                type: 'all',
-                base: 'changelog-sdk',
-                label: '@filoz/synapse-sdk',
-              },
-              {
-                type: 'all',
-                base: 'changelog-core',
-                label: '@filoz/synapse-core',
-              },
-              {
-                type: 'all',
-                base: 'changelog-react',
-                label: '@filoz/synapse-react',
-              },
-            ]),
-          ],
-        },
-        {
           label: 'Reference',
           collapsed: true,
           items: [
@@ -222,19 +204,7 @@ export default defineConfig({
           ],
         },
       ],
-      expressiveCode: {
-        plugins: [
-          ecTwoSlash({
-            twoslashOptions: {
-              lib: ['esnext', 'dom', 'dom.iterable', 'dom.asynciterable'],
-              compilerOptions: {
-                jsx: 4, // react-jsx
-                jsxImportSource: 'react',
-              },
-            },
-          }),
-        ],
-      },
+      expressiveCode: false,
       plugins: [
         docsPlugin({
           outputDirectory: 'reference',
@@ -259,8 +229,8 @@ export default defineConfig({
         referenceNavigation(),
         llmsPlugin(),
         starlightAutoSidebar(),
-        starlightChangelogs(),
-        starlightLinksValidator(),
+        // The validator wipes the content layer cache on every build, so only run it when asked
+        ...(process.env.CHECK_LINKS ? [starlightLinksValidator()] : []),
       ],
     }),
   ],

@@ -4,7 +4,8 @@ import { HttpResponse, http } from 'msw'
 import { createWalletClient, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import * as Chains from '../src/chains.ts'
-import { ADDRESSES, PRIVATE_KEYS } from '../src/mocks/jsonrpc/index.ts'
+import { TransactionNotAppliedError } from '../src/errors/pdp.ts'
+import { ADDRESSES, JSONRPC, landedTransactions, PRIVATE_KEYS, presets } from '../src/mocks/jsonrpc/index.ts'
 import { findAnyPieceHandler, streamingUploadHandlers } from '../src/mocks/pdp.ts'
 import type { addPiecesApiRequest } from '../src/sp/add-pieces.ts'
 import { uploadPieces } from '../src/sp/upload-pieces.ts'
@@ -64,11 +65,25 @@ function createDataSet(): PdpDataSet {
 }
 
 /**
- * Accept add-pieces requests and confirm them with piece ids `(request + 1) * 100 + n`.
- * Requests listed in `rejected` report a rejected transaction instead.
+ * Accept add-pieces requests and land them on chain with piece ids `(request + 1) * 100 + n`.
+ * Requests listed in `reverted` land as reverted transactions instead.
  */
-function addPiecesHandlers(bodies: addPiecesApiRequest.RequestBody[], rejected: number[] = []) {
+function addPiecesHandlers(bodies: addPiecesApiRequest.RequestBody[], reverted: number[] = []) {
   return [
+    JSONRPC({
+      ...presets.basic,
+      ...landedTransactions((hash) => {
+        const request = txHashes.indexOf(hash as (typeof txHashes)[number])
+        const count = bodies[request]?.pieces.length
+        if (count == null) {
+          return undefined
+        }
+        if (reverted.includes(request)) {
+          return { reverted: true }
+        }
+        return { dataSetId: 1n, pieceIds: Array.from({ length: count }, (_, n) => BigInt((request + 1) * 100 + n)) }
+      }),
+    }),
     http.post<{ id: string }, addPiecesApiRequest.RequestBody>(
       `${pdpBase}/pdp/data-sets/:id/pieces`,
       async ({ request, params }) => {
@@ -80,29 +95,6 @@ function addPiecesHandlers(bodies: addPiecesApiRequest.RequestBody[], rejected: 
         })
       }
     ),
-    http.get<{ id: string; txHash: string }>(`${pdpBase}/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-      const request = txHashes.findIndex((txHash) => txHash === params.txHash)
-      const count = bodies[request]?.pieces.length ?? 0
-      if (rejected.includes(request)) {
-        return HttpResponse.json({
-          txHash: params.txHash,
-          txStatus: 'rejected',
-          dataSetId: 1,
-          pieceCount: count,
-          addMessageOk: null,
-          piecesAdded: false,
-        })
-      }
-      return HttpResponse.json({
-        txHash: params.txHash,
-        txStatus: 'confirmed',
-        dataSetId: 1,
-        pieceCount: count,
-        addMessageOk: true,
-        piecesAdded: true,
-        confirmedPieceIds: Array.from({ length: count }, (_, n) => (request + 1) * 100 + n),
-      })
-    }),
   ]
 }
 
@@ -234,7 +226,7 @@ describe('uploadPieces', () => {
     )
   })
 
-  it('keeps the confirmed transaction when another one is rejected', async () => {
+  it('keeps the confirmed transaction when another one is not applied', async () => {
     const bodies: addPiecesApiRequest.RequestBody[] = []
     server.use(
       ...streamingUploadHandlers({ baseUrl: pdpBase }),
@@ -262,6 +254,7 @@ describe('uploadPieces', () => {
       result.failed.map((item) => item.index),
       [2, 3]
     )
+    assert.ok(result.failed.every((item) => TransactionNotAppliedError.is(item.error)))
   })
 
   it('throws when every piece fails', async () => {

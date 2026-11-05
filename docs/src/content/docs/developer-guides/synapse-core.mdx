@@ -263,12 +263,10 @@ const result = await sp.createDataSetAndAddPieces(walletClient, {
   pieces: [{ pieceCid }],
 })
 
-// 4. Wait for confirmation
-const confirmed = await sp.waitForCreateDataSetAddPieces({
-  statusUrl: result.statusUrl,
-})
+// 4. Wait for the transaction on chain (follows the provider's fee replacements)
+const confirmed = await sp.waitForCreateDataSetAddPieces({ client: publicClient, ...result })
 
-const { dataSetId, piecesIds, hash } = confirmed
+const { dataSetId, pieceIds, txHash } = confirmed
 
 console.log(`Data set ${dataSetId} created and piece ${pieceCid.toString()} added to data set`)
 ```

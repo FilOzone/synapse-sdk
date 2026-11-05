@@ -10,7 +10,7 @@ import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { Permission, SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
 import type { PieceBatcherWait, pullPiecesApiRequest } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
-import type { MetadataObject } from '@filoz/synapse-core/utils'
+import type { DroppedPiece, MetadataObject } from '@filoz/synapse-core/utils'
 import type { getPriceList, getUploadCosts } from '@filoz/synapse-core/warm-storage'
 import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
 import type { Synapse } from './synapse.ts'
@@ -634,6 +634,13 @@ export interface PullOptions {
   extraData?: Hex
   /** Total time in milliseconds to wait for the pull to finish. Defaults to 2 hours. */
   timeout?: number
+  /**
+   * Remove pieces whose PieceCID already appeared earlier in `pieces` before signing and pulling.
+   * The first one wins. Removed pieces still get a result that shares the kept piece's status,
+   * and are listed in the result's `dropped`. A pre-built `extraData` must be signed over the
+   * deduped pieces. Defaults to false.
+   */
+  dedupe?: boolean
 }
 
 /**
@@ -642,8 +649,15 @@ export interface PullOptions {
 export interface PullResult {
   /** Overall status */
   status: 'complete' | 'failed'
-  /** Per-piece status */
-  pieces: Array<{ pieceCid: PieceCID; status: 'complete' | 'failed' }>
+  /** Per-piece status: one entry per input piece, in input order */
+  pieces: Array<{
+    pieceCid: PieceCID
+    status: 'complete' | 'failed'
+    /** Index of this piece in the `pieces` input array */
+    index: number
+  }>
+  /** With `dedupe: true`, the pieces not sent to the provider because an earlier piece had the same PieceCID */
+  dropped?: DroppedPiece[]
 }
 
 /**

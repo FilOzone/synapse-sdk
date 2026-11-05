@@ -29,6 +29,17 @@ describe('chains', () => {
     })
   })
 
+  describe('blockTime', () => {
+    it('should set Filecoin block time on mainnet and calibration', () => {
+      assert.strictEqual(mainnet.blockTime, 30_000)
+      assert.strictEqual(calibration.blockTime, 30_000)
+    })
+
+    it('should set foc-devnet default block time on devnet', () => {
+      assert.strictEqual(devnet.blockTime, 4_000)
+    })
+  })
+
   describe('asChain', () => {
     it('should pass through a valid Chain object unchanged', () => {
       assert.strictEqual(asChain(calibration), calibration)

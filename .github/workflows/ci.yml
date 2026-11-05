@@ -45,10 +45,6 @@ jobs:
         run: pnpm run lint
       - name: Build
         run: pnpm run build
-      - name: Install Chromium for diagrams
-        run: pnpm --dir docs exec playwright install --with-deps chromium
-      - name: Build docs
-        run: pnpm -r --filter docs run build
   test-synapse-sdk:
     needs: lint
     strategy:

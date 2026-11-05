@@ -121,10 +121,7 @@ export function CreateDataSetDialog() {
 
               <HashAlert hash={hash} />
               <ErrorAlert error={error} />
-              <SuccessAlert
-                message={`Data set created: ${createDataSetData?.dataSetCreated ? createDataSetData.dataSetId : ''}`}
-                show={isSuccess}
-              />
+              <SuccessAlert message={`Data set created: ${createDataSetData?.dataSetId ?? ''}`} show={isSuccess} />
               <Separator />
               <DialogFooter>
                 <DialogClose asChild>

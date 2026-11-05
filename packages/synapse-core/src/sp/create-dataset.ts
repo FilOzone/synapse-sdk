@@ -1,4 +1,4 @@
-import { HttpError, type RequestErrors, type RequestJsonErrors, request } from 'iso-web/http'
+import { HttpError, type RequestErrors, request } from 'iso-web/http'
 import {
   type Account,
   type Address,
@@ -10,15 +10,12 @@ import {
   type SignTypedDataErrorType,
   type Transport,
 } from 'viem'
-import * as z from 'zod'
 import { asChain } from '../chains.ts'
 import { CreateDataSetError, LocationHeaderError } from '../errors/index.ts'
-import { WaitForCreateDataSetError, WaitForCreateDataSetRejectedError } from '../errors/pdp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject } from '../utils/metadata.ts'
-import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
 
 export namespace createDataSetApiRequest {
   /**
@@ -40,8 +37,14 @@ export namespace createDataSetApiRequest {
   }
 
   export type OutputType = {
+    /** The original transaction hash. May not be the hash that lands on chain if Curio replaces the message by fee. */
     txHash: Hex
-    statusUrl: string
+    /**
+     * The signed extra data that was submitted. Persist it with `txHash` to wait with
+     * `waitForCreateDataSet` or to recover with `getCreateDataSetResult` after a crash.
+     * If nothing landed, resubmit this same extra data: FWSS rejects a reused client data set ID, so it can never create a second data set.
+     */
+    extraData: Hex
   }
 
   export type ErrorType = CreateDataSetError | LocationHeaderError | RequestErrors
@@ -58,7 +61,7 @@ export namespace createDataSetApiRequest {
  * POST /pdp/data-sets
  *
  * @param options - {@link createDataSet.OptionsType}
- * @returns Transaction hash and status URL. {@link createDataSet.OutputType}
+ * @returns Transaction hash and extra data. {@link createDataSet.OutputType}
  * @throws Errors {@link createDataSet.ErrorType}
  */
 export async function createDataSetApiRequest(
@@ -94,7 +97,7 @@ export async function createDataSetApiRequest(
 
   return {
     txHash: hash,
-    statusUrl: new URL(location, options.serviceURL).toString(),
+    extraData: options.extraData,
   }
 }
 
@@ -137,7 +140,7 @@ export namespace createDataSet {
  *
  * @param client - The client to use to create the data set.
  * @param options - {@link createDataSet.OptionsType}
- * @returns Transaction hash and status URL. {@link createDataSet.ReturnType}
+ * @returns Transaction hash and extra data. {@link createDataSet.ReturnType}
  * @throws Errors {@link createDataSet.ErrorType}
  */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: createDataSet.OptionsType) {
@@ -162,114 +165,4 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
     retryDelay: options.retryDelay,
     signal: options.signal,
   })
-}
-
-/**
- * Schema for the create data set pending response.
- */
-export const CreateDataSetPendingSchema = z.object({
-  createMessageHash: zHex,
-  dataSetCreated: z.literal(false),
-  service: z.string(),
-  txStatus: z.union([z.literal('pending'), z.literal('confirmed')]),
-  ok: z.null(),
-  /** Present once confirmed; equals createMessageHash unless Curio replaced-by-fee. */
-  confirmedTxHash: zHex.optional(),
-})
-
-/**
- * Schema for the create data set rejected response.
- */
-export const CreateDataSetRejectedSchema = z.object({
-  createMessageHash: zHex,
-  dataSetCreated: z.literal(false),
-  service: z.string(),
-  txStatus: z.literal('rejected'),
-  ok: z.literal(false),
-  confirmedTxHash: zHex.optional(),
-})
-
-/**
- * Schema for the create data set success response.
- */
-export const CreateDataSetSuccessSchema = z.object({
-  createMessageHash: zHex,
-  dataSetCreated: z.literal(true),
-  service: z.string(),
-  txStatus: z.literal('confirmed'),
-  ok: z.literal(true),
-  dataSetId: zNumberToBigInt,
-  /** Hash included on chain. Equals createMessageHash unless Curio replaced-by-fee. Use `confirmedTxHash ?? createMessageHash` for explorers/receipts. */
-  confirmedTxHash: zHex.optional(),
-})
-
-export type CreateDataSetSuccess = z.infer<typeof CreateDataSetSuccessSchema>
-export type CreateDataSetPending = z.infer<typeof CreateDataSetPendingSchema>
-export type CreateDataSetRejected = z.infer<typeof CreateDataSetRejectedSchema>
-export type CreateDataSetResponse = CreateDataSetPending | CreateDataSetRejected | CreateDataSetSuccess
-
-const schema = z.discriminatedUnion('txStatus', [CreateDataSetRejectedSchema, CreateDataSetSuccessSchema])
-
-export namespace waitForCreateDataSet {
-  export type OptionsType = {
-    /** The status URL to poll. */
-    statusUrl: string
-    /** The timeout in milliseconds. Defaults to 5 minutes. */
-    timeout?: number
-    /** The signal to abort the request. */
-    signal?: AbortSignal
-    /** The number of retries. Defaults to 2. */
-    retryCount?: number
-    /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
-    retryDelay?: number
-    /** The poll interval in milliseconds. Defaults to {@link RETRY_CONSTANTS.POLL_INTERVAL}. */
-    pollInterval?: number
-  }
-  export type ReturnType = CreateDataSetSuccess
-  export type ErrorType = WaitForCreateDataSetError | WaitForCreateDataSetRejectedError | RequestJsonErrors
-}
-
-/**
- * Wait for the data set creation status.
- *
- * GET /pdp/data-sets/created({txHash})
- *
- * @param options - {@link waitForCreateDataSet.OptionsType}
- * @returns Status {@link waitForCreateDataSet.ReturnType}
- * @throws Errors {@link waitForCreateDataSet.ErrorType}
- */
-export async function waitForCreateDataSet(
-  options: waitForCreateDataSet.OptionsType
-): Promise<waitForCreateDataSet.ReturnType> {
-  const response = await request.json.get(options.statusUrl, {
-    retry: {
-      retries: options.retryCount,
-      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
-    },
-    poll: {
-      limit: RETRY_CONSTANTS.POLL_LIMIT,
-      interval: options.pollInterval ?? RETRY_CONSTANTS.POLL_INTERVAL,
-      statusCodes: [202, 200], // 202 is processing, 200 is success
-      shouldPoll: async (ctx) => {
-        const data = (await ctx.response.clone().json()) as CreateDataSetResponse
-        // A rejected status also has dataSetCreated false, stop polling so the rejected error is thrown
-        return data.txStatus !== 'rejected' && data.dataSetCreated === false
-      },
-    },
-
-    signal: options.signal,
-    timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
-    schema,
-  })
-  if (response.error) {
-    if (HttpError.is(response.error)) {
-      throw new WaitForCreateDataSetError(await response.error.response.text())
-    }
-    throw response.error
-  }
-
-  if (response.result.txStatus === 'rejected') {
-    throw new WaitForCreateDataSetRejectedError(response.result)
-  }
-  return response.result
 }

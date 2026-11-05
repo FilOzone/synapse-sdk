@@ -40,7 +40,9 @@ import {
   calculateLastProofDate,
   createPieceUrlPDP,
   datasetMetadataObjectToEntry,
+  dedupePieces,
   epochToDate,
+  getPayerAddress,
   type MetadataObject,
   pieceMetadataObjectToEntry,
   randU256,
@@ -887,11 +889,12 @@ export class StorageContext {
    * @returns Status per piece ('complete' or 'failed') and overall result
    */
   async pull(options: PullOptions): Promise<PullResult> {
-    const { pieces, from, signal, onProgress, extraData, timeout } = options
+    const { pieces, from, signal, onProgress, extraData, timeout, dedupe } = options
 
     // The SP estimateGas-validates the eventual addPieces, so an oversized batch
     // fails there too; reject early for a clear error on non-presigned paths.
-    this.assertPiecesFitMessage(pieces.map((pieceCid) => ({ pieceCid })))
+    const piecesToFit = pieces.map((pieceCid) => ({ pieceCid }))
+    this.assertPiecesFitMessage(dedupe ? dedupePieces(piecesToFit).pieces : piecesToFit)
 
     const getSourceUrl = (pieceCid: PieceCID): string => {
       if (typeof from === 'string') {
@@ -908,10 +911,7 @@ export class StorageContext {
     const handleProgressResponse = onProgress
       ? (response: SP.waitForPullPieces.ReturnType) => {
           for (const piece of response.pieces) {
-            const pieceCid = pieces.find((p) => p.toString() === piece.pieceCid)
-            if (pieceCid) {
-              onProgress(pieceCid, piece.status)
-            }
+            onProgress(pieces[piece.index], piece.status)
           }
         }
       : undefined
@@ -924,6 +924,7 @@ export class StorageContext {
         onStatus: handleProgressResponse,
         extraData,
         timeout,
+        dedupe,
       }
 
       const pullOptions = this._dataSetId
@@ -945,20 +946,22 @@ export class StorageContext {
         pullOptions as SP.waitForPullPieces.OptionsType
       )
 
-      const pieceResults = response.pieces.map((piece: { pieceCid: string; status: string }) => {
-        const pieceCid = pieces.find((p) => p.toString() === piece.pieceCid)
-        return {
-          pieceCid: pieceCid as PieceCID,
-          status: piece.status === 'complete' ? ('complete' as const) : ('failed' as const),
-        }
-      })
+      const pieceResults = response.pieces.map((piece) => ({
+        pieceCid: pieces[piece.index],
+        status: piece.status === 'complete' ? ('complete' as const) : ('failed' as const),
+        index: piece.index,
+      }))
 
-      const allComplete = pieceResults.every((p: { status: string }) => p.status === 'complete')
+      const allComplete = pieceResults.every((p) => p.status === 'complete')
 
-      return {
+      const result: PullResult = {
         status: allComplete ? 'complete' : 'failed',
         pieces: pieceResults,
       }
+      if (response.dropped) {
+        result.dropped = response.dropped
+      }
+      return result
     } catch (error) {
       throw createError('StorageContext', 'pull', 'Failed to pull pieces from source provider', error)
     }
@@ -1009,13 +1012,19 @@ export class StorageContext {
         })
         options.onSubmitted?.(addPiecesResult.txHash as Hex)
 
-        const confirmation = await SP.waitForAddPieces({ statusUrl: addPiecesResult.statusUrl, signal })
-        const confirmedPieceIds = confirmation.confirmedPieceIds
+        const confirmation = await SP.waitForAddPieces({
+          client: this._client,
+          txHash: addPiecesResult.txHash,
+          extraData: addPiecesResult.extraData,
+          pieceCount: addPiecesResult.pieceCount,
+          payer: getPayerAddress(this._client.account),
+          signal,
+        })
 
         return {
           txHash: addPiecesResult.txHash as Hex,
           ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash }),
-          pieceIds: confirmedPieceIds,
+          pieceIds: confirmation.pieceIds,
           dataSetId: this._dataSetId,
           isNewDataSet: false,
         }
@@ -1035,13 +1044,19 @@ export class StorageContext {
       })
       options.onSubmitted?.(result.txHash as Hex)
 
-      const confirmation = await SP.waitForCreateDataSetAddPieces({ statusUrl: result.statusUrl, signal })
+      const confirmation = await SP.waitForCreateDataSetAddPieces({
+        client: this._client,
+        txHash: result.txHash,
+        extraData: result.extraData,
+        pieceCount: result.pieceCount,
+        signal,
+      })
       this._dataSetId = confirmation.dataSetId
 
       return {
         txHash: result.txHash as Hex,
-        ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash as Hex }),
-        pieceIds: confirmation.piecesIds,
+        ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash }),
+        pieceIds: confirmation.pieceIds,
         dataSetId: this._dataSetId,
         isNewDataSet: true,
       }

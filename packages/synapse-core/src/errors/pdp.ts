@@ -1,7 +1,5 @@
-import type { Hash } from 'viem'
+import type { Hash, ReplacementReason } from 'viem'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import type { AddPiecesRejected } from '../sp/add-pieces.ts'
-import type { CreateDataSetRejected } from '../sp/create-dataset.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { decodePDPError } from '../utils/decode-pdp-errors.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
@@ -31,37 +29,6 @@ export class CreateDataSetError extends SynapseError {
 
   static override is(value: unknown): value is CreateDataSetError {
     return isSynapseError(value) && value.name === 'CreateDataSetError'
-  }
-}
-
-export class WaitForCreateDataSetError extends SynapseError {
-  override name: 'WaitForCreateDataSetError' = 'WaitForCreateDataSetError'
-
-  constructor(error: string) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to wait for data set creation.`, {
-      details: decodedError,
-    })
-  }
-
-  static override is(value: unknown): value is WaitForCreateDataSetError {
-    return isSynapseError(value) && value.name === 'WaitForCreateDataSetError'
-  }
-}
-
-export class WaitForCreateDataSetRejectedError extends SynapseError {
-  override name: 'WaitForCreateDataSetRejectedError' = 'WaitForCreateDataSetRejectedError'
-  response: CreateDataSetRejected
-
-  constructor(error: CreateDataSetRejected) {
-    super(`Data set creation request rejected.`, {
-      details: `Tx hash: ${error.createMessageHash}`,
-    })
-    this.response = error
-  }
-
-  static override is(value: unknown): value is WaitForCreateDataSetRejectedError {
-    return isSynapseError(value) && value.name === 'WaitForCreateDataSetRejectedError'
   }
 }
 
@@ -177,34 +144,29 @@ export class AddPiecesFlushError extends SynapseError {
   }
 }
 
-export class WaitForAddPiecesError extends SynapseError {
-  override name: 'WaitForAddPiecesError' = 'WaitForAddPiecesError'
+export class TransactionNotAppliedError extends SynapseError {
+  override name: 'TransactionNotAppliedError' = 'TransactionNotAppliedError'
+  /** Original transaction hash from the SP. */
+  txHash: Hash
+  /** Hash of the transaction that landed in its place. */
+  confirmedTxHash: Hash
+  /** Whether the landed transaction reverted. */
+  reverted: boolean
+  /** How the original was replaced, when it was. */
+  replacement?: ReplacementReason
 
-  constructor(error: string) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to wait for add pieces.`, {
-      details: decodedError,
+  constructor(options: { txHash: Hash; confirmedTxHash: Hash; reverted: boolean; replacement?: ReplacementReason }) {
+    super(`Transaction landed without applying the call.`, {
+      details: `Tx hash: ${options.txHash}, confirmed tx hash: ${options.confirmedTxHash}, reverted: ${options.reverted}, replacement: ${options.replacement ?? 'none'}`,
     })
+    this.txHash = options.txHash
+    this.confirmedTxHash = options.confirmedTxHash
+    this.reverted = options.reverted
+    this.replacement = options.replacement
   }
 
-  static override is(value: unknown): value is WaitForAddPiecesError {
-    return isSynapseError(value) && value.name === 'WaitForAddPiecesError'
-  }
-}
-
-export class WaitForAddPiecesRejectedError extends SynapseError {
-  override name: 'WaitForAddPiecesRejectedError' = 'WaitForAddPiecesRejectedError'
-  response: AddPiecesRejected
-
-  constructor(error: AddPiecesRejected) {
-    super(`Add pieces request rejected.`, {
-      details: `Tx hash: ${error.txHash}, Data set ID: ${error.dataSetId}, Piece count: ${error.pieceCount}`,
-    })
-    this.response = error
-  }
-
-  static override is(value: unknown): value is WaitForAddPiecesRejectedError {
-    return isSynapseError(value) && value.name === 'WaitForAddPiecesRejectedError'
+  static override is(value: unknown): value is TransactionNotAppliedError {
+    return isSynapseError(value) && value.name === 'TransactionNotAppliedError'
   }
 }
 

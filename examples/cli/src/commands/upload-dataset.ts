@@ -74,11 +74,12 @@ export const uploadDataset: Command = command(
       p.log.info(`Waiting for tx ${hashLink(rsp.txHash, chain)} to be mined...`)
 
       const createdDataset = await SP.waitForCreateDataSetAddPieces({
-        statusUrl: rsp.statusUrl,
+        client,
+        ...rsp,
       })
 
       p.log.success(
-        `File uploaded ${pieceCid} dataset #${createdDataset.dataSetId} pieces #${createdDataset.piecesIds.join(', ')}`
+        `File uploaded ${pieceCid} dataset #${createdDataset.dataSetId} pieces #${createdDataset.pieceIds.join(', ')}`
       )
     } catch (error) {
       if (argv.flags.debug) {

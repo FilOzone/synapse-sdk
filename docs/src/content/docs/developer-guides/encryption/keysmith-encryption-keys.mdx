@@ -98,22 +98,23 @@ would be very dangerous to try to mix them! So pick the one that works best for
 your application and stick with it consistently.
 
 The **scope** is a user/application-chosen access label (string) such as
-`agent-memory` or `super-secret`. Keysmith is unopinionated about how scopes 
+`agent-memory` or `super-secret`. Keysmith is unopinionated about how scopes
 are used, or what’s in them, other than the `/` separator. The `/` allows
 specification of sub-scopes and finer divisions. Because we’re dealing with
 strings and need deterministic encoding each segment must be well-formed Unicode
 (no lone surrogates), case-sensitive, non-empty, unpadded and without `/`.
 
 Examples:
-- **Clearance levels/MLS**: `top-secret` contains `top-secret/secret`, which contains
+
+* **Clearance levels/MLS**: `top-secret` contains `top-secret/secret`, which contains
 `top-secret/secret/official`. A holder of `top-secret/secret` can grant an agent
 access to `top-secret/secret/official` and they can happily operate in that
 `official` layer without being able to walk back up the tree.
-- **Naive RBAC roles**: `super-admin` contains `super-admin/admin`, which contains
+* **Naive RBAC roles**: `super-admin` contains `super-admin/admin`, which contains
 `super-admin/admin/user`. A holder of `super-admin` can grant a session key access
 to `super-admin/admin` and they can happily manage `users` without being able to
 walk back up the tree.
-- **Groups**: `agents`, `teams/a-team`, `teams/tiger-team`. Holders of `agents` are
+* **Groups**: `agents`, `teams/a-team`, `teams/tiger-team`. Holders of `agents` are
 disjoint from the other groups. A holder of `teams` is able to see an delegate data
 of all teams, while holders of `teams/a-team` and `teams/tiger-team` are kept
 separate and cannot read and write each other's data.

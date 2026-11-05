@@ -1295,6 +1295,83 @@ describe('StorageService', () => {
     })
   })
 
+  describe('pull results', () => {
+    const pdpUrl = 'https://pdp.example.com'
+
+    async function makeContext() {
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }), Mocks.PING())
+      const synapse = new Synapse({ client, source: null })
+      const warmStorageService = new WarmStorageService({ client })
+      return StorageContext.create({ synapse, warmStorageService })
+    }
+
+    it('pull maps out-of-order SP results back to input indices', async () => {
+      const service = await makeContext()
+      const pieceA = await calculate(new Uint8Array(127).fill(1))
+      const pieceB = await calculate(new Uint8Array(127).fill(2))
+      server.use(
+        Mocks.pdp.pullPiecesHandler(
+          {
+            status: 'failed',
+            pieces: [
+              { pieceCid: pieceB.toString(), status: 'failed' },
+              { pieceCid: pieceA.toString(), status: 'complete' },
+            ],
+          },
+          { baseUrl: pdpUrl }
+        )
+      )
+
+      const progress: Array<[string, string]> = []
+      const result = await service.pull({
+        pieces: [pieceA, pieceB],
+        from: pdpUrl,
+        onProgress: (pieceCid, status) => progress.push([pieceCid.toString(), status]),
+      })
+
+      assert.equal(result.status, 'failed')
+      assert.deepEqual(result.pieces, [
+        { pieceCid: pieceA, status: 'complete', index: 0 },
+        { pieceCid: pieceB, status: 'failed', index: 1 },
+      ])
+      assert.notProperty(result, 'dropped')
+      assert.deepEqual(progress, [
+        [pieceA.toString(), 'complete'],
+        [pieceB.toString(), 'failed'],
+      ])
+    })
+
+    it('pull with dedupe sends each PieceCID once and returns a result per input', async () => {
+      const service = await makeContext()
+      const pieceA = await calculate(new Uint8Array(127).fill(1))
+      const pieceB = await calculate(new Uint8Array(127).fill(2))
+      let captured: Mocks.pdp.PullRequestCapture | undefined
+      server.use(
+        Mocks.pdp.pullPiecesWithCaptureHandler(
+          Mocks.pdp.createPullResponse('complete', [{ pieceCid: pieceA.toString() }, { pieceCid: pieceB.toString() }]),
+          (req) => {
+            captured = req
+          },
+          { baseUrl: pdpUrl }
+        )
+      )
+
+      const result = await service.pull({ pieces: [pieceA, pieceB, pieceA], from: pdpUrl, dedupe: true })
+
+      assert.deepEqual(
+        captured?.pieces.map((piece) => piece.pieceCid),
+        [pieceA.toString(), pieceB.toString()]
+      )
+      assert.equal(result.status, 'complete')
+      assert.deepEqual(result.pieces, [
+        { pieceCid: pieceA, status: 'complete', index: 0 },
+        { pieceCid: pieceB, status: 'complete', index: 1 },
+        { pieceCid: pieceA, status: 'complete', index: 2 },
+      ])
+      assert.deepEqual(result.dropped, [{ index: 2, duplicateOf: 0, pieceCid: pieceA }])
+    })
+  })
+
   describe('upload', () => {
     it('should handle errors in batch processing gracefully', async () => {
       server.use(
@@ -1397,74 +1474,6 @@ describe('StorageService', () => {
       }
     })
 
-    it.skip('should handle transaction failure on-chain', async () => {
-      const testData = new Uint8Array(127).fill(42)
-      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-        }),
-        Mocks.PING(),
-        http.post('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.text('Created', {
-            status: 201,
-            headers: {
-              Location: `/pdp/piece/upload/${mockUuid}`,
-            },
-          })
-        }),
-        Mocks.pdp.uploadPieceHandler(mockUuid, pdpOptions),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
-        Mocks.pdp.createAndAddPiecesHandler(mockTxHash, pdpOptions),
-        http.get('https://pdp.example.com/pdp/data-sets/created/:tx', async () => {
-          return HttpResponse.json(
-            {
-              createMessageHash: mockTxHash,
-              dataSetCreated: true,
-              service: 'test-service',
-              txStatus: 'confirmed',
-              ok: false,
-              dataSetId: 123,
-            },
-            {
-              status: 200,
-            }
-          )
-        }),
-        http.get('https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash', () => {
-          return HttpResponse.json(
-            {
-              txHash: mockTxHash,
-              txStatus: 'confirmed',
-              dataSetId: 1,
-              pieceCount: 2,
-              addMessageOk: false,
-              confirmedPieceIds: [101, 102],
-            },
-            {
-              status: 200,
-            }
-          )
-        })
-      )
-      const synapse = new Synapse({ client, source: null })
-      const warmStorageService = new WarmStorageService({ client })
-      const service = await StorageContext.create({ synapse, warmStorageService })
-
-      try {
-        await service.upload(testData)
-        assert.fail('Should have thrown error for failed transaction')
-      } catch (error: any) {
-        // The error is wrapped twice - first by the specific throw, then by the outer catch
-        assert.include(error.message, 'StorageContext addPieces failed:')
-        assert.include(error.message, 'Failed to commit pieces on-chain')
-      }
-    })
-
     it.skip('should handle piece parking timeout', async () => {
       const testData = new Uint8Array(127).fill(42)
       const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
@@ -1487,37 +1496,7 @@ describe('StorageService', () => {
         http.get('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.json({ pieceCid: testPieceCID })
         }),
-        Mocks.pdp.createAndAddPiecesHandler(mockTxHash, pdpOptions),
-        http.get('https://pdp.example.com/pdp/data-sets/created/:tx', async () => {
-          return HttpResponse.json(
-            {
-              createMessageHash: mockTxHash,
-              dataSetCreated: true,
-              service: 'test-service',
-              txStatus: 'confirmed',
-              ok: false,
-              dataSetId: 123,
-            },
-            {
-              status: 200,
-            }
-          )
-        }),
-        http.get('https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash', () => {
-          return HttpResponse.json(
-            {
-              txHash: mockTxHash,
-              txStatus: 'confirmed',
-              dataSetId: 1,
-              pieceCount: 2,
-              addMessageOk: false,
-              confirmedPieceIds: [101, 102],
-            },
-            {
-              status: 200,
-            }
-          )
-        })
+        Mocks.pdp.createAndAddPiecesHandler(mockTxHash, pdpOptions)
       )
       const synapse = new Synapse({ client, source: null })
       const warmStorageService = new WarmStorageService({ client })
@@ -1591,10 +1570,16 @@ describe('StorageService', () => {
       const testPieceCID = (await Piece.calculate(testData)).toString()
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
-      let statusPolls = 0
+      let receiptPolls = 0
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          // The transaction is still pending
+          eth_getTransactionByHash: () => {
+            receiptPolls++
+            return null
+          },
+          eth_getTransactionReceipt: () => null,
         }),
         Mocks.PING(),
         Mocks.pdp.postPieceUploadsHandler(mockUuid, pdpOptions),
@@ -1605,17 +1590,6 @@ describe('StorageService', () => {
           return new HttpResponse(null, {
             status: 201,
             headers: { Location: `/pdp/data-sets/${params.id}/pieces/added/${mockTxHash}` },
-          })
-        }),
-        http.get('https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash', () => {
-          statusPolls++
-          return HttpResponse.json({
-            txHash: mockTxHash,
-            txStatus: 'pending',
-            dataSetId: 1,
-            pieceCount: 1,
-            addMessageOk: null,
-            piecesAdded: false,
           })
         })
       )
@@ -1638,7 +1612,7 @@ describe('StorageService', () => {
         assert.include(error.message, 'Failed to commit pieces on-chain')
         assert.instanceOf(error.cause, AbortError)
       }
-      assert.isAbove(statusPolls, 0)
+      assert.isAbove(receiptPolls, 0)
       assert.isBelow(Date.now() - start, 5000)
     })
   })
