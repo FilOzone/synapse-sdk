@@ -76,16 +76,18 @@ Every encrypted upload uses the same layout, **CAR-in-CAR**. It's what [Filecoin
 
 ```
 file or folder
-  └─ inner CAR    the content as UnixFS, under a wrapping directory, metadata first
+  └─ inner CAR    the content as UnixFS, under a wrapping directory
       └─ envelope (FEE)  content type application/vnd.ipld.car
           └─ outer CAR   the envelope as one UnixFS file  ← this is the piece
 ```
 
-1. **Inner CAR.** Import the content with the [unixfs-v1-2025 profile](https://github.com/ipfs/specs/pull/499) under a wrapping directory that holds one entry, the file or folder under its own name. Write the blocks *metadata first*: every dag-pb node, breadth-first from the root, then every raw leaf in file order, each block once. A reader then knows the whole tree before the first data byte, so it can unpack in one pass, or map a file offset to a byte range of the envelope.
-2. **Envelope.** Encrypt the inner CAR with FEE, setting `contentType` to `application/vnd.ipld.car` and `appMetadata` to Keysmith's [`pieceMetadata()`](/reference/filoz/keysmith/functions/piecemetadata/). Readers refuse any other content type.
-3. **Outer CAR.** Import the envelope as a single UnixFS file, with no wrapping directory, and upload that CAR as the piece. Its root CID is the upload's *encrypted root CID*, which IPFS gateways serve when the data set has IPFS indexing.
+1. **Inner CAR.** Import the content with the [unixfs-v1-2025 profile](https://github.com/ipfs/specs/pull/499) under a wrapping directory that holds one entry, the file or folder under its own name.
+2. **Envelope.** Encrypt the inner CAR with FEE, setting `contentType` to `application/vnd.ipld.car` and `appMetadata` to Keysmith's [`pieceMetadata()`](/reference/filoz/keysmith/functions/piecemetadata/).
+3. **Outer CAR.** Import the envelope as a single UnixFS file next to the inner CAR, and upload the two as a CAR file as the piece. Its root CID is the upload's *encrypted root CID*, which IPFS gateways serve when the data set has IPFS indexing.
 
 The example below builds this for one file, with `toCar()` and `fromCar()` helpers at the end of the script. For a folder, the inner CAR holds the whole tree: use `filecoin-pin add --encrypt`, or follow [the full format description](https://github.com/filecoin-project/filecoin-pin/blob/master/documentation/encryption.md#format-for-integrators). A shared package for reading and writing it is planned ([#1040](https://github.com/FilOzone/synapse-sdk/issues/1040)).
+
+Note: once encrypted, the inner car is treated as a single entry to fetch all or none of. Fetching sub-graphs or individual files from an encrypted folder is not supported. If individual fetching is required, encrypt and upload files separately.
 
 ## Encrypt, upload, and decrypt
 
@@ -137,8 +139,8 @@ const envelope = await through(inner, fee.encrypt({
 }))
 const piece = await toCar(envelope)
 const metadata = {
-  [Keysmith.KEYSPACE_ID_KEY]: ref.keyspace,
-  [Keysmith.COMMITMENT_KEY]: commitment,
+  'foc/ks': ref.keyspace,
+  'foc/kc': commitment,
 }
 const contexts = await synapse.storage.createContexts({ metadata })
 const preparation = await synapse.storage.prepare({

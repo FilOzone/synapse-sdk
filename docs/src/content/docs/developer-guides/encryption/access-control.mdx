@@ -10,6 +10,10 @@ sidebar:
 
 [Encryption](/developer-guides/encryption/encrypt-a-file/) controls who can *read* your data. Access control decides who can *fetch* it. A piece in a restricted data set is served only to a request carrying an `Authorization` header that proves the caller holds a grant reaching that piece.
 
+:::note
+Gated retrieval is a weaker protection than encryption. It stops casual and bulk download, but a provider, or anyone who copies the data from one, still has the bytes. That's why every piece in a restricted data set must be encrypted.
+:::
+
 ## Claim chains
 
 Access is described by a **claim chain**, using exactly the same keyspaces, scopes and pieces as encryption [grants](/developer-guides/encryption/share-encrypted-data/). This ensures that read ACL and encryption key access stay in sync, enabling applications fine-grained control over what is shared, with whom, without adding another layer of complexity.
@@ -23,97 +27,42 @@ The chain:
 3. The final bearer signs each request to prove they are the legitimate holder of the credential. The provider checks the chain against the piece's FEE envelope metadata, with no on-chain lookups required.
 4. The application formats the entire chain into an Auth Header for the GET request
 
-Gated retrieval is a weaker protection than encryption. It stops casual and bulk download, but a provider, or anyone who copies the data from one, still has the bytes. That's why every piece in a restricted data set must be encrypted.
 
 ## Create a restricted data set
 
-Set the data set metadata `read` to `restricted` when you create it. Every piece added to it must be an encrypted upload in [the CAR-in-CAR format](/developer-guides/encryption/encrypt-a-file/#the-upload-format). The provider reads the `foc/*` labels of the envelope inside it to decide who may fetch it.
+Add `read: restricted` to the data set metadata when you create it, alongside the keyspace entries every encrypted data set carries (see [Encrypt a file](/developer-guides/encryption/encrypt-a-file/#encrypt-upload-and-decrypt)). Every piece added to it must be an encrypted upload in [the CAR-in-CAR format](/developer-guides/encryption/encrypt-a-file/#the-upload-format). The provider reads the `foc/*` labels of the envelope inside it to decide who may fetch it.
 
 ```ts twoslash
 // @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
 import { Synapse } from '@filoz/synapse-sdk'
 import { privateKeyToAccount } from 'viem/accounts'
 
+declare const ref: Keysmith.KeyspaceRef
+declare const commitment: string // from keyspaceKeys()
 declare const piece: Uint8Array // the outer CAR, with the envelope inside
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 // ---cut---
-const context = await synapse.storage.createContext({ metadata: { read: 'restricted' } })
+const metadata = {
+  'foc/ks': ref.keyspace,
+  'foc/kc': commitment,
+  'read': 'restricted',
+}
+const context = await synapse.storage.createContext({ metadata })
 const { pieceCid } = await context.upload(piece)
 ```
 
+The SDK reuses a data set only when its metadata matches exactly, so restricted and public uploads of the same keyspace go to separate data sets.
+
 Pieces in a restricted data set are served only from `/download/<pieceCid>`. They are not served from `/piece/<pieceCid>`, and their contents are not indexed for IPFS retrieval.
 
-## Issue access to a session key
+## Give a reader a delivery
 
-The owner signs a root claim for the session key, which requires one wallet prompt beyond deriving the keyspace key. [`rootClaim()`](/reference/filoz/keysmith/functions/rootclaim/) returns the key for the claimed node, which is then wrapped to the session key and sent with the chain as one delivery. The Filecoin Pay Console does this for a session key on `filecoin-pin login`.
-
-```ts twoslash
-// @lib: esnext,dom
-import * as Keysmith from '@filoz/keysmith'
-import { calibration } from '@filoz/synapse-sdk'
-import type { Address, Hex } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-
-const account = privateKeyToAccount('0x...')
-declare const keyspaceKey: Uint8Array
-declare const ref: Keysmith.KeyspaceRef
-declare const sessionAddress: Address
-declare const sessionPublicKey: Hex
-// ---cut---
-const { chain, nodeKey } = await Keysmith.rootClaim(account, {
-  ...ref,
-  chainId: BigInt(calibration.id),
-  kk: keyspaceKey,
-  node: 'scope:agent-memory',
-  bearer: sessionAddress,
-  maxDepth: 1, // the session key may delegate one more level; 0 forbids it
-  expires: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // unix seconds
-})
-const grant = await Keysmith.wrapTo(sessionPublicKey, nodeKey, Keysmith.grantDescriptor(ref, 'scope:agent-memory'))
-const delivery = Keysmith.encodeDelivery(chain, grant)
-```
-
-## Receive and delegate
-
-[`openDelivery()`](/reference/filoz/keysmith/functions/opendelivery/) checks the chain's signatures, expiry and scope narrowing, and that the key matches the commitment its issuer signed. Anyone can send anyone a delivery, so check that it names the owner and keyspace you expect.
-
-A bearer whose link has a `maxDepth` above 0 can then sign a claim for a narrower scope, for example for a sub-agent working in a subdirectory or at a lower level of privilege. [`delegateClaim()`](/reference/filoz/keysmith/functions/delegateclaim/) adds a link to the chain. It can never widen access or extend the owner's expiry.
-
-```ts twoslash
-// @lib: esnext,dom
-import * as Keysmith from '@filoz/keysmith'
-import type { Address, Hex } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-
-const sessionPrivateKey: Hex = '0x...'
-const sessionAccount = privateKeyToAccount(sessionPrivateKey)
-declare const delivery: Uint8Array
-declare const expected: Keysmith.KeyspaceRef
-declare const agentAddress: Address
-declare const agentPublicKey: Hex
-// ---cut---
-const { key, claim, chain } = await Keysmith.openDelivery(sessionPrivateKey, delivery)
-if (claim.owner.toLowerCase() !== expected.owner.toLowerCase() || claim.keyspace !== expected.keyspace) {
-  throw new Error('This delivery is for another keyspace')
-}
-
-const { chain: next, nodeKey } = await Keysmith.delegateClaim(sessionAccount, chain, {
-  parentKey: key,
-  node: 'scope:agent-memory/notes',
-  bearer: agentAddress,
-  maxDepth: 0,
-})
-const agentGrant = await Keysmith.wrapTo(
-  agentPublicKey,
-  nodeKey,
-  Keysmith.grantDescriptor(claim, 'scope:agent-memory/notes'),
-)
-const agentDelivery = Keysmith.encodeDelivery(next, agentGrant)
-```
+A reader needs a delivery: its key and its claim chain in one package. The owner issues one with `rootClaim()`, and a bearer whose link allows it passes a narrower one on with `delegateClaim()`. [Share encrypted data](/developer-guides/encryption/share-encrypted-data/) covers both. The Filecoin Pay Console issues one to a session key on `filecoin-pin login`.
 
 ## Fetch a gated piece
 
-The final bearer opens its delivery, signs a short-lived request for one piece, and sends it with the chain as `Authorization: FOC-Grant <base64url>`. The response is the piece, so unpack and decrypt it as for any [encrypted upload](/developer-guides/encryption/encrypt-a-file/#the-upload-format).
+The reader opens its delivery as the chain's final bearer, signs a short-lived request for one piece, and sends it with the chain as `Authorization: FOC-Grant <base64url>`. The response is the piece, so unpack and decrypt it as for any [encrypted upload](/developer-guides/encryption/encrypt-a-file/#the-upload-format).
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -123,16 +72,16 @@ import * as fee from 'filecoin-encryption-envelope'
 import type { Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-declare const agentPrivateKey: Hex
-declare const agentDelivery: Uint8Array
+declare const readerPrivateKey: Hex
+declare const delivery: Uint8Array
 declare const pieceCid: PieceCID
 declare const serviceURL: string
 declare function through(bytes: Uint8Array, transform: ReadableWritablePair<Uint8Array, Uint8Array>): Promise<Uint8Array>
 declare function fromCar(car: Uint8Array): Promise<Uint8Array>
 // ---cut---
-const { chain, key, grant } = await Keysmith.openDelivery(agentPrivateKey, agentDelivery)
+const { chain, key, grant } = await Keysmith.openDelivery(readerPrivateKey, delivery)
 
-const request = await Keysmith.signRequest(privateKeyToAccount(agentPrivateKey), chain, {
+const request = await Keysmith.signRequest(privateKeyToAccount(readerPrivateKey), chain, {
   pieceCid: pieceCid.bytes,
   expires: Math.floor(Date.now() / 1000) + 240, // at most 5 minutes ahead
 })
