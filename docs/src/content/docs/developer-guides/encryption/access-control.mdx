@@ -1,18 +1,128 @@
 ---
 title: Access Control
-description: Control who may fetch encrypted data, with expiring, delegable claims. Coming soon.
+description: Restrict who may fetch encrypted data, with the same keyspaces and scopes that control who can decrypt it.
 sidebar:
   order: 3
   badge:
-    text: Coming soon
+    text: New!
     variant: note
 ---
 
-:::note[Preview - Coming Soon]
-Read access control is not yet enforced by Storage Providers, but this functionality is planned soon!
+[Encryption](/developer-guides/encryption/encrypt-a-file/) controls who can *read* your data. Access control decides who can *fetch* it. A piece in a restricted data set is served only to a request carrying an `Authorization` header that proves the caller holds a grant reaching that piece.
 
-Today anyone can fetch any piece, and [encryption](/developer-guides/encryption/encrypt-a-file/) is what keeps data private by controlling who can *read* the data.
-Soon, Access Control will decide who can *fetch* it.
-
-Access will be authorized with an `Authorization` header using exactly the same keyspaces, scopes and piece identifiers as encryption [grants](/developer-guides/encryption/share-encrypted-data/). This ensures that read ACL and encryption key access stay in sync, enabling applications fine-grained control over what is shared, with whom, without adding another layer of complexity. Bear this in mind if you are currently developing an application and trying to decide on how to design your protection and sharing scheme.
+:::note
+Gated retrieval is a weaker protection than encryption. It stops casual and bulk download, but a provider, or anyone who copies the data from one, still has the bytes. That's why every piece in a restricted data set must be encrypted.
 :::
+
+## Claim chains
+
+Access is described by a **claim chain**, using exactly the same keyspaces, scopes and pieces as encryption [grants](/developer-guides/encryption/share-encrypted-data/). This ensures that read ACL and encryption key access stay in sync, enabling applications fine-grained control over what is shared, with whom, without adding another layer of complexity.
+
+Importantly, clients can be issued the **grant** and **claims** in a single package called a **delivery**, so the recipient gets both the **permission** to fetch and the **key** to decrypt in one coherent package which they can save in their session. However when fetching from a server the key is detached so that the data remains secret from the SP.
+
+The chain:
+
+1. The owner's wallet signs the root claim: this bearer may fetch **this part** of the keyspace until **this time**, and onwardly delegate **this many more levels**.
+2. Each bearer may onwardly delegate access to the same or narrower scope by signing a new claim for their delegate.
+3. The final bearer signs each request to prove they are the legitimate holder of the credential. The provider checks the chain against the piece's FEE envelope metadata, with no on-chain lookups required.
+4. The application formats the entire chain into an Auth Header for the GET request
+
+
+## Create a restricted data set
+
+Add `read: restricted` to the data set metadata when you create it, alongside the keyspace entries every encrypted data set carries (see [Encrypt a file](/developer-guides/encryption/encrypt-a-file/#encrypt-upload-and-decrypt)). Every piece added to it must be an encrypted upload in [the CAR-in-CAR format](/developer-guides/encryption/encrypt-a-file/#the-upload-format). The provider reads the `foc/*` labels of the envelope inside it to decide who may fetch it.
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import { Synapse } from '@filoz/synapse-sdk'
+import { privateKeyToAccount } from 'viem/accounts'
+
+declare const ref: Keysmith.KeyspaceRef
+declare const commitment: string // from keyspaceKeys()
+declare const piece: Uint8Array // the outer CAR, with the envelope inside
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
+// ---cut---
+const metadata = {
+  'foc/ks': ref.keyspace,
+  'foc/kc': commitment,
+  'read': 'restricted',
+}
+const context = await synapse.storage.createContext({ metadata })
+const { pieceCid } = await context.upload(piece)
+```
+
+The SDK reuses a data set only when its metadata matches exactly, so restricted and public uploads of the same keyspace automatically go to separate data sets.
+
+Pieces in a restricted data set are served only from `/download/<pieceCid>`. They are not served from `/piece/<pieceCid>`, and their contents are not indexed for IPFS retrieval.
+
+## Give a reader a delivery
+
+A reader needs a **delivery**: its key and its claim chain in one package. This is the format of the credential returned by Filecoin Pay Console on `filecoin-pin login`. The owner issues one with `rootClaim()`, and a bearer whose link allows it passes a narrower one on with `delegateClaim()`. The article [Share encrypted data](/developer-guides/encryption/share-encrypted-data/) shows how this works. 
+
+## Fetch a gated piece
+
+The reader opens its delivery as the chain's final bearer, signs a short-lived request for one piece, and sends it with the chain as `Authorization: FOC-Grant <base64url>`. The response is the piece, so unpack and decrypt it as for any [encrypted upload](/developer-guides/encryption/encrypt-a-file/#the-upload-format).
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import type { PieceCID } from '@filoz/synapse-sdk'
+import * as fee from 'filecoin-encryption-envelope'
+import type { Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+
+declare const readerPrivateKey: Hex
+declare const delivery: Uint8Array
+declare const pieceCid: PieceCID
+declare const serviceURL: string
+declare function through(bytes: Uint8Array, transform: ReadableWritablePair<Uint8Array, Uint8Array>): Promise<Uint8Array>
+declare function fromCar(car: Uint8Array): Promise<Uint8Array>
+// ---cut---
+const { chain, key, grant } = await Keysmith.openDelivery(readerPrivateKey, delivery)
+
+const request = await Keysmith.signRequest(privateKeyToAccount(readerPrivateKey), chain, {
+  pieceCid: pieceCid.bytes,
+  expires: Math.floor(Date.now() / 1000) + 240, // at most 5 minutes ahead
+})
+const header = `FOC-Grant ${base64url(Keysmith.encodePresentation(chain, request))}`
+
+const response = await fetch(`${serviceURL}/download/${pieceCid}`, { headers: { Authorization: header } })
+if (!response.ok) throw new Error(`${response.status} ${await response.text()}`)
+const piece = new Uint8Array(await response.arrayBuffer())
+const decrypted = await through(await fromCar(piece), fee.decrypt(Keysmith.keyResolver(key, grant)))
+const content = await fromCar(decrypted)
+
+function base64url(bytes: Uint8Array): string {
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+```
+
+A header names one piece and expires within five minutes, so make a fresh one for each fetch. Until it expires, the same header also works for `Range` requests and at any provider holding the piece.
+
+### What the provider checks
+
+The provider checks the header against the piece's envelope as [`verifyPresentation()`](/reference/filoz/keysmith/functions/verifypresentation/) does, and refuses the request unless all of these hold:
+
+* Every link is signed: the root by the owner, and each later link by the bearer before it.
+* The chain has not expired, and names the provider's network.
+* Each link is no wider than the one before it, and within its `maxDepth`.
+* The request names this piece, has not expired, and is signed by the chain's final bearer.
+* The piece's `foc/own` and `foc/ks` labels name the chain's owner and keyspace.
+* The final link reaches the piece: the keyspace, a scope containing the piece's `foc/scope`, or the piece's own `foc/salt`.
+
+| Response | Meaning |
+| --- | --- |
+| `200` / `206` | Served. |
+| `401` with `WWW-Authenticate: FOC-Grant` | No header was sent. |
+| `403` | The header was refused. The body gives the reason, such as `The request has expired, or is valid for too long`. |
+| `404` | The provider does not hold this piece in a restricted data set. |
+
+## Limits
+
+* **Claims expire but cannot be revoked early.** Revoking a session key stops its writes, not its fetching, until the claim expires. Set `expires` no later than you are willing to let it run; for a session key, use the session key's expiry.
+* **A claim is not a key.** A shared key stays shared, and a delivery's key keeps decrypting after its claim expires. A claim only limits who can fetch the ciphertext, and a reader who has decrypted a piece can still share its contents.
+
+For API details, see [Keysmith](/reference/filoz/keysmith/toc/).

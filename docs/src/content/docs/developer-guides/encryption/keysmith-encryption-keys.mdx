@@ -128,6 +128,29 @@ where the grant came from (all the way back to the root). The actual node key
 shared is only the last element of the path. So you can **verify up**, but only
 **derive and decrypt** down.
 
+## Grants, claims and deliveries
+
+Sharing combines three pieces. Most applications only handle the last one, the delivery, which carries the other two.
+
+| Piece | What it is | Made with | Opened or checked with |
+| --- | --- | --- | --- |
+| **Wrap** (a **grant**) | One node's key (keyspace, scope or piece), encrypted to the recipient's key-agreement public key, with a descriptor naming the owner, keyspace and node | [`wrapTo()`](/reference/filoz/keysmith/functions/wrapto/) | [`unwrapWith()`](/reference/filoz/keysmith/functions/unwrapwith/), with the recipient's private key |
+| **Claim** | A signed link: *this bearer may read this node until this time, and add this many more links*. The owner's wallet signs the root; each later link is signed by the bearer before it. A **claim chain** is the root and its links, up to 8 | [`rootClaim()`](/reference/filoz/keysmith/functions/rootclaim/), [`delegateClaim()`](/reference/filoz/keysmith/functions/delegateclaim/) | [`verifyChain()`](/reference/filoz/keysmith/functions/verifychain/) |
+| **Delivery** | A claim chain and the grant for its last link, as one blob | [`encodeDelivery()`](/reference/filoz/keysmith/functions/encodedelivery/) | [`openDelivery()`](/reference/filoz/keysmith/functions/opendelivery/) |
+
+```text
+owner wallet ──root claim──▶ session key ──link──▶ sub-agent
+                                                    │
+                       delivery = claim chain + grant (the sub-agent's key, wrapped to it)
+```
+
+* **The grant decrypts; the chain fetches.** A grant on its own is enough to decrypt, but nothing in it shows who made it, and a Storage Provider cannot check it. The chain proves the owner allowed this bearer, and providers check it before serving [restricted data sets](/developer-guides/encryption/access-control/).
+* **They check each other.** Each link commits to its node's key, so `openDelivery()` checks that the unwrapped key is the one the claim's signer committed to, and that the recipient is the chain's final bearer.
+* **The key never travels to a provider.** To fetch, the bearer signs a short-lived request for one piece and sends it with the chain as a *presentation*, in the `Authorization` header. The grant stays with the bearer.
+* **Use deliveries by default.** A bare grant suits encryption-only sharing, such as a [share link's](/developer-guides/encryption/share-encrypted-data/#share-link-a-single-piece) access key. Anything that may fetch from a restricted data set needs a delivery.
+
+The recipient's key-agreement public key comes from [`publicKeyOf()`](/reference/filoz/keysmith/functions/publickeyof/), derived from its private key. It is not the public key behind its address, so the recipient publishes it alongside its address.
+
 ## Recovery metadata
 
 Nothing is required from the chain or any secrets store to recover keys and data: the application only needs the keyspace metadata when *writing* data, and the piece's FEE metadata when *reading*.
@@ -137,7 +160,7 @@ Nothing is required from the chain or any secrets store to recover keys and data
 | Each piece's envelope | Owner, keyspace, scope, and salt | Identify the key needed to decrypt that piece. |
 | Data set metadata | Keyspace and commitment | Identify the derivation tree that the piece's key lives in. |
 
-Synapse SDK does not derive or add these automatically so the application needs to do this. Generate the FEE metadata entries with [`pieceMetadata()`](/reference/filoz/keysmith/functions/piecemetadata/), and pass the data set entries explicitly through the SDK's `metadata` option.
+Synapse SDK does not derive or add these automatically so the application needs to do this. Generate the FEE metadata entries with [`pieceMetadata()`](/reference/filoz/keysmith/functions/piecemetadata/), and pass the data set entries explicitly through the SDK's `metadata` option. The piece you upload is the [CAR-in-CAR](/developer-guides/encryption/encrypt-a-file/#the-upload-format) packing of the encrypted envelope.
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -148,21 +171,21 @@ import { privateKeyToAccount } from 'viem/accounts'
 const account = privateKeyToAccount('0x...')
 const synapse = Synapse.create({ account, source: 'my-app' })
 const ref = { owner: account.address, keyspace: Keysmith.newKeyspace() }
-declare const encrypted: Uint8Array
+declare const piece: Uint8Array
 // ---cut---
 const { kk: keyspaceKey, commitment, descriptor } = await Keysmith.keyspaceKeys(account, ref)
 
-// Envelope entries: pass these to FEE as appMetadata when encrypting the piece.
+// Envelope entries: pass these to FEE as appMetadata when encrypting the inner CAR.
 const target = Keysmith.writeTarget(descriptor, keyspaceKey, 'app-data/notes')
 const salt = Keysmith.newSalt()
 const appMetadata = Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope })
 
 // Data set entries: pass these to the SDK when uploading.
 const metadata = {
-  [Keysmith.KEYSPACE_ID_KEY]: ref.keyspace,
-  [Keysmith.COMMITMENT_KEY]: commitment,
+  'foc/ks': ref.keyspace,
+  'foc/kc': commitment,
 }
-await synapse.storage.upload(encrypted, { metadata })
+await synapse.storage.upload(piece, { metadata }) // the outer CAR: see the upload format
 ```
 
 The FEE envelope lives with the encrypted piece and identifies all that is needed to decrypt it. Scope names, owner addresses, and salts are all stored in clear and visible to anyone. *Do not put secrets in these fields*.
@@ -190,10 +213,12 @@ import { privateKeyToAccount } from 'viem/accounts'
 const account = privateKeyToAccount('0x...') // Or use your wallet
 declare const downloaded: Uint8Array
 declare const dataSetMetadata: Record<string, string> | undefined // Optional, if you still have it
+declare function fromCar(car: Uint8Array): Promise<Uint8Array>
 
 // ---cut---
-// The envelope names the keyspace and its owner.
-const { appMetadata } = await fee.parse(downloaded)
+// The envelope, inside the piece's outer CAR, names the keyspace and its owner.
+const envelopeBytes = await fromCar(downloaded)
+const { appMetadata } = await fee.parse(envelopeBytes)
 const envelope = appMetadata as Keysmith.PieceMetadata
 if (envelope['foc/own'] !== account.address.toLowerCase()) {
   throw new Error('This piece belongs to another owner')
@@ -202,11 +227,11 @@ const ref = { owner: account.address, keyspace: envelope['foc/ks'] }
 
 // Use the data set's commitment only if it records the same keyspace.
 // Without it, recovery still works: the wallet just needs to sign twice.
-const commitment = dataSetMetadata?.[Keysmith.KEYSPACE_ID_KEY] === ref.keyspace
-  ? dataSetMetadata[Keysmith.COMMITMENT_KEY]
+const commitment = dataSetMetadata?.['foc/ks'] === ref.keyspace
+  ? dataSetMetadata['foc/kc']
   : undefined
 const { kk: keyspaceKey } = await Keysmith.keyspaceKeys(account, ref, { commitment })
 
-// Now we have the key, pipe this piece, or any other in the keyspace, through this to decrypt it.
+// Now we have the key, pipe this envelope, or any other in the keyspace, through this to decrypt it to its inner CAR.
 const decryptor = fee.decrypt(Keysmith.keyResolver(keyspaceKey))
 ```
