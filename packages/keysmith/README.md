@@ -434,11 +434,24 @@ A link to a single piece (`node: 'piece:<salt>'`) also needs the piece's labels 
 #### Asserting, as the final bearer
 
 ```ts
-const request = await Keysmith.signRequest(myAccount, chain, {
-  pieceCid: CID.parse(cid).bytes, expires: Math.floor(Date.now() / 1000) + 120,
-})
-// the Authorization header value; base64url is yours (Keysmith has no text encoding)
-const header = `FOC-Grant ${base64url(Keysmith.encodePresentation(chain, request))}`
+const { chain } = await Keysmith.openDelivery(myPrivateKey, delivery)
+const header = await Keysmith.authorizationHeader(myAccount, chain, { pieceCid: CID.parse(cid).bytes })
+const response = await fetch(`${serviceURL}/download/${cid}`, { headers: { Authorization: header } })
+```
+
+Make a fresh header for each fetch: it expires after `expiresIn` seconds (default 240, at most
+`MAX_REQUEST_LIFETIME`). `signRequest` and `encodePresentation` are its parts, for a caller that
+needs them separately.
+
+#### Holding multiple grants
+
+A bearer may have many grants if they interact with several, disjoint scopes. `pickGrant` takes a bundle of grants and picks the narrowest valid grant that reaches the target requested.
+
+```ts
+const held = await Promise.all(deliveries.map((bytes) => Keysmith.openDelivery(myPrivateKey, bytes)))
+const forRead = Keysmith.pickGrant(held, { piece: labels }, { chainId })               // labels: the envelope's foc/* metadata
+const forWrite = Keysmith.pickGrant(held, { owner, keyspace, scope: 'users/finance' }, { chainId })
+// undefined: no grant reaches it; ask for one
 ```
 
 #### Verifying, as a relying party
@@ -635,10 +648,12 @@ a new dataset's metadata too.
 | `encodeDelivery(chain, grant)` / `decodeDelivery(bytes)` | A claim chain and its grant, as one blob for the new bearer |
 | `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment; opens an expired one, reporting `expired` |
 | `signRequest(signer, chain, { pieceCid, expires, now? })` | A request for one piece, by the final bearer; any provider holding it may serve it. Refuses an expired chain, or an `expires` more than `MAX_REQUEST_LIFETIME` ahead or already past |
+| `authorizationHeader(signer, chain, { pieceCid, expiresIn?, now? })` | `FOC-Grant <base64url presentation>`, the `Authorization` header for one gated request. Refuses as `signRequest` does |
 | `encodePresentation(chain, request)` / `decodePresentation(bytes)` | The `Authorization: FOC-Grant` payload |
 | `verifyChain(chain, { now?, piece? })` | Check a chain on its own: signatures, expiry, narrowing |
 | `verifyPresentation(bytes, { pieceCid, piece, chainId, now? })` | What a gating provider checks; the reference verifier |
 | `reaches(node, labels)` | Whether a node covers a piece, from its envelope labels |
+| `pickGrant(grants, target, { chainId, now? })` | The narrowest live grant (anything with a `claim`, such as `openDelivery`'s result) reaching a piece or a scope |
 | `keyCommitmentOf(key)` | The 16-byte key commitment a link carries |
 
 ## Be aware
