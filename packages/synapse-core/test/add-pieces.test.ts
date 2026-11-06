@@ -4,7 +4,7 @@ import { AtLeastOnePieceRequiredError } from '../src/errors/warm-storage.ts'
 import * as Piece from '../src/piece/index.ts'
 import * as Digest from '../src/piece/internal/digest.ts'
 import { PieceCID } from '../src/piece/piece-cid.ts'
-import { addPiecesFits, assertAddPiecesFit } from '../src/sp/add-pieces-fits.ts'
+import { addPiecesFits, assertAddPiecesFit } from '../src/utils/add-pieces-fits.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
 
 const pieceCid = Piece.from('bafkzcibcaabffs4jcd4iheeo5wisbmurjb7l4xgpmzgyzrenebvjjhsbwgx4smy')

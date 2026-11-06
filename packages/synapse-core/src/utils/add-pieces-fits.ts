@@ -6,15 +6,15 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import { signAddPiecesAbiParameters } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSetAbiParameters } from '../typed-data/sign-create-dataset.ts'
 import { signcreateDataSetAndAddPiecesAbiParameters } from '../typed-data/sign-create-dataset-add-pieces.ts'
-import { compactPieceMetadata } from '../utils/compact-piece-metadata.ts'
-import { SIZE_CONSTANTS } from '../utils/constants.ts'
+import type { PdpDataSet } from '../warm-storage/types.ts'
+import { compactPieceMetadata } from './compact-piece-metadata.ts'
+import { SIZE_CONSTANTS } from './constants.ts'
 import {
   datasetMetadataObjectToEntry,
   type MetadataEntry,
   type MetadataObject,
   pieceMetadataObjectToEntry,
-} from '../utils/metadata.ts'
-import type { PdpDataSet } from '../warm-storage/types.ts'
+} from './metadata.ts'
 
 /** Dummy secp256k1 signature used only to size extraData. */
 const DUMMY_SIGNATURE = `0x${'00'.repeat(65)}` as Hex
@@ -68,6 +68,8 @@ export type AddPiecesFitResult =
 export namespace checkAddPiecesFit {
   export type OptionsType = LimiterOptions
   export type OutputType = AddPiecesFitResult
+  /** Never throws. */
+  export type ErrorType = never
 }
 
 /**
@@ -81,7 +83,7 @@ export namespace checkAddPiecesFit {
  *
  * @example
  * ```ts
- * import { checkAddPiecesFit } from '@filoz/synapse-core/sp'
+ * import { checkAddPiecesFit } from '@filoz/synapse-core/utils'
  *
  * const result = checkAddPiecesFit({ kind: 'addPieces', dataSetId, pieces })
  * if (!result.fits && result.reason === 'invalid-metadata') {
@@ -109,6 +111,8 @@ export function checkAddPiecesFit(options: checkAddPiecesFit.OptionsType): check
 export namespace addPiecesFits {
   export type OptionsType = LimiterOptions
   export type OutputType = boolean
+  /** Never throws. */
+  export type ErrorType = never
 }
 
 /**
@@ -124,7 +128,7 @@ export namespace addPiecesFits {
  *
  * @example
  * ```ts
- * import { addPiecesFits } from '@filoz/synapse-core/sp'
+ * import { addPiecesFits } from '@filoz/synapse-core/utils'
  *
  * const fits = addPiecesFits({
  *   kind: 'addPieces',
@@ -141,6 +145,8 @@ export function addPiecesFits(options: addPiecesFits.OptionsType): addPiecesFits
 export namespace maxFittingPieces {
   export type OptionsType = LimiterOptions
   export type OutputType = number
+  /** Never throws. */
+  export type ErrorType = never
 }
 
 /**
@@ -155,7 +161,7 @@ export namespace maxFittingPieces {
  *
  * @example
  * ```ts
- * import { maxFittingPieces } from '@filoz/synapse-core/sp'
+ * import { maxFittingPieces } from '@filoz/synapse-core/utils'
  *
  * const count = maxFittingPieces({ kind: 'addPieces', dataSetId, legacyPieceStorageIdLimit, pieces })
  * const batch = pieces.slice(0, count)
@@ -186,11 +192,17 @@ export function maxFittingPieces(options: maxFittingPieces.OptionsType): maxFitt
   return lo
 }
 
+export namespace assertPieceCidSize {
+  /** {@link InvalidUploadSizeError} when the PieceCID size is outside the upload bounds. */
+  export type ErrorType = InvalidUploadSizeError
+}
+
 /**
  * Throw if a PieceCID's encoded raw size is outside Curio's upload bounds
  * ({@link SIZE_CONSTANTS.MIN_UPLOAD_SIZE}–{@link SIZE_CONSTANTS.MAX_UPLOAD_SIZE}).
  *
- * @throws {@link InvalidUploadSizeError}
+ * @param pieceCid - The PieceCID to check.
+ * @throws Errors {@link assertPieceCidSize.ErrorType}
  */
 export function assertPieceCidSize(pieceCid: PieceCID): void {
   const pieceSize = pieceCid.size
@@ -199,30 +211,47 @@ export function assertPieceCidSize(pieceCid: PieceCID): void {
   }
 }
 
+export namespace assertPieceValid {
+  /**
+   * - {@link InvalidUploadSizeError} when the PieceCID size is below {@link SIZE_CONSTANTS.MIN_UPLOAD_SIZE} or above
+   *   {@link SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
+   * - `Error` when the piece metadata exceeds the contract limits
+   */
+  export type ErrorType = InvalidUploadSizeError | Error
+}
+
 /**
  * Throw if a piece can never be added: its PieceCID size is outside Curio's upload bounds or its
  * metadata exceeds the contract limits. Use it to reject bad pieces before any network work.
  *
  * @param piece - The piece to check.
- * @throws {@link InvalidUploadSizeError} when the PieceCID size is below {@link SIZE_CONSTANTS.MIN_UPLOAD_SIZE} or above {@link SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
- * @throws Error when the piece metadata exceeds the contract limits
+ * @throws Errors {@link assertPieceValid.ErrorType}
  */
 export function assertPieceValid(piece: LimiterPiece): void {
   assertPieceCidSize(piece.pieceCid)
   pieceMetadataObjectToEntry(piece.metadata)
 }
 
+export namespace assertAddPiecesFit {
+  export type OptionsType = LimiterOptions
+  /**
+   * - {@link AtLeastOnePieceRequiredError} when `pieces` is empty
+   * - {@link InvalidUploadSizeError} when a PieceCID size is below {@link SIZE_CONSTANTS.MIN_UPLOAD_SIZE} or above
+   *   {@link SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
+   * - {@link AddPiecesBatchTooLargeError} when a piece-count or message-size limit is exceeded
+   * - `Error` when data set or piece metadata exceeds the contract limits
+   */
+  export type ErrorType = AtLeastOnePieceRequiredError | InvalidUploadSizeError | AddPiecesBatchTooLargeError | Error
+}
+
 /**
  * Throw if `pieces` is empty, a PieceCID is outside Curio's size bounds, or the
  * list does not fit in one addPieces / createAndAdd message.
  *
- * @param options - {@link LimiterOptions}
- * @throws {@link AtLeastOnePieceRequiredError} when `pieces` is empty
- * @throws {@link InvalidUploadSizeError} when a PieceCID size is below {@link SIZE_CONSTANTS.MIN_UPLOAD_SIZE} or above {@link SIZE_CONSTANTS.MAX_UPLOAD_SIZE}
- * @throws {@link AddPiecesBatchTooLargeError} when a piece-count or message-size limit is exceeded
- * @throws Error when data set or piece metadata exceeds the contract limits
+ * @param options - {@link assertAddPiecesFit.OptionsType}
+ * @throws Errors {@link assertAddPiecesFit.ErrorType}
  */
-export function assertAddPiecesFit(options: LimiterOptions): void {
+export function assertAddPiecesFit(options: assertAddPiecesFit.OptionsType): void {
   if (options.pieces.length < 1) {
     throw new AtLeastOnePieceRequiredError()
   }
@@ -238,12 +267,23 @@ export function assertAddPiecesFit(options: LimiterOptions): void {
   }
 }
 
+export namespace estimateAddPiecesCalldataSize {
+  export type OptionsType = LimiterOptions
+  export type OutputType = number
+  /** `Error` when data set or piece metadata exceeds the contract limits. */
+  export type ErrorType = Error
+}
+
 /**
  * Estimated on-chain calldata size in bytes for the given piece list.
  *
- * @throws Error when data set or piece metadata exceeds the contract limits
+ * @param options - {@link estimateAddPiecesCalldataSize.OptionsType}
+ * @returns Calldata size in bytes {@link estimateAddPiecesCalldataSize.OutputType}
+ * @throws Errors {@link estimateAddPiecesCalldataSize.ErrorType}
  */
-export function estimateAddPiecesCalldataSize(options: LimiterOptions): number {
+export function estimateAddPiecesCalldataSize(
+  options: estimateAddPiecesCalldataSize.OptionsType
+): estimateAddPiecesCalldataSize.OutputType {
   const prepared = prepare(options)
   if (prepared.invalid != null) {
     throw prepared.invalid.cause

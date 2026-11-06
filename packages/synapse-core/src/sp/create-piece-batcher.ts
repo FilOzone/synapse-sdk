@@ -2,27 +2,25 @@ import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import { AddPiecesFlushError } from '../errors/pdp.ts'
-import { PullError } from '../errors/pull.ts'
 import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import { createLimit } from '../utils/concurrency.ts'
-import type { MetadataObject } from '../utils/metadata.ts'
+import {
+  addPiecesFits,
+  assertPieceValid,
+  type Limiter,
+  type LimiterOptions,
+  type LimiterPiece,
+} from '../utils/add-pieces-fits.ts'
+import { createLimit, type Limit } from '../utils/concurrency.ts'
+import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 import { isUint8Array } from '../utils/streams.ts'
 import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
 import { addPieces } from './add-pieces.ts'
-import {
-  addPiecesFits,
-  assertPieceCidSize,
-  assertPieceValid,
-  type Limiter,
-  type LimiterOptions,
-  type LimiterPiece,
-} from './add-pieces-fits.ts'
 import { createDataSetAndAddPieces } from './create-dataset-add-pieces.ts'
 import { findPiece } from './find-piece.ts'
-import { waitForPullPieces } from './pull-pieces.ts'
+import { createPullBatcher, type PullBatchInput, type PullTarget } from './pull-batcher.ts'
 import { type UploadPieceStreamingData, uploadPieceStreaming } from './upload-streaming.ts'
 import { waitForAddPieces, waitForCreateDataSetAddPieces } from './wait-for-receipt.ts'
 
@@ -84,13 +82,8 @@ export type UploadInput = {
   signal?: AbortSignal
 }
 
-export type PullInput = {
-  pieceCid: PieceCID
-  sourceUrl: string
-  metadata?: MetadataObject
+export type PullInput = PullBatchInput & {
   onParked?: OnParked
-  onStatus?: (response: waitForPullPieces.ReturnType) => void
-  signal?: AbortSignal
 }
 
 type Slot = {
@@ -102,7 +95,7 @@ type Slot = {
 export type PieceBatcher = {
   /** Stream onto this SP, then join the addPieces window. */
   upload: (input: UploadInput) => Promise<UploadResult>
-  /** Pull onto this SP (own extraData), then join the addPieces window. */
+  /** Pull onto this SP in a batched pull request (see `pullDelay`), then join the addPieces window. */
   pull: (input: PullInput) => Promise<PieceResult>
   /** Already on this SP. Join the addPieces window only. */
   enqueue: (piece: EnqueuePiece) => Promise<PieceResult>
@@ -117,7 +110,12 @@ export namespace createPieceBatcher {
     dataSet: PdpDataSet | undefined
     /** When to flush a window. Defaults to `{ kind: 'delay', ms: 0 }`. */
     wait?: PieceBatcherWait
-    /** Defaults to {@link addPiecesFits}. */
+    /**
+     * Milliseconds to wait after a pull joins an empty queue before sending queued pulls as pull requests of up to
+     * `SIZE_CONSTANTS.PULL_BATCH_SIZE` pieces. Defaults to 0 (one macrotask).
+     */
+    pullDelay?: number
+    /** Sizes the addPieces windows; batched pull requests are not split by it. Defaults to {@link addPiecesFits}. */
     limiter?: Limiter
     /** Required when `dataSet` is undefined. */
     serviceURL?: string
@@ -127,8 +125,8 @@ export namespace createPieceBatcher {
     metadata?: MetadataObject
     cdn?: boolean
     /**
-     * Maximum number of `upload` and `pull` transfers parking at the same time. Others wait for a free slot.
-     * Defaults to no limit.
+     * Maximum number of `upload` transfers and batched pull requests in flight at the same time. Others wait for a
+     * free slot. Defaults to no limit.
      */
     concurrency?: number
   }
@@ -138,11 +136,19 @@ export namespace createPieceBatcher {
 /**
  * Create a stateful piece batcher that parks/pulls immediately and coalesces addPieces.
  *
- * `upload` and `pull` run per-piece I/O right away (`upload` uses the
- * streaming CommP-last protocol for bytes and streams). The tumbling window
- * only batches the on-chain addPieces (or createDataSetAndAddPieces) call.
- * Pull authorization matches the eventual operation for that one piece;
- * flush signs new extraData for the whole window.
+ * `upload` runs per-piece I/O right away (streaming CommP-last protocol for
+ * bytes and streams). `pull` calls are coalesced into pull requests of up to
+ * `SIZE_CONSTANTS.PULL_BATCH_SIZE` pieces, each with one signature and
+ * one polling loop; each `pull` promise still settles with its own piece's
+ * status, and a full SP pull queue (429) is waited out. The tumbling window
+ * batches the on-chain addPieces (or createDataSetAndAddPieces) call.
+ * Pull authorization matches the operation for the pieces in that pull
+ * request; flush signs new extraData for the whole window.
+ *
+ * Invalid metadata or an out-of-bounds PieceCID size rejects only that piece
+ * when it is passed to `upload`/`pull`/`enqueue`, before any network work; it
+ * never joins a pull request or a window. A failed flush (signing, RPC, SP or
+ * chain errors) rejects every piece in the window with {@link AddPiecesFlushError}.
  *
  * @param client - Wallet client used to sign and submit.
  * @param options - {@link createPieceBatcher.OptionsType}
@@ -168,11 +174,16 @@ export function createPieceBatcher(
   if (wait.kind === 'delay' && !(wait.ms >= 0)) {
     throw new ValidationError('`wait.ms` must be a non-negative number.')
   }
+  if (options.pullDelay != null && !(options.pullDelay >= 0)) {
+    throw new ValidationError('`pullDelay` must be a non-negative number.')
+  }
   const limiter = options.limiter ?? addPiecesFits
   if (options.concurrency != null && !(options.concurrency >= 1)) {
     throw new ValidationError('`concurrency` must be at least 1.')
   }
   const limit = createLimit(options.concurrency ?? Number.POSITIVE_INFINITY)
+  // Pulls take a `limit` slot per pull request (in the pull batcher), not per piece.
+  const unlimited: Limit = (task) => task()
   const legacyPieceStorageIdLimit = asChain(client.chain).legacyPieceStorageIdLimit
   const datasetMetadata = options.metadata
   const cdn = options.cdn
@@ -190,6 +201,7 @@ export function createPieceBatcher(
   let scheduled = 0
   let scheduledIdle = Promise.resolve()
   let resolveScheduledIdle: () => void = () => undefined
+  const pulls = createPullBatcher(client, { target: pullTarget, limit, delay: options.pullDelay })
 
   function serviceURL(): string {
     if (dataSet != null) {
@@ -402,7 +414,11 @@ export function createPieceBatcher(
     })
   }
 
-  async function parkAndEnqueue(park: () => Promise<EnqueuePiece>, onParked?: OnParked): Promise<PieceResult> {
+  async function parkAndEnqueue(
+    park: () => Promise<EnqueuePiece>,
+    onParked?: OnParked,
+    parkLimit: Limit = limit
+  ): Promise<PieceResult> {
     assertOpen()
     // Count the piece as scheduled from now until it is in the window, so `flush()` and `close()` wait for
     // pieces still waiting for a slot or parking.
@@ -410,7 +426,7 @@ export function createPieceBatcher(
     let parked: EnqueuePiece
     try {
       parked = await track(
-        limit(async () => {
+        parkLimit(async () => {
           const piece = await park()
           assertPieceValid(piece)
           await onParked?.(piece)
@@ -421,9 +437,11 @@ export function createPieceBatcher(
       endSchedule()
       throw error
     }
-    const result = internalEnqueue(parked)
-    endSchedule()
-    return result
+    try {
+      return internalEnqueue(parked)
+    } finally {
+      endSchedule()
+    }
   }
 
   async function enqueue(piece: EnqueuePiece): Promise<PieceResult> {
@@ -445,8 +463,11 @@ export function createPieceBatcher(
     }
     let uploadedSize: number | undefined
     const result = await parkAndEnqueue(async () => {
-      if (input.pieceCid != null) {
-        assertPieceCidSize(input.pieceCid)
+      // Checked before uploading, so a piece that can never be added is not uploaded.
+      if (input.pieceCid == null) {
+        pieceMetadataObjectToEntry(input.metadata)
+      } else {
+        assertPieceValid({ pieceCid: input.pieceCid, metadata: input.metadata })
       }
       const uploaded = await uploadPieceStreaming({
         serviceURL: serviceURL(),
@@ -471,40 +492,35 @@ export function createPieceBatcher(
     return { ...result, size: uploadedSize }
   }
 
+  function pullTarget(): PullTarget {
+    if (dataSet == null) {
+      return {
+        serviceURL: serviceURL(),
+        clientDataSetId: createClientDataSetId,
+        payee: requirePayee(),
+        payer,
+        cdn,
+        metadata: datasetMetadata,
+      }
+    }
+    return { serviceURL: serviceURL(), dataSetId: dataSet.dataSetId, clientDataSetId: dataSet.clientDataSetId }
+  }
+
   async function pull(input: PullInput): Promise<PieceResult> {
-    return parkAndEnqueue(async () => {
-      assertPieceCidSize(input.pieceCid)
-      const pullPiece = {
-        pieceCid: input.pieceCid,
-        sourceUrl: input.sourceUrl,
-        metadata: input.metadata,
-      }
-      const pullResult =
-        dataSet == null
-          ? await waitForPullPieces(client, {
-              serviceURL: serviceURL(),
-              pieces: [pullPiece],
-              clientDataSetId: createClientDataSetId,
-              payee: requirePayee(),
-              payer,
-              cdn,
-              metadata: datasetMetadata,
-              signal: input.signal,
-              onStatus: input.onStatus,
-            })
-          : await waitForPullPieces(client, {
-              serviceURL: serviceURL(),
-              pieces: [pullPiece],
-              dataSetId: dataSet.dataSetId,
-              clientDataSetId: dataSet.clientDataSetId,
-              signal: input.signal,
-              onStatus: input.onStatus,
-            })
-      if (pullResult.status === 'failed') {
-        throw new PullError('Pull failed.')
-      }
-      return { pieceCid: input.pieceCid, metadata: input.metadata }
-    }, input.onParked)
+    return parkAndEnqueue(
+      async () => {
+        // Checked before pulling, so a piece that can never be added is not pulled, and bad metadata fails only its
+        // own pull rather than the signing of the whole pull request.
+        assertPieceValid(input)
+        if (!fits([input])) {
+          throw new ValidationError('Piece does not fit in a single addPieces operation.')
+        }
+        await pulls.pull(input)
+        return { pieceCid: input.pieceCid, metadata: input.metadata }
+      },
+      input.onParked,
+      unlimited
+    )
   }
 
   function requirePayee(): Address {
@@ -515,6 +531,7 @@ export function createPieceBatcher(
   }
 
   async function flush(): Promise<FlushResult | undefined> {
+    pulls.flush()
     await scheduledIdle
     return lock(() => flushWindowInternal())
   }

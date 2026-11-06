@@ -3,6 +3,7 @@ import { encodeAbiParameters, encodeFunctionData, size, toHex, zeroAddress } fro
 import { pdpVerifierAbi } from '../src/abis/generated.ts'
 import { InvalidUploadSizeError } from '../src/errors/pdp.ts'
 import * as Piece from '../src/piece/index.ts'
+import { signAddPiecesAbiParameters } from '../src/typed-data/sign-add-pieces.ts'
 import {
   addPiecesFits,
   assertAddPiecesFit,
@@ -11,8 +12,7 @@ import {
   estimateAddPiecesCalldataSize,
   type LimiterOptions,
   maxFittingPieces,
-} from '../src/sp/add-pieces-fits.ts'
-import { signAddPiecesAbiParameters } from '../src/typed-data/sign-add-pieces.ts'
+} from '../src/utils/add-pieces-fits.ts'
 import type { MetadataObject } from '../src/utils/metadata.ts'
 
 const pieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
