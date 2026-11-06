@@ -197,7 +197,7 @@ export async function uploadPieceStreaming(
     // TypeError instead, so they get the plain NetworkError.
     if (
       NetworkError.is(uploadResponse.error) &&
-      (uploadResponse.error.cause as Error)?.message === 'unexpected redirect'
+      ((uploadResponse.error.cause as Error)?.cause as Error)?.message === 'unexpected redirect'
     ) {
       throw new UploadRedirectError(uploadURL.href, uploadResponse.error)
     }

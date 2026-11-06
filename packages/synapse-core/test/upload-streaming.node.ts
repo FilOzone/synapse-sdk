@@ -54,7 +54,8 @@ describe('uploadPieceStreaming over HTTP', () => {
       const result = await uploadPieceStreaming({ serviceURL, data, pieceCid })
       assert.strictEqual(result.size, total)
     })
-    assert.isBelow(peak, 128 * MiB, `arrayBuffers grew by ${Math.round(peak / MiB)} MiB`)
+    // GC lag alone reaches ~160 MiB; a buffered body peaks above 512 MiB
+    assert.isBelow(peak, 256 * MiB, `arrayBuffers grew by ${Math.round(peak / MiB)} MiB`)
   })
 
   for (const status of [307, 308]) {
