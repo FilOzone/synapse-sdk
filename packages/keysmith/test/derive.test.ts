@@ -3,6 +3,7 @@ import assert from 'assert'
 import { bytesToHex, hashDomain, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
+  canonicalNode,
   commitment,
   DOMAIN,
   grantDescriptor,
@@ -447,5 +448,11 @@ describe('piece grants', () => {
     const metadata = pieceMetadata(ref, { salt: newSalt() })
     const grant = grantDescriptor(ref, `piece:${metadata['foc/salt']}`)
     assert.throws(() => writeTarget(grant, keyForEnvelope(kk, metadata)), /cannot write/)
+  })
+})
+
+describe('canonicalNode', () => {
+  it('refuses a piece node that does not name a 16-byte salt', () => {
+    assert.throws(() => canonicalNode('piece:0xab'), /16-byte salt/)
   })
 })

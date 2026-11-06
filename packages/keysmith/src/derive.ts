@@ -269,7 +269,9 @@ export function canonicalNode(node: string): string {
     return `scope:${scopePath(node.slice('scope:'.length))}`
   }
   if (node.startsWith('piece:')) {
-    return `piece:${saltOf(node.slice('piece:'.length))}`
+    const salt = saltOf(node.slice('piece:'.length))
+    if (salt.length !== 2 + 2 * 16) throw new Error(`A piece node names a 16-byte salt, got ${JSON.stringify(node)}`)
+    return `piece:${salt}`
   }
   throw new Error(`Unrecognised grant node: ${node}`)
 }

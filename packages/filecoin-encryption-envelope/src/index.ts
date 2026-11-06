@@ -1,5 +1,8 @@
 /**
- * **Filecoin Encryption Envelope (FIP-1253) - Main Entry Point**
+ * Encrypt, decrypt, and inspect Filecoin Encryption Envelope objects.
+ *
+ * Implements the draft format under review in
+ * {@link https://github.com/filecoin-project/FIPs/pull/1294 | the FEE specification proposal}.
  *
  * @example
  * ```ts

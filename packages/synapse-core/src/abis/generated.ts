@@ -1739,132 +1739,6 @@ export const filecoinPayV1Config = {
  */
 export const filecoinWarmStorageServiceAbi = [
   {
-    type: 'constructor',
-    inputs: [
-      { name: '_pdpVerifierAddress', internalType: 'address', type: 'address' },
-      {
-        name: '_paymentsContractAddress',
-        internalType: 'address',
-        type: 'address',
-      },
-      {
-        name: '_usdfc',
-        internalType: 'contract IERC20Metadata',
-        type: 'address',
-      },
-      {
-        name: '_filBeamBeneficiaryAddress',
-        internalType: 'address',
-        type: 'address',
-      },
-      {
-        name: '_serviceProviderRegistry',
-        internalType: 'contract ServiceProviderRegistry',
-        type: 'address',
-      },
-      {
-        name: '_sessionKeyRegistry',
-        internalType: 'contract SessionKeyRegistry',
-        type: 'address',
-      },
-      {
-        name: '_reinitializer_version',
-        internalType: 'uint64',
-        type: 'uint64',
-      },
-    ],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'UPGRADE_INTERFACE_VERSION',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'VERSION',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
-    name: 'addApprovedProvider',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'nextImplementation', internalType: 'address', type: 'address' },
-      { name: 'delayEpochs', internalType: 'uint96', type: 'uint96' },
-    ],
-    name: 'announceUpgradePlan',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: '_maxProvingPeriod', internalType: 'uint64', type: 'uint64' },
-      {
-        name: '_challengeWindowSize',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-    ],
-    name: 'configureProvingPeriod',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'serviceProvider', internalType: 'address', type: 'address' },
-      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'dataSetCreated',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: '', internalType: 'uint256', type: 'uint256' },
-      { name: '', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'dataSetDeleted',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'description',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'eip712Domain',
-    outputs: [
-      { name: 'fields', internalType: 'bytes1', type: 'bytes1' },
-      { name: 'name', internalType: 'string', type: 'string' },
-      { name: 'version', internalType: 'string', type: 'string' },
-      { name: 'chainId', internalType: 'uint256', type: 'uint256' },
-      { name: 'verifyingContract', internalType: 'address', type: 'address' },
-      { name: 'salt', internalType: 'bytes32', type: 'bytes32' },
-      { name: 'extensions', internalType: 'uint256[]', type: 'uint256[]' },
-    ],
-    stateMutability: 'view',
-  },
-  {
     type: 'function',
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'extsload',
@@ -1879,149 +1753,6 @@ export const filecoinWarmStorageServiceAbi = [
     ],
     name: 'extsloadStruct',
     outputs: [{ name: '', internalType: 'bytes32[]', type: 'bytes32[]' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'filBeamBeneficiaryAddress',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getEffectiveRates',
-    outputs: [
-      { name: 'serviceFee', internalType: 'uint256', type: 'uint256' },
-      { name: 'spPayment', internalType: 'uint256', type: 'uint256' },
-    ],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'epoch', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'getProvingPeriodForEpoch',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getServicePrice',
-    outputs: [
-      {
-        name: 'pricing',
-        internalType: 'struct FilecoinWarmStorageService.ServicePricing',
-        type: 'tuple',
-        components: [
-          {
-            name: 'pricePerTiBPerMonthNoCDN',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'pricePerTiBCdnEgress',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'pricePerTiBCacheMissEgress',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'tokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-          { name: 'epochsPerMonth', internalType: 'uint256', type: 'uint256' },
-          {
-            name: 'datasetFeePerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'homepage',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: '_maxProvingPeriod', internalType: 'uint64', type: 'uint64' },
-      {
-        name: '_challengeWindowSize',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-      {
-        name: '_filBeamControllerAddress',
-        internalType: 'address',
-        type: 'address',
-      },
-    ],
-    name: 'initialize',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: '_viewContract', internalType: 'address', type: 'address' },
-    ],
-    name: 'migrate',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'name',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'challengeEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'leafCount', internalType: 'uint256', type: 'uint256' },
-      { name: '', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'nextProvingPeriod',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'owner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'paymentsContractAddress',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'pdpVerifierAddress',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
   },
   {
@@ -2054,66 +1785,6 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'function',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: '', internalType: 'uint256', type: 'uint256' },
-      { name: '', internalType: 'uint256', type: 'uint256' },
-      { name: 'challengeCount', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'possessionProven',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'proxiableUUID',
-    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'terminator', internalType: 'address', type: 'address' },
-      { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'railTerminated',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-      { name: 'index', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'removeApprovedProvider',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'renounceOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'serviceProviderRegistry',
-    outputs: [
-      {
-        name: '',
-        internalType: 'contract ServiceProviderRegistry',
-        type: 'address',
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
     inputs: [],
     name: 'sessionKeyRegistry',
     outputs: [
@@ -2132,45 +1803,6 @@ export const filecoinWarmStorageServiceAbi = [
       { name: 'authorizer', internalType: 'address', type: 'address' },
     ],
     name: 'setDataSetAuthorizer',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: '_viewContract', internalType: 'address', type: 'address' },
-    ],
-    name: 'setViewContract',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'cdnAmount', internalType: 'uint256', type: 'uint256' },
-      { name: 'cacheMissAmount', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'settleFilBeamPaymentRails',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: '', internalType: 'uint256', type: 'uint256' },
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'storageProviderChanged',
-    outputs: [],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'terminateCDNService',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -2195,142 +1827,11 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'function',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'cdnAmountToAdd', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'cacheMissAmountToAdd',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-    ],
-    name: 'topUpCDNPaymentRails',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'amount', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'topUpLifecycleReserve',
     outputs: [],
     stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'newController', internalType: 'address', type: 'address' },
-    ],
-    name: 'transferFilBeamController',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
-    name: 'transferOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'newImplementation', internalType: 'address', type: 'address' },
-      { name: 'data', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'upgradeToAndCall',
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'usdfcTokenAddress',
-    outputs: [
-      { name: '', internalType: 'contract IERC20Metadata', type: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'proposedAmount', internalType: 'uint256', type: 'uint256' },
-      { name: 'fromEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'toEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: '', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'validatePayment',
-    outputs: [
-      {
-        name: 'result',
-        internalType: 'struct IValidator.ValidationResult',
-        type: 'tuple',
-        components: [
-          { name: 'modifiedAmount', internalType: 'uint256', type: 'uint256' },
-          { name: 'settleUpto', internalType: 'uint256', type: 'uint256' },
-          { name: 'note', internalType: 'string', type: 'string' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'viewContractAddress',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'endEpoch',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'cacheMissRailId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'cdnRailId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'CDNPaymentTerminated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'version',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
-        name: 'implementation',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-    ],
-    name: 'ContractUpgraded',
   },
   {
     type: 'event',
@@ -2350,214 +1851,6 @@ export const filecoinWarmStorageServiceAbi = [
       },
     ],
     name: 'DataSetAuthorizerSet',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'providerId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'pdpRailId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'cacheMissRailId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'cdnRailId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'payer',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-      {
-        name: 'serviceProvider',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-      {
-        name: 'payee',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-      {
-        name: 'metadataKeys',
-        internalType: 'string[]',
-        type: 'string[]',
-        indexed: false,
-      },
-      {
-        name: 'metadataValues',
-        internalType: 'string[]',
-        type: 'string[]',
-        indexed: false,
-      },
-    ],
-    name: 'DataSetCreated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'oldServiceProvider',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'newServiceProvider',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'DataSetServiceProviderChanged',
-  },
-  { type: 'event', anonymous: false, inputs: [], name: 'EIP712DomainChanged' },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'periodsFaulted',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'deadline',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'FaultRecord',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'oldController',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-      {
-        name: 'newController',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-    ],
-    name: 'FilBeamControllerChanged',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      { name: 'name', internalType: 'string', type: 'string', indexed: false },
-      {
-        name: 'description',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-    ],
-    name: 'FilecoinServiceDeployed',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'version',
-        internalType: 'uint64',
-        type: 'uint64',
-        indexed: false,
-      },
-    ],
-    name: 'Initialized',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'previousOwner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'newOwner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'OwnershipTransferred',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'endEpoch',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'pdpRailId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'PDPPaymentTerminated',
   },
   {
     type: 'event',
@@ -2602,26 +1895,25 @@ export const filecoinWarmStorageServiceAbi = [
     anonymous: false,
     inputs: [
       {
-        name: 'providerId',
+        name: 'dataSetId',
         internalType: 'uint256',
         type: 'uint256',
         indexed: true,
       },
-    ],
-    name: 'ProviderApproved',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
       {
-        name: 'providerId',
+        name: 'railId',
         internalType: 'uint256',
         type: 'uint256',
-        indexed: true,
+        indexed: false,
+      },
+      {
+        name: 'newRate',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
       },
     ],
-    name: 'ProviderUnapproved',
+    name: 'RailRateUpdated',
   },
   {
     type: 'event',
@@ -2660,58 +1952,7 @@ export const filecoinWarmStorageServiceAbi = [
     ],
     name: 'ServiceTerminated',
   },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'plannedUpgrade',
-        internalType: 'struct FilecoinWarmStorageService.PlannedUpgrade',
-        type: 'tuple',
-        components: [
-          {
-            name: 'nextImplementation',
-            internalType: 'address',
-            type: 'address',
-          },
-          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
-        ],
-        indexed: false,
-      },
-    ],
-    name: 'UpgradeAnnounced',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'implementation',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'Upgraded',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'viewContract',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'ViewContractSet',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
-    name: 'AddressEmptyCode',
-  },
+  { type: 'error', inputs: [], name: 'AuthorizerReentrancy' },
   {
     type: 'error',
     inputs: [
@@ -2734,14 +1975,6 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
-    name: 'CallerNotPayments',
-  },
-  {
-    type: 'error',
-    inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       {
         name: 'expectedServiceProvider',
@@ -2755,32 +1988,9 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'windowStart', internalType: 'uint256', type: 'uint256' },
-      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'ChallengeWindowTooEarly',
-  },
-  {
-    type: 'error',
-    inputs: [
       { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'ClientDataSetAlreadyRegistered',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'requiredEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'currentBlock', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'DataSetNotAbandoned',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'DataSetNotFoundForRail',
   },
   {
     type: 'error',
@@ -2809,14 +2019,6 @@ export const filecoinWarmStorageServiceAbi = [
     ],
     name: 'DuplicateMetadataKey',
   },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'implementation', internalType: 'address', type: 'address' },
-    ],
-    name: 'ERC1967InvalidImplementation',
-  },
-  { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
   { type: 'error', inputs: [], name: 'ExtraDataRequired' },
   {
     type: 'error',
@@ -2825,39 +2027,6 @@ export const filecoinWarmStorageServiceAbi = [
       { name: 'maxAllowedSize', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'ExtraDataTooLarge',
-  },
-  { type: 'error', inputs: [], name: 'FailedCall' },
-  {
-    type: 'error',
-    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'FilBeamServiceNotConfigured',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'minExpected', internalType: 'uint256', type: 'uint256' },
-      { name: 'actual', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InvalidChallengeCount',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'minAllowed', internalType: 'uint256', type: 'uint256' },
-      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
-      { name: 'actual', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InvalidChallengeEpoch',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'maxProvingPeriod', internalType: 'uint256', type: 'uint256' },
-      { name: 'challengeWindowSize', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InvalidChallengeWindowSize',
   },
   {
     type: 'error',
@@ -2872,13 +2041,19 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'fromEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'toEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
     ],
-    name: 'InvalidEpochRange',
+    name: 'InvalidSignature',
   },
-  { type: 'error', inputs: [], name: 'InvalidInitialization' },
-  { type: 'error', inputs: [], name: 'MaxProvingPeriodZero' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expectedLength', internalType: 'uint256', type: 'uint256' },
+      { name: 'actualLength', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidSignatureLength',
+  },
   {
     type: 'error',
     inputs: [
@@ -2915,19 +2090,9 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'periodDeadline', internalType: 'uint256', type: 'uint256' },
-      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'NextProvingPeriodAlreadyCalled',
-  },
-  {
-    type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
     name: 'NoPDPPaymentRail',
   },
-  { type: 'error', inputs: [], name: 'NotInitializing' },
   {
     type: 'error',
     inputs: [
@@ -2942,87 +2107,8 @@ export const filecoinWarmStorageServiceAbi = [
       { name: 'expected', internalType: 'address', type: 'address' },
       { name: 'actual', internalType: 'address', type: 'address' },
     ],
-    name: 'OnlyFilBeamControllerAllowed',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
     name: 'OnlyPDPVerifierAllowed',
   },
-  {
-    type: 'error',
-    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
-    name: 'OwnableInvalidOwner',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
-    name: 'OwnableUnauthorizedAccount',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'PaymentRailsNotFinalized',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'ProofAlreadySubmitted',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
-    name: 'ProviderAlreadyApproved',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'index', internalType: 'uint256', type: 'uint256' },
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'ProviderIdMismatchAtIndex',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
-    name: 'ProviderNotInApprovedList',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'provider', internalType: 'address', type: 'address' }],
-    name: 'ProviderNotRegistered',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'ProvingNotStarted',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
-      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'ProvingPeriodPassed',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'settledUpTo', internalType: 'uint256', type: 'uint256' },
-      { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'RailNotFullySettled',
-  },
-  { type: 'error', inputs: [], name: 'ServiceContractMustTerminateRail' },
-  { type: 'error', inputs: [], name: 'StorageProviderChangesNotSupported' },
   {
     type: 'error',
     inputs: [
@@ -3031,11 +2117,20 @@ export const filecoinWarmStorageServiceAbi = [
     ],
     name: 'TooManyMetadataKeys',
   },
-  { type: 'error', inputs: [], name: 'UUPSUnauthorizedCallContext' },
   {
     type: 'error',
-    inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
-    name: 'UUPSUnsupportedProxiableUUID',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'operation', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'digest', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'signature', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'Unauthorized',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'v', internalType: 'uint8', type: 'uint8' }],
+    name: 'UnsupportedSignatureV',
   },
   {
     type: 'error',
@@ -3047,6 +2142,149 @@ export const filecoinWarmStorageServiceAbi = [
       },
     ],
     name: 'ZeroAddress',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'paymentsContractAddress',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'pdpVerifierAddress',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'usdfcTokenAddress',
+    outputs: [
+      { name: '', internalType: 'contract IERC20Metadata', type: 'address' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'serviceProvider', internalType: 'address', type: 'address' },
+      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'dataSetCreated',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'dataSetDeleted',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'eip712Domain',
+    outputs: [
+      { name: 'fields', internalType: 'bytes1', type: 'bytes1' },
+      { name: 'name', internalType: 'string', type: 'string' },
+      { name: 'version', internalType: 'string', type: 'string' },
+      { name: 'chainId', internalType: 'uint256', type: 'uint256' },
+      { name: 'verifyingContract', internalType: 'address', type: 'address' },
+      { name: 'salt', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'extensions', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'filBeamBeneficiaryAddress',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getEffectiveRates',
+    outputs: [
+      { name: 'serviceFee', internalType: 'uint256', type: 'uint256' },
+      { name: 'spPayment', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getServicePrice',
+    outputs: [
+      {
+        name: 'pricing',
+        internalType: 'struct FWSSDataSetModule.ServicePricing',
+        type: 'tuple',
+        components: [
+          {
+            name: 'pricePerTiBPerMonthNoCDN',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'pricePerTiBCdnEgress',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'pricePerTiBCacheMissEgress',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'tokenAddress',
+            internalType: 'contract IERC20',
+            type: 'address',
+          },
+          { name: 'epochsPerMonth', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'datasetFeePerMonth',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'serviceProviderRegistry',
+    outputs: [
+      {
+        name: '',
+        internalType: 'contract ServiceProviderRegistry',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'address', type: 'address' },
+      { name: '', internalType: 'address', type: 'address' },
+      { name: '', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'storageProviderChanged',
+    outputs: [],
+    stateMutability: 'view',
   },
   {
     type: 'event',
@@ -3158,19 +2396,1203 @@ export const filecoinWarmStorageServiceAbi = [
         indexed: true,
       },
       {
-        name: 'railId',
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'pdpRailId',
         internalType: 'uint256',
         type: 'uint256',
         indexed: false,
       },
       {
-        name: 'newRate',
+        name: 'cacheMissRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'cdnRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'payer',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'serviceProvider',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'payee',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'metadataKeys',
+        internalType: 'string[]',
+        type: 'string[]',
+        indexed: false,
+      },
+      {
+        name: 'metadataValues',
+        internalType: 'string[]',
+        type: 'string[]',
+        indexed: false,
+      },
+    ],
+    name: 'DataSetCreated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'oldServiceProvider',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newServiceProvider',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'DataSetServiceProviderChanged',
+  },
+  { type: 'event', anonymous: false, inputs: [], name: 'EIP712DomainChanged' },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'version',
+        internalType: 'uint64',
+        type: 'uint64',
+        indexed: false,
+      },
+    ],
+    name: 'Initialized',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'requiredEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'DataSetNotAbandoned',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupUsage', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupRequired', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientLockupAllowance',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientLockupFunds',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'requiredLockupPeriod',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'InsufficientMaxLockupPeriod',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'rateUsage', internalType: 'uint256', type: 'uint256' },
+      { name: 'rateRequired', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientRateAllowance',
+  },
+  { type: 'error', inputs: [], name: 'InvalidInitialization' },
+  { type: 'error', inputs: [], name: 'NotInitializing' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+    ],
+    name: 'OperatorNotApproved',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'PaymentRailsNotFinalized',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'provider', internalType: 'address', type: 'address' }],
+    name: 'ProviderNotRegistered',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'settledUpTo', internalType: 'uint256', type: 'uint256' },
+      { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'RailNotFullySettled',
+  },
+  { type: 'error', inputs: [], name: 'StorageProviderChangesNotSupported' },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'cdnAmount', internalType: 'uint256', type: 'uint256' },
+      { name: 'cacheMissAmount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'settleFilBeamPaymentRails',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'terminateCDNService',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'cdnAmountToAdd', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'cacheMissAmountToAdd',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'topUpCDNPaymentRails',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'newController', internalType: 'address', type: 'address' },
+    ],
+    name: 'transferFilBeamController',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'oldController',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'newController',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+    ],
+    name: 'FilBeamControllerChanged',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CDNPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CacheMissPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'FilBeamServiceNotConfigured',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidTopUpAmount',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyFilBeamControllerAllowed',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'VERSION',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'description',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'homepage',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'name',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'migration', internalType: 'address', type: 'address' },
+      { name: 'delayEpochs', internalType: 'uint96', type: 'uint96' },
+    ],
+    name: 'announceMigration',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'migration', internalType: 'address', type: 'address' }],
+    name: 'migrate',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'delegate',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'delegateCalldata',
+        internalType: 'bytes',
+        type: 'bytes',
+        indexed: false,
+      },
+    ],
+    name: 'DiamondDelegateCall',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'plannedUpgrade',
+        internalType: 'struct FWSSStorage.PlannedUpgrade',
+        type: 'tuple',
+        components: [
+          {
+            name: 'nextImplementation',
+            internalType: 'address',
+            type: 'address',
+          },
+          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+        ],
+        indexed: false,
+      },
+    ],
+    name: 'UpgradeAnnounced',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
+    name: 'AddressEmptyCode',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
+    name: 'DispatcherChanged',
+  },
+  { type: 'error', inputs: [], name: 'FailedCall' },
+  {
+    type: 'error',
+    inputs: [{ name: 'migration', internalType: 'address', type: 'address' }],
+    name: 'InvalidMigration',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'migration', internalType: 'address', type: 'address' }],
+    name: 'MigrationNotAnnounced',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'afterEpoch', internalType: 'uint96', type: 'uint96' }],
+    name: 'MigrationNotReady',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'selector', internalType: 'bytes4', type: 'bytes4' }],
+    name: 'MissingUpgradeRoute',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
+    name: 'OwnableUnauthorizedAccount',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: '', internalType: 'address', type: 'address' }],
+    name: 'Unauthorized',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'addApprovedProvider',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+      { name: 'index', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'removeApprovedProvider',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+    ],
+    name: 'ProviderApproved',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+    ],
+    name: 'ProviderUnapproved',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProviderAlreadyApproved',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'index', internalType: 'uint256', type: 'uint256' },
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ProviderIdMismatchAtIndex',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProviderNotInApprovedList',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_maxProvingPeriod', internalType: 'uint64', type: 'uint64' },
+      {
+        name: '_challengeWindowSize',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'configureProvingPeriod',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'epoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getProvingPeriodForEpoch',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'challengeEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'leafCount', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'nextProvingPeriod',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'uint256', type: 'uint256' },
+      { name: 'challengeCount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'possessionProven',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'terminator', internalType: 'address', type: 'address' },
+      { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'railTerminated',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'proposedAmount', internalType: 'uint256', type: 'uint256' },
+      { name: 'fromEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'toEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'validatePayment',
+    outputs: [
+      {
+        name: 'result',
+        internalType: 'struct IValidator.ValidationResult',
+        type: 'tuple',
+        components: [
+          { name: 'modifiedAmount', internalType: 'uint256', type: 'uint256' },
+          { name: 'settleUpto', internalType: 'uint256', type: 'uint256' },
+          { name: 'note', internalType: 'string', type: 'string' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'periodsFaulted',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'deadline',
         internalType: 'uint256',
         type: 'uint256',
         indexed: false,
       },
     ],
-    name: 'RailRateUpdated',
+    name: 'FaultRecord',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'endEpoch',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'pdpRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'PDPPaymentTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotPayments',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'windowStart', internalType: 'uint256', type: 'uint256' },
+      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ChallengeWindowTooEarly',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'DataSetNotFoundForRail',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'minExpected', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidChallengeCount',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'minAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidChallengeEpoch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'maxProvingPeriod', internalType: 'uint256', type: 'uint256' },
+      { name: 'challengeWindowSize', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidChallengeWindowSize',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'fromEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'toEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidEpochRange',
+  },
+  { type: 'error', inputs: [], name: 'MaxProvingPeriodZero' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'periodDeadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'NextProvingPeriodAlreadyCalled',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProofAlreadySubmitted',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProvingNotStarted',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ProvingPeriodPassed',
+  },
+  { type: 'error', inputs: [], name: 'ServiceContractMustTerminateRail' },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'viewContractAddress',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'clientDataSets',
+    outputs: [
+      { name: 'dataSetIds', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'payer', internalType: 'address', type: 'address' }],
+    name: 'clientDataSets',
+    outputs: [
+      { name: 'dataSetIds', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'nonce', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'clientNonces',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'filBeamControllerAddress',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getAllDataSetMetadata',
+    outputs: [
+      { name: 'keys', internalType: 'string[]', type: 'string[]' },
+      { name: 'values', internalType: 'string[]', type: 'string[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getApprovedProviders',
+    outputs: [
+      { name: 'providerIds', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getApprovedProvidersLength',
+    outputs: [{ name: 'count', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'client', internalType: 'address', type: 'address' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getClientDataSets',
+    outputs: [
+      {
+        name: 'infos',
+        internalType: 'struct DataSetInfoView[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cacheMissRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cdnRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'payer', internalType: 'address', type: 'address' },
+          { name: 'payee', internalType: 'address', type: 'address' },
+          { name: 'serviceProvider', internalType: 'address', type: 'address' },
+          { name: 'commissionBps', internalType: 'uint256', type: 'uint256' },
+          { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+          { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+          { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'pendingOneTimePayments',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          {
+            name: 'lifecycleReserveBalance',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'client', internalType: 'address', type: 'address' }],
+    name: 'getClientDataSets',
+    outputs: [
+      {
+        name: 'infos',
+        internalType: 'struct DataSetInfoView[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cacheMissRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cdnRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'payer', internalType: 'address', type: 'address' },
+          { name: 'payee', internalType: 'address', type: 'address' },
+          { name: 'serviceProvider', internalType: 'address', type: 'address' },
+          { name: 'commissionBps', internalType: 'uint256', type: 'uint256' },
+          { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+          { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+          { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'pendingOneTimePayments',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          {
+            name: 'lifecycleReserveBalance',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'payer', internalType: 'address', type: 'address' }],
+    name: 'getClientDataSetsLength',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getCurrentPricingRates',
+    outputs: [
+      { name: 'storagePrice', internalType: 'uint256', type: 'uint256' },
+      { name: 'datasetFee', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSet',
+    outputs: [
+      {
+        name: 'info',
+        internalType: 'struct DataSetInfoView',
+        type: 'tuple',
+        components: [
+          { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cacheMissRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cdnRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'payer', internalType: 'address', type: 'address' },
+          { name: 'payee', internalType: 'address', type: 'address' },
+          { name: 'serviceProvider', internalType: 'address', type: 'address' },
+          { name: 'commissionBps', internalType: 'uint256', type: 'uint256' },
+          { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+          { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+          { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'pendingOneTimePayments',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          {
+            name: 'lifecycleReserveBalance',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetAuthorizer',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'key', internalType: 'string', type: 'string' },
+    ],
+    name: 'getDataSetMetadata',
+    outputs: [
+      { name: 'exists', internalType: 'bool', type: 'bool' },
+      { name: 'value', internalType: 'string', type: 'string' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetPayerAndRailId',
+    outputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'leafCount', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetSizeInBytes',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetStatus',
+    outputs: [
+      { name: 'status', internalType: 'enum DataSetStatus', type: 'uint8' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getPDPConfig',
+    outputs: [
+      { name: 'maxProvingPeriod', internalType: 'uint64', type: 'uint64' },
+      { name: 'challengeWindowSize', internalType: 'uint256', type: 'uint256' },
+      { name: 'challengesPerProof', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'initChallengeWindowStart',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getPriceList',
+    outputs: [
+      {
+        name: 'list',
+        internalType: 'struct PriceList',
+        type: 'tuple',
+        components: [
+          { name: 'token', internalType: 'contract IERC20', type: 'address' },
+          {
+            name: 'rates',
+            internalType: 'struct PriceListRates',
+            type: 'tuple',
+            components: [
+              {
+                name: 'storagePerTibPerMonth',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'datasetFeePerMonth',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'cdnEgressPerTib',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'cacheMissEgressPerTib',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+            ],
+          },
+          {
+            name: 'fees',
+            internalType: 'struct PriceListFees',
+            type: 'tuple',
+            components: [
+              {
+                name: 'createDataSetFee',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'addPiecesBaseFee',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'addPiecesPerPieceFee',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'schedulePieceRemovalsFee',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'terminateFee',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+            ],
+          },
+          {
+            name: 'lockups',
+            internalType: 'struct PriceListLockups',
+            type: 'tuple',
+            components: [
+              {
+                name: 'lifecycleReserveTarget',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'replenishThreshold',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'defaultLockupPeriod',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'cdnLockupAmount',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'cacheMissLockupAmount',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+              {
+                name: 'cdnLockupPeriod',
+                internalType: 'uint256',
+                type: 'uint256',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'hasBeenProvenRecently',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'isProviderApproved',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'nextPDPChallengeWindowStart',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'nextUpgrade',
+    outputs: [
+      { name: 'nextImplementation', internalType: 'address', type: 'address' },
+      { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'periodId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'provenPeriods',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'provenThisPeriod',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'provingActivationEpoch',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'provingDeadline',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'railToDataSet',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'serviceCommissionBps',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProvingPeriodNotInitialized',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'owner',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'renounceOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
+    name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'OwnershipTransferred',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
+    name: 'OwnableInvalidOwner',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'selector', internalType: 'bytes4', type: 'bytes4' }],
+    name: 'implementation',
+    outputs: [{ name: 'delegate', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'selectors',
+    outputs: [{ name: '', internalType: 'bytes4[]', type: 'bytes4[]' }],
+    stateMutability: 'view',
   },
 ] as const
 
@@ -3431,6 +3853,16 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetPayerAndRailId',
+    outputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [{ name: 'leafCount', internalType: 'uint256', type: 'uint256' }],
     name: 'getDataSetSizeInBytes',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
@@ -3575,6 +4007,13 @@ export const filecoinWarmStorageServiceStateViewAbi = [
         ],
       },
     ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'hasBeenProvenRecently',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
     stateMutability: 'view',
   },
   {

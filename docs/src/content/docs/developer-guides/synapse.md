@@ -90,6 +90,8 @@ Store data on Filecoin Onchain Cloud. The SDK provides storage with multi-copy d
 - **Auto-Managed**: The main entry point for storage operations through the `StorageManager` class (`synapse.storage`).
 - **Explicit Control**: Use `StorageContext` class for explicit control.
 
+For encrypted storage, use companion packages to encrypt files before upload and decrypt them after download. See [Encrypt a file](/developer-guides/encryption/encrypt-a-file/) for the complete Synapse example.
+
 ### StorageManager
 
 High-level storage operations with multi-copy durability. Stores data on multiple providers automatically, handling provider selection, SP-to-SP replication, and on-chain commit.

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/FilOzone/synapse-sdk/compare/filecoin-encryption-envelope-v0.1.0...filecoin-encryption-envelope-v0.1.1) (2026-11-05)
+
+
+### Features
+
+* add encryption guides ([#1043](https://github.com/FilOzone/synapse-sdk/issues/1043)) ([a66f409](https://github.com/FilOzone/synapse-sdk/commit/a66f409ca256af5ee02ec09701ee4aabf8e8d9eb))
+
 ## 0.1.0 (2026-10-14)
 
 
