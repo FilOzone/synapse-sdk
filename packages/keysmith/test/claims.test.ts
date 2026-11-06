@@ -4,15 +4,19 @@ import type { Hex } from 'viem'
 import { hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
+  authorizationHeader,
   decodeDelivery,
   decodePresentation,
   delegateClaim,
   encodeDelivery,
   encodePresentation,
+  MAX_REQUEST_LIFETIME,
   openDelivery,
   type PieceLabels,
+  pickGrant,
   rootClaim,
   signRequest,
+  type VerifiedClaim,
   verifyChain,
   verifyPresentation,
 } from '../src/claims.ts'
@@ -205,5 +209,50 @@ describe('claims', () => {
     assert.throws(() => decodeDelivery(redo(without(l0, 8), l1)), /signature must be 65 bytes/)
     assert.throws(() => decodeDelivery(redo(without(l0, 11), l1)), /root expiry/)
     assert.throws(() => decodeDelivery(encode([2, links, grantBytes])), /version 1 delivery/)
+  })
+
+  it('builds the Authorization header a gating provider verifies', async () => {
+    const { chain } = await root('keyspace', 0)
+    const header = await authorizationHeader(a, chain, { pieceCid: PIECE })
+    const [scheme, token = ''] = header.split(' ')
+    assert.equal(scheme, 'FOC-Grant')
+    assert.match(token, /^[A-Za-z0-9_-]+$/) // base64url, unpadded
+    const bytes = Uint8Array.from(atob(token.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
+    const t = Math.floor(Date.now() / 1000)
+    const { expires: at } = decodePresentation(bytes).request
+    assert.ok(at > t && at <= t + MAX_REQUEST_LIFETIME)
+    assert.equal((await verifyPresentation(bytes, { pieceCid: PIECE, piece: labels(), chainId })).bearer, a.address)
+    await assert.rejects(authorizationHeader(a, chain, { pieceCid: PIECE, expiresIn: 3600 }), /expiresIn must be/)
+  })
+
+  it('picks the narrowest live grant that reaches a piece or scope', () => {
+    const held = (node: string, more: Partial<VerifiedClaim> = {}) => ({
+      claim: { owner: owner.address, keyspace, chainId, expires, node, bearer: a.address, ...more } as VerifiedClaim,
+    })
+    const salt = newSalt()
+    const whole = held('keyspace')
+    const team = held('scope:team')
+    const alice = held('scope:team/alice')
+    const alice2 = held('scope:team/alice', { expires: expires + 1 })
+    const piece = held(`piece:${salt}`)
+    const grants = [whole, team, alice, piece, alice2]
+    const pick = (target: Parameters<typeof pickGrant>[1], from = grants, at = now) =>
+      pickGrant(from, target, { chainId, now: at })
+
+    assert.equal(pick({ piece: labels('team/alice/notes', salt) }), piece)
+    assert.equal(pick({ piece: labels('team/alice/notes') }), alice2) // deepest scope; on a tie, the later expiry
+    assert.equal(pick({ piece: labels('team/bob') }), team)
+    assert.equal(pick({ piece: labels() }), whole) // no foc/scope: only the keyspace reaches it
+    assert.equal(pick({ ...ref, scope: 'team/alice/notes' }), alice2)
+    const cafe = held('scope:team/caf\u00e9')
+    assert.equal(pick({ ...ref, scope: 'team/cafe\u0301' }, [team, cafe]), cafe) // compared in canonical (NFC) form
+    assert.equal(pick({ ...ref, scope: 'team' }, [alice, piece]), undefined) // nothing wide enough: ask for one
+
+    // Skipped: expired, another network, another keyspace, another owner
+    assert.equal(pick({ piece: labels('team/x') }, [team], expires), undefined)
+    assert.equal(pick({ piece: labels('team/x') }, [held('scope:team', { chainId: 314n })]), undefined)
+    const elsewhere = held('scope:team', { keyspace: '0xffeeddccbbaa99887766554433221100' })
+    assert.equal(pick({ piece: labels('team/x') }, [elsewhere]), undefined)
+    assert.equal(pick({ piece: labels('team/x') }, [held('scope:team', { owner: stranger.address })]), undefined)
   })
 })

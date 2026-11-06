@@ -27,9 +27,10 @@ import {
   holdingOf,
   keyForEnvelope,
   keyspaceId,
+  scopePath,
   writeTarget,
 } from './derive.ts'
-import type { Grant, GrantNode } from './types.ts'
+import type { Grant, GrantNode, KeyspaceRef } from './types.ts'
 import { decodeGrant, encodeGrant, unwrapWith } from './wrap.ts'
 
 const STRICT = {
@@ -291,6 +292,74 @@ export function reaches(node: string, piece: PieceLabels): boolean {
   if (node === 'keyspace') return true
   if (node.startsWith('piece:')) return node === `piece:${piece['foc/salt']}`
   return piece['foc/scope'] != null && within(node, `scope:${piece['foc/scope']}`)
+}
+
+/** What a grant is picked for: reading one piece, or writing (or reading) under a scope of a keyspace. */
+export type GrantTarget = { piece: PieceLabels } | (KeyspaceRef & { scope: string })
+
+/**
+ * The narrowest held grant that reaches `target`: a piece grant before a scope grant, a deeper scope before a
+ * shallower one, the keyspace last; on a tie, the one that expires last. Grants for another network or keyspace,
+ * or expired ones, are skipped. Undefined when none reaches it: ask for a grant to that scope or piece.
+ *
+ * Takes anything carrying a verified `claim`, such as what `openDelivery` returns.
+ */
+export function pickGrant<T extends { claim: VerifiedClaim }>(
+  grants: readonly T[],
+  target: GrantTarget,
+  options: { chainId: bigint; now?: number }
+): T | undefined {
+  const now = options.now ?? Math.floor(Date.now() / 1000)
+  const owner = 'piece' in target ? target.piece['foc/own'] : target.owner
+  const keyspace = keyspaceId('piece' in target ? target.piece['foc/ks'] : target.keyspace)
+  const covers =
+    'piece' in target
+      ? (node: string) => reaches(node, target.piece)
+      : (node: string) =>
+          node === 'keyspace' || (node.startsWith('scope:') && within(node, `scope:${scopePath(target.scope)}`))
+  let best: T | undefined
+  for (const held of grants) {
+    const { claim } = held
+    if (claim.chainId !== options.chainId || claim.expires <= now || claim.keyspace !== keyspace) continue
+    if ((owner && getAddress(owner) !== claim.owner) || !covers(claim.node)) continue
+    if (
+      !best ||
+      narrowness(claim) > narrowness(best.claim) ||
+      (narrowness(claim) === narrowness(best.claim) && claim.expires > best.claim.expires)
+    ) {
+      best = held
+    }
+  }
+  return best
+}
+
+// keyspace 0, scope:a/b 2, any piece above every scope
+const narrowness = ({ node }: { node: string }) =>
+  node === 'keyspace' ? 0 : node.startsWith('piece:') ? Number.POSITIVE_INFINITY : node.split('/').length
+
+/**
+ * The `Authorization` header for one gated request: a request for `pieceCid` signed by the chain's final bearer,
+ * presented with its chain. Make a fresh one per fetch; it expires after `expiresIn` seconds (default 240, at most
+ * MAX_REQUEST_LIFETIME).
+ */
+export async function authorizationHeader(
+  signer: ClaimSigner,
+  chain: ClaimChain,
+  input: { pieceCid: Uint8Array; expiresIn?: number }
+): Promise<string> {
+  const expiresIn = input.expiresIn ?? MAX_REQUEST_LIFETIME - SKEW
+  if (!(expiresIn > 0 && expiresIn <= MAX_REQUEST_LIFETIME)) {
+    throw new Error(`expiresIn must be 1 to ${MAX_REQUEST_LIFETIME} seconds, got ${expiresIn}`)
+  }
+  const expires = Math.floor(Date.now() / 1000) + expiresIn
+  const request = await signRequest(signer, chain, { pieceCid: input.pieceCid, expires })
+  return `FOC-Grant ${base64url(encodePresentation(chain, request))}`
+}
+
+function base64url(bytes: Uint8Array): string {
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 /** Check one step down a chain: the child no wider than its parent, and within its depth. */
