@@ -634,7 +634,7 @@ a new dataset's metadata too.
 | `delegateClaim(signer, chain, { parentKey, node, bearer, maxDepth, piece?, pieceCid?, now? })` | A narrower link, signed by the chain's final bearer, with its key derived from `parentKey` → `{ chain, nodeKey }`; refuses an expired chain |
 | `encodeDelivery(chain, grant)` / `decodeDelivery(bytes)` | A claim chain and its grant, as one blob for the new bearer |
 | `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment; opens an expired one, reporting `expired` |
-| `signRequest(signer, chain, { pieceCid, expires, now? })` | A request for one piece, by the final bearer; any provider holding it may serve it. Refuses an expired chain |
+| `signRequest(signer, chain, { pieceCid, expires, now? })` | A request for one piece, by the final bearer; any provider holding it may serve it. Refuses an expired chain, or an `expires` more than `MAX_REQUEST_LIFETIME` ahead or already past |
 | `encodePresentation(chain, request)` / `decodePresentation(bytes)` | The `Authorization: FOC-Grant` payload |
 | `verifyChain(chain, { now?, piece? })` | Check a chain on its own: signatures, expiry, narrowing |
 | `verifyPresentation(bytes, { pieceCid, piece, chainId, now? })` | What a gating provider checks; the reference verifier |

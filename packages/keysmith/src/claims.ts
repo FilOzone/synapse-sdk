@@ -45,6 +45,8 @@ const STRICT = {
 export const MAX_CHAIN_LENGTH = 8 // Arbitrary, but need to keep it manageable including things like presentation in an HTTP header.
 export const MAX_REQUEST_LIFETIME = 300 // 5 minutes replay window
 const SKEW = 60 // Tolerance for clock skew, in seconds
+const outsideRequestWindow = (expires: number, now: number) =>
+  expires < now - SKEW || expires > now + MAX_REQUEST_LIFETIME + SKEW
 
 /**
  * EIP-712 types for every link and for a request. The domain is Keysmith's
@@ -305,14 +307,18 @@ export async function delegateClaim(
 /**
  * Sign a request for one piece, as the chain's final bearer. Any provider holding it may serve it.
  *
- * @throws If the chain has expired: a provider would refuse it.
+ * @throws If the chain has expired, or `expires` is outside the window a provider accepts.
  */
 export async function signRequest(
   signer: ClaimSigner,
   chain: ClaimChain,
   input: { pieceCid: Uint8Array; expires: number; now?: number }
 ): Promise<ReadRequest> {
-  assertLive(chain, input.now ?? Math.floor(Date.now() / 1000), 'fetch from a gating provider')
+  const now = input.now ?? Math.floor(Date.now() / 1000)
+  assertLive(chain, now, 'fetch from a gating provider')
+  if (outsideRequestWindow(input.expires, now)) {
+    throw new Error(`A request must expire within ${MAX_REQUEST_LIFETIME} seconds, and not in the past`)
+  }
   const signature = normalSignature(
     await signer.signTypedData({
       domain: DOMAIN,
@@ -441,7 +447,7 @@ export async function verifyPresentation(
   const claim = await verifyChain(chain, { now, piece: options.piece })
   if (chain.chainId !== options.chainId) throw new Error('The chain names another network')
   if (bytesToHex(request.pieceCid) !== bytesToHex(options.pieceCid)) throw new Error('The request names another piece')
-  if (request.expires < now - SKEW || request.expires > now + MAX_REQUEST_LIFETIME + SKEW) {
+  if (outsideRequestWindow(request.expires, now)) {
     throw new Error('The request has expired, or is valid for too long')
   }
   const signer = await recoverTypedDataAddress({
