@@ -4,7 +4,7 @@ description: Restrict who may fetch encrypted data, with the same keyspaces and 
 sidebar:
   order: 3
   badge:
-    text: Preview
+    text: New!
     variant: note
 ---
 
@@ -52,13 +52,13 @@ const context = await synapse.storage.createContext({ metadata })
 const { pieceCid } = await context.upload(piece)
 ```
 
-The SDK reuses a data set only when its metadata matches exactly, so restricted and public uploads of the same keyspace go to separate data sets.
+The SDK reuses a data set only when its metadata matches exactly, so restricted and public uploads of the same keyspace automatically go to separate data sets.
 
 Pieces in a restricted data set are served only from `/download/<pieceCid>`. They are not served from `/piece/<pieceCid>`, and their contents are not indexed for IPFS retrieval.
 
 ## Give a reader a delivery
 
-A reader needs a delivery: its key and its claim chain in one package. The owner issues one with `rootClaim()`, and a bearer whose link allows it passes a narrower one on with `delegateClaim()`. [Share encrypted data](/developer-guides/encryption/share-encrypted-data/) covers both. The Filecoin Pay Console issues one to a session key on `filecoin-pin login`.
+A reader needs a **delivery**: its key and its claim chain in one package. This is the format of the credential returned by Filecoin Pay Console on `filecoin-pin login`. The owner issues one with `rootClaim()`, and a bearer whose link allows it passes a narrower one on with `delegateClaim()`. The article [Share encrypted data](/developer-guides/encryption/share-encrypted-data/) shows how this works. 
 
 ## Fetch a gated piece
 
