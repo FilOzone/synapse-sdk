@@ -431,12 +431,9 @@ Make a fresh header for each fetch: it expires after `expiresIn` seconds (defaul
 `MAX_REQUEST_LIFETIME`). `signRequest` and `encodePresentation` are its parts, for a caller that
 needs them separately.
 
-#### Holding several grants
+#### Holding multiple grants
 
-A bearer granted one scope at a time keeps every delivery it opens, and picks one per piece or
-scope with `pickGrant`: the narrowest that reaches the target, skipping expired grants and those
-for another network or keyspace. Asking for a parent of two scopes instead would grant everything
-else under it.
+A bearer may have many grants if they interact with several, disjoint scopes. `pickGrant` takes a bundle of grants and picks the narrowest valid grant that reaches the target requested.
 
 ```ts
 const held = await Promise.all(deliveries.map((bytes) => Keysmith.openDelivery(myPrivateKey, bytes)))
