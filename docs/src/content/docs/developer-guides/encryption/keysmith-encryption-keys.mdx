@@ -137,7 +137,7 @@ Nothing is required from the chain or any secrets store to recover keys and data
 | Each piece's envelope | Owner, keyspace, scope, and salt | Identify the key needed to decrypt that piece. |
 | Data set metadata | Keyspace and commitment | Identify the derivation tree that the piece's key lives in. |
 
-Synapse SDK does not derive or add these automatically so the application needs to do this. Generate the FEE metadata entries with [`pieceMetadata()`](/reference/filoz/keysmith/functions/piecemetadata/), and pass the data set entries explicitly through the SDK's `metadata` option.
+Synapse SDK does not derive or add these automatically so the application needs to do this. Generate the FEE metadata entries with [`pieceMetadata()`](/reference/filoz/keysmith/functions/piecemetadata/), and pass the data set entries explicitly through the SDK's `metadata` option. The piece you upload is the [CAR-in-CAR](/developer-guides/encryption/encrypt-a-file/#the-upload-format) packing of the encrypted envelope.
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -148,11 +148,11 @@ import { privateKeyToAccount } from 'viem/accounts'
 const account = privateKeyToAccount('0x...')
 const synapse = Synapse.create({ account, source: 'my-app' })
 const ref = { owner: account.address, keyspace: Keysmith.newKeyspace() }
-declare const encrypted: Uint8Array
+declare const piece: Uint8Array
 // ---cut---
 const { kk: keyspaceKey, commitment, descriptor } = await Keysmith.keyspaceKeys(account, ref)
 
-// Envelope entries: pass these to FEE as appMetadata when encrypting the piece.
+// Envelope entries: pass these to FEE as appMetadata when encrypting the inner CAR.
 const target = Keysmith.writeTarget(descriptor, keyspaceKey, 'app-data/notes')
 const salt = Keysmith.newSalt()
 const appMetadata = Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope })
@@ -162,7 +162,7 @@ const metadata = {
   [Keysmith.KEYSPACE_ID_KEY]: ref.keyspace,
   [Keysmith.COMMITMENT_KEY]: commitment,
 }
-await synapse.storage.upload(encrypted, { metadata })
+await synapse.storage.upload(piece, { metadata }) // the outer CAR: see the upload format
 ```
 
 The FEE envelope lives with the encrypted piece and identifies all that is needed to decrypt it. Scope names, owner addresses, and salts are all stored in clear and visible to anyone. *Do not put secrets in these fields*.
@@ -190,10 +190,12 @@ import { privateKeyToAccount } from 'viem/accounts'
 const account = privateKeyToAccount('0x...') // Or use your wallet
 declare const downloaded: Uint8Array
 declare const dataSetMetadata: Record<string, string> | undefined // Optional, if you still have it
+declare function fromCar(car: Uint8Array): Promise<Uint8Array>
 
 // ---cut---
-// The envelope names the keyspace and its owner.
-const { appMetadata } = await fee.parse(downloaded)
+// The envelope, inside the piece's outer CAR, names the keyspace and its owner.
+const envelopeBytes = await fromCar(downloaded)
+const { appMetadata } = await fee.parse(envelopeBytes)
 const envelope = appMetadata as Keysmith.PieceMetadata
 if (envelope['foc/own'] !== account.address.toLowerCase()) {
   throw new Error('This piece belongs to another owner')
@@ -207,6 +209,6 @@ const commitment = dataSetMetadata?.[Keysmith.KEYSPACE_ID_KEY] === ref.keyspace
   : undefined
 const { kk: keyspaceKey } = await Keysmith.keyspaceKeys(account, ref, { commitment })
 
-// Now we have the key, pipe this piece, or any other in the keyspace, through this to decrypt it.
+// Now we have the key, pipe this envelope, or any other in the keyspace, through this to decrypt it to its inner CAR.
 const decryptor = fee.decrypt(Keysmith.keyResolver(keyspaceKey))
 ```

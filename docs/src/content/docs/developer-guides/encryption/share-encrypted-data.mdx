@@ -15,7 +15,7 @@ Share encrypted data by giving the recipient a key, not by re-encrypting the dat
 | Share link | One piece. |
 
 :::note[]
-The examples follow on from [Encrypt a file](/developer-guides/encryption/encrypt-a-file/): `keyspaceKey` and `ref` come from `keyspaceKeys()`, and `through()` is the stream helper defined there.
+The examples follow on from [Encrypt a file](/developer-guides/encryption/encrypt-a-file/): `keyspaceKey` and `ref` come from `keyspaceKeys()`, and `through()`, `toCar()` and `fromCar()` are the helpers defined there for [the upload format](/developer-guides/encryption/encrypt-a-file/#the-upload-format).
 :::
 
 ## Share a keyspace or scope with a session key
@@ -68,6 +68,8 @@ declare const expected: Keysmith.KeyspaceRef
 declare const original: Uint8Array
 declare const downloaded: Uint8Array
 declare function through(bytes: Uint8Array, transform: ReadableWritablePair<Uint8Array, Uint8Array>): Promise<Uint8Array>
+declare function toCar(content: Uint8Array, name?: string): Promise<Uint8Array>
+declare function fromCar(car: Uint8Array): Promise<Uint8Array>
 // ---cut---
 const grant = Keysmith.decodeGrant(bytes)
 if (grant.owner !== expected.owner.toLowerCase() || grant.keyspace !== expected.keyspace) {
@@ -75,17 +77,19 @@ if (grant.owner !== expected.owner.toLowerCase() || grant.keyspace !== expected.
 }
 const key = await Keysmith.unwrapWith(sessionPrivateKey, grant)
 
-// Encrypt a new piece in the agent-memory scope.
+// Encrypt a new piece in the agent-memory scope, packed CAR-in-CAR.
 const target = Keysmith.writeTarget(grant, key, 'agent-memory')
 const salt = Keysmith.newSalt()
-const encrypted = await through(original, fee.encrypt({
+const inner = await toCar(original, 'notes.txt')
+const piece = await toCar(await through(inner, fee.encrypt({
   cek: Keysmith.pieceKey(target.key, salt),
   appMetadata: Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope }),
-  contentLength: original.byteLength,
-}))
+  contentLength: inner.byteLength,
+  contentType: 'application/vnd.ipld.car',
+})))
 
 // Decrypt any piece the grant covers.
-const restored = await through(downloaded, fee.decrypt(Keysmith.keyResolver(key, grant)))
+const restored = await fromCar(await through(await fromCar(downloaded), fee.decrypt(Keysmith.keyResolver(key, grant))))
 ```
 
 ## Pass a narrower scope on
@@ -120,7 +124,7 @@ There are 2 supported ways to share a single piece:
 
 To share one piece and nothing else, wrap that piece's key. The grant names the piece by its salt; add its PieceCID so the recipient knows what to fetch. This key is effectively decrypt-only because a new upload (eg 'editing a file') would change the contents and salt, so a new piece key would be derived on upload.
 
-Anyone holding a key in the hierarchy above the piece can share it. Read the piece's envelope metadata with [`parse()`](/reference/filecoin-encryption-envelope/functions/parse/):
+Anyone holding a key in the hierarchy above the piece can share it. Take the envelope out of the piece's outer CAR and read its metadata with [`parse()`](/reference/filecoin-encryption-envelope/functions/parse/):
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -131,11 +135,12 @@ import type { Hex } from 'viem'
 
 declare const keyspaceKey: Uint8Array
 declare const ref: Keysmith.KeyspaceRef
-declare const encrypted: Uint8Array
+declare const piece: Uint8Array
 declare const pieceCid: PieceCID
 declare const recipientPublicKey: Hex
+declare function fromCar(car: Uint8Array): Promise<Uint8Array>
 // ---cut---
-const { appMetadata } = await fee.parse(encrypted)
+const { appMetadata } = await fee.parse(await fromCar(piece))
 const metadata = appMetadata as Keysmith.PieceMetadata
 const grant = await Keysmith.wrapTo(
   recipientPublicKey,
@@ -159,11 +164,13 @@ declare const synapse: Synapse
 declare const recipientPrivateKey: Hex
 declare const bytes: Uint8Array
 declare function through(bytes: Uint8Array, transform: ReadableWritablePair<Uint8Array, Uint8Array>): Promise<Uint8Array>
+declare function fromCar(car: Uint8Array): Promise<Uint8Array>
 // ---cut---
 const grant = Keysmith.decodeGrant(bytes)
 const key = await Keysmith.unwrapWith(recipientPrivateKey, grant)
 const downloaded = await synapse.storage.download({ pieceCid: String(grant.pieceCid) })
-const restored = await through(downloaded, fee.decrypt(Keysmith.keyResolver(key, grant)))
+const decrypted = await through(await fromCar(downloaded), fee.decrypt(Keysmith.keyResolver(key, grant)))
+const restored = await fromCar(decrypted)
 ```
 
 ### Share link a single piece
