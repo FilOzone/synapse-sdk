@@ -27,7 +27,6 @@ The chain:
 3. The final bearer signs each request to prove they are the legitimate holder of the credential. The provider checks the chain against the piece's FEE envelope metadata, with no on-chain lookups required.
 4. The application formats the entire chain into an Auth Header for the GET request
 
-
 ## Create a restricted data set
 
 Add `read: restricted` to the data set metadata when you create it, alongside the keyspace entries every encrypted data set carries (see [Encrypt a file](/developer-guides/encryption/encrypt-a-file/#encrypt-upload-and-decrypt)). Every piece added to it must be an encrypted upload in [the CAR-in-CAR format](/developer-guides/encryption/encrypt-a-file/#the-upload-format). The provider reads the `foc/*` labels of the envelope inside it to decide who may fetch it.
@@ -58,7 +57,7 @@ Pieces in a restricted data set are served only from `/download/<pieceCid>`. The
 
 ## Give a reader a delivery
 
-A reader needs a **delivery**: its key and its claim chain in one package. This is the format of the credential returned by Filecoin Pay Console on `filecoin-pin login`. The owner issues one with `rootClaim()`, and a bearer whose link allows it passes a narrower one on with `delegateClaim()`. The article [Share encrypted data](/developer-guides/encryption/share-encrypted-data/) shows how this works. 
+A reader needs a **delivery**: its key and its claim chain in one package. This is the format of the credential returned by Filecoin Pay Console on `filecoin-pin login`. The owner issues one with `rootClaim()`, and a bearer whose link allows it passes a narrower one on with `delegateClaim()`. The article [Share encrypted data](/developer-guides/encryption/share-encrypted-data/) shows how this works.
 
 ## Fetch a gated piece
 

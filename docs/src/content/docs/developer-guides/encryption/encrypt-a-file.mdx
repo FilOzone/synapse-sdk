@@ -74,7 +74,7 @@ node --input-type=module -e "import { writeFileSync } from 'node:fs'; writeFileS
 
 Every encrypted upload uses the same layout, **CAR-in-CAR**. It's what [Filecoin Pin](/core-concepts/filecoin-pin/) writes with `add --encrypt`, what its `decrypt` command and the share-link viewer read, and what Storage Providers expect in [restricted data sets](/developer-guides/encryption/access-control/):
 
-```
+```text
 file or folder
   └─ inner CAR    the content as UnixFS, under a wrapping directory
       └─ envelope (FEE)  content type application/vnd.ipld.car
