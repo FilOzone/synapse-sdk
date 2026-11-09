@@ -157,7 +157,7 @@
     "mocha": "catalog:",
     "msw": "catalog:",
     "p-defer": "4.0.1",
-    "playwright-test": "^14.1.12",
+    "playwright-test": "^15.0.1",
     "typescript": "catalog:",
     "viem": "catalog:"
   },
