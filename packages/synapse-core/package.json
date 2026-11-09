@@ -262,7 +262,7 @@
     "chai": "6.2.2",
     "mocha": "catalog:",
     "msw": "catalog:",
-    "playwright-test": "^14.1.12",
+    "playwright-test": "^15.0.1",
     "type-fest": "^5.7.0",
     "typescript": "catalog:",
     "viem": "catalog:"
