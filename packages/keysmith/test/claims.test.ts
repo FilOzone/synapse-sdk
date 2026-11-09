@@ -1,7 +1,7 @@
 import assert from 'assert'
 import { decode, encode } from 'cborg'
 import type { Hex } from 'viem'
-import { hexToBytes } from 'viem'
+import { bytesToHex, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
   decodeDelivery,
@@ -9,6 +9,7 @@ import {
   delegateClaim,
   encodeDelivery,
   encodePresentation,
+  MAX_REQUEST_LIFETIME,
   openDelivery,
   type PieceLabels,
   rootClaim,
@@ -140,7 +141,34 @@ describe('claims', () => {
     // Built elsewhere, without encodeDelivery's check: the bearer still refuses it.
     const [, links] = decode(delivery, { useMaps: true }) as [number, unknown]
     await assert.rejects(openDelivery(aKey, encode([1, links, encodeGrant(otherNode)]), { now }), /another node/)
-    await assert.rejects(openDelivery(aKey, delivery, { now: expires + 3600 }), /expired/)
+    assert.equal(opened.expired, false)
+  })
+
+  it('opens an expired delivery for its key, but refuses to use its claim', async () => {
+    const { chain, key: team } = await root('scope:team', 1)
+    const delivery = encodeDelivery(chain, await wrapTo(publicKeyOf(aKey), team, grantDescriptor(ref, 'scope:team')))
+    const later = expires + 3600
+
+    // A key does not expire: the bearer can still decrypt with it.
+    const opened = await openDelivery(aKey, delivery, { now: later })
+    assert.equal(opened.expired, true)
+    assert.deepEqual(opened.key, team)
+
+    // The claim does: anything that would present or pass it on refuses, before a provider has to.
+    await assert.rejects(
+      signRequest(a, chain, { pieceCid: PIECE, expires: later + 120, now: later }),
+      /The claim expired at .*: get a new grant to fetch from a gating provider/
+    )
+    await assert.rejects(
+      delegateClaim(a, chain, { node: 'scope:team/x', parentKey: team, bearer: b.address, maxDepth: 0, now: later }),
+      /get a new grant to delegate/
+    )
+    await assert.rejects(verifyChain(chain, { now: later }), /expired/)
+    const { kk } = await keys()
+    await assert.rejects(
+      rootClaim(owner, { ...ref, chainId, kk, node: 'keyspace', bearer: a.address, maxDepth: 0, expires, now: later }),
+      /get a new grant to issue a root/
+    )
   })
 
   it('verifies a presentation the way a gating provider would', async () => {
@@ -151,8 +179,8 @@ describe('claims', () => {
       bearer: b.address,
       maxDepth: 0,
     })
-    const present = async (signer = b, at = now + 120) =>
-      encodePresentation(two, await signRequest(signer, two, { pieceCid: PIECE, expires: at }))
+    const present = async (signer = b, at = now + 120, signedAt = now) =>
+      encodePresentation(two, await signRequest(signer, two, { pieceCid: PIECE, expires: at, now: signedAt }))
     const check = (bytes: Uint8Array, piece: PieceLabels, at = now, network = chainId) =>
       verifyPresentation(bytes, { pieceCid: PIECE, piece, chainId: network, now: at })
 
@@ -161,21 +189,32 @@ describe('claims', () => {
     await assert.rejects(check(await present(), labels('team/bob')), /does not reach this piece/)
     await assert.rejects(check(await present(), labels()), /does not reach this piece/)
     await assert.rejects(check(await present(a), labels('team/alice')), /not signed by the final bearer/)
-    await assert.rejects(check(await present(b, now - 3600), labels('team/alice')), /expired/)
-    await assert.rejects(check(await present(b, now + 3600), labels('team/alice')), /too long/)
+    await assert.rejects(check(await present(b, now - 3600, now - 3700), labels('team/alice')), /expired/)
+    await assert.rejects(check(await present(b, now + 3600, now + 3500), labels('team/alice')), /too long/)
     await assert.rejects(check(await present(), labels('team/alice'), now, 314n), /another network/)
     const otherPiece = PIECE.slice()
     otherPiece[otherPiece.length - 1] ^= 1
-    const elsewhere = encodePresentation(two, await signRequest(b, two, { pieceCid: otherPiece, expires: now + 120 }))
+    const elsewhere = encodePresentation(
+      two,
+      await signRequest(b, two, { pieceCid: otherPiece, expires: now + 120, now })
+    )
     await assert.rejects(check(elsewhere, labels('team/alice')), /another piece/)
     await assert.rejects(
       check(await present(), { ...labels('team/alice'), 'foc/own': stranger.address }),
       /another owner/
     )
-    const late = expires + 3600
-    await assert.rejects(check(await present(b, late + 120), labels('team/alice'), late), /chain expired/)
     const ungated: PieceLabels = { 'foc/ks': keyspace, 'foc/salt': newSalt() }
     assert.ok(await check(await present(), ungated))
+  })
+
+  it('signs only a request expiry the gate accepts', async () => {
+    const { chain } = await root('keyspace', 0)
+    const sign = (at: number) => signRequest(a, chain, { pieceCid: PIECE, expires: at, now })
+    const longest = now + MAX_REQUEST_LIFETIME + 60
+    assert.ok(await sign(longest))
+    await assert.rejects(sign(longest + 1), /must expire within 300 seconds/)
+    assert.ok(await sign(now - 60))
+    await assert.rejects(sign(now - 61), /not in the past/)
   })
 
   it('round-trips CBOR, and refuses links that repeat root fields, carry unknown ones or lack a signature', async () => {
@@ -188,7 +227,7 @@ describe('claims', () => {
     })
     const grant = await wrapTo(publicKeyOf(bKey), scopeKey(kk, 'x'), grantDescriptor(ref, 'scope:x'))
     assert.deepEqual(decodeDelivery(encodeDelivery(two, grant)).chain, two)
-    const request = await signRequest(b, two, { pieceCid: PIECE, expires: 1 })
+    const request = await signRequest(b, two, { pieceCid: PIECE, expires: now + 120, now })
     assert.deepEqual(decodePresentation(encodePresentation(two, request)), { chain: two, request })
 
     const [, links, grantBytes] = decode(encodeDelivery(two, grant), { useMaps: true }) as [
@@ -205,5 +244,54 @@ describe('claims', () => {
     assert.throws(() => decodeDelivery(redo(without(l0, 8), l1)), /signature must be 65 bytes/)
     assert.throws(() => decodeDelivery(redo(without(l0, 11), l1)), /root expiry/)
     assert.throws(() => decodeDelivery(encode([2, links, grantBytes])), /version 1 delivery/)
+  })
+
+  it('normalizes a signer that returns v = 0/1 or a high s to the one accepted form', async () => {
+    const n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
+    const loose = {
+      signTypedData: async (args: Parameters<typeof owner.signTypedData>[0]) => {
+        const sig = hexToBytes(await owner.signTypedData(args))
+        const s = BigInt(bytesToHex(sig.subarray(32, 64)))
+        const high = (n - s).toString(16).padStart(64, '0')
+        return `${bytesToHex(sig.subarray(0, 32))}${high}${sig[64] === 27 ? '01' : '00'}` as Hex
+      },
+    }
+    const { kk } = await keys()
+    const { chain: fromLoose } = await rootClaim(loose, {
+      ...ref,
+      chainId,
+      kk,
+      node: 'keyspace',
+      bearer: a.address,
+      maxDepth: 0,
+      expires,
+    })
+    assert.deepEqual(
+      decodeDelivery(encodeDelivery(fromLoose, await wrapTo(publicKeyOf(aKey), kk, grantDescriptor(ref, 'keyspace'))))
+        .chain,
+      fromLoose
+    )
+    assert.ok(await verifyChain(fromLoose, { now }))
+  })
+
+  it("carries a piece root's locator, unsigned, through a delivery", async () => {
+    const { kk } = await keys()
+    const piece = labels('team', newSalt())
+    const node = `piece:${piece['foc/salt']}` as const
+    const { chain, nodeKey } = await rootClaim(owner, {
+      ...ref,
+      chainId,
+      kk,
+      node,
+      bearer: a.address,
+      maxDepth: 0,
+      expires,
+      piece,
+      pieceCid: PIECE,
+    })
+    assert.deepEqual(chain.links[0]?.pieceCid, PIECE)
+    const delivery = encodeDelivery(chain, await wrapTo(publicKeyOf(aKey), nodeKey, grantDescriptor(ref, node)))
+    assert.deepEqual(decodeDelivery(delivery).chain, chain)
+    assert.deepEqual((await openDelivery(aKey, delivery, { now })).key, nodeKey)
   })
 })
