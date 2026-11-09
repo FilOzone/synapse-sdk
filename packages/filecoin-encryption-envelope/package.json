@@ -105,7 +105,7 @@
     "@types/node": "catalog:",
     "assert": "^2.1.0",
     "mocha": "catalog:",
-    "playwright-test": "^14.1.12",
+    "playwright-test": "^15.0.1",
     "typescript": "catalog:"
   },
   "publishConfig": {
