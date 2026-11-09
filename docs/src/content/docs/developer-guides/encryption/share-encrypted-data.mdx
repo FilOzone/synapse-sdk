@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-Share encrypted data by giving the recipient a key, not by re-encrypting the data. Keysmith wraps the key with a **grant** that only the recipient's private key can open. Nothing is written on chain or passes through servers: your application delivers and stores it. [A tree of keys](/developer-guides/encryption/keysmith-encryption-keys/#a-tree-of-keys) explains how the keys relate.
+Share encrypted data by giving the recipient a key, not by re-encrypting the data. Keysmith sends it as a **delivery**: the key, wrapped so that only the recipient's private key opens it, together with a signed **claim chain** that proves the owner allowed it. The key lets the recipient decrypt, and the chain lets it fetch from [restricted data sets](/developer-guides/encryption/access-control/). Nothing is written on chain or passes through servers: your application delivers and stores it. [Grants, claims and deliveries](/developer-guides/encryption/keysmith-encryption-keys/#grants-claims-and-deliveries) explains the parts, and [a tree of keys](/developer-guides/encryption/keysmith-encryption-keys/#a-tree-of-keys) how the keys relate.
 
 | Key shared | What the recipient can decrypt |
 | --- | --- |
@@ -15,46 +15,51 @@ Share encrypted data by giving the recipient a key, not by re-encrypting the dat
 | Share link | One piece. |
 
 :::note[]
-The examples follow on from [Encrypt a file](/developer-guides/encryption/encrypt-a-file/): `keyspaceKey` and `ref` come from `keyspaceKeys()`, and `through()` is the stream helper defined there.
+The examples follow on from [Encrypt a file](/developer-guides/encryption/encrypt-a-file/): `keyspaceKey` and `ref` come from `keyspaceKeys()`, and `through()`, `toCar()` and `fromCar()` are the helpers defined there for [the upload format](/developer-guides/encryption/encrypt-a-file/#the-upload-format).
 :::
 
 ## Share a keyspace or scope with a session key
 
-A [session key](/developer-guides/session-keys/) cannot sign as the owner, so it cannot derive encryption keys itself. Instead, the owner wraps a key to the session key's public key. Share a scope rather than the whole keyspace when the session needs only one branch of your data.
+A [session key](/developer-guides/session-keys/) cannot sign as the owner, so it cannot derive encryption keys itself. Instead, the owner signs a root claim for it with [`rootClaim()`](/reference/filoz/keysmith/functions/rootclaim/), which costs one wallet prompt beyond deriving the keyspace key, and wraps the claimed node's key to the session key's public key. Share a scope rather than the whole keyspace when the session needs only one branch of your data.
 
 ```ts twoslash
 // @lib: esnext,dom
 import * as Keysmith from '@filoz/keysmith'
-import { generatePrivateKey } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-sdk'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 
+const account = privateKeyToAccount('0x...')
 declare const keyspaceKey: Uint8Array
 declare const ref: Keysmith.KeyspaceRef
 const sessionPrivateKey = generatePrivateKey()
 // ---cut---
-// The session key publishes its key-agreement public key.
+// The session key publishes its address and its key-agreement public key.
+const sessionAddress = privateKeyToAccount(sessionPrivateKey).address
 const sessionPublicKey = Keysmith.publicKeyOf(sessionPrivateKey)
 
-// Share the whole keyspace...
-const keyspaceGrant = await Keysmith.wrapTo(sessionPublicKey, keyspaceKey, Keysmith.grantDescriptor(ref, 'keyspace'))
-
-// ...or one scope and the scopes beneath it.
-const scopeGrant = await Keysmith.wrapTo(
-  sessionPublicKey,
-  Keysmith.scopeKey(keyspaceKey, 'agent-memory'),
-  Keysmith.grantDescriptor(ref, 'scope:agent-memory'),
-)
+// The owner claims one scope (or 'keyspace') for the session key, and wraps that node's key to it.
+const { chain, nodeKey } = await Keysmith.rootClaim(account, {
+  ...ref,
+  chainId: BigInt(calibration.id),
+  kk: keyspaceKey,
+  node: 'scope:agent-memory',
+  bearer: sessionAddress,
+  maxDepth: 1, // the session key may delegate one more level; 0 forbids it
+  expires: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // unix seconds: use the session key's expiry
+})
+const grant = await Keysmith.wrapTo(sessionPublicKey, nodeKey, Keysmith.grantDescriptor(ref, 'scope:agent-memory'))
 
 // Bytes to send or store. Use Base64 or similar over a text channel.
-const bytes = Keysmith.encodeGrant(scopeGrant)
+const delivery = Keysmith.encodeDelivery(chain, grant)
 ```
 
-The grant covers encryption only. To store the encrypted data the session key also needs the `CreateDataSet` and `AddPieces` [permissions](/developer-guides/session-keys/#permissions). Always keep the two in step: the Filecoin Pay Console does this for you on `filecoin-pin login`, but if you do your own session key management or use the owner key directly, you'll need to take care of this yourself.
+The delivery covers reading: decrypting, and fetching from restricted data sets until the claim expires. To store encrypted data the session key also needs the `CreateDataSet` and `AddPieces` [permissions](/developer-guides/session-keys/#permissions). Always keep the two in step: the Filecoin Pay Console does this for you on `filecoin-pin login`, but if you do your own session key management or use the owner key directly, you'll need to take care of this yourself.
 
-## Encrypt and decrypt with a received grant
+## Encrypt and decrypt with a received delivery
 
-The recipient opens the grant with its private key. [`writeTarget()`](/reference/filoz/keysmith/functions/writetarget/) then picks the key for a new piece: it takes the keyspace from the grant and refuses a scope the grant does not cover.
+The recipient opens the delivery with its private key. [`openDelivery()`](/reference/filoz/keysmith/functions/opendelivery/) checks the chain's signatures, expiry and narrowing, that the recipient is its final bearer, and that the key matches the commitment the owner signed. [`writeTarget()`](/reference/filoz/keysmith/functions/writetarget/) then picks the key for a new piece: it takes the keyspace from the grant and refuses a scope the grant does not cover.
 
-Anyone can send anyone a grant, so check that it names the owner and keyspace you expect before writing with it.
+Anyone can send anyone a delivery, so check that it names the owner and keyspace you expect before writing with it.
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -63,50 +68,65 @@ import * as fee from 'filecoin-encryption-envelope'
 import type { Hex } from 'viem'
 
 declare const sessionPrivateKey: Hex
-declare const bytes: Uint8Array
+declare const delivery: Uint8Array
 declare const expected: Keysmith.KeyspaceRef
 declare const original: Uint8Array
 declare const downloaded: Uint8Array
 declare function through(bytes: Uint8Array, transform: ReadableWritablePair<Uint8Array, Uint8Array>): Promise<Uint8Array>
+declare function toCar(content: Uint8Array, name?: string): Promise<Uint8Array>
+declare function fromCar(car: Uint8Array): Promise<Uint8Array>
 // ---cut---
-const grant = Keysmith.decodeGrant(bytes)
-if (grant.owner !== expected.owner.toLowerCase() || grant.keyspace !== expected.keyspace) {
-  throw new Error('This grant is for another keyspace')
+const { key, grant, claim } = await Keysmith.openDelivery(sessionPrivateKey, delivery)
+if (claim.owner.toLowerCase() !== expected.owner.toLowerCase() || claim.keyspace !== expected.keyspace) {
+  throw new Error('This delivery is for another keyspace')
 }
-const key = await Keysmith.unwrapWith(sessionPrivateKey, grant)
 
-// Encrypt a new piece in the agent-memory scope.
+// Encrypt a new piece in the agent-memory scope, packed CAR-in-CAR.
 const target = Keysmith.writeTarget(grant, key, 'agent-memory')
 const salt = Keysmith.newSalt()
-const encrypted = await through(original, fee.encrypt({
+const inner = await toCar(original, 'notes.txt')
+const piece = await toCar(await through(inner, fee.encrypt({
   cek: Keysmith.pieceKey(target.key, salt),
   appMetadata: Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope }),
-  contentLength: original.byteLength,
-}))
+  contentLength: inner.byteLength,
+  contentType: 'application/vnd.ipld.car',
+})))
 
-// Decrypt any piece the grant covers.
-const restored = await through(downloaded, fee.decrypt(Keysmith.keyResolver(key, grant)))
+// Decrypt any piece the delivery covers.
+const restored = await fromCar(await through(await fromCar(downloaded), fee.decrypt(Keysmith.keyResolver(key, grant))))
 ```
+
+To fetch from a restricted data set, the recipient signs each request with the delivery's chain: see [Fetch a gated piece](/developer-guides/encryption/access-control/#fetch-a-gated-piece).
 
 ## Pass a narrower scope on
 
-A recipient holding a scope can share a scope beneath it, for example with a sub-agent, without involving the owner's wallet. Keys derive only downward, so the sub-agent cannot reach data outside of the narrow area allowed.
+A recipient holding a scope can share a scope beneath it, for example with a sub-agent, without involving the owner's wallet, as long as its link's `maxDepth` is above 0. [`delegateClaim()`](/reference/filoz/keysmith/functions/delegateclaim/) adds a link to the chain and derives the narrower key. Keys derive only downward, so the sub-agent cannot reach data outside of the narrow area allowed, and a link can never widen access or extend the owner's expiry.
 
 ```ts twoslash
 // @lib: esnext,dom
 import * as Keysmith from '@filoz/keysmith'
-import type { Hex } from 'viem'
+import type { Address, Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 
-declare const grant: Keysmith.Grant
-declare const key: Uint8Array
-declare const subAgentPublicKey: Hex
+const sessionPrivateKey: Hex = '0x...'
+declare const delivery: Uint8Array
+declare const agentAddress: Address
+declare const agentPublicKey: Hex
 // ---cut---
-const notes = Keysmith.writeTarget(grant, key, 'agent-memory/notes')
-const subGrant = await Keysmith.wrapTo(
-  subAgentPublicKey,
-  notes.key,
-  Keysmith.grantDescriptor(notes.ref, 'scope:agent-memory/notes'),
+const { key, claim, chain } = await Keysmith.openDelivery(sessionPrivateKey, delivery)
+
+const { chain: next, nodeKey } = await Keysmith.delegateClaim(privateKeyToAccount(sessionPrivateKey), chain, {
+  parentKey: key,
+  node: 'scope:agent-memory/notes',
+  bearer: agentAddress,
+  maxDepth: 0, // the sub-agent may not pass it on
+})
+const agentGrant = await Keysmith.wrapTo(
+  agentPublicKey,
+  nodeKey,
+  Keysmith.grantDescriptor(claim, 'scope:agent-memory/notes'),
 )
+const agentDelivery = Keysmith.encodeDelivery(next, agentGrant)
 ```
 
 ## Share one piece
@@ -120,7 +140,7 @@ There are 2 supported ways to share a single piece:
 
 To share one piece and nothing else, wrap that piece's key. The grant names the piece by its salt; add its PieceCID so the recipient knows what to fetch. This key is effectively decrypt-only because a new upload (eg 'editing a file') would change the contents and salt, so a new piece key would be derived on upload.
 
-Anyone holding a key in the hierarchy above the piece can share it. Read the piece's envelope metadata with [`parse()`](/reference/filecoin-encryption-envelope/functions/parse/):
+Anyone holding a key in the hierarchy above the piece can share it. Take the envelope out of the piece's outer CAR and read its metadata with [`parse()`](/reference/filecoin-encryption-envelope/functions/parse/):
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -131,11 +151,12 @@ import type { Hex } from 'viem'
 
 declare const keyspaceKey: Uint8Array
 declare const ref: Keysmith.KeyspaceRef
-declare const encrypted: Uint8Array
+declare const piece: Uint8Array
 declare const pieceCid: PieceCID
 declare const recipientPublicKey: Hex
+declare function fromCar(car: Uint8Array): Promise<Uint8Array>
 // ---cut---
-const { appMetadata } = await fee.parse(encrypted)
+const { appMetadata } = await fee.parse(await fromCar(piece))
 const metadata = appMetadata as Keysmith.PieceMetadata
 const grant = await Keysmith.wrapTo(
   recipientPublicKey,
@@ -159,12 +180,16 @@ declare const synapse: Synapse
 declare const recipientPrivateKey: Hex
 declare const bytes: Uint8Array
 declare function through(bytes: Uint8Array, transform: ReadableWritablePair<Uint8Array, Uint8Array>): Promise<Uint8Array>
+declare function fromCar(car: Uint8Array): Promise<Uint8Array>
 // ---cut---
 const grant = Keysmith.decodeGrant(bytes)
 const key = await Keysmith.unwrapWith(recipientPrivateKey, grant)
 const downloaded = await synapse.storage.download({ pieceCid: String(grant.pieceCid) })
-const restored = await through(downloaded, fee.decrypt(Keysmith.keyResolver(key, grant)))
+const decrypted = await through(await fromCar(downloaded), fee.decrypt(Keysmith.keyResolver(key, grant)))
+const restored = await fromCar(decrypted)
 ```
+
+A piece grant is a bare grant, with no claim chain: it decrypts the piece, but cannot fetch it from a restricted data set. Sharing single pieces from restricted data sets is still being designed.
 
 ### Share link a single piece
 
@@ -202,5 +227,5 @@ See [Encrypted Uploads](https://github.com/filecoin-project/filecoin-pin#encrypt
 
 ## Limits
 
-* **Grants cannot be revoked or expire.** A shared key keeps opening what it covers, including future pieces under a shared scope.
-* **Check who a Grant is from.** Ensure that the sender's key commitment matches the sender you expected. If your app accepts Grants from someone else they could send you a key from the wrong keyspace, and make your data unrecoverable. The Keysmith API (and `filecoin-pin` utility) provide simple functionality to do this and keep you safe.
+* **Keys cannot be revoked.** A shared key keeps opening what it covers, including future pieces under a shared scope. A claim's expiry stops fetching from restricted data sets, not decrypting.
+* **Check who a delivery is from.** `openDelivery()` proves the chain starts at the owner it names, but not that this is the owner you expected. If your app accepts deliveries from someone else they could send you a key from the wrong keyspace, and make your data unrecoverable, so compare the claim's owner and keyspace before writing with it. The `filecoin-pin` utility does this for you.

@@ -21,13 +21,13 @@ Encrypted bytes may be publicly retrievable; reading their contents requires the
 
 This example uses **Node.js 24** and a dedicated owner account on **Calibration**. You'll need test FIL for transaction fees and test USDFC for storage; the [SDK setup guide](/getting-started/#prerequisites) links to both faucets. An upload session key [cannot derive the owner's encryption keys](/developer-guides/encryption/share-encrypted-data/#share-a-keyspace-or-scope-with-a-session-key).
 
-Add `@filoz/keysmith` and `filecoin-encryption-envelope` alongside your existing SDK dependencies. The setup below includes the tested versions and a required security override.
+Add `@filoz/keysmith`, `filecoin-encryption-envelope` and the CAR and UnixFS packages used for [the upload format](#the-upload-format) alongside your existing SDK dependencies. The setup below includes the tested versions and a required security override.
 
-Encrypt the file in your application before calling `synapse.storage.upload()`. Synapse uploads the bytes you provide.
+Encrypt and pack the file in your application before calling `synapse.storage.upload()`. Synapse uploads the bytes you provide.
 
 The complete example includes SDK initialization. When adapting it to an existing application, reuse your configured Synapse client and owner account. Key derivation and encryption belong before the upload; decryption belongs after the download.
 
-The example buffers a small file, its encrypted bytes, and the decrypted result in memory. For larger files, use the [streaming encryption API](/reference/filecoin-encryption-envelope/functions/encrypt/).
+The example buffers a small file, its packed and encrypted bytes, and the decrypted result in memory. For larger files, use the [streaming encryption API](/reference/filecoin-encryption-envelope/functions/encrypt/).
 
 <details>
 <summary>Set up a test project and account</summary>
@@ -42,7 +42,8 @@ cd filecoin-encryption
 npm init -y
 npm pkg set type=module
 npm pkg set overrides.zod=4.6.6
-npm install @filoz/synapse-sdk@2.0.2 @filoz/keysmith@0.1.0 filecoin-encryption-envelope@0.1.0 viem@2.55.19
+npm install @filoz/synapse-sdk@2.0.2 @filoz/keysmith@0.1.0 filecoin-encryption-envelope@0.1.0 viem@2.55.19 \
+  @ipld/car@5.4.7 @ipld/dag-pb@4.1.7 ipfs-unixfs-importer@16.1.5 ipfs-unixfs-exporter@15.0.4 multiformats@14.0.5
 printf '.env\nnode_modules/\n' > .gitignore
 ```
 
@@ -69,11 +70,30 @@ node --input-type=module -e "import { writeFileSync } from 'node:fs'; writeFileS
 
 </details>
 
+## The upload format
+
+Every encrypted upload uses the same layout, **CAR-in-CAR**. It's what [Filecoin Pin](/core-concepts/filecoin-pin/) writes with `add --encrypt`, what its `decrypt` command and the share-link viewer read, and what Storage Providers expect in [restricted data sets](/developer-guides/encryption/access-control/):
+
+```text
+file or folder
+  └─ inner CAR    the content as UnixFS, under a wrapping directory
+      └─ envelope (FEE)  content type application/vnd.ipld.car
+          └─ outer CAR   the envelope as one UnixFS file  ← this is the piece
+```
+
+1. **Inner CAR.** Import the content with the [unixfs-v1-2025 profile](https://github.com/ipfs/specs/pull/499) under a wrapping directory that holds one entry, the file or folder under its own name.
+2. **Envelope.** Encrypt the inner CAR with FEE, setting `contentType` to `application/vnd.ipld.car` and `appMetadata` to Keysmith's [`pieceMetadata()`](/reference/filoz/keysmith/functions/piecemetadata/).
+3. **Outer CAR.** Import the envelope as a single UnixFS file next to the inner CAR, and upload the two as a CAR file as the piece. Its root CID is the upload's *encrypted root CID*, which IPFS gateways serve when the data set has IPFS indexing.
+
+The example below builds this for one file, with `toCar()` and `fromCar()` helpers at the end of the script. For a folder, the inner CAR holds the whole tree: use `filecoin-pin add --encrypt`, or follow [the full format description](https://github.com/filecoin-project/filecoin-pin/blob/master/documentation/encryption.md#format-for-integrators). A shared package for reading and writing it is planned ([#1040](https://github.com/FilOzone/synapse-sdk/issues/1040)).
+
+Note: once encrypted, the inner car is treated as a single entry to fetch all or none of. Fetching sub-graphs or individual files from an encrypted folder is not supported. If individual fetching is required, encrypt and upload files separately.
+
 ## Encrypt, upload, and decrypt
 
 Save the following as `encrypt-file.ts`. Keysmith creates a keyspace for the encryption keys and uses the `documents` scope within it. A fresh salt derives a unique key for this file.
 
-Keep the generated recovery labels in the envelope and record the keyspace identifier and commitment in the data set metadata. The example does both. No encryption keys are written on-chain.
+Keep the generated recovery labels in the envelope and record the keyspace identifier and commitment in the data set metadata. The example does both, and packs the file [CAR-in-CAR](#the-upload-format). No encryption keys are written on-chain.
 
 ```ts twoslash title="encrypt-file.ts"
 // @types: node
@@ -81,7 +101,12 @@ import { deepStrictEqual } from 'node:assert'
 import { readFile, writeFile } from 'node:fs/promises'
 import * as Keysmith from '@filoz/keysmith'
 import { Synapse, calibration } from '@filoz/synapse-sdk'
+import { CarReader, CarWriter } from '@ipld/car'
+import * as dagPb from '@ipld/dag-pb'
 import * as fee from 'filecoin-encryption-envelope'
+import { exporter } from 'ipfs-unixfs-exporter'
+import { importer } from 'ipfs-unixfs-importer'
+import { CID } from 'multiformats/cid'
 import { privateKeyToAccount } from 'viem/accounts'
 
 const privateKey = process.env.PRIVATE_KEY
@@ -104,37 +129,107 @@ const salt = Keysmith.newSalt()
 const key = Keysmith.pieceKey(target.key, salt)
 const appMetadata = Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope })
 
-// 2. Finish encryption before preparing storage or uploading bytes.
-const encrypted = await through(original, fee.encrypt({
+// 2. Pack and encrypt before preparing storage or uploading bytes: inner CAR, envelope, outer CAR.
+const inner = await toCar(original, 'sample.txt')
+const envelope = await through(inner, fee.encrypt({
   cek: key,
   appMetadata,
-  contentLength: original.byteLength,
+  contentLength: inner.byteLength,
+  contentType: 'application/vnd.ipld.car',
 }))
+const piece = await toCar(envelope)
 const metadata = {
-  [Keysmith.KEYSPACE_ID_KEY]: ref.keyspace,
-  [Keysmith.COMMITMENT_KEY]: commitment,
+  'foc/ks': ref.keyspace,
+  'foc/kc': commitment,
 }
 const contexts = await synapse.storage.createContexts({ metadata })
 const preparation = await synapse.storage.prepare({
   context: contexts,
-  pieceSizes: [BigInt(encrypted.byteLength)],
+  pieceSizes: [BigInt(piece.byteLength)],
 })
 if (preparation.transaction) await preparation.transaction.execute()
 
 // 3. Upload with the default two copies and check the result.
-const result = await synapse.storage.upload(encrypted, { metadata })
+const result = await synapse.storage.upload(piece, { metadata })
 console.log('PieceCID:', result.pieceCid.toString())
 console.log('Data sets:', result.copies.map(copy => copy.dataSetId.toString()))
 if (!result.complete) {
   throw new Error(`Incomplete upload: stored ${result.copies.length} of ${result.requestedCopies} requested copies`)
 }
 
-// 4. Download, fully decrypt, and compare before saving the restored file.
+// 4. Download, unpack, fully decrypt, and compare before saving the restored file.
 const downloaded = await synapse.storage.download({ pieceCid: result.pieceCid })
-const restored = await through(downloaded, fee.decrypt(Keysmith.keyResolver(keyspaceKey, descriptor)))
+const decrypted = await through(await fromCar(downloaded), fee.decrypt(Keysmith.keyResolver(keyspaceKey, descriptor)))
+const restored = await fromCar(decrypted)
 deepStrictEqual(restored, original)
 await writeFile('restored.txt', restored)
 console.log(`Verified: ${restored.byteLength} bytes match the original file`)
+
+/** Pack bytes as a UnixFS file in a CAR, metadata first: named inside a wrapping directory, or as the root. */
+async function toCar(content: Uint8Array, name?: string): Promise<Uint8Array> {
+  const blocks = new Map<string, Uint8Array>()
+  const blockstore = {
+    put<T extends { bytes: Uint8Array }>(cid: T, bytes: Uint8Array): T {
+      blocks.set(CID.decode(cid.bytes).toString(), bytes) // the importer uses another multiformats major
+      return cid
+    },
+  }
+  let root: CID | undefined
+  const options = { profile: 'unixfs-v1-2025', wrapWithDirectory: name != null } as const
+  for await (const entry of importer([{ path: name, content }], blockstore, options)) {
+    root = CID.decode(entry.cid.bytes)
+  }
+  if (root == null) throw new Error('Nothing was imported')
+  const block = (cid: CID): Uint8Array => {
+    const bytes = blocks.get(cid.toString())
+    if (bytes == null) throw new Error(`The importer did not write ${cid}`)
+    return bytes
+  }
+
+  // Every dag-pb node breadth-first from the root, then the raw leaves in file order.
+  const nodes: CID[] = []
+  const leaves: CID[] = []
+  const queue = [root]
+  for (let cid = queue.shift(); cid != null; cid = queue.shift()) {
+    if ([...nodes, ...leaves].some(seen => seen.equals(cid))) continue
+    if (cid.code !== dagPb.code) {
+      leaves.push(cid)
+      continue
+    }
+    nodes.push(cid)
+    for (const link of dagPb.decode(block(cid)).Links) queue.push(CID.decode(link.Hash.bytes))
+  }
+
+  const { writer, out } = CarWriter.create([root])
+  const written = concat(out)
+  for (const cid of [...nodes, ...leaves]) await writer.put({ cid, bytes: block(cid) })
+  await writer.close()
+  return written
+}
+
+/** The bytes of the file at a CAR's root, or of the one file in its wrapping directory. */
+async function fromCar(car: Uint8Array): Promise<Uint8Array> {
+  const reader = await CarReader.fromBytes(car)
+  const [root] = await reader.getRoots()
+  if (root == null) throw new Error('The CAR has no root')
+  const blockstore = {
+    async *get(cid: { bytes: Uint8Array }) {
+      const found = await reader.get(CID.decode(cid.bytes))
+      if (found == null) throw new Error('The CAR is missing a block')
+      yield found.bytes
+    },
+  }
+  let entry = await exporter(root.toString(), blockstore)
+  if (entry.type === 'directory') {
+    const children = []
+    for await (const child of entry.entries()) children.push(child)
+    const [only] = children
+    if (children.length !== 1 || only == null) throw new Error('The wrapping directory must hold one file')
+    entry = await exporter(only.cid, blockstore)
+  }
+  if (entry.type !== 'file' && entry.type !== 'raw') throw new Error('The CAR does not hold a single file')
+  return concat(entry.content())
+}
 
 async function through(
   bytes: Uint8Array,
@@ -146,20 +241,13 @@ async function through(
       controller.close()
     },
   })
+  return concat(source.pipeThrough(transform))
+}
+
+async function concat(parts: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
   const chunks: Uint8Array[] = []
-  let length = 0
-  const reader = source.pipeThrough(transform).getReader()
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(value)
-      length += value.byteLength
-    }
-  } finally {
-    reader.releaseLock()
-  }
-  const output = new Uint8Array(length)
+  for await (const part of parts) chunks.push(part)
+  const output = new Uint8Array(chunks.reduce((length, chunk) => length + chunk.byteLength, 0))
   let offset = 0
   for (const chunk of chunks) {
     output.set(chunk, offset)
@@ -169,9 +257,9 @@ async function through(
 }
 ```
 
-Storage preparation uses the encrypted size, including the envelope and authentication overhead. It may submit a funding and approval transaction from the test account. Uploading creates paid storage copies on Calibration.
+Storage preparation uses the size of the piece, including the CAR, envelope and authentication overhead. It may submit a funding and approval transaction from the test account. Uploading creates paid storage copies on Calibration.
 
-The helper consumes the entire stream before returning bytes. If encryption or decryption fails, it throws; an incomplete restored file is never saved.
+`through()` consumes the entire stream before returning bytes. If encryption or decryption fails, it throws; an incomplete restored file is never saved.
 
 ## Run the example
 
@@ -179,7 +267,7 @@ The helper consumes the entire stream before returning bytes. If encryption or d
 node --env-file=.env encrypt-file.ts
 ```
 
-Success prints a PieceCID, the replica data set IDs, and a verification message. `restored.txt` matches `sample.txt` byte for byte. Keep the PieceCID and data set IDs to retrieve this upload later.
+Success prints a PieceCID, the replica data set IDs, and a verification message. `restored.txt` matches `sample.txt` byte for byte. Because the piece is CAR-in-CAR, `filecoin-pin decrypt` also opens it with the same account. Keep the PieceCID and data set IDs to retrieve this upload later.
 
 Each run creates a new keyspace and new data sets. In an application, read and reuse existing data set metadata when adding files to that keyspace. Generate a fresh salt and piece key for every encryption attempt.
 
@@ -187,6 +275,6 @@ Each run creates a new keyspace and new data sets. In an application, read and r
 
 - **Funding or approval fails:** check the test account's FIL and USDFC balances using the [payment guide](/developer-guides/payments/payment-operations/).
 - **Only some copies succeed:** those copies are already stored and billed. Inspect the [upload result](/developer-guides/storage/upload-pipeline/#when-upload-returns) before retrying.
-- **Decryption fails:** check that the key and envelope belong to the same keyspace. Modified or truncated encrypted data also fails authentication; do not use partial output.
+- **Decryption fails:** check that the key and envelope belong to the same keyspace, and that the piece was unpacked with `fromCar()` before decrypting. Modified or truncated encrypted data also fails authentication; do not use partial output.
 
 For recovery, sharing, and storage permissions, see [Keys and sharing](/developer-guides/encryption/keysmith-encryption-keys/).
