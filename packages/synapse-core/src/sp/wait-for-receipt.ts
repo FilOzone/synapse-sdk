@@ -12,13 +12,13 @@ import {
   type Transport,
   WaitForTransactionReceiptTimeoutError,
 } from 'viem'
-import { waitForTransactionReceipt } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import { TransactionNotAppliedError } from '../errors/pdp.ts'
 import { abortable, throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { getPayerAddress } from '../utils/payer.ts'
+import { waitForTransactionReceipt } from '../utils/wait-for-transaction-receipt.ts'
 import {
   getAddPiecesResult,
   getCreateDataSetAndAddPiecesResult,

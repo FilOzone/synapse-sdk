@@ -6,7 +6,9 @@ import {
   createWalletClient,
   encodeAbiParameters,
   type Hex,
+  hexToBigInt,
   http,
+  isHex,
   numberToHex,
   type RpcTransaction,
   WaitForTransactionReceiptTimeoutError,
@@ -19,6 +21,7 @@ import {
   ADDRESSES,
   dataSetCreatedLog,
   JSONRPC,
+  MockRpcError,
   PRIVATE_KEYS,
   pieceAddedLog,
   presets,
@@ -103,6 +106,12 @@ type Scenario = {
   originalKnown?: boolean
   /** Value FWSS stores for the nonce. */
   clientNonce?: bigint
+  /** Heights Lotus answers with a null round error. */
+  nullRounds?: bigint[]
+  /** The only height whose block holds the replacement. Every block holds it when unset. */
+  replacementBlock?: bigint
+  /** The head block number, per request. */
+  head?: () => bigint
 }
 
 /**
@@ -125,13 +134,21 @@ function mockChain(scenario: Scenario) {
       }
       return receipt(hash, scenario.logs ?? [], scenario.reverted === true ? '0x0' : '0x1')
     },
+    ...(scenario.head == null ? {} : { eth_blockNumber: () => numberToHex(scenario.head?.() ?? 0n) }),
     eth_getBlockByNumber: (params) => {
+      const height = isHex(params[0]) ? hexToBigInt(params[0]) : undefined
+      if (height != null && scenario.nullRounds?.includes(height)) {
+        throw new MockRpcError(12, `requested epoch was a null round (${height})`)
+      }
       const block = presets.basic.eth_getBlockByNumber(params)
       if (block == null) {
         return null
       }
+      const holdsReplacement = scenario.replacementBlock == null || scenario.replacementBlock === height
       const transactions =
-        scenario.replacement == null ? [] : [scenario.replacement as unknown as RpcTransaction<false>]
+        scenario.replacement == null || !holdsReplacement
+          ? []
+          : [scenario.replacement as unknown as RpcTransaction<false>]
       return { ...block, transactions }
     },
     warmStorageView: {
@@ -272,6 +289,29 @@ describe('chain-only submission results', () => {
       )
 
       const result = await waitForAddPieces(options)
+      assert.deepStrictEqual(result, {
+        txHash: originalTxHash,
+        confirmedTxHash: replacementTxHash,
+        replacement: 'repriced',
+        dataSetId: 3n,
+        pieceIds: [10n, 11n],
+      })
+    })
+
+    it('finds a replacement in the block after a Filecoin null round', async () => {
+      // The head jumps from 100 to 103: epoch 101 is a null round, the replacement lands in 102
+      let headRequests = 0
+      server.use(
+        mockChain({
+          replacement: transaction(replacementTxHash, { blockNumber: 102n }),
+          replacementBlock: 102n,
+          nullRounds: [101n],
+          head: () => (headRequests++ < 3 ? 100n : 103n),
+          logs: [pieceAddedLog(replacementTxHash, 3n, 10n, 0), pieceAddedLog(replacementTxHash, 3n, 11n, 1)],
+        })
+      )
+
+      const result = await waitForAddPieces({ ...options, timeout: 2000 })
       assert.deepStrictEqual(result, {
         txHash: originalTxHash,
         confirmedTxHash: replacementTxHash,

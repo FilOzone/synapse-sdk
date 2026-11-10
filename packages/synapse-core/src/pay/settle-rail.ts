@@ -13,11 +13,12 @@ import type {
   WriteContractErrorType,
 } from 'viem'
 import { parseEventLogs } from 'viem'
-import { getBlockNumber, simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
+import { getBlockNumber, simulateContract, writeContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import { waitForTransactionReceipt } from '../utils/wait-for-transaction-receipt.ts'
 
 export namespace settleRail {
   export type OptionsType = {

@@ -32,7 +32,8 @@ export type AbiToType<
 export interface JSONRPCOptions {
   debug?: boolean
   eth_chainId?: string
-  eth_blockNumber?: string
+  /** The head block number, or a function answering it per request (e.g. to advance the head). */
+  eth_blockNumber?: string | (() => string)
   eth_getBalance?: (params: [address: Address, block: BlockNumber | BlockTag]) => Hex
   eth_getTransactionByHash?: (params: any) => any
   eth_getTransactionReceipt?: (params: any) => any

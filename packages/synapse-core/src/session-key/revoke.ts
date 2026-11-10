@@ -11,10 +11,11 @@ import type {
   WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
-import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
+import { simulateContract, writeContract } from 'viem/actions'
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import { waitForTransactionReceipt } from '../utils/wait-for-transaction-receipt.ts'
 import { extractLoginEvent } from './login.ts'
 import { DefaultFwssPermissions, type Permission } from './permissions.ts'
 

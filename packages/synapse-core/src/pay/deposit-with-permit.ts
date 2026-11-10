@@ -12,7 +12,7 @@ import type {
   WriteContractErrorType,
 } from 'viem'
 import { parseEventLogs, parseSignature } from 'viem'
-import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
+import { simulateContract, writeContract } from 'viem/actions'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import * as erc20 from '../erc20/index.ts'
@@ -20,6 +20,7 @@ import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
 import { signErc20Permit } from '../typed-data/sign-erc20-permit.ts'
 import type { ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { TIME_CONSTANTS } from '../utils/constants.ts'
+import { waitForTransactionReceipt } from '../utils/wait-for-transaction-receipt.ts'
 
 export namespace depositWithPermit {
   export type OptionsType = {
