@@ -7,14 +7,16 @@ import { TIME_CONSTANTS } from './constants.ts'
 
 /**
  * Convert a Filecoin epoch to a JavaScript Date
- * @param epoch - The epoch number to convert
+ *
+ * @param epoch - The epoch to convert
  * @param genesisTimestamp - The genesis timestamp of the chain in seconds (Unix timestamp)
- * @returns Date object representing the epoch time
+ * @returns Date of the epoch, or `undefined` when it can't be represented
+ * (e.g. the `maxUint256` "never" sentinel used by `runwayInEpochs`)
  */
-export function epochToDate(epoch: number, genesisTimestamp: number): Date {
-  const epochDuration = TIME_CONSTANTS.EPOCH_DURATION
-  const timestampSeconds = genesisTimestamp + epoch * epochDuration
-  return new Date(timestampSeconds * 1000) // Convert to milliseconds
+export function epochToDate(epoch: bigint, genesisTimestamp: number): Date | undefined {
+  const ms = (BigInt(genesisTimestamp) + epoch * BigInt(TIME_CONSTANTS.EPOCH_DURATION)) * 1000n
+  const date = new Date(Number(ms))
+  return Number.isNaN(date.getTime()) ? undefined : date
 }
 
 /**
@@ -116,12 +118,12 @@ export function epochsToDays(epochs: bigint): bigint {
  * @returns Date when the last proof should have been submitted, or null if no proof submitted yet
  */
 export function calculateLastProofDate(
-  nextChallengeEpoch: number,
-  maxProvingPeriod: number,
+  nextChallengeEpoch: bigint,
+  maxProvingPeriod: bigint,
   genesisTimestamp: number
 ): Date | null {
   // If nextChallengeEpoch is 0, no proofs scheduled
-  if (nextChallengeEpoch === 0) {
+  if (nextChallengeEpoch === 0n) {
     return null
   }
 
@@ -130,9 +132,9 @@ export function calculateLastProofDate(
   const lastProofEpoch = nextChallengeEpoch - maxProvingPeriod
 
   // If this is negative, we're in the first proving period
-  if (lastProofEpoch <= 0) {
+  if (lastProofEpoch <= 0n) {
     return null
   }
 
-  return epochToDate(lastProofEpoch, genesisTimestamp)
+  return epochToDate(lastProofEpoch, genesisTimestamp) ?? null
 }
