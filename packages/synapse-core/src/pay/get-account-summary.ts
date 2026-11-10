@@ -1,6 +1,8 @@
 import type { Address, Chain, Client, Transport } from 'viem'
 import { getBlockNumber } from 'viem/actions'
+import { asChain } from '../chains.ts'
 import { TIME_CONSTANTS } from '../utils/constants.ts'
+import { epochToDate } from '../utils/epoch.ts'
 import { calculateAccountDebt } from './account-debt.ts'
 import { accounts } from './accounts.ts'
 import { resolveAccountState } from './resolve-account-state.ts'
@@ -76,6 +78,11 @@ export namespace getAccountSummary {
      */
     runwayInEpochs: bigint
     /**
+     * Date of `epoch + runwayInEpochs`, when the account enters deficit.
+     * `undefined` when nothing is being spent. Not meaningful on devnet.
+     */
+    fundedUntil?: Date
+    /**
      * Total spend the account's `funds` would cover at `lockupRatePerEpoch`,
      * calculated as `funds / lockupRatePerEpoch`. Treat as "how much
      * coverage has the user prepaid in total?".
@@ -131,6 +138,7 @@ export namespace getAccountSummary {
  *
  * console.log('Available:', summary.availableFunds)
  * console.log('Runway in epochs:', summary.runwayInEpochs)
+ * console.log('Funded until:', summary.fundedUntil?.toISOString() ?? 'never')
  * console.log('Gross coverage in epochs:', summary.grossCoverageInEpochs)
  * ```
  */
@@ -139,6 +147,7 @@ export async function getAccountSummary(
   options: getAccountSummary.OptionsType
 ): Promise<getAccountSummary.OutputType> {
   const { address, token, epoch, contractAddress } = options
+  const chain = asChain(client.chain)
 
   // Parallel RPC: accounts + fixedLockup + (optionally) blockNumber
   const [accountInfo, fixedLockupResult, resolvedEpoch] = await Promise.all([
@@ -175,6 +184,7 @@ export async function getAccountSummary(
     totalRateBasedLockup,
 
     runwayInEpochs,
+    fundedUntil: epochToDate(resolvedEpoch + runwayInEpochs, chain.genesisTimestamp),
     grossCoverageInEpochs,
     epoch: resolvedEpoch,
   }

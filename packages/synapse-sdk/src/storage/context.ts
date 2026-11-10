@@ -1401,17 +1401,14 @@ export class StorageContext {
         const provingDeadline = challengeWindowStart + pdpConfig.challengeWindowSize
 
         // Calculate when the next proof is due (end of challenge window)
-        nextProofDue = epochToDate(Number(provingDeadline), this._chain.genesisTimestamp)
+        nextProofDue = epochToDate(provingDeadline, this._chain.genesisTimestamp) ?? null
 
         // Calculate last proven date (one proving period before next challenge)
-        const lastProvenDate = calculateLastProofDate(
-          Number(nextChallengeEpoch),
-          Number(pdpConfig.maxProvingPeriod),
+        lastProven = calculateLastProofDate(
+          nextChallengeEpoch,
+          pdpConfig.maxProvingPeriod,
           this._chain.genesisTimestamp
         )
-        if (lastProvenDate != null) {
-          lastProven = lastProvenDate
-        }
 
         // Check if we're in the challenge window
         inChallengeWindow = Number(currentEpoch) >= challengeWindowStart && Number(currentEpoch) < provingDeadline

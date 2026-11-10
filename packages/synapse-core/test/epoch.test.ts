@@ -16,27 +16,41 @@ import {
 describe('Epoch Utilities', () => {
   describe('epochToDate', () => {
     it('should convert epoch 0 to genesis timestamp for mainnet', () => {
-      const date = epochToDate(0, mainnet.genesisTimestamp)
-      assert.equal(date.getTime(), mainnet.genesisTimestamp * 1000)
+      const date = epochToDate(0n, mainnet.genesisTimestamp)
+      assert.equal(date?.getTime(), mainnet.genesisTimestamp * 1000)
     })
 
     it('should convert epoch 0 to genesis timestamp for calibration', () => {
-      const date = epochToDate(0, calibration.genesisTimestamp)
-      assert.equal(date.getTime(), calibration.genesisTimestamp * 1000)
+      const date = epochToDate(0n, calibration.genesisTimestamp)
+      assert.equal(date?.getTime(), calibration.genesisTimestamp * 1000)
     })
 
     it('should calculate correct date for future epochs', () => {
-      const epochsPerDay = 24 * 60 * 2 // 2880 epochs per day
-      const date = epochToDate(epochsPerDay, mainnet.genesisTimestamp)
-      const expectedTime = (mainnet.genesisTimestamp + epochsPerDay * TIME_CONSTANTS.EPOCH_DURATION) * 1000
-      assert.equal(date.getTime(), expectedTime)
+      const date = epochToDate(TIME_CONSTANTS.EPOCHS_PER_DAY, mainnet.genesisTimestamp)
+      const expectedTime = (mainnet.genesisTimestamp + 2880 * TIME_CONSTANTS.EPOCH_DURATION) * 1000
+      assert.equal(date?.getTime(), expectedTime)
     })
 
     it('should handle large epoch numbers', () => {
-      const largeEpoch = 1000000
-      const date = epochToDate(largeEpoch, calibration.genesisTimestamp)
-      const expectedTime = (calibration.genesisTimestamp + largeEpoch * TIME_CONSTANTS.EPOCH_DURATION) * 1000
-      assert.equal(date.getTime(), expectedTime)
+      const date = epochToDate(1000000n, calibration.genesisTimestamp)
+      const expectedTime = (calibration.genesisTimestamp + 1000000 * TIME_CONSTANTS.EPOCH_DURATION) * 1000
+      assert.equal(date?.getTime(), expectedTime)
+    })
+
+    it('should return undefined for maxUint256', () => {
+      assert.isUndefined(epochToDate(maxUint256, mainnet.genesisTimestamp))
+      assert.isUndefined(epochToDate(maxUint256 + 1000n, mainnet.genesisTimestamp))
+    })
+
+    it('should return undefined when the date is out of range', () => {
+      assert.isUndefined(epochToDate(10n ** 12n, mainnet.genesisTimestamp))
+      assert.isUndefined(epochToDate(-(10n ** 12n), mainnet.genesisTimestamp))
+    })
+
+    it('should return the last representable date at the boundary', () => {
+      const maxEpoch = (8_640_000_000_000n - BigInt(mainnet.genesisTimestamp)) / 30n
+      assert.instanceOf(epochToDate(maxEpoch, mainnet.genesisTimestamp), Date)
+      assert.isUndefined(epochToDate(maxEpoch + 1n, mainnet.genesisTimestamp))
     })
   })
 
@@ -142,29 +156,29 @@ describe('Epoch Utilities', () => {
 
   describe('calculateLastProofDate', () => {
     it('should return null when nextChallengeEpoch is 0', () => {
-      const result = calculateLastProofDate(0, 2880, mainnet.genesisTimestamp)
+      const result = calculateLastProofDate(0n, 2880n, mainnet.genesisTimestamp)
       assert.isNull(result)
     })
 
     it('should return null when in first proving period', () => {
-      const result = calculateLastProofDate(100, 2880, mainnet.genesisTimestamp)
+      const result = calculateLastProofDate(100n, 2880n, mainnet.genesisTimestamp)
       assert.isNull(result)
     })
 
     it('should calculate correct last proof date', () => {
-      const nextChallengeEpoch = 5760 // 2 days worth of epochs
-      const maxProvingPeriod = 2880 // 1 day
+      const nextChallengeEpoch = 5760n // 2 days worth of epochs
+      const maxProvingPeriod = 2880n // 1 day
       const result = calculateLastProofDate(nextChallengeEpoch, maxProvingPeriod, mainnet.genesisTimestamp)
 
       assert.isNotNull(result)
       // Last proof should be at epoch 2880 (5760 - 2880)
-      const expectedDate = epochToDate(2880, mainnet.genesisTimestamp)
-      assert.equal(result?.getTime(), expectedDate.getTime())
+      const expectedDate = epochToDate(2880n, mainnet.genesisTimestamp)
+      assert.equal(result?.getTime(), expectedDate?.getTime())
     })
 
     it('should handle edge case at proving period boundary', () => {
-      const nextChallengeEpoch = 2880
-      const maxProvingPeriod = 2880
+      const nextChallengeEpoch = 2880n
+      const maxProvingPeriod = 2880n
       const result = calculateLastProofDate(nextChallengeEpoch, maxProvingPeriod, mainnet.genesisTimestamp)
 
       // Should return null since lastProofEpoch would be 0
