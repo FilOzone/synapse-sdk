@@ -13,6 +13,8 @@ import type { MetadataObject } from '../utils/metadata.ts'
 export interface SelectionDataSet {
   /** PDP Verifier data set ID */
   dataSetId: bigint
+  /** Client-scoped data set ID, required when signing AddPieces for this data set */
+  clientDataSetId: bigint
   /** Provider that owns this data set */
   providerId: bigint
   /** Data set metadata (key-value pairs) */
@@ -79,6 +81,11 @@ export interface ResolvedLocation {
   provider: PDPProvider
   /** Matched dataset ID, or null if a new dataset should be created */
   dataSetId: bigint | null
+  /**
+   * Client data set ID of the matched dataset, or null if a new dataset should be created.
+   * Pass it to `signAddPieces` / `SP.addPieces` without re-reading the data set.
+   */
+  clientDataSetId: bigint | null
   /** Whether this provider is endorsed */
   endorsed: boolean
   /** Dataset metadata (matched from existing dataset, or the requested metadata for new datasets) */
