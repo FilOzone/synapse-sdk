@@ -8,10 +8,10 @@ import type { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { throwIfAborted } from '../utils/abort.ts'
+import { assertAddPiecesFit } from '../utils/add-pieces-fits.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { type DroppedPiece, dedupePieces } from '../utils/dedupe-pieces.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
-import { assertAddPiecesFit } from './add-pieces-fits.ts'
 
 export namespace createDataSetAndAddPiecesApiRequest {
   export type OptionsType = {

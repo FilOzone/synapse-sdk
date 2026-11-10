@@ -450,6 +450,56 @@ export function pullPiecesProgressionHandler(
 }
 
 /**
+ * Overall pull status the way Curio's `ComputeOverallStatus` derives it: non-terminal while any piece is still
+ * running, then `failed` only when every piece failed, otherwise `complete`.
+ */
+function overallPullStatus(statuses: pullPiecesApiRequest.PullStatus[]): pullPiecesApiRequest.PullStatus {
+  for (const running of ['retrying', 'inProgress', 'pending'] as const) {
+    if (statuses.includes(running)) {
+      return running
+    }
+  }
+  if (statuses.length === 0) {
+    return 'pending'
+  }
+  return statuses.every((status) => status === 'failed') ? 'failed' : 'complete'
+}
+
+/**
+ * Creates a handler that answers each requested piece with its own status, like Curio does for a batched pull.
+ * The overall status follows Curio's rules (see `overallPullStatus`). Like Curio, it answers 400 when a
+ * request repeats a PieceCID.
+ */
+export function pullPiecesPerPieceHandler(
+  statusFor: (pieceCid: string) => pullPiecesApiRequest.PullStatus,
+  captureCallback?: (request: PullRequestCapture) => void,
+  options: PDPMockOptions = {}
+) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+
+  return http.post(`${baseUrl}/pdp/piece/pull`, async ({ request }) => {
+    const body = (await request.json()) as PullRequestCapture
+    captureCallback?.(body)
+
+    if (new Set(body.pieces.map((piece) => piece.pieceCid)).size !== body.pieces.length) {
+      return HttpResponse.text('duplicate pieceCid', { status: 400 })
+    }
+
+    const pieces = body.pieces.map((piece) => ({ pieceCid: piece.pieceCid, status: statusFor(piece.pieceCid) }))
+    const response: pullPiecesApiRequest.ReturnType = {
+      status: overallPullStatus(pieces.map((piece) => piece.status)),
+      pieces,
+    }
+
+    if (options.debug) {
+      console.debug('SP Pull Mock: returning per-piece response', response)
+    }
+
+    return HttpResponse.json(response, { status: 200 })
+  })
+}
+
+/**
  * Helper to create a complete PullResponse
  */
 export function createPullResponse(

@@ -2,27 +2,26 @@ import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import { AddPiecesFlushError } from '../errors/pdp.ts'
-import { PullError } from '../errors/pull.ts'
 import { DataSetNotFoundError, PDPProviderUnavailableError } from '../errors/warm-storage.ts'
+import { from as pieceCidFrom } from '../piece/parse.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
-import { createLimit } from '../utils/concurrency.ts'
-import type { MetadataObject } from '../utils/metadata.ts'
+import {
+  addPiecesFits,
+  assertPieceValid,
+  type Limiter,
+  type LimiterOptions,
+  type LimiterPiece,
+} from '../utils/add-pieces-fits.ts'
+import { createLimit, type Limit } from '../utils/concurrency.ts'
+import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 import { isUint8Array } from '../utils/streams.ts'
 import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
 import { addPieces } from './add-pieces.ts'
-import {
-  addPiecesFits,
-  assertPieceCidSize,
-  assertPieceValid,
-  type Limiter,
-  type LimiterOptions,
-  type LimiterPiece,
-} from './add-pieces-fits.ts'
 import { createDataSetAndAddPieces } from './create-dataset-add-pieces.ts'
 import { findPiece } from './find-piece.ts'
-import { waitForPullPieces } from './pull-pieces.ts'
+import { createPullBatcher, type PullBatchInput, type PullTarget } from './pull-batcher.ts'
 import { type UploadPieceStreamingData, uploadPieceStreaming } from './upload-streaming.ts'
 import { waitForAddPieces, waitForCreateDataSetAddPieces } from './wait-for-receipt.ts'
 
@@ -50,6 +49,56 @@ export type PieceResult = FlushResult & {
   pieceCid: PieceCID
   batchIndex: number
 }
+
+/** One piece of a {@link SubmittedBatch}, in JSON-safe form. */
+export type SubmittedPiece = {
+  /** The PieceCID string. */
+  pieceCid: string
+  metadata?: MetadataObject
+  /** Raw byte size when the piece was parked by `upload()`. */
+  size?: number
+}
+
+/**
+ * A flushed window that the provider accepted, before its transaction is confirmed.
+ *
+ * The record is JSON-safe: `JSON.parse(JSON.stringify(batch))` gives back an equal value. Ids are decimal strings
+ * (not `bigint`) and PieceCIDs are strings. Persist it from {@link OnSubmitted}. After a restart, pass it to
+ * {@link PieceBatcher.resume} instead of adding the same pieces again.
+ *
+ * An `addPieces` record also holds everything `waitForAddPieces` and `getAddPiecesResult` need. A
+ * `createDataSetAndAddPieces` record holds what `waitForCreateDataSetAddPieces` and
+ * `getCreateDataSetAndAddPiecesResult` need.
+ */
+export type SubmittedBatch = {
+  /** The original transaction hash returned by the provider. */
+  txHash: Hex
+  /** The signed extra data that was submitted. Waits use it to find the outcome even after a replace-by-fee. */
+  extraData: Hex
+  /** Client data set id as a decimal string. */
+  clientDataSetId: string
+  /** The pieces in submission order. A piece's index here is its `batchIndex`. */
+  pieces: SubmittedPiece[]
+} & (
+  | {
+      kind: 'addPieces'
+      /** Data set id as a decimal string. */
+      dataSetId: string
+      /** The payer of the data set. */
+      payer: Address
+    }
+  | { kind: 'createDataSetAndAddPieces' }
+)
+
+/**
+ * Called once per flushed window, after the provider accepts the addPieces (or createDataSetAndAddPieces) call and
+ * before any piece promise of that window settles. It is awaited, so it can persist the record first.
+ *
+ * If it throws, the window's piece promises reject with that error, not {@link AddPiecesFlushError}. The transaction
+ * was already submitted and may still land, so do not enqueue those pieces again. A created data set is still
+ * waited for and adopted, so later pieces go into it instead of a second data set.
+ */
+export type OnSubmitted = (batch: SubmittedBatch) => void | Promise<void>
 
 export type UploadResult = PieceResult & {
   size: number
@@ -84,13 +133,8 @@ export type UploadInput = {
   signal?: AbortSignal
 }
 
-export type PullInput = {
-  pieceCid: PieceCID
-  sourceUrl: string
-  metadata?: MetadataObject
+export type PullInput = PullBatchInput & {
   onParked?: OnParked
-  onStatus?: (response: waitForPullPieces.ReturnType) => void
-  signal?: AbortSignal
 }
 
 type Slot = {
@@ -102,11 +146,19 @@ type Slot = {
 export type PieceBatcher = {
   /** Stream onto this SP, then join the addPieces window. */
   upload: (input: UploadInput) => Promise<UploadResult>
-  /** Pull onto this SP (own extraData), then join the addPieces window. */
+  /** Pull onto this SP in a batched pull request (see `pullDelay`), then join the addPieces window. */
   pull: (input: PullInput) => Promise<PieceResult>
   /** Already on this SP. Join the addPieces window only. */
   enqueue: (piece: EnqueuePiece) => Promise<PieceResult>
   flush: () => Promise<FlushResult | undefined>
+  /**
+   * Settle a batch that an earlier run submitted (see {@link OnSubmitted}), without submitting it again.
+   *
+   * Resolves with the {@link FlushResult} that `flush()` gave for that batch. For `createDataSetAndAddPieces` it
+   * waits for the data set to be created and adopts it, so later pieces are added to it rather than to a second data
+   * set. Call it before enqueuing new work. Confirm the pieces with {@link waitForFlushReceipt}, as for any flush.
+   */
+  resume: (batch: SubmittedBatch) => Promise<FlushResult>
   close: () => Promise<void>
   readonly pending: readonly EnqueuePiece[]
   readonly dataSet: PdpDataSet | undefined
@@ -117,7 +169,12 @@ export namespace createPieceBatcher {
     dataSet: PdpDataSet | undefined
     /** When to flush a window. Defaults to `{ kind: 'delay', ms: 0 }`. */
     wait?: PieceBatcherWait
-    /** Defaults to {@link addPiecesFits}. */
+    /**
+     * Milliseconds to wait after a pull joins an empty queue before sending queued pulls as pull requests of up to
+     * `SIZE_CONSTANTS.PULL_BATCH_SIZE` pieces. Defaults to 0 (one macrotask).
+     */
+    pullDelay?: number
+    /** Sizes the addPieces windows; batched pull requests are not split by it. Defaults to {@link addPiecesFits}. */
     limiter?: Limiter
     /** Required when `dataSet` is undefined. */
     serviceURL?: string
@@ -127,10 +184,12 @@ export namespace createPieceBatcher {
     metadata?: MetadataObject
     cdn?: boolean
     /**
-     * Maximum number of `upload` and `pull` transfers parking at the same time. Others wait for a free slot.
-     * Defaults to no limit.
+     * Maximum number of `upload` transfers and batched pull requests in flight at the same time. Others wait for a
+     * free slot. Defaults to no limit.
      */
     concurrency?: number
+    /** Called once per flushed window, before its pieces settle. See {@link OnSubmitted}. */
+    onSubmitted?: OnSubmitted
   }
   export type ReturnType = PieceBatcher
 }
@@ -138,11 +197,22 @@ export namespace createPieceBatcher {
 /**
  * Create a stateful piece batcher that parks/pulls immediately and coalesces addPieces.
  *
- * `upload` and `pull` run per-piece I/O right away (`upload` uses the
- * streaming CommP-last protocol for bytes and streams). The tumbling window
- * only batches the on-chain addPieces (or createDataSetAndAddPieces) call.
- * Pull authorization matches the eventual operation for that one piece;
- * flush signs new extraData for the whole window.
+ * `upload` runs per-piece I/O right away (streaming CommP-last protocol for
+ * bytes and streams). `pull` calls are coalesced into pull requests of up to
+ * `SIZE_CONSTANTS.PULL_BATCH_SIZE` pieces, each with one signature and
+ * one polling loop; each `pull` promise still settles with its own piece's
+ * status, and a full SP pull queue (429) is waited out. The tumbling window
+ * batches the on-chain addPieces (or createDataSetAndAddPieces) call.
+ * Pull authorization matches the operation for the pieces in that pull
+ * request; flush signs new extraData for the whole window.
+ *
+ * Invalid metadata or an out-of-bounds PieceCID size rejects only that piece
+ * when it is passed to `upload`/`pull`/`enqueue`, before any network work; it
+ * never joins a pull request or a window. A failed flush (signing, RPC, SP or
+ * chain errors) rejects every piece in the window with {@link AddPiecesFlushError}.
+ *
+ * For crash recovery, persist each window from `onSubmitted` and pass it to
+ * `resume()` after a restart instead of adding the same pieces again.
  *
  * @param client - Wallet client used to sign and submit.
  * @param options - {@link createPieceBatcher.OptionsType}
@@ -168,11 +238,16 @@ export function createPieceBatcher(
   if (wait.kind === 'delay' && !(wait.ms >= 0)) {
     throw new ValidationError('`wait.ms` must be a non-negative number.')
   }
+  if (options.pullDelay != null && !(options.pullDelay >= 0)) {
+    throw new ValidationError('`pullDelay` must be a non-negative number.')
+  }
   const limiter = options.limiter ?? addPiecesFits
   if (options.concurrency != null && !(options.concurrency >= 1)) {
     throw new ValidationError('`concurrency` must be at least 1.')
   }
   const limit = createLimit(options.concurrency ?? Number.POSITIVE_INFINITY)
+  // Pulls take a `limit` slot per pull request (in the pull batcher), not per piece.
+  const unlimited: Limit = (task) => task()
   const legacyPieceStorageIdLimit = asChain(client.chain).legacyPieceStorageIdLimit
   const datasetMetadata = options.metadata
   const cdn = options.cdn
@@ -190,6 +265,7 @@ export function createPieceBatcher(
   let scheduled = 0
   let scheduledIdle = Promise.resolve()
   let resolveScheduledIdle: () => void = () => undefined
+  const pulls = createPullBatcher(client, { target: pullTarget, limit, delay: options.pullDelay })
 
   function serviceURL(): string {
     if (dataSet != null) {
@@ -269,27 +345,18 @@ export function createPieceBatcher(
     const pieces = batch.map((slot) => slot.piece)
 
     try {
-      const isNewDataSet = dataSet == null
-      let submitted: Omit<FlushResult, 'isNewDataSet' | 'pieces'>
-      if (dataSet == null) {
-        submitted = await flushCreate(pieces)
-      } else {
-        const added = await addPieces(client, {
-          serviceURL: serviceURL(),
-          dataSetId: dataSet.dataSetId,
-          clientDataSetId: dataSet.clientDataSetId,
-          pieces,
-        })
-        submitted = {
-          txHash: added.txHash,
-          extraData: added.extraData,
-          payer: dataSet.payer,
-          dataSetId: dataSet.dataSetId,
-          clientDataSetId: dataSet.clientDataSetId,
+      const submitted = await submit(pieces)
+      try {
+        await options.onSubmitted?.(submitted)
+      } catch (error) {
+        // Settle anyway so a created data set is adopted, and reject with the hook error so callers do not resubmit
+        await settle(submitted, pieces).catch(() => undefined)
+        for (const slot of batch) {
+          slot.reject(error)
         }
+        return undefined
       }
-
-      const result: FlushResult = { ...submitted, isNewDataSet, pieces }
+      const result = await settle(submitted, pieces)
       for (const [batchIndex, slot] of batch.entries()) {
         slot.resolve({
           ...result,
@@ -314,39 +381,98 @@ export function createPieceBatcher(
     }
   }
 
-  async function flushCreate(pieces: EnqueuePiece[]): Promise<Omit<FlushResult, 'isNewDataSet' | 'pieces'>> {
-    if (payee == null) {
-      throw new ValidationError('`payee` is required when dataSet is undefined.')
+  /** Send a window to the provider as addPieces, or createDataSetAndAddPieces when there is no data set yet. */
+  async function submit(pieces: EnqueuePiece[]): Promise<SubmittedBatch> {
+    const submittedPieces = pieces.map(toSubmittedPiece)
+    if (dataSet == null) {
+      const created = await createDataSetAndAddPieces(client, {
+        serviceURL: serviceURL(),
+        payee: requirePayee(),
+        payer,
+        metadata: datasetMetadata,
+        cdn,
+        pieces,
+        clientDataSetId: createClientDataSetId,
+      })
+      return {
+        kind: 'createDataSetAndAddPieces',
+        txHash: created.txHash,
+        extraData: created.extraData,
+        clientDataSetId: createClientDataSetId.toString(),
+        pieces: submittedPieces,
+      }
     }
-    const submitted = await createDataSetAndAddPieces(client, {
+    const added = await addPieces(client, {
       serviceURL: serviceURL(),
-      payee,
-      payer,
-      metadata: datasetMetadata,
-      cdn,
+      dataSetId: dataSet.dataSetId,
+      clientDataSetId: dataSet.clientDataSetId,
       pieces,
-      clientDataSetId: createClientDataSetId,
     })
+    return {
+      kind: 'addPieces',
+      txHash: added.txHash,
+      extraData: added.extraData,
+      payer: dataSet.payer,
+      dataSetId: dataSet.dataSetId.toString(),
+      clientDataSetId: dataSet.clientDataSetId.toString(),
+      pieces: submittedPieces,
+    }
+  }
+
+  /**
+   * Turn a submitted batch into its flush result. Shared by `flush()` and `resume()`, so a resumed batch settles
+   * exactly as it would have in the run that submitted it.
+   */
+  async function settle(batch: SubmittedBatch, pieces: EnqueuePiece[]): Promise<FlushResult> {
+    const clientDataSetId = BigInt(batch.clientDataSetId)
+    if (batch.kind === 'addPieces') {
+      const adopted = await adoptDataSet(BigInt(batch.dataSetId))
+      return {
+        txHash: batch.txHash,
+        extraData: batch.extraData,
+        payer: adopted.payer,
+        dataSetId: adopted.dataSetId,
+        clientDataSetId,
+        isNewDataSet: false,
+        pieces,
+      }
+    }
     const created = await waitForCreateDataSetAddPieces({
       client,
-      txHash: submitted.txHash,
-      extraData: submitted.extraData,
-      pieceCount: submitted.pieceCount,
+      txHash: batch.txHash,
+      extraData: batch.extraData,
+      pieceCount: pieces.length,
     })
-    const resolved = await getPdpDataSet(client, { dataSetId: created.dataSetId })
-    if (resolved == null) {
-      throw new DataSetNotFoundError(created.dataSetId)
-    }
-    dataSet = resolved
+    const adopted = await adoptDataSet(created.dataSetId)
     return {
-      txHash: submitted.txHash,
+      txHash: batch.txHash,
       ...(created.confirmedTxHash == null ? {} : { confirmedTxHash: created.confirmedTxHash }),
-      extraData: submitted.extraData,
-      payer: resolved.payer,
+      extraData: batch.extraData,
+      payer: adopted.payer,
       dataSetId: created.dataSetId,
-      clientDataSetId: createClientDataSetId,
+      clientDataSetId,
+      isNewDataSet: true,
+      pieces,
       receipt: created,
     }
+  }
+
+  /** Point the batcher at `dataSetId`, so a batcher made for a new data set does not create a second one. */
+  async function adoptDataSet(dataSetId: bigint): Promise<PdpDataSet> {
+    if (dataSet != null) {
+      if (dataSet.dataSetId !== dataSetId) {
+        throw new ValidationError(
+          `Submitted batch is for data set ${dataSetId}, but this batcher adds to data set ${dataSet.dataSetId}.`
+        )
+      }
+      return dataSet
+    }
+    const resolved = await getPdpDataSet(client, { dataSetId })
+    if (resolved == null) {
+      throw new DataSetNotFoundError(dataSetId)
+    }
+    dataSet = resolved
+    return resolved
   }
 
   function cancelTimer(): void {
@@ -402,7 +528,11 @@ export function createPieceBatcher(
     })
   }
 
-  async function parkAndEnqueue(park: () => Promise<EnqueuePiece>, onParked?: OnParked): Promise<PieceResult> {
+  async function parkAndEnqueue(
+    park: () => Promise<EnqueuePiece>,
+    onParked?: OnParked,
+    parkLimit: Limit = limit
+  ): Promise<PieceResult> {
     assertOpen()
     // Count the piece as scheduled from now until it is in the window, so `flush()` and `close()` wait for
     // pieces still waiting for a slot or parking.
@@ -410,7 +540,7 @@ export function createPieceBatcher(
     let parked: EnqueuePiece
     try {
       parked = await track(
-        limit(async () => {
+        parkLimit(async () => {
           const piece = await park()
           assertPieceValid(piece)
           await onParked?.(piece)
@@ -421,9 +551,11 @@ export function createPieceBatcher(
       endSchedule()
       throw error
     }
-    const result = internalEnqueue(parked)
-    endSchedule()
-    return result
+    try {
+      return internalEnqueue(parked)
+    } finally {
+      endSchedule()
+    }
   }
 
   async function enqueue(piece: EnqueuePiece): Promise<PieceResult> {
@@ -445,8 +577,11 @@ export function createPieceBatcher(
     }
     let uploadedSize: number | undefined
     const result = await parkAndEnqueue(async () => {
-      if (input.pieceCid != null) {
-        assertPieceCidSize(input.pieceCid)
+      // Checked before uploading, so a piece that can never be added is not uploaded.
+      if (input.pieceCid == null) {
+        pieceMetadataObjectToEntry(input.metadata)
+      } else {
+        assertPieceValid({ pieceCid: input.pieceCid, metadata: input.metadata })
       }
       const uploaded = await uploadPieceStreaming({
         serviceURL: serviceURL(),
@@ -471,40 +606,35 @@ export function createPieceBatcher(
     return { ...result, size: uploadedSize }
   }
 
+  function pullTarget(): PullTarget {
+    if (dataSet == null) {
+      return {
+        serviceURL: serviceURL(),
+        clientDataSetId: createClientDataSetId,
+        payee: requirePayee(),
+        payer,
+        cdn,
+        metadata: datasetMetadata,
+      }
+    }
+    return { serviceURL: serviceURL(), dataSetId: dataSet.dataSetId, clientDataSetId: dataSet.clientDataSetId }
+  }
+
   async function pull(input: PullInput): Promise<PieceResult> {
-    return parkAndEnqueue(async () => {
-      assertPieceCidSize(input.pieceCid)
-      const pullPiece = {
-        pieceCid: input.pieceCid,
-        sourceUrl: input.sourceUrl,
-        metadata: input.metadata,
-      }
-      const pullResult =
-        dataSet == null
-          ? await waitForPullPieces(client, {
-              serviceURL: serviceURL(),
-              pieces: [pullPiece],
-              clientDataSetId: createClientDataSetId,
-              payee: requirePayee(),
-              payer,
-              cdn,
-              metadata: datasetMetadata,
-              signal: input.signal,
-              onStatus: input.onStatus,
-            })
-          : await waitForPullPieces(client, {
-              serviceURL: serviceURL(),
-              pieces: [pullPiece],
-              dataSetId: dataSet.dataSetId,
-              clientDataSetId: dataSet.clientDataSetId,
-              signal: input.signal,
-              onStatus: input.onStatus,
-            })
-      if (pullResult.status === 'failed') {
-        throw new PullError('Pull failed.')
-      }
-      return { pieceCid: input.pieceCid, metadata: input.metadata }
-    }, input.onParked)
+    return parkAndEnqueue(
+      async () => {
+        // Checked before pulling, so a piece that can never be added is not pulled, and bad metadata fails only its
+        // own pull rather than the signing of the whole pull request.
+        assertPieceValid(input)
+        if (!fits([input])) {
+          throw new ValidationError('Piece does not fit in a single addPieces operation.')
+        }
+        await pulls.pull(input)
+        return { pieceCid: input.pieceCid, metadata: input.metadata }
+      },
+      input.onParked,
+      unlimited
+    )
   }
 
   function requirePayee(): Address {
@@ -515,8 +645,15 @@ export function createPieceBatcher(
   }
 
   async function flush(): Promise<FlushResult | undefined> {
+    pulls.flush()
     await scheduledIdle
     return lock(() => flushWindowInternal())
+  }
+
+  async function resume(batch: SubmittedBatch): Promise<FlushResult> {
+    assertOpen()
+    const pieces = fromSubmittedBatch(batch)
+    return lock(() => settle(batch, pieces))
   }
 
   async function close(): Promise<void> {
@@ -529,6 +666,7 @@ export function createPieceBatcher(
     pull,
     enqueue,
     flush,
+    resume,
     close,
     get pending() {
       return windowSlots.map((slot) => slot.piece)
@@ -537,6 +675,53 @@ export function createPieceBatcher(
       return dataSet
     },
   }
+}
+
+function toSubmittedPiece(piece: EnqueuePiece): SubmittedPiece {
+  return {
+    pieceCid: piece.pieceCid.toString(),
+    ...(piece.metadata == null ? {} : { metadata: piece.metadata }),
+    ...(piece.size == null ? {} : { size: piece.size }),
+  }
+}
+
+const DECIMAL = /^\d+$/
+
+/**
+ * Check a persisted {@link SubmittedBatch} and parse its pieces.
+ *
+ * @param batch - The batch to check.
+ * @returns The batch pieces with parsed PieceCIDs.
+ * @throws {ValidationError} When the batch is malformed.
+ */
+function fromSubmittedBatch(batch: SubmittedBatch): EnqueuePiece[] {
+  if (batch.kind !== 'addPieces' && batch.kind !== 'createDataSetAndAddPieces') {
+    throw new ValidationError('Submitted batch `kind` must be "addPieces" or "createDataSetAndAddPieces".')
+  }
+  if (!DECIMAL.test(batch.clientDataSetId)) {
+    throw new ValidationError('Submitted batch `clientDataSetId` must be a decimal string.')
+  }
+  if (batch.kind === 'addPieces' && !DECIMAL.test(batch.dataSetId)) {
+    throw new ValidationError('Submitted addPieces batch `dataSetId` must be a decimal string.')
+  }
+  if (batch.pieces.length === 0) {
+    throw new ValidationError('Submitted batch has no pieces.')
+  }
+  return batch.pieces.map((piece) => {
+    let pieceCid: PieceCID
+    try {
+      pieceCid = pieceCidFrom(piece.pieceCid)
+    } catch (error) {
+      throw new ValidationError(`Submitted batch has an invalid PieceCID: ${piece.pieceCid}`, {
+        cause: error instanceof Error ? error : undefined,
+      })
+    }
+    return {
+      pieceCid,
+      ...(piece.metadata == null ? {} : { metadata: piece.metadata }),
+      ...(piece.size == null ? {} : { size: piece.size }),
+    }
+  })
 }
 
 export namespace waitForFlushReceipt {

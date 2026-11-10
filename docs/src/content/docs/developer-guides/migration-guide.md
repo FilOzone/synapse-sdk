@@ -9,6 +9,26 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ---
 
+## synapse-core 0.11.0
+
+### Action: Import addPieces fit helpers from `/utils`
+
+The addPieces fit helpers moved from `@filoz/synapse-core/sp` to `@filoz/synapse-core/utils`, with the same names and behaviour: `addPiecesFits`, `checkAddPiecesFit`, `maxFittingPieces`, `assertAddPiecesFit`, `assertPieceValid`, `assertPieceCidSize`, `estimateAddPiecesCalldataSize`, and the `Limiter`, `LimiterOptions`, `LimiterPiece` and `AddPiecesFitResult` types.
+
+```ts
+// Before
+import { addPiecesFits, assertAddPiecesFit } from '@filoz/synapse-core/sp'
+
+// After
+import { addPiecesFits, assertAddPiecesFit } from '@filoz/synapse-core/utils'
+```
+
+### Action: Review `concurrency` in `createPieceBatcher`
+
+`createPieceBatcher` now sends pulls in batched requests of up to 10 pieces. Its `concurrency` option used to cap pulls per piece and now caps pull requests, so the same value allows up to ten times as many pieces in flight. `upload` transfers share the same limit and still take one slot per piece.
+
+---
+
 ## synapse-core 0.10.0
 
 This release retains data sets and pieces whose provider no longer has an active PDP product, so they no longer block listings or downloads from healthy providers. synapse-react 0.5.0 includes the same change.
@@ -207,6 +227,7 @@ Pass leaf counts directly to the new cost inputs. For custom rate calculations, 
 `validateAddPiecesBatch(count)` was removed from `@filoz/synapse-core/sp`. Use `assertAddPiecesFit()` with actual PieceCIDs and metadata:
 
 ```ts
+// From synapse-core 0.11.0, import from '@filoz/synapse-core/utils'
 import { assertAddPiecesFit } from '@filoz/synapse-core/sp'
 import { asChain } from '@filoz/synapse-core/chains'
 
