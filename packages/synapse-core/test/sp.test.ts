@@ -92,6 +92,20 @@ describe('SP', () => {
       assert.equal(attempts, 3)
     })
 
+    it('keeps the serviceURL path when it has no trailing slash', async () => {
+      let hit = false
+      server.use(
+        http.get('http://pdp.local/curio/pdp/ping', () => {
+          hit = true
+          return new HttpResponse(null, { status: 200 })
+        })
+      )
+
+      await ping('http://pdp.local/curio', { timeout: 5000 })
+
+      assert.isTrue(hit)
+    })
+
     it('honors a custom total timeout', async () => {
       server.use(
         http.get('http://pdp.local/pdp/ping', async () => {

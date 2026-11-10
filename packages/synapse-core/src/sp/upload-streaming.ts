@@ -9,6 +9,7 @@ import {
 import * as Piece from '../piece/index.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 import { isUint8Array, supportsStreamingFetchBody } from '../utils/streams.ts'
 
 export type UploadPieceStreamingData = Uint8Array | ReadableStream | import('node:stream/web').ReadableStream
@@ -56,7 +57,7 @@ export async function uploadPieceStreaming(
   options: uploadPieceStreaming.OptionsType
 ): Promise<uploadPieceStreaming.OutputType> {
   // Create upload session (POST /pdp/piece/uploads)
-  const createResponse = await request.post(new URL('pdp/piece/uploads', options.serviceURL), {
+  const createResponse = await request.post(serviceURLJoin('pdp/piece/uploads', options.serviceURL), {
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
       methods: ['post'],
@@ -179,7 +180,7 @@ export async function uploadPieceStreaming(
     headers['Content-Length'] = (size ?? totalSize).toString()
   }
 
-  const uploadURL = new URL(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL)
+  const uploadURL = serviceURLJoin(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL)
   const uploadResponse = await request.put(uploadURL, {
     body: fetchBody,
     headers,
@@ -212,7 +213,7 @@ export async function uploadPieceStreaming(
   const pieceCid = await pieceCidPromise
 
   // POST /pdp/piece/uploads/{uuid} with PieceCID
-  const finalizeResponse = await request.post(new URL(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL), {
+  const finalizeResponse = await request.post(serviceURLJoin(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL), {
     json: {
       pieceCid: pieceCid.toString(),
     },

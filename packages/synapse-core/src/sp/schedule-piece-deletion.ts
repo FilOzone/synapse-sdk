@@ -5,6 +5,7 @@ import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
 import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 
 const MAX_CURIO_PIECE_ID = (1n << 63n) - 1n
 
@@ -46,16 +47,19 @@ export async function deletePieces(options: deletePieces.OptionsType): Promise<d
   // Curio accepts uint64 JSON numbers. Construct the array from bigint decimal
   // strings so IDs above Number.MAX_SAFE_INTEGER are not rounded by JSON.stringify.
   const body = `{"extraData":${JSON.stringify(extraData)},"pieceIds":[${pieceIds.join(',')}]}`
-  const response = await request.delete(new URL(`pdp/data-sets/${dataSetId}/pieces/${pieceIds[0]}`, serviceURL), {
-    body,
-    headers: { 'content-type': 'application/json' },
-    signal: options.signal,
-    timeout: RETRY_CONSTANTS.TIMEOUT,
-    retry: {
-      retries: options.retryCount,
-      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
-    },
-  })
+  const response = await request.delete(
+    serviceURLJoin(`pdp/data-sets/${dataSetId}/pieces/${pieceIds[0]}`, serviceURL),
+    {
+      body,
+      headers: { 'content-type': 'application/json' },
+      signal: options.signal,
+      timeout: RETRY_CONSTANTS.TIMEOUT,
+      retry: {
+        retries: options.retryCount,
+        minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+      },
+    }
+  )
 
   if (response.error) {
     if (HttpError.is(response.error)) {

@@ -63,6 +63,17 @@ describe('createPieceUrlPDP', () => {
       'https://sp.example.com/pdp/piece/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
     )
   })
+  it('should keep the serviceURL path when it has no trailing slash', () => {
+    const cid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+    assert.strictEqual(
+      createPieceUrlPDP({ cid, serviceURL: 'https://sp.example.com/curio' }),
+      `https://sp.example.com/curio/piece/${cid}`
+    )
+    assert.strictEqual(
+      createPieceUrlPDP({ cid, serviceURL: 'https://sp.example.com' }),
+      `https://sp.example.com/piece/${cid}`
+    )
+  })
 })
 
 describe('createPieceUrlFilBeam', () => {

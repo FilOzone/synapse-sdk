@@ -6,6 +6,7 @@ import { asChain } from '../chains.ts'
 import { paginate } from '../pagination.ts'
 import type { PDPProvider } from '../sp-registry/types.ts'
 import { createPieceUrlFilBeam, createPieceUrlPDP } from '../utils/piece-url.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 import { getPdpDataSets } from '../warm-storage/get-pdp-data-sets.ts'
 import type { PieceCID } from './piece-cid.ts'
 
@@ -195,7 +196,7 @@ export async function findPieceOnProviders(serviceURLs: string[], pieceCid: Piec
   const _signal = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal
 
   async function headPiece(serviceURL: string) {
-    const result = await request.head(new URL(`piece/${pieceCid.toString()}`, serviceURL), {
+    const result = await request.head(serviceURLJoin(`piece/${pieceCid.toString()}`, serviceURL), {
       signal: _signal,
       retry: true,
       // iso-web's default budget for `retry: true` is 18s; keep the 5s cap across all attempts

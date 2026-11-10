@@ -3,6 +3,7 @@ import * as z from 'zod'
 import { GetDataSetError } from '../errors/pdp.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { zNumberToBigInt, zStringToCid } from '../utils/schemas.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 
 const PieceSchema = z.object({
   pieceCid: zStringToCid,
@@ -48,7 +49,7 @@ export namespace getDataSet {
  * @throws Errors {@link getDataSet.ErrorType}
  */
 export async function getDataSet(options: getDataSet.OptionsType): Promise<getDataSet.OutputType> {
-  const response = await request.json.get(new URL(`pdp/data-sets/${options.dataSetId}`, options.serviceURL), {
+  const response = await request.json.get(serviceURLJoin(`pdp/data-sets/${options.dataSetId}`, options.serviceURL), {
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
       retries: options.retryCount,

@@ -16,6 +16,7 @@ import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject } from '../utils/metadata.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 
 export namespace createDataSetApiRequest {
   /**
@@ -68,7 +69,7 @@ export async function createDataSetApiRequest(
   options: createDataSetApiRequest.OptionsType
 ): Promise<createDataSetApiRequest.OutputType> {
   // Send the create data set message to the PDP
-  const response = await request.post(new URL(`pdp/data-sets`, options.serviceURL), {
+  const response = await request.post(serviceURLJoin(`pdp/data-sets`, options.serviceURL), {
     json: {
       recordKeeper: options.recordKeeper,
       extraData: options.extraData,
