@@ -121,7 +121,7 @@ export default defineConfig({
         },
       ],
       editLink: {
-        baseUrl: 'https://github.com/FilOzone/synapse-sdk/edit/main/docs/',
+        baseUrl: 'https://github.com/FilOzone/synapse-sdk/edit/master/docs/',
       },
       lastUpdated: true,
       sidebar: [

@@ -23,6 +23,10 @@ import { addPiecesFits, assertAddPiecesFit } from '@filoz/synapse-core/sp'
 import { addPiecesFits, assertAddPiecesFit } from '@filoz/synapse-core/utils'
 ```
 
+### Action: Review `concurrency` in `createPieceBatcher`
+
+`createPieceBatcher` now sends pulls in batched requests of up to 10 pieces. Its `concurrency` option used to cap pulls per piece and now caps pull requests, so the same value allows up to ten times as many pieces in flight. `upload` transfers share the same limit and still take one slot per piece.
+
 ---
 
 ## synapse-core 0.10.0

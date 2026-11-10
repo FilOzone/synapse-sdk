@@ -1,11 +1,26 @@
 import assert from 'assert'
+import { setup } from 'iso-web/msw'
 import { type Address, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { calibration } from '../src/chains.ts'
-import { PRIVATE_KEYS } from '../src/mocks/jsonrpc/index.ts'
+import { JSONRPC, PRIVATE_KEYS, presets } from '../src/mocks/jsonrpc/index.ts'
 import { depositAndApprove } from '../src/pay/payments.ts'
 
 describe('depositAndApprove', () => {
+  const server = setup()
+
+  before(async () => {
+    await server.start()
+  })
+
+  after(() => {
+    server.stop()
+  })
+
+  beforeEach(() => {
+    server.resetHandlers()
+  })
+
   const account = privateKeyToAccount(PRIVATE_KEYS.key1)
   const client = createWalletClient({
     account,
@@ -41,16 +56,11 @@ describe('depositAndApprove', () => {
     })
 
     it('should NOT throw validation error when using default operator without allowances', async () => {
-      await assert.rejects(
-        () =>
-          depositAndApprove(client, {
-            amount: 1000n,
-          }),
-        (err: Error) => {
-          assert.ok(!err.message.includes('Custom operator requires explicit'))
-          return true
-        }
-      )
+      server.use(JSONRPC(presets.basic))
+      const hash = await depositAndApprove(client, {
+        amount: 1000n,
+      })
+      assert.match(hash, /^0x[0-9a-f]{64}$/)
     })
   })
 })

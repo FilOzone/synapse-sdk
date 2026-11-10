@@ -30,6 +30,7 @@
         "dist/**"
       ],
       "dependencies": [
+        "../packages/keysmith:build",
         "../packages/synapse-core:build",
         "../packages/synapse-sdk:build",
         "../packages/synapse-react:build"
@@ -44,6 +45,7 @@
         "astro.config.mjs"
       ],
       "dependencies": [
+        "../packages/keysmith:build",
         "../packages/synapse-core:build",
         "../packages/synapse-sdk:build",
         "../packages/synapse-react:build"
@@ -51,20 +53,23 @@
     }
   },
   "dependencies": {
+    "@filoz/keysmith": "workspace:*",
     "@filoz/synapse-core": "workspace:*",
     "@filoz/synapse-react": "workspace:*",
     "@filoz/synapse-sdk": "workspace:*",
     "@tanstack/react-query": "5.102.8",
+    "filecoin-encryption-envelope": "workspace:*",
     "starlight-auto-sidebar": "0.4.0",
-    "starlight-links-validator": "0.25.3",
+    "starlight-links-validator": "0.27.0",
     "viem": "catalog:",
     "wagmi": "catalog:"
   },
   "devDependencies": {
     "@astrojs/markdown-satteri": "0.3.7",
     "@astrojs/starlight": "0.41.7",
-    "@hugomrdias/docs": "0.2.0",
-    "@shikijs/twoslash": "4.4.3",
+    "@hugomrdias/docs": "0.2.1",
+    "@shikijs/twoslash": "4.5.0",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "astro": "7.2.4",

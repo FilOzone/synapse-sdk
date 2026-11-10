@@ -26,8 +26,8 @@ catalog:
   ox: 0.14.34
   typescript: 6.0.3
   viem: 2.55.19
-  wagmi: 3.7.6
-  zod: 4.4.3
+  wagmi: 3.7.9
+  zod: 4.6.6
   iso-web: ^4.0.0
 
 minimumReleaseAge: 10080

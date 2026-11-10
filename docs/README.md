@@ -1,5 +1,18 @@
 # Docs website
 
+## Local builds
+
+From the repository root, install the locked dependencies and build the docs:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm -r --filter docs run build
+```
+
+Mermaid diagrams render to SVG during the build using Ondine. Diagram colors follow the site's theme through CSS custom properties.
+
+The patch in `patches/@hugomrdias__docs@0.2.0.patch` makes TypeDoc conversion failures stop the build and preserves the configured package compiler options. Check whether the patch is still needed when upgrading `@hugomrdias/docs`.
+
 ## 🚀 Project Structure
 
 Inside of your Astro + Starlight project, you'll see the following folders and files:
@@ -42,6 +55,5 @@ Check out:
 
 - [Starlight’s docs](https://starlight.astro.build/)
 - [the Astro documentation](https://docs.astro.build)
-- [Expressive code twoslash](https://twoslash.matthiesen.dev/getting-started/installation/)
 - [Starlight LLMs](https://delucis.github.io/starlight-llms-txt/)
 - [Starlight Typedoc](https://starlight-typedoc.vercel.app/)

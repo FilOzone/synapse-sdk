@@ -467,7 +467,8 @@ function overallPullStatus(statuses: pullPiecesApiRequest.PullStatus[]): pullPie
 
 /**
  * Creates a handler that answers each requested piece with its own status, like Curio does for a batched pull.
- * The overall status follows Curio's rules (see `overallPullStatus`).
+ * The overall status follows Curio's rules (see `overallPullStatus`). Like Curio, it answers 400 when a
+ * request repeats a PieceCID.
  */
 export function pullPiecesPerPieceHandler(
   statusFor: (pieceCid: string) => pullPiecesApiRequest.PullStatus,
@@ -479,6 +480,10 @@ export function pullPiecesPerPieceHandler(
   return http.post(`${baseUrl}/pdp/piece/pull`, async ({ request }) => {
     const body = (await request.json()) as PullRequestCapture
     captureCallback?.(body)
+
+    if (new Set(body.pieces.map((piece) => piece.pieceCid)).size !== body.pieces.length) {
+      return HttpResponse.text('duplicate pieceCid', { status: 400 })
+    }
 
     const pieces = body.pieces.map((piece) => ({ pieceCid: piece.pieceCid, status: statusFor(piece.pieceCid) }))
     const response: pullPiecesApiRequest.ReturnType = {
