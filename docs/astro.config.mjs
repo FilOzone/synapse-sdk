@@ -9,7 +9,6 @@ import starlightLinksValidator from 'starlight-links-validator'
 import { codeBlocksScript, transformerCodeBlocks } from './src/code-blocks.mjs'
 import { mermaidDiagrams } from './src/diagrams.mjs'
 import { externalLinks } from './src/external-links.mjs'
-import { referenceNavigation } from './src/plugins/reference-navigation.ts'
 
 const site = 'https://docs.filecoin.cloud'
 
@@ -32,7 +31,7 @@ export default defineConfig({
           explicitTrigger: true,
           twoslashOptions: {
             compilerOptions: {
-              lib: ['lib.esnext.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts', 'lib.dom.asynciterable.d.ts'],
+              lib: ['lib.esnext.d.ts', 'lib.dom.d.ts'],
               jsx: 4, // react-jsx
               jsxImportSource: 'react',
             },
@@ -122,7 +121,7 @@ export default defineConfig({
         },
       ],
       editLink: {
-        baseUrl: 'https://github.com/FilOzone/synapse-sdk/edit/master/docs/',
+        baseUrl: 'https://github.com/FilOzone/synapse-sdk/edit/main/docs/',
       },
       lastUpdated: true,
       sidebar: [
@@ -182,23 +181,6 @@ export default defineConfig({
           collapsed: true,
           items: [
             {
-              label: 'Synapse SDK',
-              collapsed: true,
-              items: [
-                {
-                  autogenerate: { directory: 'reference/@filoz/synapse-sdk', collapsed: true },
-                },
-                {
-                  label: 'Encryption',
-                  collapsed: true,
-                  items: [
-                    { label: 'Keysmith API', link: '/reference/filoz/keysmith/toc/' },
-                    { label: 'Encryption envelope API', link: '/reference/filecoin-encryption-envelope/toc/' },
-                  ],
-                },
-              ],
-            },
-            {
               autogenerate: { directory: 'reference', collapsed: true },
             },
           ],
@@ -214,19 +196,13 @@ export default defineConfig({
             entryPointStrategy: 'packages',
             entryPoints: ['../packages/*'],
             tsconfig: '../tsconfig.json',
-            packageOptions: {
-              compilerOptions: { lib: ['esnext', 'dom', 'dom.iterable', 'dom.asynciterable'] },
-              excludeExternals: true,
-            },
-            excludeExternals: true,
             useCodeBlocks: false,
             parametersFormat: 'table',
             indexFormat: 'table',
             groupOrder: ['classes', 'functions', 'variables', 'types', 'namespaces', '*'],
-            plugin: ['typedoc-plugin-mdn-links', 'typedoc-plugin-missing-exports'],
+            plugin: ['typedoc-plugin-mdn-links'],
           },
         }),
-        referenceNavigation(),
         llmsPlugin(),
         starlightAutoSidebar(),
         // The validator wipes the content layer cache on every build, so only run it when asked

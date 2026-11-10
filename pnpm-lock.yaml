@@ -52,9 +52,6 @@ catalogs:
 overrides:
   zod@>=4.0.0 <4.6.6: 4.6.6
 
-patchedDependencies:
-  '@hugomrdias/docs@0.2.0': 41985890813fcb17f8808b7861ebd83db0ed327d602c9bcbd32f65dc0396713f
-
 importers:
 
   .:
@@ -252,7 +249,7 @@ importers:
         version: 0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3)
       '@hugomrdias/docs':
         specifier: 0.2.0
-        version: 0.2.0(patch_hash=41985890813fcb17f8808b7861ebd83db0ed327d602c9bcbd32f65dc0396713f)(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3))(typedoc@0.28.20(typescript@6.0.3))
+        version: 0.2.0(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3))(typedoc@0.28.20(typescript@6.0.3))
       '@shikijs/twoslash':
         specifier: 4.5.0
         version: 4.5.0(supports-color@10.2.2)(typescript@6.0.3)
@@ -283,9 +280,6 @@ importers:
       typedoc-plugin-missing-exports:
         specifier: 4.1.4
         version: 4.1.4(typedoc@0.28.20(typescript@6.0.3))
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
       wrangler:
         specifier: 4.152.0
         version: 4.152.0(@types/node@26.2.0)
@@ -7972,7 +7966,7 @@ snapshots:
 
   '@hugomrdias/commp-wasm@0.1.4': {}
 
-  '@hugomrdias/docs@0.2.0(patch_hash=41985890813fcb17f8808b7861ebd83db0ed327d602c9bcbd32f65dc0396713f)(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3))(typedoc@0.28.20(typescript@6.0.3))':
+  '@hugomrdias/docs@0.2.0(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3))(typedoc@0.28.20(typescript@6.0.3))':
     dependencies:
       '@astrojs/starlight': 0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3)
       github-slugger: 2.0.0
