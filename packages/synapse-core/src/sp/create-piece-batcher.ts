@@ -349,9 +349,7 @@ export function createPieceBatcher(
       try {
         await options.onSubmitted?.(submitted)
       } catch (error) {
-        // Still settle, so a created data set is adopted and the next flush does not create a second one. The
-        // transaction is already on its way, so reject with the hook error: an AddPiecesFlushError would invite a
-        // duplicate retry.
+        // Settle anyway so a created data set is adopted, and reject with the hook error so callers do not resubmit
         await settle(submitted, pieces).catch(() => undefined)
         for (const slot of batch) {
           slot.reject(error)
