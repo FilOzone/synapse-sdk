@@ -67,7 +67,7 @@
   "devDependencies": {
     "@astrojs/markdown-satteri": "0.3.7",
     "@astrojs/starlight": "0.41.7",
-    "@hugomrdias/docs": "0.2.0",
+    "@hugomrdias/docs": "0.2.1",
     "@shikijs/twoslash": "4.5.0",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
