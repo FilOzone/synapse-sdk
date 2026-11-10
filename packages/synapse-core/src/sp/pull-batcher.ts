@@ -162,6 +162,8 @@ export function createPullBatcher(
       await waitForPullPieces(client, {
         ...options.target(),
         pieces: pulls.map((queued) => queued.piece),
+        // Curio answers 400 to a request that repeats a PieceCID; the repeat shares the kept piece's status.
+        dedupe: true,
         signal: controller.signal,
         onStatus,
       })

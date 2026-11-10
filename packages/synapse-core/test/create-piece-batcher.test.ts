@@ -1228,7 +1228,7 @@ describe('createPieceBatcher', () => {
       await batcher.close()
 
       assert.equal(pullBodies.length, 1)
-      assert.equal(pullBodies[0]?.pieces.length, 3)
+      assert.equal(pullBodies[0]?.pieces.length, 2)
       assert.equal(first.status, 'fulfilled')
       assert.equal(second.status, 'fulfilled')
       assert.equal(failed.status, 'rejected')
