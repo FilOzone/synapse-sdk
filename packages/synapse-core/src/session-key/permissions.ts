@@ -52,6 +52,43 @@ export const PermissionNames: Record<Hex, string> = {
   [TerminateServicePermission]: 'TerminateService',
 }
 
+/**
+ * Map from FWSS permission IDs to their permission hashes.
+ *
+ * The IDs match the session key scopes accepted by the Filecoin Pay console
+ * (e.g. its `scopes` link parameter), so tools building console links or
+ * parsing scopes from user input can share one source of truth.
+ *
+ * @example
+ * ```ts
+ * import { FwssPermissions, isFwssPermissionId } from '@filoz/synapse-core/session-key'
+ *
+ * const permissions = 'createDataSet,addPieces'
+ *   .split(',')
+ *   .filter(isFwssPermissionId)
+ *   .map((id) => FwssPermissions[id])
+ * ```
+ */
+export const FwssPermissions = {
+  createDataSet: CreateDataSetPermission,
+  addPieces: AddPiecesPermission,
+  schedulePieceRemovals: SchedulePieceRemovalsPermission,
+  terminateService: TerminateServicePermission,
+} as const
+
+/** FWSS permission ID, as used by the Filecoin Pay console `scopes` parameter. */
+export type FwssPermissionId = keyof typeof FwssPermissions
+
+/**
+ * Check whether a value is a known FWSS permission ID.
+ *
+ * @param value - The value to check.
+ * @returns `true` if `value` is a key of {@link FwssPermissions}.
+ */
+export function isFwssPermissionId(value: unknown): value is FwssPermissionId {
+  return typeof value === 'string' && Object.hasOwn(FwssPermissions, value)
+}
+
 export type Permission =
   | CreateDataSetPermission
   | AddPiecesPermission
