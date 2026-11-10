@@ -19,10 +19,7 @@
       },
       "files": [
         "src/**",
-        "!src/content/docs/reference/**",
         "public/**",
-        "../pnpm-lock.yaml",
-        "../patches/*.patch",
         "tsconfig.json",
         "astro.config.mjs"
       ],
@@ -43,11 +40,7 @@
       "command": "astro dev",
       "service": true,
       "files": [
-        "src/**",
-        "!src/content/docs/reference/**",
-        "public/**",
-        "../pnpm-lock.yaml",
-        "../patches/*.patch",
+        "src/**/*.ts",
         "tsconfig.json",
         "astro.config.mjs"
       ],
@@ -74,7 +67,7 @@
   "devDependencies": {
     "@astrojs/markdown-satteri": "0.3.7",
     "@astrojs/starlight": "0.41.7",
-    "@hugomrdias/docs": "0.2.0",
+    "@hugomrdias/docs": "0.2.1",
     "@shikijs/twoslash": "4.5.0",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
@@ -85,7 +78,6 @@
     "typedoc": "0.28.20",
     "typedoc-plugin-mdn-links": "5.1.1",
     "typedoc-plugin-missing-exports": "4.1.4",
-    "typescript": "catalog:",
     "wrangler": "4.152.0"
   }
 }

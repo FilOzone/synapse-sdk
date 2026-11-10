@@ -49,12 +49,6 @@ catalogs:
       specifier: 4.6.6
       version: 4.6.6
 
-overrides:
-  zod@>=4.0.0 <4.6.6: 4.6.6
-
-patchedDependencies:
-  '@hugomrdias/docs@0.2.0': 41985890813fcb17f8808b7861ebd83db0ed327d602c9bcbd32f65dc0396713f
-
 importers:
 
   .:
@@ -251,8 +245,8 @@ importers:
         specifier: 0.41.7
         version: 0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3)
       '@hugomrdias/docs':
-        specifier: 0.2.0
-        version: 0.2.0(patch_hash=41985890813fcb17f8808b7861ebd83db0ed327d602c9bcbd32f65dc0396713f)(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3))(typedoc@0.28.20(typescript@6.0.3))
+        specifier: 0.2.1
+        version: 0.2.1(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3))(typedoc@0.28.20(typescript@6.0.3))
       '@shikijs/twoslash':
         specifier: 4.5.0
         version: 4.5.0(supports-color@10.2.2)(typescript@6.0.3)
@@ -283,9 +277,6 @@ importers:
       typedoc-plugin-missing-exports:
         specifier: 4.1.4
         version: 4.1.4(typedoc@0.28.20(typescript@6.0.3))
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
       wrangler:
         specifier: 4.152.0
         version: 4.152.0(@types/node@26.2.0)
@@ -1708,8 +1699,8 @@ packages:
   '@hugomrdias/commp-wasm@0.1.4':
     resolution: {integrity: sha512-e2oiHAmjtFZ3cxalwqJQgxW8FHlFqj0cXN6PM4NPEhEH/Mf5wjLBzlslA11hUsyOMmMK9+WtWPPNycg5RdiBKg==}
 
-  '@hugomrdias/docs@0.2.0':
-    resolution: {integrity: sha512-4ZGpBDbGYabbLYX2XNjCT8RqJh8mhDUx5ETBRWW7AOFH+tlOSzY7ERlaWdCmRvrZUEHWktossLr9CNcBsjRLoA==}
+  '@hugomrdias/docs@0.2.1':
+    resolution: {integrity: sha512-8GxCpwziXUSZfL8xKQocWTDT95z0aC2mtUAM7pwsbyism01QLETcnF8MPXWy3gbBoqUoHM1kqzBU12uEwF3Lnw==}
     peerDependencies:
       '@astrojs/starlight': '>=0.37.1'
 
@@ -3614,7 +3605,7 @@ packages:
     resolution: {integrity: sha512-Ofer5QUnuUdTFsBRwARMoWKOH1ND5ehwYhJ3OJ/BQO+StkwQjHw0XyVh4vDttzHB7QOFhPHa/o413PJ82gU/Tg==}
     peerDependencies:
       typescript: '>=5.0.4'
-      zod: 4.6.6
+      zod: ^3.22.0 || ^4.0.0
     peerDependenciesMeta:
       typescript:
         optional: true
@@ -3625,7 +3616,7 @@ packages:
     resolution: {integrity: sha512-fk6Te+bojIFrMvMZrnOO+SxCB+RUksTGOzq/60ZRvs1L+BVzvi2bqt9L3W/17ZLdZsyM1FuYf65P5nlmoiH1Bg==}
     peerDependencies:
       typescript: '>=5.0.4'
-      zod: 4.6.6
+      zod: ^3.22.0 || ^4.0.0
     peerDependenciesMeta:
       typescript:
         optional: true
@@ -6591,8 +6582,8 @@ packages:
     resolution: {integrity: sha512-nAYYwfY3qnzX30IkA6AQZjVbtK6duGontcQm1WSG1MD94YLqK0515GNApXkoxKOWMusVssAHWLh9SeaoefYFGw==}
     engines: {node: '>= 0.4'}
 
-  typedoc-plugin-markdown@4.12.0:
-    resolution: {integrity: sha512-eJDEMAfxCmede22c/Jw7d0FA13ggAQv+KkwQYKYCdqI02cin6Rc9QRwbG/7XvvHWinuFejySnZVUWDtvGk3Vbg==}
+  typedoc-plugin-markdown@4.14.1:
+    resolution: {integrity: sha512-24XX0oqyBsjBIBNoSH4wbgQkouci/CmgmO1ZBSaVkrcflqXFL2PQ5zFOpkz+Ewow5xQ3q2You+wrcmilNepRKg==}
     engines: {node: '>= 18'}
     peerDependencies:
       typedoc: 0.28.x
@@ -7972,12 +7963,12 @@ snapshots:
 
   '@hugomrdias/commp-wasm@0.1.4': {}
 
-  '@hugomrdias/docs@0.2.0(patch_hash=41985890813fcb17f8808b7861ebd83db0ed327d602c9bcbd32f65dc0396713f)(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3))(typedoc@0.28.20(typescript@6.0.3))':
+  '@hugomrdias/docs@0.2.1(@astrojs/starlight@0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3))(typedoc@0.28.20(typescript@6.0.3))':
     dependencies:
       '@astrojs/starlight': 0.41.7(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(astro@7.2.4(@astrojs/markdown-remark@7.2.4(supports-color@10.2.2))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@types/node@26.2.0)(idb-keyval@6.3.0)(jiti@2.7.0)(yaml@2.9.0))(supports-color@10.2.2)(typescript@6.0.3)
       github-slugger: 2.0.0
-      typedoc-plugin-markdown: 4.12.0(typedoc@0.28.20(typescript@6.0.3))
-      yaml: 2.9.0
+      typedoc-plugin-markdown: 4.14.1(typedoc@0.28.20(typescript@6.0.3))
+      yaml: 2.9.1
     transitivePeerDependencies:
       - typedoc
 
@@ -13323,7 +13314,7 @@ snapshots:
       es-errors: 1.3.0
       is-typed-array: 1.1.15
 
-  typedoc-plugin-markdown@4.12.0(typedoc@0.28.20(typescript@6.0.3)):
+  typedoc-plugin-markdown@4.14.1(typedoc@0.28.20(typescript@6.0.3)):
     dependencies:
       typedoc: 0.28.20(typescript@6.0.3)
 

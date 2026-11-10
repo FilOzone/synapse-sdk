@@ -34,14 +34,13 @@ The example buffers a small file, its encrypted bytes, and the decrypted result 
 
 The setup commands use a POSIX shell, available on macOS, Linux, and Windows through WSL.
 
-Create an ESM project and install the packages. The override selects a [security-fixed version of Zod](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5), a validation dependency:
+Create an ESM project and install the packages:
 
 ```sh
 mkdir filecoin-encryption
 cd filecoin-encryption
 npm init -y
 npm pkg set type=module
-npm pkg set overrides.zod=4.6.6
 npm install @filoz/synapse-sdk@2.0.2 @filoz/keysmith@0.1.0 filecoin-encryption-envelope@0.1.0 viem@2.55.19
 printf '.env\nnode_modules/\n' > .gitignore
 ```
