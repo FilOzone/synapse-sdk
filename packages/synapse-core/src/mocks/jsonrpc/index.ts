@@ -152,7 +152,7 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       if (!options.eth_blockNumber) {
         throw new Error('eth_blockNumber is not defined')
       }
-      return options.eth_blockNumber
+      return typeof options.eth_blockNumber === 'function' ? options.eth_blockNumber() : options.eth_blockNumber
     }
     case 'eth_accounts':
       if (!options.eth_accounts) {
