@@ -13,13 +13,14 @@ import type {
   WriteContractErrorType,
 } from 'viem'
 import { parseEventLogs } from 'viem'
-import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
+import { simulateContract, writeContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import { InsufficientAvailableFundsError } from '../errors/pay.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import { waitForTransactionReceipt } from '../utils/wait-for-transaction-receipt.ts'
 import { accounts } from './accounts.ts'
 
 export namespace withdraw {

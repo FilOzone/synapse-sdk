@@ -1,5 +1,6 @@
 import { getChain } from '@filoz/synapse-core/chains'
 import { accounts, deposit, operatorApprovals, setOperatorApproval, withdraw } from '@filoz/synapse-core/pay'
+import { waitForTransactionReceipt } from '@filoz/synapse-core/utils'
 import {
   type MutateOptions,
   skipToken,
@@ -10,7 +11,6 @@ import {
 } from '@tanstack/react-query'
 import type { SetOptional } from 'type-fest'
 import type { Address, TransactionReceipt } from 'viem'
-import { waitForTransactionReceipt } from 'viem/actions'
 import { useAccount, useBlock, useChainId, useConfig, useConnection } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 

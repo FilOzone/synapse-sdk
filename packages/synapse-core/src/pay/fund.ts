@@ -9,8 +9,8 @@ import type {
   WriteContractErrorType,
 } from 'viem'
 import { maxUint256 } from 'viem'
-import { waitForTransactionReceipt } from 'viem/actions'
 import type { ActionSyncCallback } from '../types.ts'
+import { waitForTransactionReceipt } from '../utils/wait-for-transaction-receipt.ts'
 import { getPriceList } from '../warm-storage/price-list.ts'
 import { depositWithPermit } from './deposit-with-permit.ts'
 import { isFwssMaxApproved } from './is-fwss-max-approved.ts'

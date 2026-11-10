@@ -1,6 +1,7 @@
 import { getChain } from '@filoz/synapse-core/chains'
 import type { balance } from '@filoz/synapse-core/erc20'
 import * as erc20 from '@filoz/synapse-core/erc20'
+import { waitForTransactionReceipt } from '@filoz/synapse-core/utils'
 import {
   type MutateOptions,
   skipToken,
@@ -11,7 +12,6 @@ import {
 } from '@tanstack/react-query'
 import type { SetOptional } from 'type-fest'
 import type { TransactionReceipt } from 'viem'
-import { waitForTransactionReceipt } from 'viem/actions'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 

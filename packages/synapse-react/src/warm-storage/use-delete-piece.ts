@@ -1,10 +1,9 @@
 import { PDPProviderUnavailableError } from '@filoz/synapse-core/errors'
 import * as SP from '@filoz/synapse-core/sp'
-import { getPayerAddress } from '@filoz/synapse-core/utils'
+import { getPayerAddress, waitForTransactionReceipt } from '@filoz/synapse-core/utils'
 import type { PdpDataSet } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { TransactionReceipt } from 'viem'
-import { waitForTransactionReceipt } from 'viem/actions'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getSignerClient, type SessionKeySignerOptions } from '../signer.ts'
 

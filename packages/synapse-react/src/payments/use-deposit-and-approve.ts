@@ -1,9 +1,9 @@
 import { getChain } from '@filoz/synapse-core/chains'
 import type { DepositAndApproveOptions } from '@filoz/synapse-core/pay'
 import * as payments from '@filoz/synapse-core/pay'
+import { waitForTransactionReceipt } from '@filoz/synapse-core/utils'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { TransactionReceipt } from 'viem'
-import { waitForTransactionReceipt } from 'viem/actions'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 

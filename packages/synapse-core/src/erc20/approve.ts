@@ -13,10 +13,11 @@ import type {
   WriteContractErrorType,
 } from 'viem'
 import { erc20Abi, parseEventLogs } from 'viem'
-import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
+import { simulateContract, writeContract } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { AllowanceAmountError } from '../errors/erc20.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import { waitForTransactionReceipt } from '../utils/wait-for-transaction-receipt.ts'
 
 export namespace approve {
   export type OptionsType = {

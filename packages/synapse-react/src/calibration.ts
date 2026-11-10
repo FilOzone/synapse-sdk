@@ -1,7 +1,7 @@
 import { getChain } from '@filoz/synapse-core/chains'
+import { waitForTransactionReceipt } from '@filoz/synapse-core/utils'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { TransactionReceipt } from 'viem'
-import { waitForTransactionReceipt } from 'viem/actions'
 import { useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 

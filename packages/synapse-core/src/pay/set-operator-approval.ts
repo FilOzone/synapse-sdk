@@ -13,12 +13,13 @@ import type {
   WriteContractErrorType,
 } from 'viem'
 import { isAddressEqual, maxUint256, parseEventLogs } from 'viem'
-import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
+import { simulateContract, writeContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
+import { waitForTransactionReceipt } from '../utils/wait-for-transaction-receipt.ts'
 import { getPriceList } from '../warm-storage/price-list.ts'
 
 export namespace setOperatorApproval {

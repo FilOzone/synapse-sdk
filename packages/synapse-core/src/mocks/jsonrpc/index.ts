@@ -50,6 +50,25 @@ function encodeMockRevertData(error: unknown): Hex {
   return `0x08c379a0${encodeAbiParameters([{ type: 'string' }], [error.message]).slice(2)}`
 }
 
+/**
+ * Throw from a mock RPC method to answer with this JSON-RPC error as is, instead of a contract revert.
+ *
+ * @example
+ * ```ts
+ * eth_getBlockByNumber: () => {
+ *   throw new MockRpcError(12, 'requested epoch was a null round (280)')
+ * }
+ * ```
+ */
+export class MockRpcError extends Error {
+  readonly code: number
+  constructor(code: number, message: string) {
+    super(message)
+    this.name = 'MockRpcError'
+    this.code = code
+  }
+}
+
 function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse {
   const { id } = item
   try {
@@ -61,6 +80,9 @@ function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse
   } catch (error) {
     if (options?.debug) {
       console.error(error)
+    }
+    if (error instanceof MockRpcError) {
+      return { jsonrpc: '2.0', error: { code: error.code, message: error.message }, id: id ?? 1 }
     }
     return {
       jsonrpc: '2.0',

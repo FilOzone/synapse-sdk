@@ -19,6 +19,7 @@ import {
   ADDRESSES,
   dataSetCreatedLog,
   JSONRPC,
+  MockRpcError,
   PRIVATE_KEYS,
   pieceAddedLog,
   presets,
@@ -103,6 +104,8 @@ type Scenario = {
   originalKnown?: boolean
   /** Value FWSS stores for the nonce. */
   clientNonce?: bigint
+  /** How many block lookups Lotus answers with a null round error first. Counts down as they are served. */
+  nullRounds?: number
 }
 
 /**
@@ -126,6 +129,10 @@ function mockChain(scenario: Scenario) {
       return receipt(hash, scenario.logs ?? [], scenario.reverted === true ? '0x0' : '0x1')
     },
     eth_getBlockByNumber: (params) => {
+      if (scenario.nullRounds != null && scenario.nullRounds > 0) {
+        scenario.nullRounds--
+        throw new MockRpcError(12, 'requested epoch was a null round (280)')
+      }
       const block = presets.basic.eth_getBlockByNumber(params)
       if (block == null) {
         return null
@@ -272,6 +279,25 @@ describe('chain-only submission results', () => {
       )
 
       const result = await waitForAddPieces(options)
+      assert.deepStrictEqual(result, {
+        txHash: originalTxHash,
+        confirmedTxHash: replacementTxHash,
+        replacement: 'repriced',
+        dataSetId: 3n,
+        pieceIds: [10n, 11n],
+      })
+    })
+
+    it('skips Filecoin null rounds while looking for a replacement', async () => {
+      const scenario: Scenario = {
+        replacement: transaction(replacementTxHash, { blockNumber: 1000000n }),
+        logs: [pieceAddedLog(replacementTxHash, 3n, 10n, 0), pieceAddedLog(replacementTxHash, 3n, 11n, 1)],
+        nullRounds: 2,
+      }
+      server.use(mockChain(scenario))
+
+      const result = await waitForAddPieces(options)
+      assert.strictEqual(scenario.nullRounds, 0)
       assert.deepStrictEqual(result, {
         txHash: originalTxHash,
         confirmedTxHash: replacementTxHash,
