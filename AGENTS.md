@@ -27,5 +27,5 @@ Packages version independently. Read the package's own `AGENTS.md` before workin
 
 - **Biome**: no `!` non-null assertions (use `?.` or explicit checks), no trailing semicolons, kebab-case filenames. Run `pnpm run lint:fix` before commits.
 - **Environment agnostic**: no `Buffer`, `fs`, `path`, `process`, or `node:` imports in package source. Use web standard APIs (`fetch`, WebStreams, `Uint8Array`).
-- **Commits**: Conventional Commits drive release-please; see [CONTRIBUTING](.github/CONTRIBUTING.md#how-should-i-write-my-commits).
+- **Commits**: Conventional Commits drive release-please; see [CONTRIBUTING](.github/CONTRIBUTING.md#how-should-i-write-my-commits). Scope commits by package and keep each commit to one package, so changelogs split correctly.
 - Filecoin block time is 30 seconds; be patient with on-chain operations.

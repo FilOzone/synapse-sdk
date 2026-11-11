@@ -64,7 +64,10 @@ Even tiny pull requests to fix typos or improve comments are welcome. For a sign
 
 All commits must be signed. See GitHub's [signing commits][signing] and [telling git about your signing key][telling-git] docs. We recommend a new SSH key for signing if you are setting it up for the first time.
 
-We squash and merge all PRs, so a pristine commit history isn't required. **Once the PR is open, do not rebase.** Add commits to address review feedback.
+How a PR is merged depends on how many packages it changes:
+
+- **One package**: squash and merge. A pristine history isn't required; add commits to address review feedback.
+- **More than one package**: rebase and merge, with one commit per package (see [commits](#how-should-i-write-my-commits)). Release Please assigns each commit to every package whose files it touches, so a squashed multi-package commit shows up in all of their changelogs with the same message. Before merging, tidy the branch so each commit is a clean, conventional, single-package commit.
 
 Not every PR gets merged, but every one is appreciated and shapes how we think about the codebase.
 
@@ -100,6 +103,8 @@ Merge one Release PR at a time: squash and merge it, then wait for the `release-
 
 Use [Conventional Commit messages](https://www.conventionalcommits.org/): `<type>(<scope>): <description>`.
 
+Use the package as the scope (`core`, `sdk`, `react`, `keysmith`, `encryption`), and keep each commit to one package. If a change spans packages, split it into one commit per package so each changelog gets its own entry, and the PR is rebase-merged. With a squash merge, the PR title becomes the commit message, so it must follow the same format.
+
 | Prefix | Release |
 | --- | --- |
 | `fix:`, `chore:`, `test:`, `docs:` | patch |
@@ -107,11 +112,11 @@ Use [Conventional Commit messages](https://www.conventionalcommits.org/): `<type
 | `feat!:`, `fix!:`, etc., or `BREAKING CHANGE:` in the footer | major (minor for 0.x packages) |
 
 ```bash
-git commit -m "fix(payments): resolve approval race condition"
+git commit -m "fix(sdk): resolve payments approval race condition"
 git commit -m "docs: update storage service examples"
-git commit -m "feat(storage): implement batch upload operations"
-git commit -m "feat!: remove deprecated payment methods"
-git commit -m "fix: update API signature
+git commit -m "feat(core): add batch upload operations"
+git commit -m "feat(sdk)!: remove deprecated payment methods"
+git commit -m "fix(sdk): update API signature
 
 BREAKING CHANGE: The createStorage method now requires explicit provider selection"
 ```
