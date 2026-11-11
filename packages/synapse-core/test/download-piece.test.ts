@@ -1,9 +1,11 @@
+import { rejects } from 'assert'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { DownloadPieceError } from '../src/errors/pdp.ts'
-import { downloadAndValidate } from '../src/piece/download.ts'
+import { downloadAndValidate, downloadStream } from '../src/piece/download.ts'
 import * as Piece from '../src/piece/index.ts'
+import { readAllBytes } from '../src/utils/streams.ts'
 
 describe('Piece download and validation', () => {
   const server = setup()
@@ -200,6 +202,128 @@ describe('Piece download and validation', () => {
         expectedPieceCid: pieceCid,
       })
       assert.deepEqual(result, testData)
+    })
+  })
+
+  describe('downloadStream', () => {
+    async function readAll(
+      stream: ReadableStream<Uint8Array>,
+      onChunk?: (chunk: Uint8Array) => void
+    ): Promise<{ chunks: number; bytes: Uint8Array }> {
+      let chunks = 0
+      const counted = stream.pipeThrough(
+        new TransformStream<Uint8Array, Uint8Array>({
+          transform(chunk, controller) {
+            chunks++
+            onChunk?.(chunk)
+            controller.enqueue(chunk)
+          },
+        })
+      )
+      const bytes = await readAllBytes(counted)
+      return { chunks, bytes }
+    }
+
+    function chunkedResponse(data: Uint8Array, chunkSize: number) {
+      let offset = 0
+      const stream = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (offset >= data.length) {
+            controller.close()
+            return
+          }
+          controller.enqueue(data.slice(offset, offset + chunkSize))
+          offset += chunkSize
+        },
+      })
+      return new HttpResponse(stream, { status: 200 })
+    }
+
+    const testData = new Uint8Array(1024).map((_, i) => i % 256)
+
+    it('should stream chunks and close when the PieceCID matches', async () => {
+      const pieceCid = await Piece.calculate(testData)
+      server.use(http.get('http://pdp.local/piece/:pieceCid', () => chunkedResponse(testData, 128)))
+
+      const stream = await downloadStream({
+        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        expectedPieceCid: pieceCid,
+      })
+      const { chunks, bytes } = await readAll(stream)
+      assert.isAbove(chunks, 1)
+      assert.deepEqual(bytes, testData)
+    })
+
+    it('should deliver all chunks then error when the PieceCID does not match', async () => {
+      const pieceCid = await Piece.calculate(testData)
+      const wrongData = testData.map((b) => b ^ 0xff)
+      server.use(http.get('http://pdp.local/piece/:pieceCid', () => chunkedResponse(wrongData, 128)))
+
+      const stream = await downloadStream({
+        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        expectedPieceCid: pieceCid,
+      })
+      let received = 0
+      await rejects(
+        readAll(stream, (chunk) => {
+          received += chunk.length
+        }),
+        (error) =>
+          error instanceof DownloadPieceError && error.details?.includes('PieceCID verification failed') === true
+      )
+      assert.equal(received, wrongData.length)
+    })
+
+    it('should error when a 200 response has an empty body', async () => {
+      const pieceCid = await Piece.calculate(testData)
+      server.use(
+        http.get(
+          'http://pdp.local/piece/:pieceCid',
+          () =>
+            new HttpResponse(
+              new ReadableStream({
+                start(controller) {
+                  controller.close()
+                },
+              }),
+              { status: 200 }
+            )
+        )
+      )
+
+      const stream = await downloadStream({
+        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        expectedPieceCid: pieceCid,
+      })
+      await rejects(
+        readAll(stream),
+        (error) => error instanceof DownloadPieceError && error.details === 'Response body is empty'
+      )
+    })
+
+    it('should not validate or require a PieceCID when validate is false', async () => {
+      const wrongData = new Uint8Array([9, 9, 9, 9])
+      server.use(http.get('http://pdp.local/piece/:pieceCid', () => HttpResponse.arrayBuffer(wrongData.buffer)))
+
+      const stream = await downloadStream({ url: 'http://pdp.local/piece/anything', validate: false })
+      const { bytes } = await readAll(stream)
+      assert.deepEqual(bytes, wrongData)
+    })
+
+    it('should reject before streaming on HTTP errors', async () => {
+      const pieceCid = await Piece.calculate(testData)
+      server.use(http.get('http://pdp.local/piece/:pieceCid', () => HttpResponse.text('Not Found', { status: 404 })))
+
+      await rejects(
+        downloadStream({ url: `http://pdp.local/piece/${pieceCid.toString()}`, expectedPieceCid: pieceCid }),
+        DownloadPieceError
+      )
+    })
+
+    it('should reject on an invalid expected PieceCID', async () => {
+      await rejects(downloadStream({ url: 'http://pdp.local/piece/x', expectedPieceCid: 'not-a-cid' }), {
+        name: 'InvalidPieceCIDError',
+      })
     })
   })
 })
