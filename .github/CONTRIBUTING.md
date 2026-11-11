@@ -1,66 +1,42 @@
 # Contributing to Synapse
 
-Thank you for helping to improve the project! We are so happy that you are contributing! 💖
+Thank you for helping to improve the project! 💖 No contribution is too small, and all contributions are valued.
 
-You can contribute to the project at any level. Whether you are new to web development or have been at it for ages doesn't matter. We can use your help!
-
-**No contribution is too small, and all contributions are valued.**
-
-This guide will help you to get started. It includes many details, but don't let that turn you away. Consider this a map to help you navigate the process, and please reach out to us with any questions and concerns in the our public [channel] .
+Questions or concerns? Reach out in our public [channel] or [start a discussion][discussions].
 
 ## Conduct
 
-Please review our [Code of Conduct] which describes the behavior we expect from all contributors. Please be kind, inclusive, and considerate when interacting with contributors and maintainers.
+Please review our [Code of Conduct] and be kind, inclusive, and considerate when interacting with contributors and maintainers.
 
-## Contributing in issues
+## Issues
 
-You can contribute by [opening an issue][issue] to request a feature or report a bug. We also welcome comments on an issue, bug reproductions, and pull requests if you see how to address an issue.
+[Open an issue][issue] to request a feature or report a bug, or start a [discussion][discussions] if the idea is still taking shape. Comments, bug reproductions, and pull requests on existing issues are welcome too.
 
-If you are still determining the details of a feature request, you can start with a [discussion][discussions] where we can informally discuss what you have on your mind.
-
-**Anyone can participate in any stage of contribution**. We urge you to
-join in the discussion around bugs and comment on pull requests.
-
-### Asking for help
-
-If you have reviewed our [documentation][docs] and still have questions or are having problems, ask for help in the our public [channel] or [start a discussion][discussions].
-
-### Submitting a bug report
-
-We provide a template to give you a starting point when submitting a bug report. Please fill this template in with all relevant information, but feel free to delete any sections that do not apply.
-
-The most important information is describing the problem and how it impacts you. We also invite you to propose a solution, which could be a description of expected behavior.
-
-We very much appreciate it if you could include a [short, self-contained, correct example][sscce] that demonstrates the issue.
+When reporting a bug, fill in the template (delete sections that don't apply), describe the problem and how it impacts you, and if possible include a [short, self-contained, correct example][sscce]. Check the [documentation][docs] first.
 
 ## Development
 
-If you have been assigned to fix an issue or develop a new feature, please follow these steps to get started:
-
 - Fork this repository.
-- Install dependencies by running `pnpm install`.
-  - We use pnpm for package management.
-  - Make sure you have Node LTS installed in your system.
-- Optionally run `npx simple-git-hooks` to install git hooks for linting and formatting.
-  - Current configuration run biome on staged files.
-- Implement your changes to files in the `src/` directory and corresponding test files in the `/test` directory.
-- Git stage your required changes and commit (see below commit [guidelines](#how-should-i-write-my-commits)).
-- Submit PR for review
+- Install dependencies with `pnpm install`. Node ≥22 is required; pnpm downloads the pinned Node version (`devEngines`) if needed.
+- Optionally run `npx simple-git-hooks` to install a pre-commit hook that runs Biome on staged files.
+- Make your changes and add tests next to the package's existing tests (`src/test/` in `synapse-sdk`, `test/` in other packages).
+- Commit following the [commit guidelines](#how-should-i-write-my-commits) and open a PR.
 
-If using an AI tool, you are welcome to load AGENTS.md into your context to teach it about the structure and conventions of this SDK.
+If you use an AI tool, load [AGENTS.md](../AGENTS.md) (and the package-level `AGENTS.md`, where present) into its context to teach it the structure and conventions of this repo.
 
 ### Repo structure
 
 ```text
-- packages/
-  - synapse-sdk/ SDK
-  - synapse-core/ Core 
-  - synapse-react/ React hooks
-- examples/ Usage examples and starter kits
-- apps/ Apps using Synapse
-- docs/ This documentation site
-- package.json Root package file
-````
+packages/
+  synapse-sdk/                    High-level SDK
+  synapse-core/                   Core protocol library
+  synapse-react/                  React hooks
+  keysmith/                       Deterministic key derivation
+  filecoin-encryption-envelope/   FIP-1253 encryption envelope
+examples/                         Usage examples and starter kits
+apps/                             Apps using Synapse
+docs/                             Documentation site
+```
 
 ### Generating ABIs
 
@@ -70,125 +46,70 @@ pnpm run generate-abi # in the synapse-core package
 
 ### Wireit
 
-This repo use [wireit](https://github.com/google/wireit) to run scripts, enable incremental build, setup dependencies between workspaces and cache results.
+This repo uses [wireit](https://github.com/google/wireit) to run scripts with incremental builds, cross-workspace dependencies, and caching.
 
-To run a script without cache prepend `WIREIT_CACHE=none` to the script like `WIREIT_CACHE=none pnpm run build`.
-
-To run a script in watch mode append `--watch`.
-
-To pass extra arguments to the script use `pnpm run {script} {npm args} {wireit args} -- {script args}`
+- Scripts whose inputs haven't changed are skipped. To force a rerun, delete the cached state with `pnpm run clean:cache` (or a package's `.wireit/` folder). `WIREIT_CACHE=none` only disables restoring outputs from cache; it does not force a rerun.
+- Watch mode: append `--watch`
+- Extra arguments: `pnpm run {script} {npm args} {wireit args} -- {script args}`
 
 ### Codespaces
 
-This repo has a dev container configuration to enable one click setup of a development environment using Codespaces.
+A dev container configuration enables one-click setup with Codespaces.
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)][codespaces]
 
 ## Pull requests
 
-Pull requests are how we make changes.
+Even tiny pull requests to fix typos or improve comments are welcome. For a significant change, [open an issue][issue] or [start a discussion][discussions] first; it makes a merge more likely.
 
-Even tiny pull requests to fix typos or improve comments are welcome. Before submitting a significant PR, it is usually best to start by [opening an issue][issue] or [starting a discussion][discussions]. Taking one of these steps increases the likelihood that your PR will be merged.
+All commits must be signed. See GitHub's [signing commits][signing] and [telling git about your signing key][telling-git] docs. We recommend a new SSH key for signing if you are setting it up for the first time.
 
-All commits must be signed before a pull request will be accepted. See the GitHub [signing commits][signing] and [telling git about your signing key][telling-git] documentation. We recommend generating a new SSH key for signing if you are setting up signing for the first time.
+We squash and merge all PRs, so a pristine commit history isn't required. **Once the PR is open, do not rebase.** Add commits to address review feedback.
 
-We squash and merge all PRs. Orderly, well-written commits will help us during review, but we don't require a pristine commit history.
+Not every PR gets merged, but every one is appreciated and shapes how we think about the codebase.
 
 ### Tests
 
-If your change alters existing code, please run the test suites:
+If your change alters existing code, run the checks:
 
 ```sh
-
 pnpm run lint
-
 pnpm run test
+```
 
-# Node.js only tests 
-pnpm test:node # add --watch for watch mode
+Inside a package directory you can run one environment at a time:
 
-# Browser only tests
+```sh
+pnpm test:node    # add --watch for watch mode
 pnpm test:browser # add --watch for watch mode
 ```
 
-If you are adding a new feature, please add tests that prove the code works correctly and reference them when you submit the pull request.
-
-### Discuss and update
-
-You will likely receive feedback or requests for changes to your pull request. Don't be discouraged! Pull request reviews help us all to collaborate and produce better code. Some reviewers may sign off immediately, and others may have more detailed comments and feedback. It's all part of the process of evaluating whether the changes are correct and necessary.
-
-**Once the PR is open, do not rebase the commits.** Add more commits to address feedback. We will squash and merge all contributions, and we may clean up the history recorded in the final commit.
-
-### Merging
-
-The primary goals for a pull request are to improve the codebase and for the contributor to succeed. Some pull requests may not be merged at the end of the day, but that does not indicate failure. If your pull request is not merged, please know that your efforts are appreciated and will have an impact on how we think about the codebase in the long run.
+If you add a feature, add tests that prove it works and reference them in the PR.
 
 ## Release Process
 
-[Release Please](https://github.com/googleapis/release-please) automates CHANGELOG generation, the creation of GitHub releases,
-and version bumps for our packages. Release Please does so by parsing your
-git history, looking for [Conventional Commit messages](https://www.conventionalcommits.org/),
-and creating release PRs.
-
-### What's a Release PR?
-
-Rather than continuously releasing what's landed to our default branch, release-please maintains Release PRs:
-
-These Release PRs are kept up-to-date as additional work is merged. When we're ready to tag a release, we simply merge the release PR.
-
-When the release PR is merged the release job is triggered to create a new tag, a new github release and run other package specific jobs.
+[Release Please](https://github.com/googleapis/release-please) generates changelogs, GitHub releases, and version bumps by parsing [Conventional Commit messages](https://www.conventionalcommits.org/). Instead of releasing every merge, it keeps one Release PR per package up to date on `master`. Merging a Release PR tags the release, creates the GitHub release, and runs the package's publish jobs.
 
 ### How to merge the Release PRs?
 
-Overview:
+Merge in dependency order: `synapse-core` first, then `synapse-sdk`, then `synapse-react`. `keysmith` and `filecoin-encryption-envelope` have no workspace dependencies and can be merged at any point.
 
-- Release PRs are created individually for each package in the mono repo.  
-- The merge order matters.  We start with `synapse-core`, then `synapse-sdk`, then `synapse-react`.
-- Only merge ONE release PR at a time and wait for `release-please` CI to finish before merging another.
-- Dependent packages like `synapse-core` and `synapse-sdk` will have to resolve conflicts before merging because the `main` branch will have an updated `synapse-core` version.  Conflicts should be handled by "accepting incoming changes" and then manually again updating the version for the package that is about to be released (e.g., `synapse-sdk`, `synapse-react`).  This effectively updates the dependencies in the "Release PR" branch.  ([Example merge commit](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21).)
-
-Below are the specific steps to take.  They use the example of releasing `synapse-core=0.1.1`, `synapse-sdk=0.35.2`, and `synapse-react=0.1.1`.
-
-| # | Package | Step | Example |
-| --- | --------- | ------ | --------- |
-| 1 | synapse-core | Find the `synapse-core` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/382) |
-| 2 | synapse-core | Squash and merge the PR | [example](https://github.com/FilOzone/synapse-sdk/commit/76853b64b2d5f1c9e42baf9ab6dc746d46aca5d5) |
-| 3 | synapse-core | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044395310) |
-| 4 | synapse-sdk | Find the `synapse-sdk` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/380) |
-| 5 | synapse-sdk | Resolve conflicts by accepting incoming changes and then resetting the `synapse-sdk` version | [example](https://github.com/FilOzone/synapse-sdk/pull/380/commits/ca1b61b8c87e306609cd4b3c6216bfc8f8a40348) |
-| 6 | synapse-sdk | Squash and merge the PR | [example](https://github.com/FilOzone/synapse-sdk/commit/f14c088cba31fad0d861f4d1f1bec08bc35d9d83) |
-| 7 | synapse-sdk | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044573289) |
-| 8 | synapse-react | Find the `synapse-react` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/381) |
-| 9 | synapse-react | Resolve conflicts by accepting incoming changes and then resetting the `synapse-sdk` version | [example](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21) |
-| 10 | synapse-react | Squash and merge the PR | [example](https://github.com/FilOzone/synapse-sdk/commit/4b381d8a6e023315652a83c6782f18ac554dba2e) |
-| 11 | synapse-react | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044833170) |
+Merge one Release PR at a time: squash and merge it, then wait for the `release-please` workflow to finish before merging the next. Release Please is configured with `always-update`, so it rebuilds the remaining Release PRs against the new `master`, picking up the bumped dependency versions without conflicts.
 
 ### How should I write my commits?
 
-Release Please assumes you are using [Conventional Commit messages](https://www.conventionalcommits.org/).
+Use [Conventional Commit messages](https://www.conventionalcommits.org/): `<type>(<scope>): <description>`.
 
-The most important prefixes you should have in mind are:
-
-- `fix:`, `chore:`, `test:` and `docs:` correlates to a [semver](https://semver.org/)
-  patch.
-- `feat:` which represents a new feature, and correlates to a [semver](https://semver.org/) minor.
-- `feat!:`,`fix!:`, `chore!:`, etc. or `BREAKING CHANGE` in the footer, which represent a breaking change
-  (indicated by the `!`) and will result in a [semver](https://semver.org/) major.
-
-#### Examples
+| Prefix | Release |
+| --- | --- |
+| `fix:`, `chore:`, `test:`, `docs:` | patch |
+| `feat:` | minor (patch for 0.x packages) |
+| `feat!:`, `fix!:`, etc., or `BREAKING CHANGE:` in the footer | major (minor for 0.x packages) |
 
 ```bash
-# Patch releases (0.x.Y)
 git commit -m "fix(payments): resolve approval race condition"
 git commit -m "docs: update storage service examples"
-git commit -m "test: add unit tests for PieceCID calculation"
-git commit -m "chore: update dependencies"
-
-# Minor releases (0.X.y)
-git commit -m "feat: add CDN support for downloads"
 git commit -m "feat(storage): implement batch upload operations"
-
-# Breaking changes: major (X.y.z), or minor (0.X.y) for 0.x packages
 git commit -m "feat!: remove deprecated payment methods"
 git commit -m "fix: update API signature
 
