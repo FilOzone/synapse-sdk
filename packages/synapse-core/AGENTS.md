@@ -3,6 +3,12 @@
 A JavaScript/TypeScript standard library for interacting with Filecoin Onchain Cloud smart contracts.
 It uses [viem](https://viem.sh/) and is structured as single purpose functions (actions) similar to viem actions.
 
+**Layout**: one folder per domain, one file per action: `sp/` (Curio HTTP API), `warm-storage/`, `pay/`, `pdp-verifier/`, `sp-registry/`, `session-key/`, `piece/`, `typed-data/`, `erc20/`, `endorsements/`, `auction/`, `devnet/`, `mocks/` (MSW test mocks), `utils/`, `abis/`, `chains.ts`.
+
+**Data flow**: client signs EIP-712 for FWSS → Curio HTTP API → PDPVerifier → FWSS callback (validates signature, manages payments) → Filecoin Pay. Curio only talks to PDPVerifier.
+
+**Chains**: mainnet, calibration, and devnet (`devnet/`). Contract addresses come from `chains.ts`. Amounts are always `bigint`.
+
 ## Filecoin Onchain Cloud smart contracts
 
 - PDP Verifier: Proof of Data Possession (PDP) - Data Verification Service Contract
@@ -26,6 +32,14 @@ It uses [viem](https://viem.sh/) and is structured as single purpose functions (
 - ProviderIdSet: smart contract to manage endorsed providers
   - [source code](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/ProviderIdSet.sol)
   - folder: `/src/endorsements`
+
+## PieceCID
+
+Contracts expect the **32-byte digest only**, not the full CID: `digest.bytes.subarray(digest.bytes.length - 32)`. Utilities in `src/piece`: `calculate()`, `asPieceCID()`, `asLegacyPieceCID()`, `createPieceCIDStream()`. Ref: FRC-0069.
+
+## Metadata
+
+User-facing `Record<string, string>`, internally `MetadataEntry[]` sorted alphabetically for EIP-712. Limits in `src/utils/metadata.ts`: data sets max 10 keys, pieces max 3, keys max 32 chars, values max 96 chars. Use `Object.create(null)` for objects built from contract data.
 
 ## Package Scripts
 
