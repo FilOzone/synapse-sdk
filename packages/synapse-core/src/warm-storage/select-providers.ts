@@ -61,6 +61,7 @@ export function selectProviders(options: ProviderSelectionOptions): ResolvedLoca
       results.push({
         provider,
         dataSetId: ds.dataSetId,
+        clientDataSetId: ds.clientDataSetId,
         endorsed: options.endorsedIds.includes(ds.providerId),
         dataSetMetadata: ds.metadata,
       })
@@ -76,6 +77,7 @@ export function selectProviders(options: ProviderSelectionOptions): ResolvedLoca
         results.push({
           provider,
           dataSetId: null,
+          clientDataSetId: null,
           endorsed: options.endorsedIds.includes(provider.id),
           dataSetMetadata: metadata,
         })

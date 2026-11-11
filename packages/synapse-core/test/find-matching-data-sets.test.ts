@@ -7,6 +7,7 @@ function makeDataSet(
   overrides: Partial<SelectionDataSet> & { dataSetId: bigint; providerId: bigint }
 ): SelectionDataSet {
   return {
+    clientDataSetId: overrides.dataSetId + 1000n,
     metadata: {},
     hasActivePieces: false,
     pdpEndEpoch: 0n,

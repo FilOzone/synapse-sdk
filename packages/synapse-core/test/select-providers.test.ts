@@ -32,6 +32,7 @@ function makeDataSet(
   overrides: Partial<SelectionDataSet> & { dataSetId: bigint; providerId: bigint }
 ): SelectionDataSet {
   return {
+    clientDataSetId: overrides.dataSetId + 1000n,
     metadata: {},
     hasActivePieces: false,
     pdpEndEpoch: 0n,
@@ -145,6 +146,7 @@ describe('selectProviders', () => {
       assert.equal(result.length, 1)
       assert.equal(result[0].provider.id, 1n)
       assert.equal(result[0].dataSetId, 10n)
+      assert.equal(result[0].clientDataSetId, 1010n)
       assert.equal(result[0].endorsed, true)
       assert.deepEqual(result[0].dataSetMetadata, { source: 'app' })
     })
@@ -164,6 +166,7 @@ describe('selectProviders', () => {
       })
       assert.equal(result[0].provider.id, 1n)
       assert.equal(result[0].dataSetId, null)
+      assert.equal(result[0].clientDataSetId, null)
       assert.equal(result[0].endorsed, true)
       assert.deepEqual(result[0].dataSetMetadata, { source: 'app' })
     })
