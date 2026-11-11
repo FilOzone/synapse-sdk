@@ -15,6 +15,7 @@ import {
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import { TransactionNotAppliedError } from '../errors/pdp.ts'
+import { getScheduledRemovals } from '../pdp-verifier/get-scheduled-removals.ts'
 import { abortable, throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { getPayerAddress } from '../utils/payer.ts'
@@ -57,7 +58,7 @@ export namespace waitForSubmission {
  * @param fromChainState - Look the outcome up from chain state, or undefined if it has not landed.
  */
 async function waitForSubmission<T extends object>(
-  options: waitForSubmission.OptionsType,
+  options: Omit<waitForSubmission.OptionsType, 'extraData'>,
   fromReceipt: (receipt: TransactionReceipt) => T | undefined,
   fromChainState: () => Promise<T | undefined>
 ): Promise<T & waitForSubmission.OutputType> {
@@ -80,7 +81,7 @@ async function waitForSubmission<T extends object>(
       throw error
     }
     // viem can only follow a replacement it sees while polling, and only after fetching the original,
-    // so a replacement can land unnoticed. The nonce FWSS records is the source of truth.
+    // so a replacement can land unnoticed. Chain state is the source of truth.
     const result = await fromChainState()
     if (result == null) {
       throw error
@@ -286,4 +287,67 @@ export async function waitForCreateDataSetAddPieces(
       return result.created ? { dataSetId: result.dataSetId, pieceIds: result.pieceIds } : undefined
     }
   )
+}
+
+export namespace waitForDeletePieces {
+  export type OptionsType = Omit<waitForSubmission.OptionsType, 'extraData'> & {
+    /** The data set the pieces are deleted from, see `deletePieces.OutputType.dataSetId`. */
+    dataSetId: bigint
+    /** The piece IDs submitted for deletion, see `deletePieces.OutputType.pieceIds`. */
+    pieceIds: bigint[]
+  }
+  export type OutputType = waitForSubmission.OutputType & {
+    /** The data set the pieces are deleted from. */
+    dataSetId: bigint
+    /** The piece IDs scheduled for deletion. */
+    pieceIds: bigint[]
+  }
+  export type ErrorType = waitForSubmission.ErrorType | getScheduledRemovals.ErrorType
+}
+
+/**
+ * Wait for a schedule piece deletions transaction on chain, following replace-by-fee replacements.
+ *
+ * The pieces are scheduled for removal, not removed: PDPVerifier removes them later, through
+ * `processPieceDeletions`. Resolves once `PiecesScheduledForRemoval` events for the data set cover
+ * every requested piece. PDPVerifier emits the IDs in chunks, so all matching events are collected.
+ *
+ * If the receipt wait times out, or a replacement with different calldata landed, it checks the data
+ * set's scheduled removals instead. That check cannot see pieces that were already removed: after a
+ * timeout it rethrows the timeout, and after a replacement it throws {@link TransactionNotAppliedError}.
+ *
+ * @example
+ * ```ts
+ * const result = await SP.schedulePieceDeletions(client, options)
+ * const { pieceIds, confirmedTxHash } = await SP.waitForDeletePieces({ client, ...result })
+ * ```
+ *
+ * @param options - {@link waitForDeletePieces.OptionsType}
+ * @returns The outcome {@link waitForDeletePieces.OutputType}
+ * @throws Errors {@link waitForDeletePieces.ErrorType}. {@link TransactionNotAppliedError} when the landed transaction reverted or was a cancellation.
+ */
+export async function waitForDeletePieces(
+  options: waitForDeletePieces.OptionsType
+): Promise<waitForDeletePieces.OutputType> {
+  const { dataSetId } = options
+  return waitForSubmission(
+    options,
+    (receipt) => {
+      const pdp = asChain(options.client.chain).contracts.pdp
+      const scheduled = new Set(
+        parseEventLogs({ abi: pdp.abi, eventName: 'PiecesScheduledForRemoval', logs: receipt.logs })
+          .filter((log) => isAddressEqual(log.address, pdp.address) && log.args.setId === dataSetId)
+          .flatMap((log) => log.args.pieceIds)
+      )
+      return allScheduled(options.pieceIds, scheduled) ? { dataSetId, pieceIds: options.pieceIds } : undefined
+    },
+    async () => {
+      const scheduled = new Set(await getScheduledRemovals(options.client, { dataSetId }))
+      return allScheduled(options.pieceIds, scheduled) ? { dataSetId, pieceIds: options.pieceIds } : undefined
+    }
+  )
+}
+
+function allScheduled(pieceIds: bigint[], scheduled: Set<bigint>): boolean {
+  return pieceIds.every((pieceId) => scheduled.has(pieceId))
 }

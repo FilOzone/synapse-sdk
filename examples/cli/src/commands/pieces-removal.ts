@@ -1,9 +1,11 @@
 import * as p from '@clack/prompts'
 import { PDPProviderUnavailableError } from '@filoz/synapse-core/errors'
-import { schedulePieceDeletions } from '@filoz/synapse-core/sp'
+import {
+  schedulePieceDeletions,
+  waitForDeletePieces,
+} from '@filoz/synapse-core/sp'
 import { getPdpDataSet } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
-import { waitForTransactionReceipt } from 'viem/actions'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 import { hashLink, selectDataSet, selectPiece } from '../utils.ts'
@@ -55,11 +57,11 @@ export const piecesRemoval: Command = command(
       })
 
       p.log.info(
-        `Waiting for tx ${hashLink(result.hash, chain)} to be mined...`
+        `Waiting for tx ${hashLink(result.txHash, chain)} to be mined...`
       )
-      await waitForTransactionReceipt(client, result)
+      await waitForDeletePieces({ client, ...result })
 
-      p.log.info(`Piece removed`)
+      p.log.info(`Piece scheduled for removal`)
     } catch (error) {
       if (argv.flags.debug) {
         console.error(error)

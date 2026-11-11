@@ -24,11 +24,17 @@ import {
   MockRpcError,
   PRIVATE_KEYS,
   pieceAddedLog,
+  piecesScheduledForRemovalLog,
   presets,
   type RpcLog,
   SP_SENDER,
 } from '../src/mocks/jsonrpc/index.ts'
-import { waitForAddPieces, waitForCreateDataSet, waitForCreateDataSetAddPieces } from '../src/sp/index.ts'
+import {
+  waitForAddPieces,
+  waitForCreateDataSet,
+  waitForCreateDataSetAddPieces,
+  waitForDeletePieces,
+} from '../src/sp/index.ts'
 import {
   signAddPiecesAbiParameters,
   signCreateDataSetAbiParameters,
@@ -106,6 +112,8 @@ type Scenario = {
   originalKnown?: boolean
   /** Value FWSS stores for the nonce. */
   clientNonce?: bigint
+  /** Piece IDs PDPVerifier has scheduled for removal. */
+  scheduledRemovals?: bigint[]
   /** Heights Lotus answers with a null round error. */
   nullRounds?: bigint[]
   /** The only height whose block holds the replacement. Every block holds it when unset. */
@@ -154,6 +162,10 @@ function mockChain(scenario: Scenario) {
     warmStorageView: {
       ...presets.basic.warmStorageView,
       clientNonces: () => [scenario.clientNonce ?? 0n],
+    },
+    pdpVerifier: {
+      ...presets.basic.pdpVerifier,
+      getScheduledRemovals: () => [scenario.scheduledRemovals ?? []],
     },
   })
 }
@@ -513,6 +525,140 @@ describe('chain-only submission results', () => {
         dataSetId: 9n,
         pieceIds: [0n, 1n],
       })
+    })
+  })
+  describe('waitForDeletePieces', () => {
+    // viem shares receipt polling per client and hash, so earlier tests' pending waits must not leak in
+    const deleteClient = createPublicClient({ chain: calibration, transport: http(), pollingInterval: 10 })
+    const options = { client: deleteClient, txHash: originalTxHash, dataSetId: 3n, pieceIds: [10n, 11n] }
+
+    it('resolves from the receipt, ignoring logs from other contracts and data sets', async () => {
+      server.use(
+        mockChain({
+          logs: [
+            { ...piecesScheduledForRemovalLog(originalTxHash, 3n, [99n], 0), address: ADDRESSES.client1 },
+            piecesScheduledForRemovalLog(originalTxHash, 4n, [98n], 1),
+            piecesScheduledForRemovalLog(originalTxHash, 3n, [10n, 11n], 2),
+          ],
+        })
+      )
+
+      const result = await waitForDeletePieces(options)
+      assert.deepStrictEqual(result, {
+        txHash: originalTxHash,
+        confirmedTxHash: originalTxHash,
+        dataSetId: 3n,
+        pieceIds: [10n, 11n],
+      })
+    })
+
+    it('follows a replace-by-fee replacement that succeeded', async () => {
+      server.use(
+        mockChain({
+          replacement: transaction(replacementTxHash, { blockNumber: 1000000n }),
+          logs: [piecesScheduledForRemovalLog(replacementTxHash, 3n, [10n, 11n], 0)],
+        })
+      )
+
+      const result = await waitForDeletePieces(options)
+      assert.deepStrictEqual(result, {
+        txHash: originalTxHash,
+        confirmedTxHash: replacementTxHash,
+        replacement: 'repriced',
+        dataSetId: 3n,
+        pieceIds: [10n, 11n],
+      })
+    })
+
+    it('checks scheduled removals when a replacement with different calldata landed', async () => {
+      server.use(
+        mockChain({
+          replacement: transaction(replacementTxHash, { input: '0xfeedface', blockNumber: 1000000n }),
+          scheduledRemovals: [10n, 11n],
+        })
+      )
+
+      const result = await waitForDeletePieces(options)
+      assert.deepStrictEqual(result, {
+        txHash: originalTxHash,
+        confirmedTxHash: replacementTxHash,
+        replacement: 'replaced',
+        dataSetId: 3n,
+        pieceIds: [10n, 11n],
+      })
+    })
+
+    it('collects pieces across chunked events', async () => {
+      server.use(
+        mockChain({
+          logs: [
+            piecesScheduledForRemovalLog(originalTxHash, 3n, [10n], 0),
+            piecesScheduledForRemovalLog(originalTxHash, 3n, [11n], 1),
+          ],
+        })
+      )
+
+      const result = await waitForDeletePieces(options)
+      assert.deepStrictEqual(result, {
+        txHash: originalTxHash,
+        confirmedTxHash: originalTxHash,
+        dataSetId: 3n,
+        pieceIds: [10n, 11n],
+      })
+    })
+
+    it('throws TransactionNotAppliedError when the events miss a requested piece', async () => {
+      server.use(mockChain({ logs: [piecesScheduledForRemovalLog(originalTxHash, 3n, [10n, 99n], 0)] }))
+
+      try {
+        await waitForDeletePieces(options)
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, TransactionNotAppliedError)
+        assert.isFalse(error.reverted)
+      }
+    })
+
+    it('throws TransactionNotAppliedError when the receipt has no scheduled removal', async () => {
+      server.use(mockChain({ logs: [] }))
+
+      try {
+        await waitForDeletePieces(options)
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, TransactionNotAppliedError)
+        assert.isFalse(error.reverted)
+      }
+    })
+
+    it('throws TransactionNotAppliedError when the transaction reverted', async () => {
+      server.use(mockChain({ reverted: true }))
+
+      try {
+        await waitForDeletePieces(options)
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, TransactionNotAppliedError)
+        assert.isTrue(error.reverted)
+      }
+    })
+
+    it('falls back to scheduled removals when the receipt wait times out', async () => {
+      server.use(mockChain({ originalKnown: false, scheduledRemovals: [5n, 10n, 11n] }))
+
+      const result = await waitForDeletePieces({ ...options, timeout: 100 })
+      assert.deepStrictEqual(result, { txHash: originalTxHash, dataSetId: 3n, pieceIds: [10n, 11n] })
+    })
+
+    it('rethrows the timeout when not every piece is scheduled for removal', async () => {
+      server.use(mockChain({ originalKnown: false, scheduledRemovals: [10n] }))
+
+      try {
+        await waitForDeletePieces({ ...options, timeout: 100 })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, WaitForTransactionReceiptTimeoutError)
+      }
     })
   })
 })

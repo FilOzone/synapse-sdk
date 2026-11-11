@@ -993,7 +993,21 @@ InvalidSignature(address expected, address actual)
         extraData,
       })
 
-      assert.strictEqual(result.hash, mockTxHash)
+      assert.strictEqual(result.txHash, mockTxHash)
+    })
+
+    it('should reject a response without a valid txHash', async () => {
+      for (const body of [{}, { txHash: '0x1234' }, { txHash: 42 }]) {
+        server.use(http.delete('http://pdp.local/pdp/data-sets/1/pieces/2', () => HttpResponse.json(body)))
+
+        try {
+          await deletePiece({ serviceURL: 'http://pdp.local', dataSetId: 1n, pieceId: 2n, extraData: '0x' })
+          assert.fail('Should have thrown DeletePieceError')
+        } catch (error) {
+          assert.instanceOf(error, DeletePieceError)
+          assert.include(error.message, 'Invalid txHash')
+        }
+      }
     })
 
     it('should handle server errors', async () => {
@@ -1056,7 +1070,7 @@ InvalidSignature(address expected, address actual)
         pieceIds: submittedPieceIds,
       })
 
-      assert.equal(result.hash, mockTxHash)
+      assert.deepStrictEqual(result, { txHash: mockTxHash, dataSetId: 1n, pieceIds: expectedPieceIds })
     })
 
     it('preserves the response body for HTTP 429 errors', async () => {
@@ -1122,7 +1136,7 @@ InvalidSignature(address expected, address actual)
         clientDataSetId: 0n,
         pieceIds,
       })
-      assert.equal(result.hash, mockTxHash)
+      assert.equal(result.txHash, mockTxHash)
       assert.equal(requests, 1)
     })
 
