@@ -37,20 +37,20 @@ describe('Epoch Utilities', () => {
       assert.equal(date?.getTime(), expectedTime)
     })
 
-    it('should return undefined for maxUint256', () => {
-      assert.isUndefined(epochToDate(maxUint256, mainnet.genesisTimestamp))
-      assert.isUndefined(epochToDate(maxUint256 + 1000n, mainnet.genesisTimestamp))
+    it('should return null for maxUint256', () => {
+      assert.isNull(epochToDate(maxUint256, mainnet.genesisTimestamp))
+      assert.isNull(epochToDate(maxUint256 + 1000n, mainnet.genesisTimestamp))
     })
 
-    it('should return undefined when the date is out of range', () => {
-      assert.isUndefined(epochToDate(10n ** 12n, mainnet.genesisTimestamp))
-      assert.isUndefined(epochToDate(-(10n ** 12n), mainnet.genesisTimestamp))
+    it('should return null when the date is out of range', () => {
+      assert.isNull(epochToDate(10n ** 12n, mainnet.genesisTimestamp))
+      assert.isNull(epochToDate(-(10n ** 12n), mainnet.genesisTimestamp))
     })
 
     it('should return the last representable date at the boundary', () => {
       const maxEpoch = (8_640_000_000_000n - BigInt(mainnet.genesisTimestamp)) / 30n
       assert.instanceOf(epochToDate(maxEpoch, mainnet.genesisTimestamp), Date)
-      assert.isUndefined(epochToDate(maxEpoch + 1n, mainnet.genesisTimestamp))
+      assert.isNull(epochToDate(maxEpoch + 1n, mainnet.genesisTimestamp))
     })
   })
 

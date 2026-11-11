@@ -78,10 +78,14 @@ export namespace getAccountSummary {
      */
     runwayInEpochs: bigint
     /**
-     * Date of `epoch + runwayInEpochs`, when the account enters deficit.
-     * `undefined` when nothing is being spent. Not meaningful on devnet.
+     * Date of `epoch + runwayInEpochs`: when the account enters deficit, or
+     * the date of `epoch` if it is already in deficit.
+     *
+     * `null` when nothing is being spent or the date is past the `Date` range
+     * (common with active spend on small data sets), so check
+     * `lockupRatePerEpoch` to tell these apart. Not meaningful on devnet.
      */
-    fundedUntil?: Date
+    fundedUntil: Date | null
     /**
      * Total spend the account's `funds` would cover at `lockupRatePerEpoch`,
      * calculated as `funds / lockupRatePerEpoch`. Treat as "how much
@@ -138,7 +142,7 @@ export namespace getAccountSummary {
  *
  * console.log('Available:', summary.availableFunds)
  * console.log('Runway in epochs:', summary.runwayInEpochs)
- * console.log('Funded until:', summary.fundedUntil?.toISOString() ?? 'never')
+ * console.log('Funded until:', summary.fundedUntil?.toISOString())
  * console.log('Gross coverage in epochs:', summary.grossCoverageInEpochs)
  * ```
  */
