@@ -13,6 +13,7 @@ export { StorageContext } from './context.ts'
 export type {
   CombinedCallbacks,
   StorageManagerDownloadOptions,
+  StorageManagerDownloadStreamOptions,
   StorageManagerOptions,
   StorageManagerUploadOptions,
 } from './manager.ts'

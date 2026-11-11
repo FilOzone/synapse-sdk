@@ -127,6 +127,28 @@ const text = new TextDecoder().decode(bytes)
 console.log("Downloaded:", text)
 ```
 
+### Streaming Downloads
+
+`download()` buffers the whole piece in memory. For large pieces, use `downloadStream()`, which returns a `ReadableStream<Uint8Array>` and keeps memory use bounded. The PieceCID is checked as the bytes flow through: if it doesn't match, the stream errors with a `DownloadPieceError` after the last chunk instead of closing. Treat the bytes as untrusted until the stream closes cleanly, and discard anything you wrote if it errors.
+
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from "viem/accounts"
+
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: 'my-app' })
+const writable = null as unknown as WritableStream<Uint8Array>
+// ---cut---
+const stream = await synapse.storage.downloadStream({ pieceCid: "bafkzcib..." })
+// Rejects if the PieceCID doesn't match
+await stream.pipeTo(writable)
+
+// Skip PieceCID validation
+const unvalidated = await synapse.storage.downloadStream({ pieceCid: "bafkzcib...", validate: false })
+```
+
+`StorageContext` has the same `downloadStream()` method, restricted to its provider.
+
 ### CDN-Accelerated Downloads
 
 ```ts twoslash

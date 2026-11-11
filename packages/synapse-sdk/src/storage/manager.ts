@@ -31,7 +31,7 @@ import { getDataSetLeafCounts } from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
 import type { UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { getPDPProviderByAddress } from '@filoz/synapse-core/sp-registry'
-import { calculateUploadCosts } from '@filoz/synapse-core/utils'
+import { calculateUploadCosts, readAllBytes } from '@filoz/synapse-core/utils'
 import {
   getUploadCosts as coreGetUploadCosts,
   getDataSetsById,
@@ -47,6 +47,7 @@ import type {
   CopyResult,
   CreateContextsOptions,
   DownloadOptions,
+  DownloadStreamOptions,
   EnhancedDataSetInfo,
   FailedAttempt,
   GetUploadCostsOptions,
@@ -145,6 +146,8 @@ export interface StorageManagerDownloadOptions extends DownloadOptions {
   context?: StorageContext
   providerAddress?: Address
 }
+
+export type StorageManagerDownloadStreamOptions = StorageManagerDownloadOptions & DownloadStreamOptions
 
 export interface StorageManagerOptions {
   /** The Synapse instance */
@@ -839,10 +842,32 @@ export class StorageManager {
    * Download data from storage
    * If context is provided, routes to context.download()
    * Otherwise performs SP-agnostic download
+   *
+   * Buffers the whole piece in memory. Use {@link downloadStream} for large pieces.
    */
   async download(options: StorageManagerDownloadOptions): Promise<Uint8Array> {
-    // Validate options - if context is provided, no other options should be set
+    return readAllBytes(await this.downloadStream({ ...options, validate: true }))
+  }
+
+  /**
+   * Download data from storage as a stream, with bounded memory use.
+   * If context is provided, routes to context.downloadStream()
+   * Otherwise performs SP-agnostic download
+   *
+   * The PieceCID is validated as the bytes flow through: if it doesn't match, the stream errors
+   * with a `DownloadPieceError` after the last chunk instead of closing. Treat the bytes as
+   * untrusted until the stream closes cleanly. Pass `validate: false` to opt out.
+   *
+   * @example
+   * ```ts
+   * const stream = await synapse.storage.downloadStream({ pieceCid })
+   * await stream.pipeTo(writable)
+   * ```
+   */
+  async downloadStream(options: StorageManagerDownloadStreamOptions): Promise<ReadableStream<Uint8Array>> {
+    const { signal } = options
     if (options?.context != null) {
+      // If context is provided, no other options should be set
       const invalidOptions = []
       if (options.providerAddress !== undefined) invalidOptions.push('providerAddress')
       if (options.withCDN !== undefined) invalidOptions.push('withCDN')
@@ -855,21 +880,32 @@ export class StorageManager {
         )
       }
 
-      // Route to specific context
-      return await options.context.download({
+      return await options.context.downloadStream({
         pieceCid: options.pieceCid,
         withCDN: options.withCDN ?? this._withCDN,
+        validate: options.validate,
+        signal,
       })
     }
 
+    const { url, pieceCid } = await this._resolveDownloadUrl(options)
+    return options.validate === false
+      ? Piece.downloadStream({ url, validate: false, signal })
+      : Piece.downloadStream({ url, expectedPieceCid: pieceCid, signal })
+  }
+
+  /**
+   * Resolve the URL to download a piece from, either the given provider or any provider storing it.
+   */
+  private async _resolveDownloadUrl(
+    options: StorageManagerDownloadOptions
+  ): Promise<{ url: string; pieceCid: PieceCID }> {
+    const { signal } = options
     const parsedPieceCID = Piece.tryFrom(options.pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageManager', 'download', `Invalid PieceCID: ${String(options.pieceCid)}`)
     }
-
-    const clientAddress = this._synapse.client.account.address
-    const withCDN = options.withCDN ?? this._withCDN
-    let pieceUrl: string
+    throwIfAborted(signal)
 
     if (options.providerAddress) {
       // Direct provider download
@@ -878,33 +914,37 @@ export class StorageManager {
       if (provider == null) {
         throw createError('StorageManager', 'download', `Provider ${options.providerAddress} not found`)
       }
-      pieceUrl = Piece.createPieceUrlPDP({ cid: parsedPieceCID.toString(), serviceURL: provider.pdp.serviceURL })
-    } else {
-      // Resolve piece URL from providers
-      try {
-        pieceUrl = await Piece.resolvePieceUrl({
-          client: this._synapse.readClient,
-          address: clientAddress,
-          pieceCid: parsedPieceCID,
-          resolvers: [
-            ...(withCDN ? [Piece.filbeamResolver] : []),
-            Piece.chainResolver,
-            Piece.providersResolver(this._defaultContexts?.map((context) => context.provider) ?? []),
-          ],
-        })
-      } catch (error) {
-        throw createError(
-          'StorageManager',
-          'download',
-          `All provider retrieval attempts failed and no additional retriever method was configured`,
-          error
-        )
+      return {
+        url: Piece.createPieceUrlPDP({ cid: parsedPieceCID.toString(), serviceURL: provider.pdp.serviceURL }),
+        pieceCid: parsedPieceCID,
       }
     }
-    return Piece.downloadAndValidate({
-      expectedPieceCid: parsedPieceCID,
-      url: pieceUrl,
-    })
+
+    // Resolve piece URL from providers
+    const withCDN = options.withCDN ?? this._withCDN
+    try {
+      const url = await Piece.resolvePieceUrl({
+        client: this._synapse.readClient,
+        address: this._synapse.client.account.address,
+        pieceCid: parsedPieceCID,
+        signal,
+        resolvers: [
+          ...(withCDN ? [Piece.filbeamResolver] : []),
+          Piece.chainResolver,
+          Piece.providersResolver(this._defaultContexts?.map((context) => context.provider) ?? []),
+        ],
+      })
+      return { url, pieceCid: parsedPieceCID }
+    } catch (error) {
+      // An abort is the caller giving up, not a provider failure: surface it as is.
+      throwIfAborted(signal)
+      throw createError(
+        'StorageManager',
+        'download',
+        `All provider retrieval attempts failed and no additional retriever method was configured`,
+        error
+      )
+    }
   }
 
   /**

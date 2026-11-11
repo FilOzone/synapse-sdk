@@ -529,6 +529,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.2.0
+      assert:
+        specifier: ^2.1.0
+        version: 2.1.0
       chai:
         specifier: 6.2.2
         version: 6.2.2

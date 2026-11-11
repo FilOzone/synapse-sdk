@@ -47,6 +47,7 @@ import {
   type MetadataObject,
   pieceMetadataObjectToEntry,
   randU256,
+  readAllBytes,
   timeUntilEpoch,
 } from '@filoz/synapse-core/utils'
 import {
@@ -65,6 +66,7 @@ import type {
   CommitResult,
   ContextCreateContextsOptions,
   DownloadOptions,
+  DownloadStreamOptions,
   PDPProvider,
   PieceCID,
   PieceRecord,
@@ -1193,28 +1195,57 @@ export class StorageContext {
 
   /**
    * Download data from this specific service provider
+   *
+   * Buffers the whole piece in memory. Use {@link downloadStream} for large pieces.
    */
   async download(options: DownloadOptions): Promise<Uint8Array> {
-    const parsedPieceCID = Piece.tryFrom(options.pieceCid)
-    if (parsedPieceCID == null) {
+    return readAllBytes(await this.downloadStream({ ...options, validate: true }))
+  }
+
+  /**
+   * Download data from this specific service provider as a stream, with bounded memory use.
+   *
+   * The PieceCID is validated as the bytes flow through: if it doesn't match, the stream errors
+   * with a `DownloadPieceError` after the last chunk instead of closing. Treat the bytes as
+   * untrusted until the stream closes cleanly. Pass `validate: false` to opt out.
+   *
+   * @example
+   * ```ts
+   * const stream = await context.downloadStream({ pieceCid })
+   * await stream.pipeTo(writable)
+   * ```
+   */
+  async downloadStream(options: DownloadStreamOptions): Promise<ReadableStream<Uint8Array>> {
+    const { signal } = options
+    const pieceCid = Piece.tryFrom(options.pieceCid)
+    if (pieceCid == null) {
       throw new InvalidPieceCIDError(options.pieceCid)
     }
-    const withCDN = options.withCDN ?? this._withCDN
-    const pieceUrl = await Piece.resolvePieceUrl({
-      client: this._readClient,
-      address: this._client.account.address,
-      pieceCid: parsedPieceCID,
-      resolvers: [
-        Piece.providersResolver([this._provider]),
-        ...(withCDN ? [Piece.filbeamResolver] : []),
-        Piece.chainResolver,
-      ],
-    })
+    throwIfAborted(signal)
 
-    return Piece.downloadAndValidate({
-      url: pieceUrl,
-      expectedPieceCid: parsedPieceCID,
-    })
+    const withCDN = options.withCDN ?? this._withCDN
+    let url: string
+    try {
+      url = await Piece.resolvePieceUrl({
+        client: this._readClient,
+        address: this._client.account.address,
+        pieceCid,
+        signal,
+        resolvers: [
+          Piece.providersResolver([this._provider]),
+          ...(withCDN ? [Piece.filbeamResolver] : []),
+          Piece.chainResolver,
+        ],
+      })
+    } catch (error) {
+      // An abort is the caller giving up, not a resolution failure.
+      throwIfAborted(signal)
+      throw error
+    }
+
+    return options.validate === false
+      ? Piece.downloadStream({ url, validate: false, signal })
+      : Piece.downloadStream({ url, expectedPieceCid: pieceCid, signal })
   }
 
   /**
