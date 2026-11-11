@@ -611,7 +611,7 @@ a new dataset's metadata too.
 | Function | Purpose |
 | --- | --- |
 | `newKeyspace()` | A fresh keyspace id |
-| `keyspaceKeys(signer, ref, { commitment?, verifySigner? })` | One owner signature per keyspace (two without a recorded commitment) → `{ kk, commitment, descriptor }` |
+| `keyspaceKeys(signer, ref, { commitment?, verifySigner?, password? })` | One owner signature per keyspace (two without a recorded commitment) → `{ kk, commitment, descriptor }` |
 | `scopeKey(kk, path)` | The key for a scope, e.g. `'super-secret/secret'` |
 | `scopeName(name)` / `scopePath(path)` | A scope name or path in canonical form, or a thrown error |
 | `pieceKey(node, salt)` | The key for one piece — hand this to FEE |
@@ -647,6 +647,10 @@ a new dataset's metadata too.
   signature for a keyspace can derive that keyspace's keys. Scope is the defence: the
   message names one keyspace, so one careless approval costs one keyspace, not the client's
   whole estate. Day-to-day reads never sign, so a prompt is itself an anomaly.
+  For more, pass a `password`: the key then also needs it, so a signature alone is not
+  enough. It is stretched with Argon2id (m = 64 MiB, t = 3, p = 1, salted with the
+  signed message's EIP-712 hash) and becomes the HKDF salt. The trade-off is recovery:
+  forget the password and the keyspace is gone, and nothing can bring it back.
 - **Determinism is checked by default**, because the whole scheme rests on it.
   Without a recorded commitment, `keyspaceKeys` signs the same message twice and
   refuses a signer that disagrees with itself. With a commitment in `foc/kc`, it

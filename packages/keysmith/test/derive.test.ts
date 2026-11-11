@@ -115,6 +115,21 @@ describe('keyspaceKeys', () => {
     await assert.rejects(keyspaceKeys(account, ref, { commitment: 'v1.0.00' }), /format v1/)
   })
 
+  it('mixes in an optional password, which a wrong guess cannot get past the commitment', async () => {
+    const plain = await keyspaceKeys(account, ref)
+    const locked = await keyspaceKeys(account, ref, { password: 'caf\u00e9' })
+    assert.notEqual(bytesToHex(locked.kk), bytesToHex(plain.kk))
+    // NFC: a decomposed é is the same password
+    const again = await keyspaceKeys(account, ref, { password: 'cafe\u0301', commitment: locked.commitment })
+    assert.equal(bytesToHex(again.kk), bytesToHex(locked.kk))
+    await assert.rejects(
+      keyspaceKeys(account, ref, { password: 'cafe', commitment: locked.commitment }),
+      /password is wrong/
+    )
+    await assert.rejects(keyspaceKeys(account, ref, { commitment: locked.commitment }), /password is wrong/)
+    await assert.rejects(keyspaceKeys(account, ref, { password: '' }), /non-empty/)
+  })
+
   it('rejects a randomising signer, and anything that is not plain ECDSA', async () => {
     let calls = 0
     const r = bytesToHex(new Uint8Array(32).fill(1))

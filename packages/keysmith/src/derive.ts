@@ -4,12 +4,14 @@
  * ```text
  * sig = signTypedData(KeyspaceKey{owner, keyspace})
  * KK  = HKDF(r‖s, "foc/acl/keyspace/v1")      the whole keyspace
+ *       (salt = Argon2id(password, hash(sig message)) if a password is given)
  * RK  = HKDF(KK,  "foc/acl/role/v1"‖scope)     one access scope within it
  * PK  = HKDF(node,"foc/acl/piece/v1"‖salt)    one piece
  * ```
  *
  * @module
  */
+import { argon2idAsync } from '@noble/hashes/argon2.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
@@ -68,8 +70,31 @@ export const COMMITMENT_KEY = 'foc/kc'
 /** The FWSS data-set metadata key naming the keyspace, so the chain alone can list them. */
 export const KEYSPACE_ID_KEY = 'foc/ks'
 
-const derive = (ikm: Uint8Array, info: string, length = 32): Uint8Array =>
-  hkdf(sha256, ikm, undefined, utf8ToBytes(info), length)
+const derive = (ikm: Uint8Array, info: string, length = 32, salt?: Uint8Array): Uint8Array =>
+  hkdf(sha256, ikm, salt, utf8ToBytes(info), length)
+
+/**
+ * Argon2id cost for a keyspace password: RFC 9106's second recommended
+ * option (64 MiB, 3 passes), with one lane since JS runs single-threaded.
+ * The commitment is public, so a phished signature lets an attacker test
+ * guesses offline; this is what makes each one expensive.
+ *
+ * **Never change these.** Any change orphans every password-protected keyspace.
+ */
+const PASSWORD_KDF = { t: 3, m: 65536, p: 1, dkLen: 32 } as const
+
+/**
+ * The HKDF salt for a password-protected keyspace: Argon2id over the
+ * password (Unicode NFC), salted with the signed message's hash, so it is
+ * unique to the owner and keyspace and nothing can be precomputed across them.
+ */
+async function passwordSalt(password: string, messageHash: Hex): Promise<Uint8Array> {
+  const pw = text(password, 'A password')
+  if (/\p{Cs}/u.test(pw) || pw.length === 0) {
+    throw new Error('A password must be non-empty, well-formed Unicode (no lone surrogates)')
+  }
+  return argon2idAsync(utf8ToBytes(pw.normalize('NFC')), hexToBytes(messageHash), PASSWORD_KDF)
+}
 
 function randomHex(length: number): Hex {
   const bytes = new Uint8Array(length)
@@ -117,6 +142,10 @@ export function keyspaceKeyMessage(ref: KeyspaceRef): KeyspaceKeyMessage {
  * (`foc/kc`): it signs once, and the commitment catches the same faults. See
  * {@link KeyspaceKeysOptions}.
  *
+ * With `options.password`, the key also depends on that password, so a
+ * phished signature alone no longer yields it. Lose the password and the
+ * keyspace is lost: nothing else can recover it.
+ *
  * Only the owner's own wallet can sign: a key signed by any other wallet,
  * a session key included, is not the key the owner's wallet derives, and
  * nothing downstream could tell. Delegates receive a grant instead.
@@ -146,12 +175,14 @@ export async function keyspaceKeys(
     }
   }
   const rs = lowSrs(first)
-  await assertSignedBy(message.owner, hashTypedData(args), rs)
-  const kk = derive(rs, INFO.keyspace)
+  const hash = hashTypedData(args)
+  await assertSignedBy(message.owner, hash, rs)
+  const salt = options.password == null ? undefined : await passwordSalt(options.password, hash)
+  const kk = derive(rs, INFO.keyspace, 32, salt)
   if (options.commitment != null && !matchesCommitment(kk, options.commitment)) {
     throw new Error(
-      'This key does not match the recorded commitment: the signer is not deterministic, ' +
-        'or the commitment belongs to another keyspace.'
+      'This key does not match the recorded commitment: the password is wrong, ' +
+        'the signer is not deterministic, or the commitment belongs to another keyspace.'
     )
   }
   return { kk, commitment: commitment(kk), descriptor: grantDescriptor(ref, 'keyspace') }

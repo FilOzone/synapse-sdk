@@ -21,6 +21,9 @@ describe('test vectors', () => {
     assert.equal(bytesToHex(keys.kk), vectors.keyspaceKey.kk)
     assert.equal(keys.commitment, vectors.keyspaceKey.commitment)
     assert.equal(commitment(keys.kk), vectors.keyspaceKey.commitment)
+    const locked = await keyspaceKeys(owner, ref, { password: vectors.passwordKeyspaceKey.password })
+    assert.equal(bytesToHex(locked.kk), vectors.passwordKeyspaceKey.kk)
+    assert.equal(locked.commitment, vectors.passwordKeyspaceKey.commitment)
   })
 
   it('pins the scope key, the envelope and the piece key', () => {

@@ -33,5 +33,10 @@
   "keyspaceKey": {
     "kk": "0xce589012fcc0fdc0bf625537e0fa701b7b1d1e8a8bcef87026ab4e61a7a85a40",
     "commitment": "v1.6982807649650e311e4c69af4ac90417"
+  },
+  "passwordKeyspaceKey": {
+    "password": "correct horse battery staple",
+    "kk": "0x26bcd2e39044b37af3bc3b05ec762af965e82eb5d380b1c4059a8b6bbcaf5f7e",
+    "commitment": "v1.71828a21771640196a46ec77c68fd060"
   }
 }
