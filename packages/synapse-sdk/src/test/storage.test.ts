@@ -1,11 +1,12 @@
 import type { AccountClient } from '@filoz/synapse-core'
 import { calibration } from '@filoz/synapse-core/chains'
-import { AddPiecesBatchTooLargeError } from '@filoz/synapse-core/errors'
+import { AddPiecesBatchTooLargeError, DownloadPieceError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { calculate, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
 import { AbortError, NetworkError } from '@filoz/synapse-core/sp'
-import { addPiecesFits } from '@filoz/synapse-core/utils'
+import { addPiecesFits, readAllBytes } from '@filoz/synapse-core/utils'
+import { rejects } from 'assert'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -1224,6 +1225,87 @@ describe('StorageService', () => {
 
       const downloaded2 = await service.download({ pieceCid: testPieceCID })
       assert.deepEqual(downloaded2, testData)
+    })
+  })
+
+  describe('downloadStream', () => {
+    const testData = new Uint8Array(127).fill(42) // 127 bytes to meet minimum
+
+    async function createContext(body: Uint8Array, onHead?: () => void) {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+          onHead?.()
+          return new HttpResponse(null, { status: 200 })
+        }),
+        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+          return HttpResponse.arrayBuffer(body.buffer)
+        })
+      )
+      const synapse = new Synapse({ client, source: null })
+      const warmStorageService = new WarmStorageService({ client })
+      return await StorageContext.create({ synapse, warmStorageService })
+    }
+
+    it('should stream and verify a piece from this provider', async () => {
+      const pieceCid = (await calculate(testData)).toString()
+      const service = await createContext(testData)
+
+      const stream = await service.downloadStream({ pieceCid })
+      assert.deepEqual(await readAllBytes(stream), testData)
+    })
+
+    it('should pass validate: false through to the download', async () => {
+      const pieceCid = (await calculate(testData)).toString()
+      const wrongData = new Uint8Array(127).fill(7)
+      const service = await createContext(wrongData)
+
+      await rejects(readAllBytes(await service.downloadStream({ pieceCid })), DownloadPieceError)
+      const stream = await service.downloadStream({ pieceCid, validate: false })
+      assert.deepEqual(await readAllBytes(stream), wrongData)
+    })
+
+    it('should reject without starting discovery when the signal is already aborted', async () => {
+      const pieceCid = (await calculate(testData)).toString()
+      let headRequests = 0
+      const service = await createContext(testData, () => {
+        headRequests++
+      })
+
+      await rejects(service.downloadStream({ pieceCid, signal: AbortSignal.abort() }), AbortError)
+      assert.equal(headRequests, 0)
+    })
+
+    it('should pass the signal through to the download request', async () => {
+      const pieceCid = (await calculate(testData)).toString()
+      const controller = new AbortController()
+      const service = await createContext(testData)
+      server.use(
+        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+          controller.abort()
+          await new Promise((resolve) => setTimeout(resolve, 100))
+          return HttpResponse.arrayBuffer(testData.buffer)
+        })
+      )
+
+      await rejects(service.downloadStream({ pieceCid, signal: controller.signal }), AbortError)
+    })
+
+    it('should forward validate and signal when routed through StorageManager with a context', async () => {
+      const pieceCid = (await calculate(testData)).toString()
+      const wrongData = new Uint8Array(127).fill(7)
+      const service = await createContext(wrongData)
+      const synapse = new Synapse({ client, source: null })
+
+      const stream = await synapse.storage.downloadStream({ pieceCid, context: service, validate: false })
+      assert.deepEqual(await readAllBytes(stream), wrongData)
+      await rejects(
+        synapse.storage.downloadStream({ pieceCid, context: service, signal: AbortSignal.abort() }),
+        AbortError
+      )
     })
   })
 

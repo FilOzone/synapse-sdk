@@ -5,8 +5,12 @@
  */
 
 import { calibration } from '@filoz/synapse-core/chains'
+import { DownloadPieceError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
+import { AbortError } from '@filoz/synapse-core/sp'
+import { readAllBytes } from '@filoz/synapse-core/utils'
+import { rejects } from 'assert'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -58,6 +62,7 @@ describe('Synapse', () => {
       // Should have all storage manager methods available
       assert.isFunction(synapse.storage.upload)
       assert.isFunction(synapse.storage.download)
+      assert.isFunction(synapse.storage.downloadStream)
       assert.isFunction(synapse.storage.createContext)
       assert.isFunction(synapse.storage.getDefaultContext)
       assert.isFunction(synapse.storage.findDataSets)
@@ -314,6 +319,107 @@ describe('Synapse', () => {
           'All provider retrieval attempts failed and no additional retriever method was configured'
         )
       }
+    })
+  })
+
+  describe('downloadStream', () => {
+    const testData = new TextEncoder().encode('test data')
+    const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+
+    function servePiece(body: Uint8Array) {
+      server.use(
+        Mocks.JSONRPC(Mocks.presets.basic),
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+          return new HttpResponse(null, { status: 200 })
+        }),
+        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+          return HttpResponse.arrayBuffer(body.buffer)
+        })
+      )
+    }
+
+    it('should stream and validate a piece', async () => {
+      servePiece(testData)
+      const synapse = new Synapse({ client, source: null })
+
+      const stream = await synapse.storage.downloadStream({ pieceCid: testPieceCid })
+      assert.instanceOf(stream, ReadableStream)
+      assert.equal(new TextDecoder().decode(await readAllBytes(stream)), 'test data')
+    })
+
+    it('should error the stream when the PieceCID does not match', async () => {
+      servePiece(new TextEncoder().encode('wrong data'))
+      const synapse = new Synapse({ client, source: null })
+
+      const stream = await synapse.storage.downloadStream({ pieceCid: testPieceCid })
+      await rejects(
+        readAllBytes(stream),
+        (error) =>
+          error instanceof DownloadPieceError && error.details?.includes('PieceCID verification failed') === true
+      )
+    })
+
+    it('should skip validation when validate is false', async () => {
+      servePiece(new TextEncoder().encode('wrong data'))
+      const synapse = new Synapse({ client, source: null })
+
+      const stream = await synapse.storage.downloadStream({ pieceCid: testPieceCid, validate: false })
+      assert.equal(new TextDecoder().decode(await readAllBytes(stream)), 'wrong data')
+    })
+
+    it('should reject without starting discovery when the signal is already aborted', async () => {
+      let headRequests = 0
+      server.use(
+        Mocks.JSONRPC(Mocks.presets.basic),
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+          headRequests++
+          return new HttpResponse(null, { status: 200 })
+        })
+      )
+      const synapse = new Synapse({ client, source: null })
+
+      await rejects(synapse.storage.downloadStream({ pieceCid: testPieceCid, signal: AbortSignal.abort() }), AbortError)
+      assert.equal(headRequests, 0)
+    })
+
+    it('should reject with AbortError when the signal aborts during discovery', async () => {
+      const controller = new AbortController()
+      server.use(
+        Mocks.JSONRPC(Mocks.presets.basic),
+        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+          controller.abort()
+          return new HttpResponse(null, { status: 404 })
+        })
+      )
+      const synapse = new Synapse({ client, source: null })
+
+      await rejects(synapse.storage.downloadStream({ pieceCid: testPieceCid, signal: controller.signal }), AbortError)
+    })
+
+    it('should reject context combined with withCDN or providerAddress', async () => {
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
+      const synapse = new Synapse({ client, source: null })
+      const context = {} as StorageContext
+
+      await rejects(
+        synapse.storage.downloadStream({ pieceCid: testPieceCid, context, withCDN: true }),
+        /Cannot specify both 'context' and other options: withCDN/
+      )
+      await rejects(
+        synapse.storage.downloadStream({
+          pieceCid: testPieceCid,
+          context,
+          providerAddress: '0x1234567890123456789012345678901234567890',
+        }),
+        /Cannot specify both 'context' and other options: providerAddress/
+      )
+    })
+
+    it('should validate PieceCID input', async () => {
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
+      const synapse = new Synapse({ client, source: null })
+
+      await rejects(synapse.storage.downloadStream({ pieceCid: 'invalid-piece-link' }), /Invalid PieceCID/)
     })
   })
 

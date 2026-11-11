@@ -207,12 +207,23 @@ export interface UploadTask {
 
 /**
  * Download options
- * Currently empty, reserved for future options
  */
-
 export type DownloadOptions = {
   withCDN?: boolean
   pieceCid: string | PieceCID
+  /** Signal to abort provider discovery and the download. */
+  signal?: AbortSignal
+}
+
+/**
+ * Streaming download options
+ */
+export type DownloadStreamOptions = DownloadOptions & {
+  /**
+   * Whether to validate the PieceCID of the streamed bytes. Defaults to `true`.
+   * When enabled, the stream errors after the last chunk if the PieceCID doesn't match.
+   */
+  validate?: boolean
 }
 
 export interface PieceFetchOptions {
