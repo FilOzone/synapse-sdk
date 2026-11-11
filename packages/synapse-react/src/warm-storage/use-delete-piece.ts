@@ -1,9 +1,8 @@
 import { PDPProviderUnavailableError } from '@filoz/synapse-core/errors'
 import * as SP from '@filoz/synapse-core/sp'
-import { getPayerAddress, waitForTransactionReceipt } from '@filoz/synapse-core/utils'
+import { getPayerAddress } from '@filoz/synapse-core/utils'
 import type { PdpDataSet } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { TransactionReceipt } from 'viem'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getSignerClient, type SessionKeySignerOptions } from '../signer.ts'
 
@@ -12,13 +11,15 @@ export interface UseDeletePieceProps extends SessionKeySignerOptions {
    * The callback to call when the hash is available.
    */
   onHash?: (hash: string) => void
-  mutation?: Omit<MutateOptions<TransactionReceipt, Error, UseDeletePieceVariables>, 'mutationFn'>
+  mutation?: Omit<MutateOptions<UseDeletePieceResult, Error, UseDeletePieceVariables>, 'mutationFn'>
 }
 
 export interface UseDeletePieceVariables {
   dataSet: PdpDataSet
   pieceId: bigint
 }
+export type UseDeletePieceResult = SP.waitForDeletePieces.OutputType
+
 export function useDeletePiece(props: UseDeletePieceProps) {
   const config = useConfig()
   const chainId = useChainId({ config })
@@ -44,8 +45,8 @@ export function useDeletePiece(props: UseDeletePieceProps) {
         pieceId,
       })
 
-      props?.onHash?.(deletePieceRsp.hash)
-      const rsp = await waitForTransactionReceipt(client, deletePieceRsp)
+      props?.onHash?.(deletePieceRsp.txHash)
+      const rsp = await SP.waitForDeletePieces({ client, ...deletePieceRsp })
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', getPayerAddress(client.account), chainId],
