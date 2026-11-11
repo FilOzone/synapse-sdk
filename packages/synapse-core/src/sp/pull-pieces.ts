@@ -12,6 +12,7 @@ import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { type DroppedPiece, dedupePieces } from '../utils/dedupe-pieces.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 
 // =============================================================================
 // SP-to-SP Piece Pull Operations
@@ -144,7 +145,7 @@ async function parsePullResponse(
 export async function pullPiecesApiRequest(
   options: pullPiecesApiRequest.OptionsType
 ): Promise<pullPiecesApiRequest.ReturnType> {
-  const response = await request.post(new URL('pdp/piece/pull', options.serviceURL), {
+  const response = await request.post(serviceURLJoin('pdp/piece/pull', options.serviceURL), {
     json: buildPullRequestBody(options),
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {
@@ -235,7 +236,7 @@ function pullWaitRetryOptions(options: PullWaitOptions): RetryOptions {
 export async function waitForPullPiecesApiRequest(
   options: waitForPullPiecesApiRequest.OptionsType
 ): Promise<waitForPullPiecesApiRequest.ReturnType> {
-  const url = new URL('pdp/piece/pull', options.serviceURL)
+  const url = serviceURLJoin('pdp/piece/pull', options.serviceURL)
 
   const response = await request.post(url, {
     json: buildPullRequestBody(options),

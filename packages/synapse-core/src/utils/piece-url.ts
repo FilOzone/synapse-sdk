@@ -1,5 +1,6 @@
 import type { Address } from 'viem'
 import type { FilecoinChain } from '../chains.ts'
+import { serviceURLJoin } from './service-url.ts'
 
 export namespace createPieceUrl {
   export type OptionsType = {
@@ -70,7 +71,7 @@ export namespace createPieceUrlPDP {
  */
 export function createPieceUrlPDP(options: createPieceUrlPDP.OptionsType) {
   const { cid, serviceURL } = options
-  return new URL(`piece/${cid}`, serviceURL).toString()
+  return serviceURLJoin(`piece/${cid}`, serviceURL).toString()
 }
 
 export namespace createPieceUrlFilBeam {

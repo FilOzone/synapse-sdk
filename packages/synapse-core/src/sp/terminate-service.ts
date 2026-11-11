@@ -24,6 +24,7 @@ import { signTerminateService } from '../typed-data/sign-terminate-service.ts'
 import { throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 
 /*
 SP-side termination protocol, as observed through the HTTP API.
@@ -83,7 +84,7 @@ const TerminateConflictSchema = z.discriminatedUnion('code', [
  * previously requested termination.
  */
 export function terminateServiceStatusUrl(options: { serviceURL: string; dataSetId: bigint }): string {
-  return new URL(`pdp/data-sets/${options.dataSetId}/terminate`, options.serviceURL).toString()
+  return serviceURLJoin(`pdp/data-sets/${options.dataSetId}/terminate`, options.serviceURL).toString()
 }
 
 export namespace terminateServiceApiRequest {

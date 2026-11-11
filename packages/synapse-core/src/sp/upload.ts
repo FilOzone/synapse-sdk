@@ -8,6 +8,7 @@ import type { PieceCID } from '../piece/piece-cid.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { getPayerAddress } from '../utils/payer.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
 import { addPieces, findPiece } from './index.ts'
@@ -48,7 +49,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
   if (!Piece.is(pieceCid)) {
     throw new Error(`Invalid PieceCID: ${String(options.pieceCid)}`)
   }
-  const response = await request.post(new URL(`pdp/piece`, options.serviceURL), {
+  const response = await request.post(serviceURLJoin(`pdp/piece`, options.serviceURL), {
     json: {
       pieceCid: pieceCid.toString(),
     },
@@ -80,7 +81,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
     throw new LocationHeaderError(location)
   }
 
-  const uploadResponse = await request.put(new URL(`pdp/piece/upload/${uploadUuid}`, options.serviceURL), {
+  const uploadResponse = await request.put(serviceURLJoin(`pdp/piece/upload/${uploadUuid}`, options.serviceURL), {
     body: options.data as BufferSource,
     headers: {
       'Content-Type': 'application/octet-stream',

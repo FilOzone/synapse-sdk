@@ -12,6 +12,7 @@ import { assertAddPiecesFit } from '../utils/add-pieces-fits.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { type DroppedPiece, dedupePieces } from '../utils/dedupe-pieces.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 
 export namespace createDataSetAndAddPiecesApiRequest {
   export type OptionsType = {
@@ -66,7 +67,7 @@ export async function createDataSetAndAddPiecesApiRequest(
   options: createDataSetAndAddPiecesApiRequest.OptionsType
 ): Promise<createDataSetAndAddPiecesApiRequest.OutputType> {
   // Send the create data set message to the PDP
-  const response = await request.post(new URL(`pdp/data-sets/create-and-add`, options.serviceURL), {
+  const response = await request.post(serviceURLJoin(`pdp/data-sets/create-and-add`, options.serviceURL), {
     json: {
       recordKeeper: options.recordKeeper,
       extraData: options.extraData,

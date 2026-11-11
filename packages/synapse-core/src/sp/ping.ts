@@ -1,4 +1,5 @@
 import { type AbortError, type HttpError, type NetworkError, request, type TimeoutError } from 'iso-web/http'
+import { serviceURLJoin } from '../utils/service-url.ts'
 
 const DEFAULT_TIMEOUT = 8000
 const RETRY_COUNT = 2
@@ -26,7 +27,7 @@ export namespace ping {
  * @throws Errors {@link ping.ErrorType}
  */
 export async function ping(serviceURL: string, options: ping.OptionsType = {}): Promise<ping.OutputType> {
-  const response = await request.get(new URL(`pdp/ping`, serviceURL), {
+  const response = await request.get(serviceURLJoin(`pdp/ping`, serviceURL), {
     retry: {
       retries: RETRY_COUNT,
       minTimeout: RETRY_DELAY,

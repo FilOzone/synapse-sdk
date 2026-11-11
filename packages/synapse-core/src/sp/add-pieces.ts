@@ -12,6 +12,7 @@ import { assertAddPiecesFit } from '../utils/add-pieces-fits.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { type DroppedPiece, dedupePieces } from '../utils/dedupe-pieces.ts'
 import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 
 export namespace addPiecesApiRequest {
   export type OptionsType = {
@@ -65,7 +66,7 @@ export async function addPiecesApiRequest(
   options: addPiecesApiRequest.OptionsType
 ): Promise<addPiecesApiRequest.OutputType> {
   const { serviceURL, dataSetId, pieces, extraData } = options
-  const response = await request.post(new URL(`pdp/data-sets/${dataSetId}/pieces`, serviceURL), {
+  const response = await request.post(serviceURLJoin(`pdp/data-sets/${dataSetId}/pieces`, serviceURL), {
     json: {
       pieces: pieces.map((piece) => ({
         pieceCid: piece.toString(),

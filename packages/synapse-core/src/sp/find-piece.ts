@@ -3,6 +3,7 @@ import { FindPieceError } from '../errors/pdp.ts'
 import * as Piece from '../piece/index.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
+import { serviceURLJoin } from '../utils/service-url.ts'
 
 export namespace findPiece {
   export type OptionsType = {
@@ -40,23 +41,26 @@ export async function findPiece(options: findPiece.OptionsType): Promise<findPie
   const params = new URLSearchParams({ pieceCid: pieceCid.toString() })
   const retryCount = options.retryCount ?? (options.poll ? RETRY_CONSTANTS.POLL_LIMIT : undefined)
   const retryDelay = options.retryDelay ?? (options.poll ? (options.pollInterval ?? 1000) : RETRY_CONSTANTS.RETRY_DELAY)
-  const response = await request.json.get<{ pieceCid: string }>(new URL(`pdp/piece?${params.toString()}`, serviceURL), {
-    signal: options.signal,
-    timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
-    retry: {
-      retries: retryCount,
-      factor: options.poll ? 1 : undefined,
-      minTimeout: retryDelay,
-      shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 404,
-    },
-    poll: options.poll
-      ? {
-          limit: RETRY_CONSTANTS.POLL_LIMIT,
-          interval: options.pollInterval ?? 1000,
-          statusCodes: [202], // 202 is processing
-        }
-      : false,
-  })
+  const response = await request.json.get<{ pieceCid: string }>(
+    serviceURLJoin(`pdp/piece?${params.toString()}`, serviceURL),
+    {
+      signal: options.signal,
+      timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
+      retry: {
+        retries: retryCount,
+        factor: options.poll ? 1 : undefined,
+        minTimeout: retryDelay,
+        shouldRetry: (ctx) => HttpError.is(ctx.error) && ctx.error.code === 404,
+      },
+      poll: options.poll
+        ? {
+            limit: RETRY_CONSTANTS.POLL_LIMIT,
+            interval: options.pollInterval ?? 1000,
+            statusCodes: [202], // 202 is processing
+          }
+        : false,
+    }
+  )
 
   if (response.error) {
     if (HttpError.is(response.error)) {
