@@ -5,11 +5,13 @@ export type {
   Claim,
   ClaimChain,
   ClaimSigner,
+  GrantTarget,
   PieceLabels,
   ReadRequest,
   VerifiedClaim,
 } from './claims.ts'
 export {
+  authorizationHeader,
   decodeDelivery,
   decodePresentation,
   delegateClaim,
@@ -19,6 +21,7 @@ export {
   MAX_CHAIN_LENGTH,
   MAX_REQUEST_LIFETIME,
   openDelivery,
+  pickGrant,
   READ_GRANT_TYPES,
   READ_REQUEST_TYPES,
   reaches,
