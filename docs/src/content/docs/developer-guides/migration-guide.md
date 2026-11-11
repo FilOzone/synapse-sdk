@@ -11,6 +11,30 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 ## synapse-core 0.11.0
 
+This release reports SP deletion hashes as `txHash`, moves the addPieces fit helpers to `/utils`, batches `createPieceBatcher` pulls, and moves the epoch helpers to bigint. synapse-react 0.6.0 includes the deletion change.
+
+### Action: Read `txHash` from piece deletions
+
+`deletePieces()`, `schedulePieceDeletions()`, and the deprecated `deletePiece()` and `schedulePieceDeletion()` in `@filoz/synapse-core/sp` return `{ txHash, dataSetId, pieceIds }` instead of `{ hash }`. Wait for the result with the new `waitForDeletePieces()`, which follows replace-by-fee replacements and confirms the removal was scheduled:
+
+```ts
+import * as SP from '@filoz/synapse-core/sp'
+
+// Before
+const { hash } = await SP.schedulePieceDeletions(client, options)
+await waitForTransactionReceipt(client, { hash })
+
+// After
+const result = await SP.schedulePieceDeletions(client, options)
+const { pieceIds, confirmedTxHash } = await SP.waitForDeletePieces({ client, ...result })
+```
+
+`StorageContext.deletePieces()` and `deletePiece()` in synapse-sdk still return the transaction hash and need no change.
+
+### Action: Update `useDeletePiece` result handling
+
+`useDeletePiece()` in synapse-react now resolves with `SP.waitForDeletePieces.OutputType` (`{ txHash, confirmedTxHash?, replacement?, dataSetId, pieceIds }`) instead of a viem `TransactionReceipt`. Read the confirmed hash from `confirmedTxHash`, and fetch the receipt with viem if you need its other fields.
+
 ### Action: Import addPieces fit helpers from `/utils`
 
 The addPieces fit helpers moved from `@filoz/synapse-core/sp` to `@filoz/synapse-core/utils`, with the same names and behaviour: `addPiecesFits`, `checkAddPiecesFit`, `maxFittingPieces`, `assertAddPiecesFit`, `assertPieceValid`, `assertPieceCidSize`, `estimateAddPiecesCalldataSize`, and the `Limiter`, `LimiterOptions`, `LimiterPiece` and `AddPiecesFitResult` types.

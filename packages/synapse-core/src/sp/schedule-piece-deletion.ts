@@ -1,5 +1,5 @@
 import { HttpError, type RequestErrors, request } from 'iso-web/http'
-import type { Account, Chain, Client, Hex, Transport } from 'viem'
+import { type Account, type Chain, type Client, type Hex, isHash, type Transport } from 'viem'
 import { DeletePieceError } from '../errors/pdp.ts'
 import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
@@ -23,7 +23,12 @@ export namespace deletePieces {
     retryDelay?: number
   }
   export type OutputType = {
-    hash: Hex
+    /** The transaction hash returned by the SP. */
+    txHash: Hex
+    /** The data set the pieces are deleted from. */
+    dataSetId: bigint
+    /** The piece IDs scheduled for deletion, without duplicates. */
+    pieceIds: bigint[]
   }
   export type ErrorType = AtLeastOnePieceRequiredError | RangeError | DeletePieceError | RequestErrors
 }
@@ -37,7 +42,7 @@ export namespace deletePieces {
  * the pieceIds request field as the authoritative list when it is non-empty.
  *
  * @param options - {@link deletePieces.OptionsType}
- * @returns Hash of the delete operation {@link deletePieces.OutputType}
+ * @returns The transaction hash, data set ID and piece IDs of the deletion {@link deletePieces.OutputType}
  * @throws Errors {@link deletePieces.ErrorType}
  */
 export async function deletePieces(options: deletePieces.OptionsType): Promise<deletePieces.OutputType> {
@@ -68,8 +73,11 @@ export async function deletePieces(options: deletePieces.OptionsType): Promise<d
     throw response.error
   }
 
-  const result = (await response.result.json()) as { txHash: Hex }
-  return { hash: result.txHash }
+  const result = (await response.result.json()) as { txHash?: unknown }
+  if (typeof result.txHash !== 'string' || !isHash(result.txHash)) {
+    throw new DeletePieceError(`Invalid txHash in response: ${JSON.stringify(result.txHash) ?? '<none>'}`)
+  }
+  return { txHash: result.txHash, dataSetId, pieceIds }
 }
 
 /**
@@ -122,12 +130,12 @@ export namespace schedulePieceDeletions {
  *
  * @param client - The client to use to schedule the piece deletion.
  * @param options - {@link schedulePieceDeletions.OptionsType}
- * @returns Schedule piece deletions operation hash {@link schedulePieceDeletions.OutputType}
+ * @returns The transaction hash, data set ID and piece IDs of the deletion {@link schedulePieceDeletions.OutputType}
  * @throws Errors {@link schedulePieceDeletions.ErrorType}
  *
  * @example
  * ```ts
- * import { schedulePieceDeletions } from '@filoz/synapse-core/sp'
+ * import { schedulePieceDeletions, waitForDeletePieces } from '@filoz/synapse-core/sp'
  * import { createWalletClient, http } from 'viem'
  * import { privateKeyToAccount } from 'viem/accounts'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -146,7 +154,7 @@ export namespace schedulePieceDeletions {
  *   serviceURL: 'https://pdp.example.com',
  * })
  *
- * console.log(result.hash)
+ * const { pieceIds } = await waitForDeletePieces({ client, ...result })
  * ```
  */
 export async function schedulePieceDeletions(

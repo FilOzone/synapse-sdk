@@ -22,9 +22,9 @@ export type RpcLog = {
   removed: boolean
 }
 
-function fwssLog(txHash: Hex, topics: Hex[], data: Hex, logIndex: number): RpcLog {
+function log(address: Address, txHash: Hex, topics: Hex[], data: Hex, logIndex: number): RpcLog {
   return {
-    address: calibration.contracts.fwss.address,
+    address,
     topics,
     data,
     blockHash: BLOCK_HASH,
@@ -50,7 +50,8 @@ function eventDataInputs(name: 'PieceAdded' | 'DataSetCreated') {
  * @param logIndex - The log index in the receipt.
  */
 export function pieceAddedLog(txHash: Hex, dataSetId: bigint, pieceId: bigint, logIndex: number): RpcLog {
-  return fwssLog(
+  return log(
+    calibration.contracts.fwss.address,
     txHash,
     encodeEventTopics({ abi: Abis.fwss, eventName: 'PieceAdded', args: { dataSetId, pieceId } }) as Hex[],
     encodeAbiParameters(eventDataInputs('PieceAdded'), [{ data: '0x01' }, [], []]),
@@ -66,7 +67,8 @@ export function pieceAddedLog(txHash: Hex, dataSetId: bigint, pieceId: bigint, l
  * @param logIndex - The log index in the receipt.
  */
 export function dataSetCreatedLog(txHash: Hex, dataSetId: bigint, logIndex: number): RpcLog {
-  return fwssLog(
+  return log(
+    calibration.contracts.fwss.address,
     txHash,
     encodeEventTopics({ abi: Abis.fwss, eventName: 'DataSetCreated', args: { dataSetId, providerId: 1n } }) as Hex[],
     encodeAbiParameters(eventDataInputs('DataSetCreated'), [
@@ -79,6 +81,29 @@ export function dataSetCreatedLog(txHash: Hex, dataSetId: bigint, logIndex: numb
       [],
       [],
     ]),
+    logIndex
+  )
+}
+
+/**
+ * A PDPVerifier `PiecesScheduledForRemoval` log.
+ *
+ * @param txHash - The transaction hash.
+ * @param dataSetId - The data set ID.
+ * @param pieceIds - The piece IDs scheduled for removal.
+ * @param logIndex - The log index in the receipt.
+ */
+export function piecesScheduledForRemovalLog(
+  txHash: Hex,
+  dataSetId: bigint,
+  pieceIds: bigint[],
+  logIndex: number
+): RpcLog {
+  return log(
+    calibration.contracts.pdp.address,
+    txHash,
+    encodeEventTopics({ abi: Abis.pdp, eventName: 'PiecesScheduledForRemoval', args: { setId: dataSetId } }) as Hex[],
+    encodeAbiParameters([{ type: 'uint256[]' }], [pieceIds]),
     logIndex
   )
 }
