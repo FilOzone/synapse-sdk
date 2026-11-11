@@ -4,6 +4,7 @@ import type { FilecoinChain } from './chains.ts'
 import { asChain, calibration, devnet, mainnet } from './chains.ts'
 import { UnsupportedChainError } from './errors/chains.ts'
 import type { Extended } from './types.ts'
+import { withSignal } from './utils/abort.ts'
 
 /**
  * Ranked fallback HTTP transport for Filecoin mainnet.
@@ -37,6 +38,10 @@ export const calibrationTransport = fallback(
 export const devnetTransport = http(devnet.rpcUrls.default.http[0])
 
 export namespace getTransport {
+  export type OptionsType = {
+    /** Reject requests once the signal aborts, keeping the transport's own request timeout. See `withSignal`. */
+    signal?: AbortSignal
+  }
   export type ErrorType = UnsupportedChainError
 }
 
@@ -47,10 +52,15 @@ export namespace getTransport {
  * uses the local default RPC.
  *
  * @param chain - The viem chain to resolve a transport for.
+ * @param options - {@link getTransport.OptionsType}
  * @returns The default transport for the chain.
  * @throws Errors {@link getTransport.ErrorType}
  */
-export function getTransport(chain: ViemChain): Transport {
+export function getTransport(chain: ViemChain, options: getTransport.OptionsType = {}): Transport {
+  return withSignal(defaultTransport(chain), options.signal)
+}
+
+function defaultTransport(chain: ViemChain): Transport {
   if (chain.id === mainnet.id) {
     return mainnetTransport
   }
