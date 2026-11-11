@@ -10,13 +10,13 @@ import { TIME_CONSTANTS } from './constants.ts'
  *
  * @param epoch - The epoch to convert
  * @param genesisTimestamp - The genesis timestamp of the chain in seconds (Unix timestamp)
- * @returns Date of the epoch, or `undefined` when it can't be represented
+ * @returns Date of the epoch, or `null` when it is past the `Date` range
  * (e.g. the `maxUint256` "never" sentinel used by `runwayInEpochs`)
  */
-export function epochToDate(epoch: bigint, genesisTimestamp: number): Date | undefined {
+export function epochToDate(epoch: bigint, genesisTimestamp: number): Date | null {
   const ms = (BigInt(genesisTimestamp) + epoch * BigInt(TIME_CONSTANTS.EPOCH_DURATION)) * 1000n
   const date = new Date(Number(ms))
-  return Number.isNaN(date.getTime()) ? undefined : date
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 /**
@@ -136,5 +136,5 @@ export function calculateLastProofDate(
     return null
   }
 
-  return epochToDate(lastProofEpoch, genesisTimestamp) ?? null
+  return epochToDate(lastProofEpoch, genesisTimestamp)
 }

@@ -27,6 +27,22 @@ import { addPiecesFits, assertAddPiecesFit } from '@filoz/synapse-core/utils'
 
 `createPieceBatcher` now sends pulls in batched requests of up to 10 pieces. Its `concurrency` option used to cap pulls per piece and now caps pull requests, so the same value allows up to ten times as many pieces in flight. `upload` transfers share the same limit and still take one slot per piece.
 
+### Action: Pass bigint epochs to `epochToDate` and `calculateLastProofDate`
+
+`epochToDate` and `calculateLastProofDate` from `@filoz/synapse-core/utils` now take `bigint` epochs instead of `number`. `epochToDate` returns `Date | null`: `null` when the date is past the `Date` range, including the `maxUint256` runway sentinel. Drop any `Number(...)` conversion and handle `null`.
+
+```ts
+// Before
+const due = epochToDate(Number(epoch), chain.genesisTimestamp) // Date
+const last = calculateLastProofDate(Number(nextChallengeEpoch), Number(maxProvingPeriod), chain.genesisTimestamp)
+
+// After
+const due = epochToDate(epoch, chain.genesisTimestamp) // Date | null
+const last = calculateLastProofDate(nextChallengeEpoch, maxProvingPeriod, chain.genesisTimestamp)
+```
+
+To show when an account runs out of funds, use the new `fundedUntil` field of `getAccountSummary` instead of converting `runwayInEpochs` yourself.
+
 ---
 
 ## synapse-core 0.10.0
