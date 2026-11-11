@@ -1,5 +1,3 @@
-import { AbortError } from '@filoz/synapse-core/sp'
-
 /**
  * Utility function to create descriptive errors with context
  */
@@ -18,13 +16,4 @@ export function createError(prefix: string, operation: string, details: string, 
   }
 
   return finalError
-}
-
-/**
- * Throw iso-web's AbortError if the signal has already been aborted
- */
-export function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) {
-    throw new AbortError(signal)
-  }
 }
