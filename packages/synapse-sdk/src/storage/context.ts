@@ -1334,14 +1334,14 @@ export class StorageContext {
 
     const clientDataSetId = await this.getClientDataSetId()
 
-    const { hash } = await schedulePieceDeletions(this._synapse.sessionClient ?? this._synapse.client, {
+    const { txHash } = await schedulePieceDeletions(this._synapse.sessionClient ?? this._synapse.client, {
       serviceURL: this._pdpEndpoint,
       dataSetId: this.dataSetId,
       pieceIds,
       clientDataSetId: clientDataSetId,
     })
 
-    return hash
+    return txHash
   }
 
   /**
