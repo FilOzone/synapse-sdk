@@ -71,3 +71,39 @@ export function supportsStreamingFetchBody(): boolean {
   }
   return _supportsStreamBody
 }
+
+/**
+ * Read a byte stream to the end and concatenate its chunks.
+ *
+ * Rejects with the stream's own error if it errors. `new Response(stream).arrayBuffer()` is not a
+ * substitute: browsers replace the stream's error with a generic `TypeError`.
+ *
+ * @param stream - The stream to read
+ * @returns All bytes from the stream
+ */
+export async function readAllBytes(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+  const chunks: Uint8Array[] = []
+  let totalLength = 0
+  const reader = stream.getReader()
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      totalLength += value.length
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  if (chunks.length === 1 && chunks[0] != null) {
+    return chunks[0]
+  }
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.length
+  }
+  return result
+}

@@ -317,6 +317,21 @@ const data = await downloadAndValidate({
 console.log(data) // Uint8Array — downloaded piece data
 ```
 
+`downloadAndValidate` holds the whole piece in memory. For large pieces, `downloadStream` returns a `ReadableStream<Uint8Array>` and validates the PieceCID as the bytes pass through. On a mismatch the stream errors with a `DownloadPieceError` after the last chunk, so discard anything written from it unless it closes cleanly. Pass `validate: false` to skip the check.
+
+```ts twoslash
+// @lib: esnext,dom
+const writable = null as unknown as WritableStream<Uint8Array>
+// ---cut---
+import { downloadStream } from "@filoz/synapse-core/piece"
+
+const stream = await downloadStream({
+  url: "https://provider.example.com/piece/bafkzcib...",
+  expectedPieceCid: "bafkzcib...",
+})
+await stream.pipeTo(writable) // Rejects if the PieceCID doesn't match
+```
+
 ### Provider Selection
 
 For custom upload pipelines, you can use the provider selection functions directly to find matching data sets and providers:
