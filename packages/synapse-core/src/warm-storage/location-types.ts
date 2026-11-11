@@ -7,8 +7,9 @@ import type { MetadataObject } from '../utils/metadata.ts'
  * Picks the fields that selectProviders() and findMatchingDataSets()
  * need, plus whether the data set contains at least one active piece.
  *
- * Core callers can spread a PdpDataSet directly.
- * SDK callers map from EnhancedDataSetInfo (different field names).
+ * A PdpDataSet satisfies this shape, so the PdpDataSet[] returned by
+ * getPdpDataSets() can be passed as-is. fetchProviderSelectionInput()
+ * does this, and the SDK uses that function for provider selection.
  */
 export interface SelectionDataSet {
   /** PDP Verifier data set ID */
