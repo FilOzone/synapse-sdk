@@ -1,3 +1,4 @@
+export { abortable, throwIfAborted, withSignal } from './abort.ts'
 export * from './add-pieces-fits.ts'
 export type {
   CalculateBufferAmountFromStateOptions,
