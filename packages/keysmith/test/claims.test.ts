@@ -1,6 +1,6 @@
 import assert from 'assert'
 import { decode, encode } from 'cborg'
-import type { Hex } from 'viem'
+import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
@@ -255,6 +255,11 @@ describe('claims', () => {
     const [scheme, token = ''] = header.split(' ')
     assert.equal(scheme, 'FOC-Grant')
     assert.match(token, /^[A-Za-z0-9_-]+$/) // base64url, unpadded
+    // Pieces of other lengths give payloads that base64 would pad
+    for (const cut of [1, 2]) {
+      const other = await authorizationHeader(a, chain, { pieceCid: PIECE.subarray(cut), now })
+      assert.match(other, /^FOC-Grant [A-Za-z0-9_-]+$/)
+    }
     const bytes = Uint8Array.from(atob(token.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
     assert.equal(decodePresentation(bytes).request.expires, now + MAX_REQUEST_LIFETIME - 60)
     const claim = await verifyPresentation(bytes, { pieceCid: PIECE, piece: labels(), chainId, now })
@@ -262,6 +267,13 @@ describe('claims', () => {
 
     // Refused before signing, as signRequest refuses: too long, or an expired chain
     await assert.rejects(authorizationHeader(a, chain, { pieceCid: PIECE, now, expiresIn: 3600 }), /must expire within/)
+    assert.ok(await authorizationHeader(a, chain, { pieceCid: PIECE, now, expiresIn: MAX_REQUEST_LIFETIME + 60 }))
+    await assert.rejects(
+      authorizationHeader(a, chain, { pieceCid: PIECE, now, expiresIn: MAX_REQUEST_LIFETIME + 61 }),
+      /must expire within/
+    )
+    await assert.rejects(authorizationHeader(a, chain, { pieceCid: PIECE, now, expiresIn: 1.5 }), /whole Unix seconds/)
+    await assert.rejects(authorizationHeader(a, chain, { pieceCid: PIECE, now: now + 0.5 }), /whole Unix seconds/)
     await assert.rejects(
       authorizationHeader(a, chain, { pieceCid: PIECE, now: expires + 1 }),
       /get a new grant to fetch from a gating provider/
@@ -290,6 +302,10 @@ describe('claims', () => {
     const cafe = held('scope:team/caf\u00e9')
     assert.equal(pick({ ...ref, scope: 'team/cafe\u0301' }, [team, cafe]), cafe) // compared in canonical (NFC) form
     assert.equal(pick({ ...ref, scope: 'team' }, [alice, piece]), undefined) // nothing wide enough: ask for one
+    // Depth wins over expiry: a deeper grant expiring sooner still beats a shallower one
+    const soon = held('scope:team/alice', { expires: expires - 100 })
+    assert.equal(pick({ piece: labels('team/alice/notes') }, [team, soon]), soon)
+    assert.equal(pick({ ...ref, scope: 'team/alice' }, [whole, team, soon]), soon)
 
     // Skipped: expired, another network, another keyspace, another owner
     assert.equal(pick({ piece: labels('team/x') }, [team], expires), undefined)
@@ -297,6 +313,14 @@ describe('claims', () => {
     const elsewhere = held('scope:team', { keyspace: '0xffeeddccbbaa99887766554433221100' })
     assert.equal(pick({ piece: labels('team/x') }, [elsewhere]), undefined)
     assert.equal(pick({ piece: labels('team/x') }, [held('scope:team', { owner: stranger.address })]), undefined)
+    assert.equal(pick({ ...ref, scope: 'team/x' }, [held('scope:team', { owner: stranger.address })]), undefined)
+
+    // A bad target fails the same way whatever is held
+    for (const from of [[whole], [whole, team], []]) {
+      assert.throws(() => pick({ ...ref, scope: '' }, from))
+      assert.throws(() => pick({ ...ref, scope: 'team/' }, from))
+      assert.throws(() => pick({ ...ref, owner: '0xnope' as Address, scope: 'team' }, from))
+    }
   })
 
   it('normalizes a signer that returns v = 0/1 or a high s to the one accepted form', async () => {

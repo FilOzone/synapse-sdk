@@ -439,8 +439,8 @@ const header = await Keysmith.authorizationHeader(myAccount, chain, { pieceCid: 
 const response = await fetch(`${serviceURL}/download/${cid}`, { headers: { Authorization: header } })
 ```
 
-Make a fresh header for each fetch: it expires after `expiresIn` seconds (default 240, at most
-`MAX_REQUEST_LIFETIME`). `signRequest` and `encodePresentation` are its parts, for a caller that
+Make a fresh header for each fetch: it expires after `expiresIn` seconds (default 240; at most
+`MAX_REQUEST_LIFETIME` plus 60 seconds of clock skew, so 360). `signRequest` and `encodePresentation` are its parts, for a caller that
 needs them separately.
 
 #### Holding multiple grants

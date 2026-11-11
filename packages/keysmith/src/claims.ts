@@ -315,6 +315,9 @@ export async function signRequest(
   input: { pieceCid: Uint8Array; expires: number; now?: number }
 ): Promise<ReadRequest> {
   const now = input.now ?? Math.floor(Date.now() / 1000)
+  if (!Number.isSafeInteger(input.expires) || !Number.isSafeInteger(now)) {
+    throw new Error('A request expiry and now must be whole Unix seconds')
+  }
   assertLive(chain, now, 'fetch from a gating provider')
   if (outsideRequestWindow(input.expires, now)) {
     throw new Error(`A request must expire within ${MAX_REQUEST_LIFETIME} seconds, and not in the past`)
@@ -361,18 +364,21 @@ export function pickGrant<T extends { claim: VerifiedClaim }>(
   options: { chainId: bigint; now?: number }
 ): T | undefined {
   const now = options.now ?? Math.floor(Date.now() / 1000)
-  const owner = 'piece' in target ? target.piece['foc/own'] : target.owner
+  // Validate the target once, so bad input fails the same way whatever grants are held
+  const rawOwner = 'piece' in target ? target.piece['foc/own'] : target.owner
+  const owner = rawOwner ? getAddress(rawOwner) : undefined
   const keyspace = keyspaceId('piece' in target ? target.piece['foc/ks'] : target.keyspace)
+  const scope = 'piece' in target ? target.piece['foc/scope'] : target.scope
+  const scopeNode = scope == null ? undefined : `scope:${scopePath(scope)}`
   const covers =
     'piece' in target
       ? (node: string) => reaches(node, target.piece)
-      : (node: string) =>
-          node === 'keyspace' || (node.startsWith('scope:') && within(node, `scope:${scopePath(target.scope)}`))
+      : (node: string) => node === 'keyspace' || (node.startsWith('scope:') && within(node, scopeNode ?? ''))
   let best: T | undefined
   for (const held of grants) {
     const { claim } = held
     if (claim.chainId !== options.chainId || claim.expires <= now || claim.keyspace !== keyspace) continue
-    if ((owner && getAddress(owner) !== claim.owner) || !covers(claim.node)) continue
+    if ((owner && owner !== claim.owner) || !covers(claim.node)) continue
     if (
       !best ||
       narrowness(claim) > narrowness(best.claim) ||
