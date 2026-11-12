@@ -4,11 +4,6 @@
   "private": true,
   "description": "JavaScript packages for Filecoin Onchain Cloud",
   "license": "Apache-2.0 OR MIT",
-  "workspaces": [
-    "./packages/*",
-    "./examples/*",
-    "./docs"
-  ],
   "scripts": {
     "preinstall": "pnpx only-allow pnpm",
     "build": "pnpm -r --filter='./packages/*' --if-present run build",
@@ -40,7 +35,7 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^24.14.0",
+      "version": "^26.13.1",
       "onFail": "download"
     }
   }

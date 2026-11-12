@@ -17,7 +17,7 @@ Packages version independently. Read the package's own `AGENTS.md` before workin
 
 ## Development
 
-- Node ≥22 (`devEngines` pins ^24).
+- Node ≥22 (`devEngines` pins ^26).
 - `pnpm run build`, `pnpm run lint:fix` (Biome), `pnpm test` work at the root or in a package. Inside a package, `pnpm test:node` / `pnpm test:browser` run one environment.
 - Scripts use wireit, which skips scripts whose inputs haven't changed; `pnpm run clean:cache` forces a rerun.
 - Tests use `playwright-test` (Mocha + Chai) in Node and a browser.
