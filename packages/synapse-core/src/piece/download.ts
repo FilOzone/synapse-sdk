@@ -83,7 +83,8 @@ export namespace downloadStream {
  * large pieces. The returned promise rejects for request errors (network, HTTP status, null body).
  * Validation errors surface on the stream itself: every chunk is passed through as it arrives and,
  * once the body ends, the stream errors with a {@link DownloadPieceError} instead of closing if the
- * calculated PieceCID does not match `expectedPieceCid` or the body is empty.
+ * calculated PieceCID does not match `expectedPieceCid` or the body is empty. A body longer than the
+ * size encoded in `expectedPieceCid` errors as soon as it goes past that size.
  *
  * Because the error only arrives after the last chunk, consumers that persist data (e.g. to a file)
  * must treat the bytes as untrusted until the stream closes cleanly, and discard them on error.
@@ -120,9 +121,20 @@ export async function downloadStream(options: downloadStream.OptionsType): Promi
 
   // `hasher()` releases its WASM memory on garbage collection, so a cancelled stream doesn't leak.
   const h = hasher()
+  const expectedSize = BigInt(parsedPieceCid.size)
   return body.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
+        // The PieceCID encodes the exact payload size: stop as soon as the body goes past it, so a
+        // misbehaving server can't stream forever into the caller's sink.
+        if (h.count() + BigInt(chunk.length) > expectedSize) {
+          controller.error(
+            new DownloadPieceError(
+              `Response body is larger than the ${expectedSize} bytes of ${String(parsedPieceCid)}`
+            )
+          )
+          return
+        }
         h.write(chunk)
         controller.enqueue(chunk)
       },
