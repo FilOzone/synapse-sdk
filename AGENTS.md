@@ -28,4 +28,5 @@ Packages version independently. Read the package's own `AGENTS.md` before workin
 - **Biome**: no `!` non-null assertions (use `?.` or explicit checks), no trailing semicolons, kebab-case filenames. Run `pnpm run lint:fix` before commits.
 - **Environment agnostic**: no `Buffer`, `fs`, `path`, `process`, or `node:` imports in package source. Use web standard APIs (`fetch`, WebStreams, `Uint8Array`).
 - **Commits**: Conventional Commits drive release-please; see [CONTRIBUTING](.github/CONTRIBUTING.md#how-should-i-write-my-commits). Scope commits by package and keep each commit to one package, so changelogs split correctly.
+- **PieceCID**: PieceCIDv2 ([FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md)) is not a classic CID. Contracts expect the **32-byte digest only**, not the full CID: `digest.bytes.subarray(digest.bytes.length - 32)`. Use the helpers in `@filoz/synapse-core/piece` (`calculate()`, `asPieceCID()`, `asLegacyPieceCID()`, `createPieceCIDStream()`).
 - Filecoin block time is 30 seconds; be patient with on-chain operations.
