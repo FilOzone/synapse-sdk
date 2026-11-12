@@ -90,14 +90,28 @@ export class UploadRedirectError extends SynapseError {
   }
 }
 
+export interface FindPieceErrorOptions {
+  /** The underlying request error, such as an `HttpError` or `TimeoutError`. */
+  cause?: Error
+  /** Whether the provider answered that it does not have the piece, or not yet. */
+  notFound?: boolean
+}
+
 export class FindPieceError extends SynapseError {
   override name: 'FindPieceError' = 'FindPieceError'
+  /**
+   * `true` when the provider answered that it does not have the piece (404) or is still
+   * processing it (202). `false` for other failures, such as a 5xx response or a timeout.
+   */
+  notFound: boolean
 
-  constructor(error: string) {
+  constructor(error: string, options: FindPieceErrorOptions = {}) {
     const decodedError = decodePDPError(error)
     super(`Failed to find piece.`, {
       details: decodedError,
+      cause: options.cause,
     })
+    this.notFound = options.notFound ?? false
   }
 
   static override is(value: unknown): value is FindPieceError {
