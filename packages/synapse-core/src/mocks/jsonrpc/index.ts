@@ -201,6 +201,12 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       }
       return options.eth_getBlockByNumber(params)
     }
+    case 'eth_getLogs': {
+      if (!options.eth_getLogs) {
+        throw new Error('eth_getLogs is not defined')
+      }
+      return options.eth_getLogs(params)
+    }
     case 'eth_gasPrice': {
       if (!options.eth_gasPrice) {
         throw new Error('eth_gasPrice is not defined')
@@ -416,6 +422,7 @@ export const presets = {
     },
     eth_getTransactionCount: () => '0x1',
     eth_gasPrice: () => '0x09184e72a000',
+    eth_getLogs: () => [],
     eth_maxPriorityFeePerGas: () => '0x5f5e100',
     eth_sendRawTransaction: (args) => keccak256(args[0]),
     warmStorage: {

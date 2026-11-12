@@ -54,6 +54,7 @@
  */
 
 export * from './authorization-expiry.ts'
+export * from './find-authorizer.ts'
 export * from './login.ts'
 export * from './permissions.ts'
 export * from './revoke.ts'
