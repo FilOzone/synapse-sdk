@@ -3,6 +3,12 @@
 A JavaScript/TypeScript standard library for interacting with Filecoin Onchain Cloud smart contracts.
 It uses [viem](https://viem.sh/) and is structured as single purpose functions (actions) similar to viem actions.
 
+**Layout**: one folder per domain, one file per action: `sp/` (Curio HTTP API), `warm-storage/`, `pay/`, `pdp-verifier/`, `sp-registry/`, `session-key/`, `piece/`, `typed-data/`, `erc20/`, `endorsements/`, `auction/`, `devnet/`, `mocks/` (MSW test mocks), `utils/`, `abis/`, `chains.ts`.
+
+**Data flow**: client signs EIP-712 for FWSS → Curio HTTP API → PDPVerifier → FWSS callback (validates signature, manages payments) → Filecoin Pay. Curio only talks to PDPVerifier.
+
+**Chains**: mainnet, calibration, and devnet (`devnet/`). Contract addresses come from `chains.ts`. Amounts are always `bigint`.
+
 ## Filecoin Onchain Cloud smart contracts
 
 - PDP Verifier: Proof of Data Possession (PDP) - Data Verification Service Contract
@@ -19,26 +25,37 @@ It uses [viem](https://viem.sh/) and is structured as single purpose functions (
   - folder: `/src/warm-storage`
 - Session Key Registry: Session keys are disposable keys for dapps to perform actions on the user's behalf. Session keys are scoped to constrain the actions they can take.
   - [source code](https://github.com/FilOzone/SessionKeyRegistry)
+  - folder: `/src/session-key`
 - Service Provider Registry: a registry contract for managing service providers across the Filecoin Onchain Cloud
   - [source code](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/ServiceProviderRegistry.sol)
+  - folder: `/src/sp-registry`
 - ProviderIdSet: smart contract to manage endorsed providers
-  - [source core](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/ProviderIdSet.sol)
+  - [source code](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/ProviderIdSet.sol)
+  - folder: `/src/endorsements`
 
-## Packages Scripts
+## PieceCID
+
+Contracts expect the **32-byte digest only**, not the full CID: `digest.bytes.subarray(digest.bytes.length - 32)`. Utilities in `src/piece`: `calculate()`, `asPieceCID()`, `asLegacyPieceCID()`, `createPieceCIDStream()`. Ref: FRC-0069.
+
+## Metadata
+
+User-facing `Record<string, string>`, internally `MetadataEntry[]` sorted alphabetically for EIP-712. Limits in `src/utils/metadata.ts`: data sets max 10 keys, pieces max 3, keys max 32 chars, values max 96 chars. Use `Object.create(null)` for objects built from contract data.
+
+## Package Scripts
 
 Scripts use `wireit` to manage dependencies and caching.
 
 - Linting and formatting: It uses biome, `pnpm run lint` or `biome check --fix .` to skip `wireit`. Depends on `pnpm run build`.
 - Building: It uses typescript, `pnpm run build` or `tsc --build --pretty` to skip `wireit`
 - Testing: It uses `playwright-test`, `pnpm run test` to run node and browser test
-  - Use or `pnpm run test:node` or `pnpm run test:browser` when want to run separatly
+  - Use `pnpm run test:node` or `pnpm run test:browser` to run them separately
   - To skip `wireit` and just run for specific files use `pnpm exec playwright-test "test/**/*.test.ts" --mode node`
 
-## Generating an new action
+## Generating a new action
 
 When generating an action in each smart contract folder follow this plan:
 
-- [ ] Explore the project first, example of a generated read action set can be found in `src/warm-storage/get-approved-providers.ts` and write action in `src/warm-storage/add-approved-provider.ts`.
+- [ ] Explore the project first, example of a generated read action set can be found in `src/warm-storage/get-approved-provider-ids.ts` and write action in `src/warm-storage/add-approved-provider.ts`.
 - [ ] Follow the links above for each contract to understand the interfaces and follow the ABIs inside `src/abis/generated.ts`.
 - [ ] Start by creating a new file using the ABI function in kebab-case, if the function name is `operatorApprovals` the file should be `operator-approvals.ts`.
 - [ ] Follow the guidelines below for the code logic and structure.
@@ -131,32 +148,12 @@ export async function getApprovedProviders(...) { ... }
 
 #### `OptionsType`
 
-Should be an object with the contract call arguments plus and optional contract address.
+Should be an object with the contract call arguments plus an optional contract address.
 Use the contract source code to document each argument property.
-
-```ts
-export type OptionsType = {
-  /** Starting index (0-based). Use 0 to start from beginning. Defaults to 0. */
-  offset?: bigint
-  /** Maximum number of providers to return. Use 0 to get all remaining providers. Defaults to 1000. */
-  limit?: bigint
-  /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
-  contractAddress?: Address
-}
-```
 
 #### `OutputType`
 
-```ts
-/** Array of approved provider IDs */
-export type OutputType = ContractFunctionReturnType<
-  typeof storageViewAbi,
-  'pure' | 'view',
-  'getApprovedProviders'
->
-```
-
-When the contract function return type is an array try to convert into an object using the contract source code to choose the best descritive property names. When the return type is already an object inline it with documentation for each property.
+When the contract function return type is an array try to convert into an object using the contract source code to choose the best descriptive property names. When the return type is already an object inline it with documentation for each property.
 
 ```ts
   export type ContractOutputType = ContractFunctionReturnType<typeof fwssViewAbi, 'pure' | 'view', 'getPriceList'>
@@ -281,7 +278,7 @@ For state-changing functions, both variants MUST be implemented:
 - Named with Sync suffix (e.g., setOperatorSync, depositSync)
 - Always use the standard async variant action
 - Waits for transaction confirmation
-- Returns both the receipt and extracted event data .ie `{ receipt, event }`
+- Returns both the receipt and extracted event data, e.g. `{ receipt, event }`
 - MUST use Extract Event function to get return values (not simulateContract)
 - MUST have an extra option called `onHash` that is a callback function to be called with the hash before waiting for the receipt.
 
@@ -312,17 +309,11 @@ export function extractSetOperatorApprovalEvent(logs: Log[]) {
 
 #### Parse function
 
-When the `ContractOutputType` is different from the `OutputType` we need a parse function to transform the contract output into the action output. It should called `parse<actionName>` .ie `parseGetPriceList`.
+When the `ContractOutputType` is different from the `OutputType` we need a parse function to transform the contract output into the action output. It should be called `parse<actionName>`, e.g. `parseGetPriceList`.
 
 ## Decision-Making
 
-When encountering situations that require judgment:
-
-- **Specification ambiguities**: Prompt developer for clarification
-- **Missing contract details**: Request ABI or specification update
-- **Event structure uncertainty**: Ask for event definition
-- **Parameter transformations**: Confirm expected input/output formats
-- **Edge cases**: Discuss handling strategy with developer
+When the spec, ABI, event definitions, or expected input/output formats are ambiguous or missing, ask the developer instead of guessing.
 
 ## Naming Conventions
 
