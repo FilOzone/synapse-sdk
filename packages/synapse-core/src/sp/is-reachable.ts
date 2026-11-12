@@ -1,4 +1,4 @@
-import type { AbortError } from 'iso-web/http'
+import { type AbortError, HttpError, NetworkError, TimeoutError } from 'iso-web/http'
 import { ping } from './ping.ts'
 
 export namespace isReachable {
@@ -13,7 +13,8 @@ export namespace isReachable {
  * GET /pdp/ping
  *
  * Returns `false` instead of throwing when {@link ping} fails with an HTTP, network or timeout error.
- * Still throws `AbortError` when the signal aborts.
+ * Still throws `AbortError` when the signal aborts, and rethrows any other error, such as an invalid
+ * service URL, so caller mistakes are not reported as an unreachable provider.
  *
  * @example
  * ```ts
@@ -40,6 +41,9 @@ export async function isReachable(
     if (options.signal?.aborted) {
       throw error
     }
-    return false
+    if (HttpError.is(error) || NetworkError.is(error) || TimeoutError.is(error)) {
+      return false
+    }
+    throw error
   }
 }

@@ -75,6 +75,30 @@ describe('SP boolean checks', () => {
         assert.instanceOf(error, AbortError)
       }
     })
+    it('throws when the provider returns a different piece', async () => {
+      const other = 'bafkzcibcaapao7s3mtzihucsgkfghqoatbqj3ftmkf3xg2hyl3s7ttw4xjeusfi'
+      server.use(http.get(`${serviceURL}/pdp/piece`, () => HttpResponse.json({ pieceCid: other })))
+      try {
+        await hasPiece({ serviceURL, pieceCid })
+        assert.fail('Expected hasPiece to throw')
+      } catch (error) {
+        assert.instanceOf(error, FindPieceError)
+        assert.isFalse(error.notFound)
+        assert.include(error.message, 'different piece')
+      }
+    })
+
+    it('throws FindPieceError when the returned pieceCid is invalid', async () => {
+      server.use(http.get(`${serviceURL}/pdp/piece`, () => HttpResponse.json({ pieceCid: 'not-a-cid' })))
+      try {
+        await hasPiece({ serviceURL, pieceCid })
+        assert.fail('Expected hasPiece to throw')
+      } catch (error) {
+        assert.instanceOf(error, FindPieceError)
+        assert.isFalse(error.notFound)
+      }
+    })
+
     it('throws AbortError when aborted while the body is read', async () => {
       const controller = new AbortController()
       server.use(
@@ -111,6 +135,15 @@ describe('SP boolean checks', () => {
     it('returns false on a network error', async () => {
       server.use(http.get(`${serviceURL}/pdp/ping`, () => HttpResponse.error()))
       assert.isFalse(await isReachable(serviceURL, { timeout: 2000 }))
+    })
+
+    it('rethrows errors that are not about reachability', async () => {
+      try {
+        await isReachable('not a url')
+        assert.fail('Expected isReachable to throw')
+      } catch (error) {
+        assert.notInstanceOf(error, AbortError)
+      }
     })
 
     it('returns false on timeout', async () => {

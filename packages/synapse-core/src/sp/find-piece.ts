@@ -110,8 +110,13 @@ export async function findPiece(options: findPiece.OptionsType): Promise<findPie
     throwIfAborted(options.signal)
     throw new FindPieceError('Response body is not valid JSON', { cause: error as Error })
   }
-  if (typeof data?.pieceCid !== 'string') {
-    throw new FindPieceError('Response is missing pieceCid')
+  // Curio echoes the requested PieceCID; anything else is a bad answer, not a match
+  const found = typeof data?.pieceCid === 'string' ? Piece.tryFrom(data.pieceCid) : null
+  if (found == null) {
+    throw new FindPieceError('Response has no valid pieceCid')
   }
-  return Piece.from(data.pieceCid)
+  if (!found.equals(pieceCid)) {
+    throw new FindPieceError(`Provider returned a different piece: ${found.toString()}`)
+  }
+  return found
 }
