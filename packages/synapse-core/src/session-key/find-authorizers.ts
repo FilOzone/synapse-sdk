@@ -37,13 +37,19 @@ export namespace findAuthorizers {
     signal?: AbortSignal
   }
 
-  /** A wallet that authorized the session key, described by its most recent authorization in the range. */
+  /**
+   * A wallet that authorized the session key, described by its most recent grant in the range.
+   *
+   * `expiry`, `permissions` and `origin` come from that grant and do not reflect later revocations,
+   * which can be partial. A wallet that later revoked everything is still listed. Use
+   * {@link getExpirations} or {@link authorizationExpiry} for the current state.
+   */
   export type Authorizer = {
     /** The wallet (root identity) that called `login` for the session key. */
     identity: Address
-    /** Expiry of the authorization, as a Unix timestamp in seconds. */
+    /** Expiry set by the latest grant, as a Unix timestamp in seconds. Ignores later revocations. */
     expiry: bigint
-    /** Permission hashes granted by the authorization. */
+    /** Permission hashes in the latest grant. Ignores later revocations. */
     permissions: Hex[]
     /** Origin string passed to `login`. */
     origin: string
