@@ -348,7 +348,7 @@ describe('Synapse', () => {
     })
 
     it('should error the stream when the PieceCID does not match', async () => {
-      servePiece(new TextEncoder().encode('wrong data'))
+      servePiece(new TextEncoder().encode('test date')) // same length, different bytes
       const synapse = new Synapse({ client, source: null })
 
       const stream = await synapse.storage.downloadStream({ pieceCid: testPieceCid })
@@ -403,7 +403,7 @@ describe('Synapse', () => {
 
       await rejects(
         synapse.storage.downloadStream({ pieceCid: testPieceCid, context, withCDN: true }),
-        /Cannot specify both 'context' and other options: withCDN/
+        /StorageManager downloadStream failed: Cannot specify both 'context' and other options: withCDN/
       )
       await rejects(
         synapse.storage.downloadStream({
@@ -411,7 +411,7 @@ describe('Synapse', () => {
           context,
           providerAddress: '0x1234567890123456789012345678901234567890',
         }),
-        /Cannot specify both 'context' and other options: providerAddress/
+        /StorageManager downloadStream failed: Cannot specify both 'context' and other options: providerAddress/
       )
     })
 
@@ -419,7 +419,14 @@ describe('Synapse', () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = new Synapse({ client, source: null })
 
-      await rejects(synapse.storage.downloadStream({ pieceCid: 'invalid-piece-link' }), /Invalid PieceCID/)
+      await rejects(
+        synapse.storage.downloadStream({ pieceCid: 'invalid-piece-link' }),
+        /StorageManager downloadStream failed: Invalid PieceCID/
+      )
+      await rejects(
+        synapse.storage.download({ pieceCid: 'invalid-piece-link' }),
+        /StorageManager download failed: Invalid PieceCID/
+      )
     })
   })
 
