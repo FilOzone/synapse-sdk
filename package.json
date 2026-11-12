@@ -6,24 +6,23 @@
   "license": "Apache-2.0 OR MIT",
   "scripts": {
     "preinstall": "pnpx only-allow pnpm",
-    "build": "pnpm -r --filter='./packages/*' --if-present run build",
-    "lint": "pnpm -r --if-present run lint",
+    "build": "turbo run build --filter=./packages/*",
+    "lint": "turbo run lint",
     "lint:fix": "biome check --fix .",
-    "test": "pnpm -r --filter='./packages/*' --if-present run test",
+    "test": "turbo run test --filter=./packages/*",
     "check:markdown": "markdownlint-cli2 --config .github/.markdownlint-cli2.jsonc '**/*.md' '**/*.mdx'",
     "check:repo": "pnpx sherif@latest -r root-package-manager-field",
     "check:knip": "knip --config .github/knip.jsonc",
     "update:msw": "pnpm -r --filter='./packages/*' --if-present run update:msw",
-    "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.wrangler}",
-    "clean:cache": "rm -rf packages/*/{.wireit,coverage,.nyc_output,dist} examples/*/{.wireit,coverage,.nyc_output,dist} docs/{.wireit,coverage,.nyc_output,dist,.astro} apps/*/{.wireit,coverage,.nyc_output,dist,.wrangler}"
+    "clean": "rm -rf node_modules .turbo pnpm-lock.yaml package-lock.json packages/*/{.turbo,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{.turbo,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{.turbo,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{.turbo,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.wrangler}"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "knip": "6.32.2",
     "markdownlint-cli2": "0.23.2",
     "pkg-pr-new": "0.0.88",
-    "typescript": "catalog:",
-    "wireit": "0.14.13"
+    "turbo": "2.11.10",
+    "typescript": "catalog:"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec biome check --staged --fix"

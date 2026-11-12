@@ -18,8 +18,9 @@ Packages version independently. Read the package's own `AGENTS.md` before workin
 ## Development
 
 - Node ≥22 (`devEngines` pins ^26).
-- `pnpm run build`, `pnpm run lint:fix` (Biome), `pnpm test` work at the root or in a package. Inside a package, `pnpm test:node` / `pnpm test:browser` run one environment.
-- Scripts use wireit, which skips scripts whose inputs haven't changed; `pnpm run clean:cache` forces a rerun.
+- Tasks run through [Turborepo](https://turborepo.dev) (`turbo.json`), which builds workspace dependencies first and caches results. At the root, `pnpm run build`, `pnpm run lint` and `pnpm test` call `turbo run`. Inside a package, `pnpm turbo <task>` (for example `pnpm turbo test:node` or `pnpm turbo test:browser`) runs that package's task and its dependencies; `pnpm run <task>` runs the bare script without building dependencies.
+- `pnpm run lint:fix` runs Biome. Add `--force` to a `turbo` command to skip the cache.
+- Before changing `turbo.json`, task scripts or CI, load the `turborepo` skill (`.agents/skills/turborepo`; `.claude/skills` links to `.agents/skills`) and read the docs bundled in `node_modules/turbo/docs`.
 - Tests use `playwright-test` (Mocha + Chai) in Node and a browser.
 - Run `examples/cli` directly with `node examples/cli/src/index.ts` (no `tsx`). Rebuild packages first if you changed `packages/*`.
 

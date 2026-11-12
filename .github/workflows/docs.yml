@@ -8,6 +8,7 @@ on:
       - docs/**
       - packages/**
       - package.json
+      - turbo.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - tsconfig.json
@@ -31,8 +32,7 @@ jobs:
         with:
           require-lockfile: true
       - run: pnpm run check:markdown
-      - run: pnpm run build
-      - run: pnpm -r --filter docs run build
+      - run: pnpm turbo run build --filter=docs
         env:
           CHECK_LINKS: 1
       # Same-repo PRs hand the built site to docs-preview.yml, which deploys it

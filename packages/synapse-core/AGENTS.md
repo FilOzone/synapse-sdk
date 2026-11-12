@@ -43,13 +43,13 @@ User-facing `Record<string, string>`, internally `MetadataEntry[]` sorted alphab
 
 ## Package Scripts
 
-Scripts use `wireit` to manage dependencies and caching.
+Tasks run through Turborepo (root `turbo.json`), which handles dependencies and caching. `pnpm turbo <task>` runs a task with its dependencies; `pnpm run <task>` runs the bare script.
 
-- Linting and formatting: It uses biome, `pnpm run lint` or `biome check --fix .` to skip `wireit`. Depends on `pnpm run build`.
-- Building: It uses typescript, `pnpm run build` or `tsc --build --pretty` to skip `wireit`
-- Testing: It uses `playwright-test`, `pnpm run test` to run node and browser test
-  - Use `pnpm run test:node` or `pnpm run test:browser` to run them separately
-  - To skip `wireit` and just run for specific files use `pnpm exec playwright-test "test/**/*.test.ts" --mode node`
+- Linting and formatting: biome, `pnpm turbo lint` or `biome check --fix .`
+- Building: typescript, `pnpm turbo build` or `tsc --build`
+- Testing: `playwright-test`, `pnpm turbo test` builds, lints, then runs node and browser tests
+  - Use `pnpm turbo test:node` or `pnpm turbo test:browser` to run them separately
+  - To run specific files, use `pnpm exec playwright-test "test/**/*.test.ts" --mode node`
 
 ## Generating a new action
 

@@ -44,13 +44,14 @@ docs/                             Documentation site
 pnpm run generate-abi # in the synapse-core package
 ```
 
-### Wireit
+### Turborepo
 
-This repo uses [wireit](https://github.com/google/wireit) to run scripts with incremental builds, cross-workspace dependencies, and caching.
+This repo uses [Turborepo](https://turborepo.dev) to run tasks with workspace dependencies and caching. Tasks and their dependencies are defined in [`turbo.json`](../turbo.json).
 
-- Scripts whose inputs haven't changed are skipped. To force a rerun, delete the cached state with `pnpm run clean:cache` (or a package's `.wireit/` folder). `WIREIT_CACHE=none` only disables restoring outputs from cache; it does not force a rerun.
-- Watch mode: append `--watch`
-- Extra arguments: `pnpm run {script} {npm args} {wireit args} -- {script args}`
+- The root `build`, `lint` and `test` scripts call `turbo run`. Inside a package, run `pnpm turbo {task}` to run that package's task after the tasks it depends on (for example, building workspace dependencies). `pnpm run {task}` runs only the package's own script.
+- Tasks whose inputs haven't changed are restored from the cache in `.turbo/`. Add `--force` to rerun them.
+- Watch mode: `pnpm turbo watch {task}`
+- Extra arguments: `pnpm turbo {task} -- {script args}`
 
 ### Codespaces
 
@@ -83,8 +84,9 @@ pnpm run test
 Inside a package directory you can run one environment at a time:
 
 ```sh
-pnpm test:node    # add --watch for watch mode
-pnpm test:browser # add --watch for watch mode
+pnpm turbo test:node
+pnpm turbo test:browser
+pnpm turbo test:node -- --watch # watch mode
 ```
 
 If you add a feature, add tests that prove it works and reference them in the PR.
