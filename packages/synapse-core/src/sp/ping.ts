@@ -12,18 +12,17 @@ export namespace ping {
     /** The signal to abort the request. */
     signal?: AbortSignal
   }
-  export type OutputType = Response
+  export type OutputType = undefined
   export type ErrorType = AbortError | HttpError | NetworkError | TimeoutError
 }
 
 /**
- * Ping the PDP API.
+ * Ping the PDP API. Resolves when the provider answers with a 2xx status.
  *
  * GET /pdp/ping
  *
  * @param serviceURL - The service URL of the PDP API.
  * @param options - Optional timeout and abort signal.
- * @returns Response {@link ping.OutputType}
  * @throws Errors {@link ping.ErrorType}
  */
 export async function ping(serviceURL: string, options: ping.OptionsType = {}): Promise<ping.OutputType> {
@@ -38,5 +37,6 @@ export async function ping(serviceURL: string, options: ping.OptionsType = {}): 
   if (response.error) {
     throw response.error
   }
-  return response.result
+  // the body is not needed, release the connection
+  response.result.body?.cancel().catch(() => undefined)
 }

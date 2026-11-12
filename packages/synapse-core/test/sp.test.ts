@@ -1,4 +1,5 @@
 import { assert } from 'chai'
+import { HttpError } from 'iso-web/http'
 import { setup } from 'iso-web/msw'
 import { delay, HttpResponse, http } from 'msw'
 import { createWalletClient, decodeAbiParameters, http as viemHttp } from 'viem'
@@ -1197,6 +1198,79 @@ InvalidSignature(address expected, address actual)
         assert.instanceOf(error, FindPieceError)
         assert.equal(error.shortMessage, 'Failed to find piece.')
         assert.include(error.message, 'Database error')
+      }
+    })
+
+    it('keeps the HTTP error as cause and retries transient failures', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+      let attempts = 0
+      server.use(
+        http.get('https://pdp.example.com/pdp/piece', () => {
+          attempts++
+          return HttpResponse.text('Database error', { status: 500 })
+        })
+      )
+
+      try {
+        await findPiece({ serviceURL: 'https://pdp.example.com', pieceCid, retryDelay: 10 })
+        assert.fail('Should have thrown error for server error')
+      } catch (error) {
+        assert.instanceOf(error, FindPieceError)
+        assert.isFalse(error.notFound)
+        assert.instanceOf(error.cause, HttpError)
+        assert.equal((error.cause as HttpError).code, 500)
+      }
+      assert.equal(attempts, 3)
+    })
+
+    it('throws notFound on 404 without retrying when not polling', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+      let attempts = 0
+      server.use(
+        http.get('https://pdp.example.com/pdp/piece', () => {
+          attempts++
+          return HttpResponse.text(null, { status: 404 })
+        })
+      )
+
+      try {
+        await findPiece({ serviceURL: 'https://pdp.example.com', pieceCid })
+        assert.fail('Should have thrown error for not found')
+      } catch (error) {
+        assert.instanceOf(error, FindPieceError)
+        assert.isTrue(error.notFound)
+      }
+      assert.equal(attempts, 1)
+    })
+
+    it('throws notFound on 202 when not polling', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+      server.use(
+        http.get('https://pdp.example.com/pdp/piece', () =>
+          HttpResponse.json({ message: 'Processing' }, { status: 202 })
+        )
+      )
+
+      try {
+        await findPiece({ serviceURL: 'https://pdp.example.com', pieceCid })
+        assert.fail('Should have thrown error for processing piece')
+      } catch (error) {
+        assert.instanceOf(error, FindPieceError)
+        assert.isTrue(error.notFound)
+      }
+    })
+
+    it('keeps the TimeoutError as cause', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+      server.use(findPieceHandler(mockPieceCidStr, false))
+
+      try {
+        await findPiece({ serviceURL: 'https://pdp.example.com', pieceCid, poll: true, timeout: 10 })
+        assert.fail('Should have timed out')
+      } catch (error) {
+        assert.instanceOf(error, FindPieceError)
+        assert.isFalse(error.notFound)
+        assert.instanceOf(error.cause, TimeoutError)
       }
     })
 
