@@ -52,6 +52,7 @@ This repo uses [Turborepo](https://turborepo.dev) to run tasks with workspace de
 - Tasks whose inputs haven't changed are restored from the cache in `.turbo/`. Add `--force` to rerun them.
 - Watch mode: `pnpm turbo watch {task}`
 - Extra arguments: `pnpm turbo {task} -- {script args}`
+- Telemetry: Turborepo sends [anonymous usage telemetry](https://turborepo.dev/docs/telemetry) by default. CI turns it off with `TURBO_TELEMETRY_DISABLED=1`. To turn it off locally, run `pnpm turbo telemetry disable` or set `TURBO_TELEMETRY_DISABLED=1` (or `DO_NOT_TRACK=1`).
 
 ### Codespaces
 
