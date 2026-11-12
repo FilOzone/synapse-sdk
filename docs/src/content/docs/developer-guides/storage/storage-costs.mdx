@@ -207,6 +207,10 @@ console.log("Needs approval:", needsFwssMaxApproval)
 console.log("Ready to upload:", ready)
 ```
 
+:::note[Only an unlimited approval counts]
+A bounded FWSS approval reports `needsFwssMaxApproval: true` and `ready: false`, even if it covers the upload. Use `approveService()` with no allowance arguments, or `prepare()`.
+:::
+
 ## Upload Preparation
 
 Before uploading, the **WarmStorage operator** must be approved and your account must be funded. FWSS uses a 30-day lockup (prepayment) period. If your account becomes underfunded, the provider may terminate the storage agreement, after which you have 30 days before data removal.
