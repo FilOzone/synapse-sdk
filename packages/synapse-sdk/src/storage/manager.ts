@@ -846,7 +846,7 @@ export class StorageManager {
    * Buffers the whole piece in memory. Use {@link downloadStream} for large pieces.
    */
   async download(options: StorageManagerDownloadOptions): Promise<Uint8Array> {
-    return readAllBytes(await this.downloadStream({ ...options, validate: true }))
+    return readAllBytes(await this._openDownload({ ...options, validate: true }, 'download'))
   }
 
   /**
@@ -865,6 +865,17 @@ export class StorageManager {
    * ```
    */
   async downloadStream(options: StorageManagerDownloadStreamOptions): Promise<ReadableStream<Uint8Array>> {
+    return this._openDownload(options, 'downloadStream')
+  }
+
+  /**
+   * Shared implementation of {@link download} and {@link downloadStream}. `method` names the public
+   * method in error messages.
+   */
+  private async _openDownload(
+    options: StorageManagerDownloadStreamOptions,
+    method: 'download' | 'downloadStream'
+  ): Promise<ReadableStream<Uint8Array>> {
     const { signal } = options
     if (options?.context != null) {
       // If context is provided, no other options should be set
@@ -875,7 +886,7 @@ export class StorageManager {
       if (invalidOptions.length > 0) {
         throw createError(
           'StorageManager',
-          'download',
+          method,
           `Cannot specify both 'context' and other options: ${invalidOptions.join(', ')}`
         )
       }
@@ -888,7 +899,7 @@ export class StorageManager {
       })
     }
 
-    const { url, pieceCid } = await this._resolveDownloadUrl(options)
+    const { url, pieceCid } = await this._resolveDownloadUrl(options, method)
     return options.validate === false
       ? Piece.downloadStream({ url, validate: false, signal })
       : Piece.downloadStream({ url, expectedPieceCid: pieceCid, signal })
@@ -898,12 +909,13 @@ export class StorageManager {
    * Resolve the URL to download a piece from, either the given provider or any provider storing it.
    */
   private async _resolveDownloadUrl(
-    options: StorageManagerDownloadOptions
+    options: StorageManagerDownloadOptions,
+    method: 'download' | 'downloadStream'
   ): Promise<{ url: string; pieceCid: PieceCID }> {
     const { signal } = options
     const parsedPieceCID = Piece.tryFrom(options.pieceCid)
     if (parsedPieceCID == null) {
-      throw createError('StorageManager', 'download', `Invalid PieceCID: ${String(options.pieceCid)}`)
+      throw createError('StorageManager', method, `Invalid PieceCID: ${String(options.pieceCid)}`)
     }
     throwIfAborted(signal)
 
@@ -912,7 +924,7 @@ export class StorageManager {
       const provider = await getPDPProviderByAddress(this._synapse.readClient, { address: options.providerAddress })
 
       if (provider == null) {
-        throw createError('StorageManager', 'download', `Provider ${options.providerAddress} not found`)
+        throw createError('StorageManager', method, `Provider ${options.providerAddress} not found`)
       }
       return {
         url: Piece.createPieceUrlPDP({ cid: parsedPieceCID.toString(), serviceURL: provider.pdp.serviceURL }),
@@ -940,7 +952,7 @@ export class StorageManager {
       throwIfAborted(signal)
       throw createError(
         'StorageManager',
-        'download',
+        method,
         `All provider retrieval attempts failed and no additional retriever method was configured`,
         error
       )
