@@ -24,9 +24,9 @@ export namespace isFwssMaxApproved {
  * `maxLockupPeriod` covering the chain's default lockup period.
  *
  * A bounded approval returns `false`, even one large enough for the next
- * upload. `getUploadCosts` and `fund` use this check, so they report
- * `needsFwssMaxApproval: true` and `ready: false` for a bounded approval.
- * Request an unlimited approval (e.g. `setOperatorApproval` with its default
+ * upload. With a bounded approval, `getUploadCosts` reports
+ * `needsFwssMaxApproval: true` and `ready: false`, and `fund` sends a
+ * transaction that includes an unlimited approval. Request an unlimited approval (e.g. `setOperatorApproval` with its default
  * allowances) to pass it.
  *
  * rateAllowance is checked for exact maxUint256 since the contract never
