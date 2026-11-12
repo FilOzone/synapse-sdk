@@ -13,15 +13,20 @@ import * as Abis from '../src/abis/index.ts'
 import { calibration } from '../src/chains.ts'
 import { ValidationError } from '../src/errors/base.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
-import { findAuthorizer } from '../src/session-key/find-authorizer.ts'
+import { findAuthorizers } from '../src/session-key/find-authorizers.ts'
 import { CreateDataSetPermission } from '../src/session-key/permissions.ts'
 
 const SIGNER: Address = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'
 const OTHER_SIGNER: Address = '0x1111111111111111111111111111111111111111'
 const ROOT_A: Address = '0x2222222222222222222222222222222222222222'
 const ROOT_B: Address = '0x3333333333333333333333333333333333333333'
+const ROOT_C: Address = '0x4444444444444444444444444444444444444444'
 
 type MockEvent = { block: bigint; identity: Address; signer: Address; expiry: bigint; permissions?: Hex[] }
+
+function txHash(block: bigint): Hex {
+  return numberToHex(block, { size: 32 })
+}
 
 function toRpcLog(event: MockEvent, index: number) {
   const topics = encodeEventTopics({
@@ -41,7 +46,7 @@ function toRpcLog(event: MockEvent, index: number) {
     logIndex: numberToHex(index),
     removed: false,
     topics: topics as [Hex, ...Hex[]],
-    transactionHash: `0x${'bb'.repeat(32)}` as Hex,
+    transactionHash: txHash(event.block),
     transactionIndex: '0x0' as Hex,
   }
 }
@@ -55,7 +60,7 @@ function mockLogs(events: MockEvent[], requests: Array<[bigint, bigint]>) {
   }
 }
 
-describe('findAuthorizer', () => {
+describe('findAuthorizers', () => {
   const server = setup()
   const client = createPublicClient({ chain: calibration, transport: http() })
 
@@ -71,7 +76,7 @@ describe('findAuthorizer', () => {
     server.resetHandlers()
   })
 
-  it('scans newest-first in windows and returns the matching identity', async () => {
+  it('scans newest-first in windows and returns the single authorizer', async () => {
     const requests: Array<[bigint, bigint]> = []
     const events: MockEvent[] = [
       { block: 105n, identity: ROOT_A, signer: SIGNER, expiry: 1000n },
@@ -79,9 +84,23 @@ describe('findAuthorizer', () => {
     ]
     server.use(JSONRPC({ ...presets.basic, eth_getLogs: mockLogs(events, requests) }))
 
-    const root = await findAuthorizer(client, { signer: SIGNER, fromBlock: 100n, toBlock: 149n, blockRange: 20n })
+    const authorizers = await findAuthorizers(client, {
+      signer: SIGNER,
+      fromBlock: 100n,
+      toBlock: 149n,
+      blockRange: 20n,
+    })
 
-    assert.equal(root, ROOT_A)
+    assert.deepEqual(authorizers, [
+      {
+        identity: ROOT_A,
+        expiry: 1000n,
+        permissions: [CreateDataSetPermission],
+        origin: 'synapse',
+        blockNumber: 105n,
+        transactionHash: txHash(105n),
+      },
+    ])
     assert.deepEqual(requests, [
       [130n, 149n],
       [110n, 129n],
@@ -89,53 +108,69 @@ describe('findAuthorizer', () => {
     ])
   })
 
-  it('returns the most recent authorization and skips revocations', async () => {
-    const requests: Array<[bigint, bigint]> = []
+  it('returns every distinct authorizer, most recent first, deduplicated by identity', async () => {
     const events: MockEvent[] = [
       { block: 101n, identity: ROOT_A, signer: SIGNER, expiry: 1000n },
-      { block: 102n, identity: ROOT_B, signer: SIGNER, expiry: 2000n },
-      { block: 103n, identity: ROOT_A, signer: SIGNER, expiry: 0n },
-    ]
-    server.use(JSONRPC({ ...presets.basic, eth_getLogs: mockLogs(events, requests) }))
-
-    const root = await findAuthorizer(client, { signer: SIGNER, fromBlock: 100n, toBlock: 110n })
-
-    assert.equal(root, ROOT_B)
-    assert.deepEqual(requests, [[100n, 110n]])
-  })
-
-  it('skips authorizations with no permissions', async () => {
-    const events: MockEvent[] = [
-      { block: 100n, identity: ROOT_A, signer: SIGNER, expiry: 1000n },
-      { block: 101n, identity: ROOT_B, signer: SIGNER, expiry: 1000n, permissions: [] },
+      { block: 125n, identity: ROOT_B, signer: SIGNER, expiry: 2000n },
+      { block: 140n, identity: ROOT_A, signer: SIGNER, expiry: 3000n },
     ]
     server.use(JSONRPC({ ...presets.basic, eth_getLogs: mockLogs(events, []) }))
 
-    const root = await findAuthorizer(client, { signer: SIGNER, fromBlock: 100n, toBlock: 110n })
+    const authorizers = await findAuthorizers(client, {
+      signer: SIGNER,
+      fromBlock: 100n,
+      toBlock: 149n,
+      blockRange: 20n,
+    })
 
-    assert.equal(root, ROOT_A)
+    assert.deepEqual(
+      authorizers.map((a) => [a.identity, a.blockNumber, a.expiry]),
+      [
+        [ROOT_A, 140n, 3000n],
+        [ROOT_B, 125n, 2000n],
+      ]
+    )
+  })
+
+  it('skips revocations and authorizations with no permissions', async () => {
+    const events: MockEvent[] = [
+      { block: 101n, identity: ROOT_A, signer: SIGNER, expiry: 1000n },
+      { block: 102n, identity: ROOT_B, signer: SIGNER, expiry: 1000n, permissions: [] },
+      { block: 103n, identity: ROOT_C, signer: SIGNER, expiry: 0n },
+    ]
+    server.use(JSONRPC({ ...presets.basic, eth_getLogs: mockLogs(events, []) }))
+
+    const authorizers = await findAuthorizers(client, { signer: SIGNER, fromBlock: 100n, toBlock: 110n })
+
+    assert.deepEqual(
+      authorizers.map((a) => a.identity),
+      [ROOT_A]
+    )
   })
 
   it('matches the signer case-insensitively', async () => {
     const events: MockEvent[] = [{ block: 100n, identity: ROOT_A, signer: SIGNER, expiry: 1000n }]
     server.use(JSONRPC({ ...presets.basic, eth_getLogs: mockLogs(events, []) }))
 
-    const root = await findAuthorizer(client, {
+    const authorizers = await findAuthorizers(client, {
       signer: SIGNER.toUpperCase().replace('0X', '0x') as Address,
       fromBlock: 100n,
       toBlock: 100n,
     })
 
-    assert.equal(root, ROOT_A)
+    assert.deepEqual(
+      authorizers.map((a) => a.identity),
+      [ROOT_A]
+    )
   })
 
-  it('defaults toBlock to the latest block and returns undefined when nothing matches', async () => {
+  it('defaults toBlock to the latest block and returns an empty list when nothing matches', async () => {
     const requests: Array<[bigint, bigint]> = []
     server.use(JSONRPC({ ...presets.basic, eth_blockNumber: numberToHex(1000n), eth_getLogs: mockLogs([], requests) }))
 
-    const root = await findAuthorizer(client, { signer: SIGNER, fromBlock: 500n })
+    const authorizers = await findAuthorizers(client, { signer: SIGNER, fromBlock: 500n })
 
-    assert.equal(root, undefined)
+    assert.deepEqual(authorizers, [])
     assert.deepEqual(requests, [
       [701n, 1000n],
       [500n, 700n],
@@ -148,14 +183,14 @@ describe('findAuthorizer', () => {
     controller.abort()
 
     await assert.rejects(
-      findAuthorizer(client, { signer: SIGNER, fromBlock: 0n, toBlock: 10n, signal: controller.signal }),
+      findAuthorizers(client, { signer: SIGNER, fromBlock: 0n, toBlock: 10n, signal: controller.signal }),
       (error: Error) => error.name === 'AbortError'
     )
   })
 
   it('rejects a non-positive blockRange', async () => {
     await assert.rejects(
-      findAuthorizer(client, { signer: SIGNER, fromBlock: 0n, toBlock: 10n, blockRange: 0n }),
+      findAuthorizers(client, { signer: SIGNER, fromBlock: 0n, toBlock: 10n, blockRange: 0n }),
       (error: Error) => error instanceof ValidationError && error.message.includes('`blockRange` must be at least 1.')
     )
   })
