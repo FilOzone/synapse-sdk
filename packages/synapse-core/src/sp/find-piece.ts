@@ -2,6 +2,7 @@ import { type AbortError, HttpError, type NetworkError, request, TimeoutError } 
 import { FindPieceError } from '../errors/pdp.ts'
 import * as Piece from '../piece/index.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
+import { abortable, throwIfAborted } from '../utils/abort.ts'
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { serviceURLJoin } from '../utils/service-url.ts'
 
@@ -103,8 +104,10 @@ export async function findPiece(options: findPiece.OptionsType): Promise<findPie
   }
   let data: { pieceCid?: unknown }
   try {
-    data = await result.json()
+    data = await abortable(result.json(), options.signal)
   } catch (error) {
+    // an abort while the body is read must surface as AbortError, not as a bad response
+    throwIfAborted(options.signal)
     throw new FindPieceError('Response body is not valid JSON', { cause: error as Error })
   }
   if (typeof data?.pieceCid !== 'string') {

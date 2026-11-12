@@ -75,6 +75,26 @@ describe('SP boolean checks', () => {
         assert.instanceOf(error, AbortError)
       }
     })
+    it('throws AbortError when aborted while the body is read', async () => {
+      const controller = new AbortController()
+      server.use(
+        http.get(`${serviceURL}/pdp/piece`, () => {
+          const body = new ReadableStream({
+            start(stream) {
+              stream.enqueue(new TextEncoder().encode('{"pieceCid":'))
+              setTimeout(() => controller.abort(), 20)
+            },
+          })
+          return new HttpResponse(body, { status: 200, headers: { 'content-type': 'application/json' } })
+        })
+      )
+      try {
+        await hasPiece({ serviceURL, pieceCid, signal: controller.signal })
+        assert.fail('Expected hasPiece to be aborted')
+      } catch (error) {
+        assert.instanceOf(error, AbortError)
+      }
+    })
   })
 
   describe('isReachable', () => {
