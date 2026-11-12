@@ -6,6 +6,7 @@ import type {
   BlockNumber,
   BlockTag,
   Hex,
+  RpcLog,
   RpcStateOverride,
   RpcTransaction,
   TransactionRequest,
@@ -58,6 +59,17 @@ export interface JSONRPCOptions {
     ]
   ) => Block<Hex, boolean, BlockTag, RpcTransaction<false>> | null
   eth_gasPrice?: () => Hex
+  eth_getLogs?: (
+    params: [
+      filter: {
+        address?: Address | Address[]
+        topics?: (Hex | Hex[] | null)[]
+        fromBlock?: Hex | BlockTag
+        toBlock?: Hex | BlockTag
+        blockHash?: Hex
+      },
+    ]
+  ) => RpcLog[]
   eth_maxPriorityFeePerGas?: () => Hex
   eth_sendRawTransaction?: (params: [transaction: Hex]) => Hex
   eth_accounts?: string[]

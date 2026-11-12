@@ -1653,16 +1653,20 @@ describe('StorageService', () => {
       const testPieceCID = (await Piece.calculate(testData)).toString()
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+      const controller = new AbortController()
       let receiptPolls = 0
+      // The transaction is still pending. Abort once the confirmation wait has polled,
+      // rather than on a timer that slow runners can beat.
+      const pendingPoll = () => {
+        receiptPolls++
+        setTimeout(() => controller.abort(), 0)
+        return null
+      }
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
-          // The transaction is still pending
-          eth_getTransactionByHash: () => {
-            receiptPolls++
-            return null
-          },
-          eth_getTransactionReceipt: () => null,
+          eth_getTransactionByHash: pendingPoll,
+          eth_getTransactionReceipt: pendingPoll,
         }),
         Mocks.PING(),
         Mocks.pdp.postPieceUploadsHandler(mockUuid, pdpOptions),
@@ -1681,15 +1685,9 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService({ client })
       const service = await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
 
-      const controller = new AbortController()
       const start = Date.now()
       try {
-        await service.upload(testData, {
-          signal: controller.signal,
-          onPiecesAdded: () => {
-            setTimeout(() => controller.abort(), 50)
-          },
-        })
+        await service.upload(testData, { signal: controller.signal })
         assert.fail('Should have thrown abort error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to commit pieces on-chain')
