@@ -13,6 +13,7 @@ import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../a
 import { asChain } from '../chains.ts'
 import { type Page, type PaginationOptions, paginate, resolvePagination } from '../pagination.ts'
 import type { PaginatedActionCallOptions } from '../types.ts'
+import { isProviderExistsRevert } from '../utils/contract-errors.ts'
 import { getApprovedProviderIds } from '../warm-storage/get-approved-provider-ids.ts'
 import { getPDPProviderCall, hasActivePDPProduct, parsePDPProvider } from './get-pdp-provider.ts'
 import type { getProvidersByProductType } from './get-providers-by-product-type.ts'
@@ -237,6 +238,10 @@ export namespace getPDPProvidersByIds {
 /**
  * Get PDP providers by IDs
  *
+ * Providers that do not exist (the registry reverts with `Provider does not exist`
+ * or `Provider not found`) or that have no active PDP product are omitted from the
+ * result. Any other failure, including RPC errors and aborted requests, rejects.
+ *
  * @param client - The client to use to get the providers.
  * @param options - {@link getPDPProvidersByIds.OptionsType}
  * @returns The approved PDP providers {@link getPDPProvidersByIds.OutputType}
@@ -277,7 +282,17 @@ export async function getPDPProvidersByIds(
 
   const providers: ProviderWithProduct[] = []
   for (const r of result) {
-    if (r.status === 'success' && hasActivePDPProduct(r.result)) {
+    if (r.status === 'failure') {
+      // A nonexistent or removed provider ID reverts in `providerExists`; skip it,
+      // matching `getPDPProvider` returning `null`. Anything else (RPC failure,
+      // aborted request, unexpected revert) must reject rather than look like
+      // "no providers".
+      if (isProviderExistsRevert(r.error)) {
+        continue
+      }
+      throw r.error
+    }
+    if (hasActivePDPProduct(r.result)) {
       providers.push(r.result)
     }
   }
