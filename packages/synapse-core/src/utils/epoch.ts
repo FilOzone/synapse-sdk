@@ -23,33 +23,31 @@ export function epochToDate(epoch: bigint, genesisTimestamp: number): Date | nul
  * Convert a JavaScript Date to a Filecoin epoch
  * @param date - The date to convert
  * @param genesisTimestamp - The genesis timestamp of the chain in seconds (Unix timestamp)
- * @returns The epoch number (rounded down to nearest epoch)
+ * @returns The epoch (rounded down to nearest epoch)
  */
-export function dateToEpoch(date: Date, genesisTimestamp: number): number {
-  const epochDuration = TIME_CONSTANTS.EPOCH_DURATION
-  const timestampSeconds = Math.floor(date.getTime() / 1000)
-  const secondsSinceGenesis = timestampSeconds - genesisTimestamp
-  return Math.floor(secondsSinceGenesis / epochDuration)
+export function dateToEpoch(date: Date, genesisTimestamp: number): bigint {
+  const secondsSinceGenesis = Math.floor(date.getTime() / 1000) - genesisTimestamp
+  return BigInt(Math.floor(secondsSinceGenesis / TIME_CONSTANTS.EPOCH_DURATION))
 }
 
 /**
  * Calculate the time until a future epoch
- * @param futureEpoch - The future epoch number
- * @param currentEpoch - The current epoch number
+ * @param futureEpoch - The future epoch
+ * @param currentEpoch - The current epoch
  * @returns Object with time until the epoch in various units
  */
 export function timeUntilEpoch(
-  futureEpoch: number,
-  currentEpoch: number
+  futureEpoch: bigint,
+  currentEpoch: bigint
 ): {
-  epochs: number
+  epochs: bigint
   seconds: number
   minutes: number
   hours: number
   days: number
 } {
   const epochDifference = futureEpoch - currentEpoch
-  const seconds = epochDifference * TIME_CONSTANTS.EPOCH_DURATION
+  const seconds = Number(epochDifference) * TIME_CONSTANTS.EPOCH_DURATION
 
   return {
     epochs: epochDifference,

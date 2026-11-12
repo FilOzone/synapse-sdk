@@ -62,6 +62,7 @@ describe('getAccountSummary', () => {
     assert.equal(result.totalRateBasedLockup, 0n)
     assert.equal(result.runwayInEpochs, maxUint256)
     assert.equal(result.grossCoverageInEpochs, maxUint256)
+    assert.equal(result.fundedUntilEpoch, maxUint256)
     assert.equal(result.fundedUntil, null)
     assert.equal(result.epoch, 1000000n)
   })
@@ -130,6 +131,7 @@ describe('getAccountSummary', () => {
     // runwayInEpochs > 0 because account is healthy
     assert.ok(result.runwayInEpochs > 0n)
     // funded until lockupLastSettledAt + funds / lockupRate = 1000000 + 100000
+    assert.equal(result.fundedUntilEpoch, 1100000n)
     assert.equal(result.fundedUntil?.getTime(), (calibration.genesisTimestamp + 1100000 * 30) * 1000)
     // grossCoverageInEpochs = funds / lockupRate, always >= runwayInEpochs
     assert.equal(result.grossCoverageInEpochs, funds / lockupRate)
@@ -168,7 +170,9 @@ describe('getAccountSummary', () => {
     // runway is exhausted when account is in deficit
     assert.equal(result.runwayInEpochs, 0n)
     // already in deficit: fundedUntil is the date of the evaluated epoch
-    assert.equal(result.fundedUntil?.getTime(), (calibration.genesisTimestamp + 1010000 * 30) * 1000)
+    // entered deficit at lockupLastSettledAt + funds / lockupRate = 1000000 + 100, before `epoch`
+    assert.equal(result.fundedUntilEpoch, 1000100n)
+    assert.equal(result.fundedUntil?.getTime(), (calibration.genesisTimestamp + 1000100 * 30) * 1000)
     // grossCoverageInEpochs reflects the total horizon: funds remain even
     // after settlement halts
     assert.equal(result.grossCoverageInEpochs, funds / lockupRate)

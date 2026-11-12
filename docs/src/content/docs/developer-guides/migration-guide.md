@@ -27,21 +27,29 @@ import { addPiecesFits, assertAddPiecesFit } from '@filoz/synapse-core/utils'
 
 `createPieceBatcher` now sends pulls in batched requests of up to 10 pieces. Its `concurrency` option used to cap pulls per piece and now caps pull requests, so the same value allows up to ten times as many pieces in flight. `upload` transfers share the same limit and still take one slot per piece.
 
-### Action: Pass bigint epochs to `epochToDate` and `calculateLastProofDate`
+### Action: Use bigint epochs with the epoch helpers
 
-`epochToDate` and `calculateLastProofDate` from `@filoz/synapse-core/utils` now take `bigint` epochs instead of `number`. `epochToDate` returns `Date | null`: `null` when the date is past the `Date` range, including the `maxUint256` runway sentinel. Drop any `Number(...)` conversion and handle `null`.
+The epoch helpers in `@filoz/synapse-core/utils` now use `bigint` epochs instead of `number`:
+
+- `epochToDate` and `calculateLastProofDate` take `bigint` epochs. `epochToDate` returns `Date | null`: `null` when the date is past the `Date` range, including the `maxUint256` runway sentinel.
+- `dateToEpoch` returns a `bigint`.
+- `timeUntilEpoch` takes `bigint` epochs and returns `epochs` as a `bigint`; `seconds`, `minutes`, `hours` and `days` stay `number`.
+
+Drop any `Number(...)` conversion and handle `null`.
 
 ```ts
 // Before
 const due = epochToDate(Number(epoch), chain.genesisTimestamp) // Date
 const last = calculateLastProofDate(Number(nextChallengeEpoch), Number(maxProvingPeriod), chain.genesisTimestamp)
+const { hours } = timeUntilEpoch(Number(futureEpoch), Number(currentEpoch))
 
 // After
 const due = epochToDate(epoch, chain.genesisTimestamp) // Date | null
 const last = calculateLastProofDate(nextChallengeEpoch, maxProvingPeriod, chain.genesisTimestamp)
+const { hours } = timeUntilEpoch(futureEpoch, currentEpoch)
 ```
 
-To show when an account runs out of funds, use the new `fundedUntil` field of `getAccountSummary` instead of converting `runwayInEpochs` yourself.
+To show when an account runs out of funds, use the new `fundedUntilEpoch` and `fundedUntil` fields of `getAccountSummary` instead of converting `runwayInEpochs` yourself. A `null` `fundedUntil` with a positive `lockupRatePerEpoch` means the date is past the `Date` range, not that nothing is being spent.
 
 ---
 
