@@ -5,7 +5,7 @@
     "rootDir": ".",
     "types": ["mocha", "node"]
   },
-  "include": ["src/**/*", "package.json", "../synapse-core/src/utils/epoch.ts", "../synapse-core/test/epoch.test.ts"],
+  "include": ["src/**/*", "package.json"],
   "exclude": ["node_modules", "dist"],
   "references": [
     {
