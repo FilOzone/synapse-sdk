@@ -118,9 +118,23 @@ export namespace calculateUploadCosts {
     }
     /** Total USDFC to deposit. 0n when the account is sufficiently funded. */
     depositNeeded: bigint
-    /** Whether FWSS needs maximum operator approval. */
+    /**
+     * Whether FWSS needs an unlimited operator approval.
+     *
+     * Only an unlimited approval counts: `rateAllowance` must be `maxUint256`,
+     * `lockupAllowance` at least `maxUint256 / 2n`, and `maxLockupPeriod` must
+     * cover the chain's default lockup period. A bounded approval reports
+     * `true` even when its remaining allowances cover this upload: the check
+     * does not compare allowances against the rate and lockup this upload
+     * adds. See `isFwssMaxApproved`.
+     */
     needsFwssMaxApproval: boolean
-    /** Whether no deposit or approval transaction is required. */
+    /**
+     * Whether no deposit or approval transaction is required.
+     *
+     * `false` whenever `depositNeeded > 0n` or `needsFwssMaxApproval` is `true`,
+     * so a payer with a bounded FWSS approval is never ready.
+     */
     ready: boolean
   }
 }

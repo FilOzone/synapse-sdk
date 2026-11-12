@@ -20,8 +20,14 @@ export namespace isFwssMaxApproved {
 }
 
 /**
- * Check whether FWSS is approved with sufficient rate/lockup allowances and a
+ * Check whether FWSS is approved with unlimited rate/lockup allowances and a
  * `maxLockupPeriod` covering the chain's default lockup period.
+ *
+ * A bounded approval returns `false`, even one large enough for the next
+ * upload. `getUploadCosts` and `fund` use this check, so they report
+ * `needsFwssMaxApproval: true` and `ready: false` for a bounded approval.
+ * Request an unlimited approval (e.g. `setOperatorApproval` with its default
+ * allowances) to pass it.
  *
  * rateAllowance is checked for exact maxUint256 since the contract never
  * decrements it — it only tracks usage separately via rateUsage.
