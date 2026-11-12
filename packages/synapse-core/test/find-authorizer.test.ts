@@ -11,6 +11,7 @@ import {
 } from 'viem'
 import * as Abis from '../src/abis/index.ts'
 import { calibration } from '../src/chains.ts'
+import { ValidationError } from '../src/errors/base.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { findAuthorizer } from '../src/session-key/find-authorizer.ts'
 import { CreateDataSetPermission } from '../src/session-key/permissions.ts'
@@ -20,7 +21,7 @@ const OTHER_SIGNER: Address = '0x1111111111111111111111111111111111111111'
 const ROOT_A: Address = '0x2222222222222222222222222222222222222222'
 const ROOT_B: Address = '0x3333333333333333333333333333333333333333'
 
-type MockEvent = { block: bigint; identity: Address; signer: Address; expiry: bigint }
+type MockEvent = { block: bigint; identity: Address; signer: Address; expiry: bigint; permissions?: Hex[] }
 
 function toRpcLog(event: MockEvent, index: number) {
   const topics = encodeEventTopics({
@@ -30,7 +31,7 @@ function toRpcLog(event: MockEvent, index: number) {
   })
   const data = encodeAbiParameters(
     [{ type: 'address' }, { type: 'uint256' }, { type: 'bytes32[]' }, { type: 'string' }],
-    [event.signer, event.expiry, [CreateDataSetPermission], 'synapse']
+    [event.signer, event.expiry, event.permissions ?? [CreateDataSetPermission], 'synapse']
   )
   return {
     address: ADDRESSES.calibration.sessionKeyRegistry,
@@ -103,6 +104,18 @@ describe('findAuthorizer', () => {
     assert.deepEqual(requests, [[100n, 110n]])
   })
 
+  it('skips authorizations with no permissions', async () => {
+    const events: MockEvent[] = [
+      { block: 100n, identity: ROOT_A, signer: SIGNER, expiry: 1000n },
+      { block: 101n, identity: ROOT_B, signer: SIGNER, expiry: 1000n, permissions: [] },
+    ]
+    server.use(JSONRPC({ ...presets.basic, eth_getLogs: mockLogs(events, []) }))
+
+    const root = await findAuthorizer(client, { signer: SIGNER, fromBlock: 100n, toBlock: 110n })
+
+    assert.equal(root, ROOT_A)
+  })
+
   it('matches the signer case-insensitively', async () => {
     const events: MockEvent[] = [{ block: 100n, identity: ROOT_A, signer: SIGNER, expiry: 1000n }]
     server.use(JSONRPC({ ...presets.basic, eth_getLogs: mockLogs(events, []) }))
@@ -141,8 +154,9 @@ describe('findAuthorizer', () => {
   })
 
   it('rejects a non-positive blockRange', async () => {
-    await assert.rejects(findAuthorizer(client, { signer: SIGNER, fromBlock: 0n, toBlock: 10n, blockRange: 0n }), {
-      message: '`blockRange` must be at least 1.',
-    })
+    await assert.rejects(
+      findAuthorizer(client, { signer: SIGNER, fromBlock: 0n, toBlock: 10n, blockRange: 0n }),
+      (error: Error) => error instanceof ValidationError && error.message.includes('`blockRange` must be at least 1.')
+    )
   })
 })
