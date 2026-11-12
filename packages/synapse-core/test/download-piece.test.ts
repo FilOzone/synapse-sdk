@@ -301,6 +301,53 @@ describe('Piece download and validation', () => {
       )
     })
 
+    it('should error and stop reading as soon as the body exceeds the PieceCID size', async () => {
+      const pieceCid = await Piece.calculate(testData)
+      const chunk = new Uint8Array(64 * 1024)
+      let pulled = 0
+      server.use(
+        http.get(
+          'http://pdp.local/piece/:pieceCid',
+          () =>
+            new HttpResponse(
+              new ReadableStream<Uint8Array>({
+                pull(controller) {
+                  pulled++
+                  controller.enqueue(chunk)
+                },
+              }),
+              { status: 200 }
+            )
+        )
+      )
+
+      const stream = await downloadStream({
+        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        expectedPieceCid: pieceCid,
+      })
+      let received = 0
+      await rejects(
+        readAll(stream, (c) => {
+          received += c.length
+        }),
+        (error) => error instanceof DownloadPieceError && error.details?.includes('larger than the 1024 bytes') === true
+      )
+      assert.equal(received, 0)
+      assert.isBelow(pulled, 10)
+    })
+
+    it('should pass through a body that ends exactly at the PieceCID size', async () => {
+      const pieceCid = await Piece.calculate(testData)
+      server.use(http.get('http://pdp.local/piece/:pieceCid', () => chunkedResponse(testData, 1000)))
+
+      const stream = await downloadStream({
+        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        expectedPieceCid: pieceCid,
+      })
+      const { bytes } = await readAll(stream)
+      assert.deepEqual(bytes, testData)
+    })
+
     it('should not validate or require a PieceCID when validate is false', async () => {
       const wrongData = new Uint8Array([9, 9, 9, 9])
       server.use(http.get('http://pdp.local/piece/:pieceCid', () => HttpResponse.arrayBuffer(wrongData.buffer)))
