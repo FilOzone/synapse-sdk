@@ -58,35 +58,35 @@ describe('Epoch Utilities', () => {
     it('should convert genesis date to epoch 0 for mainnet', () => {
       const genesisDate = new Date(mainnet.genesisTimestamp * 1000)
       const epoch = dateToEpoch(genesisDate, mainnet.genesisTimestamp)
-      assert.equal(epoch, 0)
+      assert.equal(epoch, 0n)
     })
 
     it('should convert genesis date to epoch 0 for calibration', () => {
       const genesisDate = new Date(calibration.genesisTimestamp * 1000)
       const epoch = dateToEpoch(genesisDate, calibration.genesisTimestamp)
-      assert.equal(epoch, 0)
+      assert.equal(epoch, 0n)
     })
 
     it('should calculate correct epoch for future dates', () => {
       const futureDate = new Date((mainnet.genesisTimestamp + 3600) * 1000) // 1 hour after genesis
       const epoch = dateToEpoch(futureDate, mainnet.genesisTimestamp)
-      assert.equal(epoch, 120) // 3600 seconds / 30 seconds per epoch
+      assert.equal(epoch, 120n) // 3600 seconds / 30 seconds per epoch
     })
 
     it('should round down to nearest epoch', () => {
       const partialEpochDate = new Date((calibration.genesisTimestamp + 45) * 1000) // 1.5 epochs
       const epoch = dateToEpoch(partialEpochDate, calibration.genesisTimestamp)
-      assert.equal(epoch, 1) // Should round down
+      assert.equal(epoch, 1n) // Should round down
     })
   })
 
   describe('timeUntilEpoch', () => {
     it('should calculate correct time difference', () => {
-      const currentEpoch = 1000
-      const futureEpoch = 1120 // 120 epochs in the future = 1 hour
+      const currentEpoch = 1000n
+      const futureEpoch = 1120n // 120 epochs in the future = 1 hour
       const result = timeUntilEpoch(futureEpoch, currentEpoch)
 
-      assert.equal(result.epochs, 120)
+      assert.equal(result.epochs, 120n)
       assert.equal(result.seconds, 3600)
       assert.equal(result.minutes, 60)
       assert.equal(result.hours, 1)
@@ -94,9 +94,9 @@ describe('Epoch Utilities', () => {
     })
 
     it('should handle same epoch', () => {
-      const result = timeUntilEpoch(1000, 1000)
+      const result = timeUntilEpoch(1000n, 1000n)
 
-      assert.equal(result.epochs, 0)
+      assert.equal(result.epochs, 0n)
       assert.equal(result.seconds, 0)
       assert.equal(result.minutes, 0)
       assert.equal(result.hours, 0)
@@ -104,9 +104,9 @@ describe('Epoch Utilities', () => {
     })
 
     it('should handle negative differences (past epochs)', () => {
-      const result = timeUntilEpoch(1000, 1120)
+      const result = timeUntilEpoch(1000n, 1120n)
 
-      assert.equal(result.epochs, -120)
+      assert.equal(result.epochs, -120n)
       assert.equal(result.seconds, -3600)
       assert.equal(result.minutes, -60)
       assert.equal(result.hours, -1)

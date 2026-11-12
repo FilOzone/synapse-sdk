@@ -1418,7 +1418,7 @@ export class StorageContext {
 
         // Calculate hours until challenge window starts (only if before challenge window)
         if (Number(currentEpoch) < challengeWindowStart) {
-          const timeUntil = timeUntilEpoch(Number(challengeWindowStart), Number(currentEpoch))
+          const timeUntil = timeUntilEpoch(challengeWindowStart, currentEpoch)
           hoursUntilChallengeWindow = timeUntil.hours
         }
       }

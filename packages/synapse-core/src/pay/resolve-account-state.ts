@@ -56,6 +56,12 @@ export namespace resolveAccountState {
      * - `0n` when `funds` is 0n and `lockupRate` is positive.
      */
     grossCoverageInEpochs: bigint
+    /**
+     * Epoch at which the account enters deficit, in the past when it
+     * already has. `maxUint256` when `lockupRate` is 0n (nothing is being
+     * spent).
+     */
+    fundedUntilEpoch: bigint
   }
 }
 
@@ -119,5 +125,6 @@ export function resolveAccountState(params: resolveAccountState.ParamsType): res
     availableFunds,
     runwayInEpochs,
     grossCoverageInEpochs,
+    fundedUntilEpoch,
   }
 }

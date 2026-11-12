@@ -78,12 +78,19 @@ export namespace getAccountSummary {
      */
     runwayInEpochs: bigint
     /**
-     * Date of `epoch + runwayInEpochs`: when the account enters deficit, or
-     * the date of `epoch` if it is already in deficit.
+     * Epoch at which the account enters deficit, in the past when it
+     * already has. `maxUint256` when `lockupRatePerEpoch` is 0n (nothing is
+     * being spent).
+     */
+    fundedUntilEpoch: bigint
+    /**
+     * Check `lockupRatePerEpoch` before treating `null` as "no spend": `null`
+     * also means the date is past the `Date` range, which is common with
+     * active spend on small data sets.
      *
-     * `null` when nothing is being spent or the date is past the `Date` range
-     * (common with active spend on small data sets), so check
-     * `lockupRatePerEpoch` to tell these apart. Not meaningful on devnet.
+     * Date of {@link fundedUntilEpoch}: when the account enters deficit, in
+     * the past when it already has. `null` when nothing is being spent or
+     * the date is past the `Date` range. Not meaningful on devnet.
      */
     fundedUntil: Date | null
     /**
@@ -168,7 +175,7 @@ export async function getAccountSummary(
     currentEpoch: resolvedEpoch,
   }
 
-  const { availableFunds, runwayInEpochs, grossCoverageInEpochs } = resolveAccountState(params)
+  const { availableFunds, runwayInEpochs, grossCoverageInEpochs, fundedUntilEpoch } = resolveAccountState(params)
   const debt = calculateAccountDebt(params)
 
   const totalLockup = accountInfo.funds > availableFunds ? accountInfo.funds - availableFunds : 0n
@@ -188,7 +195,8 @@ export async function getAccountSummary(
     totalRateBasedLockup,
 
     runwayInEpochs,
-    fundedUntil: epochToDate(resolvedEpoch + runwayInEpochs, chain.genesisTimestamp),
+    fundedUntilEpoch,
+    fundedUntil: epochToDate(fundedUntilEpoch, chain.genesisTimestamp),
     grossCoverageInEpochs,
     epoch: resolvedEpoch,
   }
