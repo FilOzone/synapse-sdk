@@ -161,6 +161,10 @@ Three types of allowances protect your funds from unauthorized spending:
 2. **Lockup Allowance** - Max total funds locked across all rails
 3. **Max Lockup Period** - Max duration funds can be locked (the safety net)
 
+:::caution[Only an unlimited approval counts]
+`getUploadCosts()` and `prepare()` treat a bounded FWSS approval as not approved. `approveService()` with no allowance arguments grants an unlimited one.
+:::
+
 ### Approving an Operator
 
 Approving warmStorage for 1TiB of storage for 3 months.

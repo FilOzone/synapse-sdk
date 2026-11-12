@@ -51,6 +51,10 @@ export namespace getUploadCosts {
  * Multi-piece fee and reserve estimates conservatively treat each piece as a
  * separate add-pieces operation because actual batching is runtime-dependent.
  *
+ * Approval is checked with `isFwssMaxApproved`: only an unlimited FWSS
+ * approval counts. A bounded approval reports `needsFwssMaxApproval: true`
+ * and `ready: false`, even when its remaining allowances cover this upload.
+ *
  * @param client - The client to use to compute upload costs.
  * @param options - {@link getUploadCosts.OptionsType}
  * @returns {@link getUploadCosts.OutputType}
