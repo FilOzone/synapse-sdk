@@ -964,8 +964,9 @@ export class StorageManager {
    *
    * Wraps the synapse-core `getUploadCosts()` function, automatically injecting
    * the client address. No StorageContext is needed. For an existing data set,
-   * pass its current PDP leaf count, lifecycle reserve balance, and any pending one-time
-   * payments. {@link prepare} reads that state automatically from its contexts.
+   * pass its `dataSetId` and its state is read on-chain. {@link prepare} reads
+   * that state automatically from its contexts. The result's `account` holds the
+   * available funds, debt and runway used to price the deposit.
    *
    * @param options - Upload cost options (clientAddress auto-injected)
    * @returns Upload costs including rate, deposit needed, and readiness
@@ -1109,7 +1110,7 @@ export class StorageManager {
       }
     })
 
-    return calculateUploadCosts({
+    const costs = calculateUploadCosts({
       contexts: resolvedContexts,
       priceList,
       account: {
@@ -1122,6 +1123,11 @@ export class StorageManager {
       extraRunwayEpochs: options.extraRunwayEpochs,
       bufferEpochs: options.bufferEpochs,
     })
+
+    return {
+      ...costs,
+      account: { availableFunds, debt, runwayInEpochs },
+    }
   }
 
   /**
