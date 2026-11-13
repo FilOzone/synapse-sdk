@@ -19,7 +19,7 @@ Encrypted bytes may be publicly retrievable; reading their contents requires the
 
 ## Before you start
 
-This example uses **Node.js 24** and a dedicated owner account on **Calibration**. You'll need test FIL for transaction fees and test USDFC for storage; the [SDK setup guide](/getting-started/#prerequisites) links to both faucets. An upload session key [cannot derive the owner's encryption keys](/developer-guides/encryption/share-encrypted-data/#share-a-keyspace-or-scope-with-a-session-key).
+This example uses **Node.js 24** and a dedicated owner account on **Calibration**. You'll need test FIL for transaction fees and test USDFC for storage; the [SDK setup guide](/getting-started/#prerequisites) links to both faucets. An upload session key [cannot derive the owner's encryption keys](/developer-guides/encryption/share-encrypted-data/#share-a-group-key-or-group-with-a-session-key).
 
 Add `@filoz/keysmith` and `filecoin-encryption-envelope` alongside your existing SDK dependencies. The setup below includes the tested versions and a required security override.
 
@@ -41,7 +41,7 @@ mkdir filecoin-encryption
 cd filecoin-encryption
 npm init -y
 npm pkg set type=module
-npm install @filoz/synapse-sdk@2.0.2 @filoz/keysmith@0.1.0 filecoin-encryption-envelope@0.1.0 viem@2.55.19
+npm install @filoz/synapse-sdk@2.0.2 @filoz/keysmith@0.2.0 filecoin-encryption-envelope@0.1.0 viem@2.55.19
 printf '.env\nnode_modules/\n' > .gitignore
 ```
 
@@ -70,9 +70,9 @@ node --input-type=module -e "import { writeFileSync } from 'node:fs'; writeFileS
 
 ## Encrypt, upload, and decrypt
 
-Save the following as `encrypt-file.ts`. Keysmith creates a keyspace for the encryption keys and uses the `documents` scope within it. A fresh salt derives a unique key for this file.
+Save the following as `encrypt-file.ts`. Keysmith creates a group key for the encryption keys and uses the `documents` group within it. A fresh salt derives a unique key for this file.
 
-Keep the generated recovery labels in the envelope and record the keyspace identifier and commitment in the data set metadata. The example does both. No encryption keys are written on-chain.
+Keep the generated recovery labels in the envelope and record the group key id and commitment in the data set metadata. The example does both. No encryption keys are written on-chain.
 
 ```ts twoslash title="encrypt-file.ts"
 // @types: node
@@ -96,13 +96,13 @@ const synapse = Synapse.create({
 const original = new Uint8Array(await readFile('sample.txt'))
 
 // 1. Derive the encryption key and public envelope metadata.
-const ref = { owner: account.address, keyspace: Keysmith.newKeyspace() }
+const ref = { owner: account.address, groupKeyId: Keysmith.newGroupKeyId() }
 // Optionally add { password } so a phished signature alone cannot derive the key.
-const { kk: keyspaceKey, commitment, descriptor } = await Keysmith.keyspaceKeys(account, ref)
-const target = Keysmith.writeTarget(descriptor, keyspaceKey, 'documents')
+const { kk: groupKey, commitment, descriptor } = await Keysmith.deriveGroupKey(account, ref)
+const target = Keysmith.writeTarget(descriptor, groupKey, 'documents')
 const salt = Keysmith.newSalt()
 const key = Keysmith.pieceKey(target.key, salt)
-const appMetadata = Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope })
+const appMetadata = Keysmith.pieceMetadata(target.ref, { salt, group: target.group })
 
 // 2. Finish encryption before preparing storage or uploading bytes.
 const encrypted = await through(original, fee.encrypt({
@@ -111,7 +111,7 @@ const encrypted = await through(original, fee.encrypt({
   contentLength: original.byteLength,
 }))
 const metadata = {
-  [Keysmith.KEYSPACE_ID_KEY]: ref.keyspace,
+  [Keysmith.GROUP_KEY_ID_KEY]: ref.groupKeyId,
   [Keysmith.COMMITMENT_KEY]: commitment,
 }
 const contexts = await synapse.storage.createContexts({ metadata })
@@ -131,7 +131,7 @@ if (!result.complete) {
 
 // 4. Download, fully decrypt, and compare before saving the restored file.
 const downloaded = await synapse.storage.download({ pieceCid: result.pieceCid })
-const restored = await through(downloaded, fee.decrypt(Keysmith.keyResolver(keyspaceKey, descriptor)))
+const restored = await through(downloaded, fee.decrypt(Keysmith.keyResolver(groupKey, descriptor)))
 deepStrictEqual(restored, original)
 await writeFile('restored.txt', restored)
 console.log(`Verified: ${restored.byteLength} bytes match the original file`)
@@ -181,13 +181,13 @@ node --env-file=.env encrypt-file.ts
 
 Success prints a PieceCID, the replica data set IDs, and a verification message. `restored.txt` matches `sample.txt` byte for byte. Keep the PieceCID and data set IDs to retrieve this upload later.
 
-Each run creates a new keyspace and new data sets. In an application, read and reuse existing data set metadata when adding files to that keyspace. Generate a fresh salt and piece key for every encryption attempt.
+Each run creates a new group key and new data sets. In an application, read and reuse existing data set metadata when adding files to that group key. Generate a fresh salt and piece key for every encryption attempt.
 
 ## If the example fails
 
 - **Funding or approval fails:** check the test account's FIL and USDFC balances using the [payment guide](/developer-guides/payments/payment-operations/).
 - **Only some copies succeed:** those copies are already stored and billed. Inspect the [upload result](/developer-guides/storage/upload-pipeline/#when-upload-returns) before retrying.
-- **The key does not match the recorded commitment:** if the keyspace was created with a `password`, pass the same password again. See [Protect a keyspace with a password](/developer-guides/encryption/keysmith-encryption-keys/#protect-a-keyspace-with-a-password).
-- **Decryption fails:** check that the key and envelope belong to the same keyspace. Modified or truncated encrypted data also fails authentication; do not use partial output.
+- **The key does not match the recorded commitment:** if the group key was created with a `password`, pass the same password again. See [Protect a group key with a password](/developer-guides/encryption/keysmith-encryption-keys/#protect-a-group-key-with-a-password).
+- **Decryption fails:** check that the key and envelope belong to the same group key. Modified or truncated encrypted data also fails authentication; do not use partial output.
 
 For recovery, sharing, and storage permissions, see [Keys and sharing](/developer-guides/encryption/keysmith-encryption-keys/).

@@ -2,7 +2,7 @@ import assert from 'assert'
 import { encode } from 'cborg'
 import { bytesToHex, type Hex, hexToBytes } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { commitment, holdingOf, keyForEnvelope, keyspaceKeys, pieceMetadata, scopeKey } from '../src/derive.ts'
+import { commitment, deriveGroupKey, holdingOf, keyForEnvelope, keyForGroup, pieceMetadata } from '../src/derive.ts'
 import type { PieceMetadata } from '../src/types.ts'
 import { decodeGrant, publicKeyOf, unwrapWith } from '../src/wrap.ts'
 import vectors from './vectors.json' with { type: 'json' }
@@ -13,26 +13,26 @@ import vectors from './vectors.json' with { type: 'json' }
 // check themselves against the same file.
 describe('test vectors', () => {
   const owner = privateKeyToAccount(vectors.owner.privateKey as Hex)
-  const ref = { owner: owner.address, keyspace: vectors.keyspace as Hex }
+  const ref = { owner: owner.address, groupKeyId: vectors.keyspace as Hex }
 
-  it('pins the keyspace key and its commitment', async function () {
+  it('pins the group key and its commitment', async function () {
     this.timeout(30_000) // one Argon2id pass
     assert.equal(owner.address, vectors.owner.address)
-    const keys = await keyspaceKeys(owner, ref)
+    const keys = await deriveGroupKey(owner, ref)
     assert.equal(bytesToHex(keys.kk), vectors.keyspaceKey.kk)
     assert.equal(keys.commitment, vectors.keyspaceKey.commitment)
     assert.equal(commitment(keys.kk), vectors.keyspaceKey.commitment)
-    const locked = await keyspaceKeys(owner, ref, { password: vectors.passwordKeyspaceKey.password })
+    const locked = await deriveGroupKey(owner, ref, { password: vectors.passwordKeyspaceKey.password })
     assert.equal(bytesToHex(locked.kk), vectors.passwordKeyspaceKey.kk)
     assert.equal(locked.commitment, vectors.passwordKeyspaceKey.commitment)
   })
 
-  it('pins the scope key, the envelope and the piece key', () => {
+  it('pins the group key, the envelope and the piece key', () => {
     const kkBytes = hexToBytes(vectors.keyspaceKey.kk as Hex)
-    assert.equal(bytesToHex(scopeKey(kkBytes, vectors.scope.path)), vectors.scope.key)
+    assert.equal(bytesToHex(keyForGroup(kkBytes, vectors.scope.path)), vectors.scope.key)
     const metadata = vectors.piece.metadata as PieceMetadata
     assert.deepStrictEqual(
-      pieceMetadata(ref, { salt: metadata['foc/salt'], scope: metadata['foc/scope'] as string }),
+      pieceMetadata(ref, { salt: metadata['foc/salt'], group: metadata['foc/scope'] as string }),
       metadata
     )
     assert.equal(bytesToHex(keyForEnvelope(kkBytes, metadata)), vectors.piece.key)
@@ -43,8 +43,8 @@ describe('test vectors', () => {
     const bytes = hexToBytes(vectors.grant.cbor as Hex)
     const opened = await unwrapWith(vectors.recipient.privateKey as Hex, bytes)
     assert.equal(bytesToHex(opened), vectors.scope.key)
-    const { v, node, owner, keyspace } = decodeGrant(bytes)
-    const aad = encode([v, node, hexToBytes(owner), hexToBytes(keyspace)])
+    const { v, node, owner, groupKeyId } = decodeGrant(bytes)
+    const aad = encode([v, node, hexToBytes(owner), hexToBytes(groupKeyId)])
     assert.equal(
       bytesToHex(aad),
       vectors.grant.aad,

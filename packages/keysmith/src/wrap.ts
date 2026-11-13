@@ -8,8 +8,8 @@
  * A grant proves nothing about who made it. Anyone can address one to anyone,
  * with any key inside; what the recipient learns on a successful unwrap is
  * only that the descriptor was not altered in transit. Check a key before
- * writing with it: a keyspace key against the dataset's `foc/kc` with
- * `matchesCommitment`, and a scope key by opening a known piece.
+ * writing with it: a group key against the dataset's `foc/kc` with
+ * `matchesCommitment`, and a group's key by opening a known piece.
  *
  * @module
  */
@@ -21,8 +21,16 @@ import { utf8ToBytes } from '@noble/hashes/utils.js'
 import { decode, encode } from 'cborg'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes, isAddress } from 'viem'
-import { canonicalNode, keyspaceId, text } from './derive.ts'
+import { canonicalNode, groupKeyId, text } from './derive.ts'
 import type { Grant, GrantDescriptor } from './types.ts'
+
+/**
+ * A decoded grant. Text-keyed fields such as `pieceCid` are informational and unauthenticated, so
+ * treat them as untrusted. Only `pieceCid` is typed: there is deliberately no index signature, so
+ * a misspelled field is a compile error rather than a silent `undefined`.
+ * Any other informational key is present at runtime; narrow it from `Reflect.get(grant, key)`.
+ */
+export type DecodedGrant = Grant & { pieceCid?: unknown }
 
 const ECDH_INFO = utf8ToBytes('foc/acl/ecdh/v1')
 const WRAP_INFO = utf8ToBytes('foc/acl/wrap/v1')
@@ -30,7 +38,7 @@ const ALG = 'ECDH-ES+A256GCM/secp256k1'
 const KEY_LENGTH = 32
 
 /** CBOR map keys of an encoded grant. Text keys are informational. */
-const FIELD = { v: 0, node: 1, owner: 2, keyspace: 3, epk: 4, iv: 5, ct: 6 } as const
+const FIELD = { v: 0, node: 1, owner: 2, groupKeyId: 3, epk: 4, iv: 5, ct: 6 } as const
 
 /** Grants may arrive from anywhere, so enforce only canonical, unambiguous CBOR. */
 const STRICT = {
@@ -70,10 +78,10 @@ export const publicKeyOf = (privateKey: Hex): Hex =>
   bytesToHex(secp256k1.getPublicKey(ecdhSecretKey(privateKey), false))
 
 /**
- * Wrap a node key — a keyspace key, a scope key, or one piece's key — to a recipient.
+ * Wrap a node key — a group key, a group's key, or one piece's key — to a recipient.
  *
  * The descriptor is authenticated, so a grant cannot be relabelled as one
- * naming a different keyspace, scope or piece. The result is inert without the
+ * naming a different group key, group or piece. The result is inert without the
  * recipient's private key, so it can be delivered or stored anywhere.
  *
  * The grant carries the descriptor in canonical form, whoever built it, and
@@ -150,7 +158,7 @@ export async function unwrapWith(privateKey: Hex, input: Grant | Uint8Array): Pr
  * Pack the grant to deliver or store it
  *
  * ```text
- * { 0: v, 1: node, 2: owner (20 bytes), 3: keyspace (16 bytes),
+ * { 0: v, 1: node, 2: owner (20 bytes), 3: groupKeyId (16 bytes),
  *   4: epk (65 bytes), 5: iv (12 bytes), 6: ct (48 bytes), * text: informational }
  * ```
  *
@@ -158,8 +166,8 @@ export async function unwrapWith(privateKey: Hex, input: Grant | Uint8Array): Pr
  * a piece's CID. These informational keys are not authenticated.
  */
 export function encodeGrant<G extends Grant>(grant: G): Uint8Array {
-  const { v, node, owner, keyspace, alg, epk, iv, ct, ...info } = grant
-  const descriptor = canonical({ v, node, owner, keyspace })
+  const { v, node, owner, groupKeyId, alg, epk, iv, ct, ...info } = grant
+  const descriptor = canonical({ v, node, owner, groupKeyId })
   if (alg !== ALG) {
     throw new Error(`Unsupported grant algorithm: ${String(alg)}`)
   }
@@ -167,7 +175,7 @@ export function encodeGrant<G extends Grant>(grant: G): Uint8Array {
     [FIELD.v, descriptor.v],
     [FIELD.node, descriptor.node],
     [FIELD.owner, hexToBytes(descriptor.owner)],
-    [FIELD.keyspace, hexToBytes(descriptor.keyspace)],
+    [FIELD.groupKeyId, hexToBytes(descriptor.groupKeyId)],
     [FIELD.epk, grantBytes(epk, 'epk', 65)],
     [FIELD.iv, grantBytes(iv, 'iv', 12)],
     [FIELD.ct, grantBytes(ct, 'ct', KEY_LENGTH + 16)],
@@ -185,7 +193,7 @@ export function encodeGrant<G extends Grant>(grant: G): Uint8Array {
  * @throws If the bytes are not one canonical CBOR map holding a version 1
  * grant, with every field the right type and size and no unknown numbered field.
  */
-export function decodeGrant(bytes: Uint8Array): Grant & Record<string, unknown> {
+export function decodeGrant(bytes: Uint8Array): DecodedGrant {
   let map: unknown
   try {
     map = decode(bytes, STRICT)
@@ -218,7 +226,7 @@ export function decodeGrant(bytes: Uint8Array): Grant & Record<string, unknown> 
     v: 1,
     node: text(map.get(FIELD.node), 'A grant node'),
     owner: field(FIELD.owner, 'owner', 20),
-    keyspace: field(FIELD.keyspace, 'keyspace', 16),
+    groupKeyId: field(FIELD.groupKeyId, 'groupKeyId', 16),
     alg: ALG,
     epk: field(FIELD.epk, 'epk', 65),
     iv: field(FIELD.iv, 'iv', 12),
@@ -265,19 +273,19 @@ function canonical(d: GrantDescriptor): GrantDescriptor {
     v: 1,
     node: canonicalNode(d.node),
     owner: owner as Address,
-    keyspace: keyspaceId(d.keyspace),
+    groupKeyId: groupKeyId(d.groupKeyId),
   }
 }
 
 /**
  * The authenticated fields of a canonical descriptor, in a fixed order:
- * `[v, node, owner, keyspace]` as deterministic CBOR (RFC 8949 §4.2.1), with
- * the owner and keyspace as bytes, so every implementation produces the same
+ * `[v, node, owner, groupKeyId]` as deterministic CBOR (RFC 8949 §4.2.1), with
+ * the owner and group key as bytes, so every implementation produces the same
  * bytes. Exactly these four are covered; anything else carried alongside a
  * grant is informational and unauthenticated.
  */
 const aad = (d: GrantDescriptor): ArrayBuffer =>
-  buffer(encode([d.v, d.node, hexToBytes(d.owner), hexToBytes(d.keyspace)]))
+  buffer(encode([d.v, d.node, hexToBytes(d.owner), hexToBytes(d.groupKeyId)]))
 
 /** Helper: WebCrypto takes ArrayBuffer-backed data; noble and viem return views. */
 const buffer = (view: Uint8Array): ArrayBuffer =>

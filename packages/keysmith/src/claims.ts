@@ -2,18 +2,18 @@
  * Read claims: authenticated read delegation chains.
  *
  * A claim chain is the authorization half of a grant; the wrap is the key half.
- * The metadata elements, scope concepts etc are identical.
- * Its root is an EIP-712 `ReadGrant` signed by the keyspace owner's wallet,
+ * The metadata elements, group concepts etc are identical.
+ * Its root is an EIP-712 `ReadGrant` signed by the group key owner's wallet,
  * with an expiry; every later link is signed by the previous link's bearer,
  * and a request by the final bearer.
  *
  * A relying party checks the claims against the labels in a piece's FEE envelope
- * to check the encryption scope matches and is legitimately delegated all the way
- * up to the keyspace root.
+ * to check the encryption group matches and is legitimately delegated all the way
+ * up to the group key root.
  *
  * In short:
  *   - Wallet signs root delegating to session key
- *   - Session key(s) can onwardly delegate narrower scopes to other session keys
+ *   - Session key(s) can onwardly delegate narrower groups to other session keys
  *   - Final session key signs a request for a piece to prove it holds the key delegated to
  */
 import { decode, encode } from 'cborg'
@@ -24,13 +24,13 @@ import {
   commitment,
   DOMAIN,
   grantDescriptor,
+  groupKeyId,
+  groupPath,
   holdingOf,
   keyForEnvelope,
-  keyspaceId,
-  scopePath,
   writeTarget,
 } from './derive.ts'
-import type { Grant, GrantNode, KeyspaceRef } from './types.ts'
+import type { Grant, GrantNode, GroupKeyRef } from './types.ts'
 import { decodeGrant, encodeGrant, unwrapWith } from './wrap.ts'
 
 const STRICT = {
@@ -89,10 +89,10 @@ export interface Claim {
 
 /** A chain, root first, with the fields every link inherits from the root. */
 export interface ClaimChain {
-  owner: Address // The keyspace owner, whose wallet signs the root
-  keyspace: Hex // Spelled as in `foc/ks`
+  owner: Address // The group key owner, whose wallet signs the root
+  groupKeyId: Hex // Spelled as in `foc/ks`
   chainId: bigint // The network the claims are for, so a header cannot be replayed on another
-  keyspaceCommitment: Hex // `foc/kc` without its `v1.` prefix, so a bearer can record it on new datasets
+  groupKeyCommitment: Hex // `foc/kc` without its `v1.` prefix, so a bearer can record it on new datasets
   expires: number // Unix seconds. The whole chain stops working then
   links: Claim[] // Root first
 }
@@ -106,9 +106,9 @@ export interface ReadRequest {
 
 /** The labels a provider read from a piece's FEE envelope. */
 export interface PieceLabels {
-  'foc/own'?: string // The keyspace owner; a piece without it is not gated
-  'foc/ks': string // The keyspace
-  'foc/scope'?: string // The scope path, if any
+  'foc/own'?: string // The group key owner; a piece without it is not gated
+  'foc/ks': string // The group key id
+  'foc/scope'?: string // The group path, if any
   'foc/salt': string // Names the piece for a piece link
 }
 
@@ -142,16 +142,17 @@ function unixSeconds(value: number, what: string): number {
   return value
 }
 
+// The EIP-712 message keeps the wire field names `keyspace` and `keyspaceCommitment`.
 const grantMessage = (chain: ClaimChain, link: Omit<Claim, 'signature'>) => ({
   v: 1,
   node: link.node,
   owner: chain.owner,
-  keyspace: chain.keyspace,
+  keyspace: chain.groupKeyId,
   bearer: link.bearer,
   maxDepth: link.maxDepth,
   chainId: chain.chainId,
   keyCommitment: link.keyCommitment,
-  keyspaceCommitment: chain.keyspaceCommitment,
+  keyspaceCommitment: chain.groupKeyCommitment,
   expires: BigInt(chain.expires),
 })
 
@@ -201,23 +202,23 @@ function keyBelow(
   heldKey: Uint8Array,
   heldNode: string,
   node: string,
-  ref: { owner: Address; keyspace: Hex },
+  ref: { owner: Address; groupKeyId: Hex },
   piece: PieceLabels | undefined
 ): Uint8Array {
   if (node.startsWith('piece:')) {
     if (!piece) throw new Error(`${node} names a piece: deriving its key needs the piece's labels`)
-    if (canonicalNode(`piece:${piece['foc/salt']}`) !== node || keyspaceId(piece['foc/ks']) !== ref.keyspace) {
-      throw new Error(`The piece labels given are not for ${node} in keyspace ${ref.keyspace}`)
+    if (canonicalNode(`piece:${piece['foc/salt']}`) !== node || groupKeyId(piece['foc/ks']) !== ref.groupKeyId) {
+      throw new Error(`The piece labels given are not for ${node} in group key ${ref.groupKeyId}`)
     }
     return keyForEnvelope(heldKey, { 'foc/v': 1, ...piece }, holdingOf({ node: heldNode }))
   }
-  const scope = node === 'keyspace' ? undefined : node.slice('scope:'.length)
-  return writeTarget(grantDescriptor(ref, heldNode as GrantNode), heldKey, scope).key.slice()
+  const group = node === 'keyspace' ? undefined : node.slice('scope:'.length)
+  return writeTarget(grantDescriptor(ref, heldNode as GrantNode), heldKey, group).key.slice()
 }
 
 /**
  * The root of a chain, signed by the owner's wallet: one EIP-712 prompt.
- * Derives the bearer's node key from the keyspace key, so the root cannot
+ * Derives the bearer's node key from the group key, so the root cannot
  * commit to a wrong one, and hands it back to wrap for the bearer.
  * When the bearer is a session key, set `expires` to the session key's expiry.
  *
@@ -227,9 +228,9 @@ export async function rootClaim(
   owner: ClaimSigner,
   input: {
     owner: Address
-    keyspace: Hex
+    groupKeyId: Hex
     chainId: bigint
-    kk: Uint8Array // The keyspace key, from keyspaceKeys()
+    kk: Uint8Array // The group key, from deriveGroupKey()
     node: string
     bearer: Address
     maxDepth: number
@@ -240,7 +241,7 @@ export async function rootClaim(
   }
 ): Promise<{ chain: ClaimChain; nodeKey: Uint8Array }> {
   if (!isAddress(input.owner) || !isAddress(input.bearer)) throw new Error('owner and bearer must be addresses')
-  const ref = { owner: getAddress(input.owner), keyspace: keyspaceId(input.keyspace) }
+  const ref = { owner: getAddress(input.owner), groupKeyId: groupKeyId(input.groupKeyId) }
   const node = canonicalNode(input.node)
   const nodeKey = keyBelow(input.kk, 'keyspace', node, ref, input.piece)
   const link = {
@@ -253,7 +254,7 @@ export async function rootClaim(
   const chain: ClaimChain = {
     ...ref,
     chainId: input.chainId,
-    keyspaceCommitment: keyCommitmentOf(input.kk),
+    groupKeyCommitment: keyCommitmentOf(input.kk),
     expires: unixSeconds(input.expires, 'expires'),
     links: [],
   }
@@ -345,16 +346,16 @@ const within = (parent: string, child: string) => child === parent || child.star
 export function reaches(node: string, piece: PieceLabels): boolean {
   if (node === 'keyspace') return true
   if (node.startsWith('piece:')) return node === pieceNodeOf(piece)
-  return piece['foc/scope'] != null && within(node, `scope:${scopePath(piece['foc/scope'])}`)
+  return piece['foc/scope'] != null && within(node, `scope:${groupPath(piece['foc/scope'])}`)
 }
 
-/** What a grant is picked for: reading one piece, or writing (or reading) under a scope of a keyspace. */
-export type GrantTarget = { piece: PieceLabels } | (KeyspaceRef & { scope: string })
+/** What a grant is picked for: reading one piece, or writing (or reading) under a group of a group key. */
+export type GrantTarget = { piece: PieceLabels } | (GroupKeyRef & { group: string })
 
 /**
- * The narrowest held grant that reaches `target`: a piece grant before a scope grant, a deeper scope before a
- * shallower one, the keyspace last; on a tie, the one that expires last. Grants for another network or keyspace,
- * or expired ones, are skipped. Undefined when none reaches it: ask for a grant to that scope or piece.
+ * The narrowest held grant that reaches `target`: a piece grant before a group grant, a deeper group before a
+ * shallower one, the group key last; on a tie, the one that expires last. Grants for another network or group key,
+ * or expired ones, are skipped. Undefined when none reaches it: ask for a grant to that group or piece.
  *
  * Takes anything carrying a verified `claim`, such as what `openDelivery` returns.
  */
@@ -363,21 +364,23 @@ export function pickGrant<T extends { claim: VerifiedClaim }>(
   target: GrantTarget,
   options: { chainId: bigint; now?: number }
 ): T | undefined {
+  // A stale `scope` would read as "no group", and could pick a grant that is too broad.
+  if ('scope' in target) throw new Error('pickGrant takes `group`, not `scope`')
   const now = options.now ?? Math.floor(Date.now() / 1000)
   // Validate the target once, so bad input fails the same way whatever grants are held
   const rawOwner = 'piece' in target ? target.piece['foc/own'] : target.owner
   const owner = rawOwner ? getAddress(rawOwner) : undefined
-  const keyspace = keyspaceId('piece' in target ? target.piece['foc/ks'] : target.keyspace)
-  const scope = 'piece' in target ? target.piece['foc/scope'] : target.scope
-  const scopeNode = scope == null ? undefined : `scope:${scopePath(scope)}`
+  const id = groupKeyId('piece' in target ? target.piece['foc/ks'] : target.groupKeyId)
+  const group = 'piece' in target ? target.piece['foc/scope'] : target.group
+  const groupNode = group == null ? undefined : `scope:${groupPath(group)}`
   const covers =
     'piece' in target
       ? (node: string) => reaches(node, target.piece)
-      : (node: string) => node === 'keyspace' || (node.startsWith('scope:') && within(node, scopeNode ?? ''))
+      : (node: string) => node === 'keyspace' || (node.startsWith('scope:') && within(node, groupNode ?? ''))
   let best: T | undefined
   for (const held of grants) {
     const { claim } = held
-    if (claim.chainId !== options.chainId || claim.expires <= now || claim.keyspace !== keyspace) continue
+    if (claim.chainId !== options.chainId || claim.expires <= now || claim.groupKeyId !== id) continue
     if ((owner && owner !== claim.owner) || !covers(claim.node)) continue
     if (
       !best ||
@@ -390,7 +393,7 @@ export function pickGrant<T extends { claim: VerifiedClaim }>(
   return best
 }
 
-// keyspace 0, scope:a/b 2, any piece above every scope
+// 'keyspace' 0, 'scope:a/b' 2, any piece above every group
 const narrowness = ({ node }: { node: string }) =>
   node === 'keyspace' ? 0 : node.startsWith('piece:') ? Number.POSITIVE_INFINITY : node.split('/').length
 
@@ -442,9 +445,9 @@ function checkStep(
 /** The final claim of a verified chain. */
 export interface VerifiedClaim {
   owner: Address
-  keyspace: Hex
+  groupKeyId: Hex
   chainId: bigint
-  keyspaceCommitment: Hex
+  groupKeyCommitment: Hex
   expires: number
   node: string
   bearer: Address
@@ -473,8 +476,8 @@ async function verifyLinks(chain: ClaimChain, piece: PieceLabels | undefined): P
   const { links } = chain
   if (links.length < 1 || links.length > MAX_CHAIN_LENGTH) throw new Error(`A chain has 1 to ${MAX_CHAIN_LENGTH} links`)
   const root = links[0] as Claim
-  if (root.node === 'keyspace' && root.keyCommitment !== chain.keyspaceCommitment) {
-    throw new Error('A keyspace root must carry the keyspace commitment')
+  if (root.node === 'keyspace' && root.keyCommitment !== chain.groupKeyCommitment) {
+    throw new Error('A group key root must carry the group key commitment')
   }
   if ((await recoverIssuer(chain, root)) !== chain.owner) throw new Error('The root is not signed by the owner')
   for (const [i, link] of links.entries()) {
@@ -488,9 +491,9 @@ async function verifyLinks(chain: ClaimChain, piece: PieceLabels | undefined): P
   const last = links.at(-1) as Claim
   return {
     owner: chain.owner,
-    keyspace: chain.keyspace,
+    groupKeyId: chain.groupKeyId,
     chainId: chain.chainId,
-    keyspaceCommitment: chain.keyspaceCommitment,
+    groupKeyCommitment: chain.groupKeyCommitment,
     expires: chain.expires,
     node: last.node,
     bearer: last.bearer,
@@ -537,11 +540,12 @@ export async function verifyPresentation(
   const owner = options.piece['foc/own']
   if (
     owner &&
-    (owner.toLowerCase() !== claim.owner.toLowerCase() || keyspaceId(options.piece['foc/ks']) !== claim.keyspace)
+    (owner.toLowerCase() !== claim.owner.toLowerCase() || groupKeyId(options.piece['foc/ks']) !== claim.groupKeyId)
   ) {
-    throw new Error('The piece belongs to another owner or keyspace')
+    throw new Error('The piece belongs to another owner or group key')
   }
   if (owner && !reaches(claim.node, options.piece)) {
+    // Pinned verbatim by claims-vectors.json (cross-implementation), so `scope` here is the `foc/scope` label name.
     throw new Error(`${claim.node} does not reach this piece (scope ${options.piece['foc/scope'] ?? '(none)'})`)
   }
   return claim
@@ -550,8 +554,8 @@ export async function verifyPresentation(
 /**
  * Open a delivery as its final bearer: verify the chain, unwrap the key, and
  * check it against the commitment in its claim, which the owner (or the
- * delegate above) signed. The keyspace commitment comes back too, for a bearer
- * that writes the keyspace's first datasets.
+ * delegate above) signed. The group key commitment comes back too, for a bearer
+ * that writes the group key's first datasets.
  *
  * An expired delivery still opens: a key cannot expire, so decrypting with it
  * keeps working. `expired` says the claim is spent, and `signRequest` and
@@ -577,10 +581,10 @@ export async function openDelivery(
 }
 
 /** A delivery's grant must name what its final link names: the wrap's descriptor and the claim are one node. */
-function assertGrantNamesClaim(grant: Grant, claim: { owner: Address; keyspace: Hex; node: string }): void {
+function assertGrantNamesClaim(grant: Grant, claim: { owner: Address; groupKeyId: Hex; node: string }): void {
   if (
     getAddress(grant.owner) !== claim.owner ||
-    grant.keyspace.toLowerCase() !== claim.keyspace ||
+    grant.groupKeyId.toLowerCase() !== claim.groupKeyId ||
     canonicalNode(grant.node) !== claim.node
   ) {
     throw new Error("The delivery's key is for another node than its claim")
@@ -589,8 +593,8 @@ function assertGrantNamesClaim(grant: Grant, claim: { owner: Address; keyspace: 
 
 // ── CBOR ─────────────────────────────────────────────────────────────────
 
-// Link fields: 0 v · 1 node · 2 owner · 3 keyspace · 4 bearer · 5 maxDepth · 6 chainId · 7 keyCommitment
-// · 8 signature · 9 pieceCid (locator) · 10 keyspaceCommitment · 11 expires. 2, 3, 6, 10 and 11 are on the root only.
+// Link fields: 0 v · 1 node · 2 owner · 3 groupKeyId · 4 bearer · 5 maxDepth · 6 chainId · 7 keyCommitment
+// · 8 signature · 9 pieceCid (locator) · 10 groupKeyCommitment · 11 expires. 2, 3, 6, 10 and 11 are on the root only.
 const ROOT_ONLY = [2, 3, 6, 10, 11]
 
 function encodeChainLinks(chain: ClaimChain): Map<number, unknown>[] {
@@ -605,9 +609,9 @@ function encodeChainLinks(chain: ClaimChain): Map<number, unknown>[] {
     ])
     if (i === 0) {
       fields.set(2, hexToBytes(chain.owner))
-      fields.set(3, hexToBytes(chain.keyspace))
+      fields.set(3, hexToBytes(chain.groupKeyId))
       fields.set(6, Number(chain.chainId))
-      fields.set(10, hexToBytes(chain.keyspaceCommitment))
+      fields.set(10, hexToBytes(chain.groupKeyCommitment))
       fields.set(11, chain.expires)
     }
     if (link.pieceCid) fields.set(9, link.pieceCid)
@@ -652,9 +656,9 @@ function decodeChainLinks(value: unknown): ClaimChain {
   const root = maps[0] as Map<number, unknown>
   return {
     owner: getAddress(bytesField(root, 2, 20, 'owner')),
-    keyspace: bytesField(root, 3, 16, 'keyspace'),
+    groupKeyId: bytesField(root, 3, 16, 'groupKeyId'),
     chainId: BigInt(uintField(root, 6, 'The root chain id')),
-    keyspaceCommitment: bytesField(root, 10, 16, 'keyspaceCommitment'),
+    groupKeyCommitment: bytesField(root, 10, 16, 'groupKeyCommitment'),
     expires: uintField(root, 11, 'The root expiry'),
     links: maps.map((link, i) => {
       const node = link.get(1)
@@ -693,13 +697,13 @@ function decodeArray(bytes: Uint8Array, what: string): unknown[] {
 
 /**
  * A delivery: sent once to a new bearer, never to a provider. Carries the v1 grant that wraps the key.
- * The grant must name the chain's final node, owner and keyspace; that the wrapped key matches the
+ * The grant must name the chain's final node, owner and group key; that the wrapped key matches the
  * link's commitment is checked by `openDelivery`, which holds the private key to unwrap it.
  */
 export function encodeDelivery(chain: ClaimChain, grant: Grant): Uint8Array {
   const last = chain.links.at(-1)
   if (!last) throw new Error('A chain has at least one link')
-  assertGrantNamesClaim(grant, { owner: chain.owner, keyspace: chain.keyspace, node: last.node })
+  assertGrantNamesClaim(grant, { owner: chain.owner, groupKeyId: chain.groupKeyId, node: last.node })
   return encode([1, encodeChainLinks(chain), encodeGrant(grant)])
 }
 

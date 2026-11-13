@@ -1,7 +1,7 @@
 {
   "name": "@filoz/keysmith",
   "version": "0.1.0",
-  "description": "Deterministic keyspace key derivation for Filecoin Onchain Cloud",
+  "description": "Deterministic group key derivation for Filecoin Onchain Cloud",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/FilOzone/synapse-sdk.git"

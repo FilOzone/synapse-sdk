@@ -20,7 +20,7 @@ import {
   verifyChain,
   verifyPresentation,
 } from '../src/claims.ts'
-import { commitment, grantDescriptor, keyForEnvelope, keyspaceKeys, newSalt, scopeKey } from '../src/derive.ts'
+import { commitment, deriveGroupKey, grantDescriptor, keyForEnvelope, keyForGroup, newSalt } from '../src/derive.ts'
 import { encodeGrant, publicKeyOf, wrapTo } from '../src/wrap.ts'
 
 const owner = privateKeyToAccount(generatePrivateKey())
@@ -29,17 +29,17 @@ const bKey = generatePrivateKey()
 const a = privateKeyToAccount(aKey)
 const b = privateKeyToAccount(bKey)
 const stranger = privateKeyToAccount(generatePrivateKey())
-const keyspace = '0x00112233445566778899aabbccddeeff' as Hex
+const keyId = '0x00112233445566778899aabbccddeeff' as Hex
 const chainId = 314159n
-const ref = { owner: owner.address, keyspace }
+const ref = { owner: owner.address, groupKeyId: keyId }
 const now = 1_800_000_000
 const expires = now + 7 * 86400
 
-const keys = async () => keyspaceKeys(owner, ref)
-const labels = (scope?: string, salt: Hex = newSalt()): PieceLabels => ({
+const keys = async () => deriveGroupKey(owner, ref)
+const labels = (group?: string, salt: Hex = newSalt()): PieceLabels => ({
   'foc/own': owner.address.toLowerCase(),
-  'foc/ks': keyspace,
-  ...(scope ? { 'foc/scope': scope } : {}),
+  'foc/ks': keyId,
+  ...(group ? { 'foc/scope': group } : {}),
   'foc/salt': salt,
 })
 const PIECE = hexToBytes('0x0155912024a8a2a4d3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3')
@@ -55,7 +55,7 @@ describe('claims', () => {
   it('verifies a root signed by the owner until it expires, and refuses one signed by anyone else', async () => {
     const { chain, kk, kc, key } = await root('keyspace', 1)
     assert.deepEqual(key, kk)
-    assert.equal(`v1.${chain.keyspaceCommitment.slice(2)}`, kc)
+    assert.equal(`v1.${chain.groupKeyCommitment.slice(2)}`, kc)
     const claim = await verifyChain(chain, { now })
     assert.equal(claim.bearer, a.address)
     assert.equal(claim.node, 'keyspace')
@@ -70,11 +70,11 @@ describe('claims', () => {
     await assert.rejects(rootClaim(owner, { ...input, expires: undefined as never }), /expires must be unix seconds/)
   })
 
-  it('derives the root key from the keyspace key, for a scope and for one piece', async () => {
+  it('derives the root key from the group key, for a group and for one piece', async () => {
     const { kk } = await keys()
     const base = { ...ref, chainId, kk, bearer: a.address, maxDepth: 0, expires }
     const scoped = await rootClaim(owner, { ...base, node: 'scope:team' })
-    assert.deepEqual(scoped.nodeKey, scopeKey(kk, 'team'))
+    assert.deepEqual(scoped.nodeKey, keyForGroup(kk, 'team'))
 
     const piece = labels('team', newSalt())
     const one = await rootClaim(owner, { ...base, node: `piece:${piece['foc/salt']}`, piece })
@@ -90,7 +90,7 @@ describe('claims', () => {
     const { chain, kk, key: team } = await root('scope:team', 1)
     const alice = { node: 'scope:team/alice', maxDepth: 0 }
     const { chain: two, nodeKey } = await delegateClaim(a, chain, { ...alice, parentKey: team, bearer: b.address })
-    assert.deepEqual(nodeKey, scopeKey(kk, 'team/alice'))
+    assert.deepEqual(nodeKey, keyForGroup(kk, 'team/alice'))
     const claim = await verifyChain(two, { now })
     assert.equal(claim.node, 'scope:team/alice')
     assert.equal(claim.expires, expires)
@@ -115,7 +115,7 @@ describe('claims', () => {
     await assert.rejects(verifyChain(deepened, { now }), /not signed by link 0's bearer/)
     await assert.rejects(verifyChain(two, { now: expires + 3600 }), /expired/)
 
-    // A piece link: the key is the piece's own, derived through the parent's scope.
+    // A piece link: the key is the piece's own, derived through the parent's group.
     const piece = labels('team/notes', newSalt())
     const one = await delegateClaim(a, chain, {
       node: `piece:${piece['foc/salt']}`,
@@ -133,11 +133,15 @@ describe('claims', () => {
     const delivery = encodeDelivery(chain, grant)
     const opened = await openDelivery(aKey, delivery, { now })
     assert.deepEqual(opened.key, role)
-    assert.equal(`v1.${opened.claim.keyspaceCommitment.slice(2)}`, kc)
+    assert.equal(`v1.${opened.claim.groupKeyCommitment.slice(2)}`, kc)
     assert.equal(commitment(opened.key).slice(3), opened.claim.keyCommitment.slice(2))
 
     await assert.rejects(openDelivery(bKey, delivery, { now }), /another bearer/)
-    const swapped = await wrapTo(publicKeyOf(aKey), scopeKey(kk, 'team/bob'), grantDescriptor(ref, 'scope:team/alice'))
+    const swapped = await wrapTo(
+      publicKeyOf(aKey),
+      keyForGroup(kk, 'team/bob'),
+      grantDescriptor(ref, 'scope:team/alice')
+    )
     await assert.rejects(openDelivery(aKey, encodeDelivery(chain, swapped), { now }), /does not match the commitment/)
     const otherNode = await wrapTo(publicKeyOf(aKey), role, grantDescriptor(ref, 'scope:team'))
     assert.throws(() => encodeDelivery(chain, otherNode), /another node/)
@@ -206,7 +210,7 @@ describe('claims', () => {
       check(await present(), { ...labels('team/alice'), 'foc/own': stranger.address }),
       /another owner/
     )
-    const ungated: PieceLabels = { 'foc/ks': keyspace, 'foc/salt': newSalt() }
+    const ungated: PieceLabels = { 'foc/ks': keyId, 'foc/salt': newSalt() }
     assert.ok(await check(await present(), ungated))
   })
 
@@ -228,7 +232,7 @@ describe('claims', () => {
       bearer: b.address,
       maxDepth: 0,
     })
-    const grant = await wrapTo(publicKeyOf(bKey), scopeKey(kk, 'x'), grantDescriptor(ref, 'scope:x'))
+    const grant = await wrapTo(publicKeyOf(bKey), keyForGroup(kk, 'x'), grantDescriptor(ref, 'scope:x'))
     assert.deepEqual(decodeDelivery(encodeDelivery(two, grant)).chain, two)
     const request = await signRequest(b, two, { pieceCid: PIECE, expires: now + 120, now })
     assert.deepEqual(decodePresentation(encodePresentation(two, request)), { chain: two, request })
@@ -280,9 +284,17 @@ describe('claims', () => {
     )
   })
 
-  it('picks the narrowest live grant that reaches a piece or scope', () => {
+  it('picks the narrowest live grant that reaches a piece or group', () => {
     const held = (node: string, more: Partial<VerifiedClaim> = {}) => ({
-      claim: { owner: owner.address, keyspace, chainId, expires, node, bearer: a.address, ...more } as VerifiedClaim,
+      claim: {
+        owner: owner.address,
+        groupKeyId: keyId,
+        chainId,
+        expires,
+        node,
+        bearer: a.address,
+        ...more,
+      } as VerifiedClaim,
     })
     const salt = newSalt()
     const whole = held('keyspace')
@@ -295,31 +307,36 @@ describe('claims', () => {
       pickGrant(from, target, { chainId, now: at })
 
     assert.equal(pick({ piece: labels('team/alice/notes', salt) }), piece)
-    assert.equal(pick({ piece: labels('team/alice/notes') }), alice2) // deepest scope; on a tie, the later expiry
+    assert.equal(pick({ piece: labels('team/alice/notes') }), alice2) // deepest group; on a tie, the later expiry
     assert.equal(pick({ piece: labels('team/bob') }), team)
-    assert.equal(pick({ piece: labels() }), whole) // no foc/scope: only the keyspace reaches it
-    assert.equal(pick({ ...ref, scope: 'team/alice/notes' }), alice2)
+    assert.equal(pick({ piece: labels() }), whole) // no foc/scope: only the group key reaches it
+    assert.equal(pick({ ...ref, group: 'team/alice/notes' }), alice2)
     const cafe = held('scope:team/caf\u00e9')
-    assert.equal(pick({ ...ref, scope: 'team/cafe\u0301' }, [team, cafe]), cafe) // compared in canonical (NFC) form
-    assert.equal(pick({ ...ref, scope: 'team' }, [alice, piece]), undefined) // nothing wide enough: ask for one
+    assert.equal(pick({ ...ref, group: 'team/cafe\u0301' }, [team, cafe]), cafe) // compared in canonical (NFC) form
+    assert.equal(pick({ ...ref, group: 'team' }, [alice, piece]), undefined) // nothing wide enough: ask for one
     // Depth wins over expiry: a deeper grant expiring sooner still beats a shallower one
     const soon = held('scope:team/alice', { expires: expires - 100 })
     assert.equal(pick({ piece: labels('team/alice/notes') }, [team, soon]), soon)
-    assert.equal(pick({ ...ref, scope: 'team/alice' }, [whole, team, soon]), soon)
+    assert.equal(pick({ ...ref, group: 'team/alice' }, [whole, team, soon]), soon)
 
-    // Skipped: expired, another network, another keyspace, another owner
+    // Skipped: expired, another network, another group key, another owner
     assert.equal(pick({ piece: labels('team/x') }, [team], expires), undefined)
     assert.equal(pick({ piece: labels('team/x') }, [held('scope:team', { chainId: 314n })]), undefined)
-    const elsewhere = held('scope:team', { keyspace: '0xffeeddccbbaa99887766554433221100' })
+    const elsewhere = held('scope:team', { groupKeyId: '0xffeeddccbbaa99887766554433221100' })
     assert.equal(pick({ piece: labels('team/x') }, [elsewhere]), undefined)
     assert.equal(pick({ piece: labels('team/x') }, [held('scope:team', { owner: stranger.address })]), undefined)
-    assert.equal(pick({ ...ref, scope: 'team/x' }, [held('scope:team', { owner: stranger.address })]), undefined)
+    assert.equal(pick({ ...ref, group: 'team/x' }, [held('scope:team', { owner: stranger.address })]), undefined)
 
     // A bad target fails the same way whatever is held
     for (const from of [[whole], [whole, team], []]) {
-      assert.throws(() => pick({ ...ref, scope: '' }, from))
-      assert.throws(() => pick({ ...ref, scope: 'team/' }, from))
-      assert.throws(() => pick({ ...ref, owner: '0xnope' as Address, scope: 'team' }, from))
+      assert.throws(() => pick({ ...ref, group: '' }, from))
+      assert.throws(() => pick({ ...ref, group: 'team/' }, from))
+      assert.throws(() => pick({ ...ref, owner: '0xnope' as Address, group: 'team' }, from))
+    }
+
+    // A stale `scope` would read as "no group" and could pick a grant that is too broad
+    for (const from of [[whole], []]) {
+      assert.throws(() => pick({ ...ref, scope: 'team' } as never, from), /takes `group`, not `scope`/)
     }
   })
 
