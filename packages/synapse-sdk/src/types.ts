@@ -8,7 +8,7 @@
 import type { FilecoinChain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { Permission, SessionKey, SessionKeyAccount } from '@filoz/synapse-core/session-key'
-import type { PieceBatcherWait, pullPiecesApiRequest } from '@filoz/synapse-core/sp'
+import type { Commit, PieceBatcherWait, pullPiecesApiRequest } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { DroppedPiece, MetadataObject } from '@filoz/synapse-core/utils'
 import type { getPriceList, getUploadCosts } from '@filoz/synapse-core/warm-storage'
@@ -630,28 +630,54 @@ export interface StoreResult {
 export type PullSource = string | ((pieceCid: PieceCID) => string)
 
 /**
- * Options for pulling pieces from a source provider
+ * Options for pulling pieces from a source provider.
+ *
+ * Pass either `pieces` (optionally with a deprecated pre-signed `extraData`) or a `commit` from
+ * `StorageContext.prepareCommit()`, which carries its own pieces.
  */
-export interface PullOptions {
-  /** Pieces to pull */
-  pieces: PieceCID[]
+export type PullOptions = PullBaseOptions &
+  (
+    | {
+        /** Pieces to pull */
+        pieces: PieceCID[]
+        /**
+         * Pre-built signed extraData (avoids double wallet prompts).
+         * @deprecated Pass a {@link Commit} from `StorageContext.prepareCommit()` as `commit` instead.
+         */
+        extraData?: Hex
+        /**
+         * Remove pieces whose PieceCID already appeared earlier in `pieces` before signing and pulling.
+         * The first one wins. Removed pieces still get a result that shares the kept piece's status,
+         * and are listed in the result's `dropped`. A pre-built `extraData` must be signed over the
+         * deduped pieces. Defaults to false.
+         */
+        dedupe?: boolean
+        commit?: undefined
+      }
+    | {
+        /**
+         * A signed commit from `StorageContext.prepareCommit()`, reused for the later `commit()` so the wallet signs
+         * once. Its pieces are pulled in the order they were signed.
+         */
+        commit: Commit
+        pieces?: undefined
+        extraData?: undefined
+        dedupe?: undefined
+      }
+  )
+
+/**
+ * Options shared by every form of {@link PullOptions}
+ */
+export interface PullBaseOptions {
   /** Source provider to pull from (URL or context with getPieceUrl) */
   from: PullSource
   /** Optional AbortSignal */
   signal?: AbortSignal
   /** Pull progress callback */
   onProgress?: (pieceCid: PieceCID, status: PullStatus) => void
-  /** Pre-built signed extraData (avoids double wallet prompts) */
-  extraData?: Hex
   /** Total time in milliseconds to wait for the pull to finish. Defaults to 2 hours. */
   timeout?: number
-  /**
-   * Remove pieces whose PieceCID already appeared earlier in `pieces` before signing and pulling.
-   * The first one wins. Removed pieces still get a result that shares the kept piece's status,
-   * and are listed in the result's `dropped`. A pre-built `extraData` must be signed over the
-   * deduped pieces. Defaults to false.
-   */
-  dedupe?: boolean
 }
 
 /**
@@ -674,11 +700,33 @@ export interface PullResult {
 /**
  * Options for committing pieces on-chain
  */
-export interface CommitOptions {
-  /** Pieces to commit with optional per-piece metadata */
-  pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>
-  /** Pre-built signed extraData (avoids re-signing) */
-  extraData?: Hex
+export type CommitOptions = CommitBaseOptions &
+  (
+    | {
+        /** Pieces to commit with optional per-piece metadata */
+        pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>
+        /**
+         * Pre-built signed extraData (avoids re-signing). Must be signed over `pieces`.
+         * @deprecated Pass a {@link Commit} from `StorageContext.prepareCommit()` as `commit` instead.
+         */
+        extraData?: Hex
+        commit?: undefined
+      }
+    | {
+        /**
+         * A signed commit from `StorageContext.prepareCommit()`. It carries the pieces and signature, so it can be
+         * saved as JSON and committed later, for example after a crash. Resubmitting it can never add the pieces twice.
+         */
+        commit: Commit
+        pieces?: undefined
+        extraData?: undefined
+      }
+  )
+
+/**
+ * Options shared by every form of {@link CommitOptions}
+ */
+export interface CommitBaseOptions {
   /**
    * Optional AbortSignal to cancel the commit requests and the confirmation wait.
    *

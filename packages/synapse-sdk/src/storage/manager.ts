@@ -29,7 +29,7 @@ import {
 } from '@filoz/synapse-core/pay'
 import { getDataSetLeafCounts } from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
-import type { UploadPieceStreamingData } from '@filoz/synapse-core/sp'
+import type { Commit, UploadPieceStreamingData } from '@filoz/synapse-core/sp'
 import { getPDPProviderByAddress } from '@filoz/synapse-core/sp-registry'
 import { calculateUploadCosts, readAllBytes } from '@filoz/synapse-core/utils'
 import {
@@ -38,7 +38,7 @@ import {
   getPriceList,
   metadataMatches,
 } from '@filoz/synapse-core/warm-storage'
-import { type Address, type Hex, UserRejectedRequestError, zeroAddress } from 'viem'
+import { type Address, UserRejectedRequestError, zeroAddress } from 'viem'
 import { getBlockNumber } from 'viem/actions'
 import { CommitError, StoreError } from '../errors/storage.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -216,7 +216,7 @@ export class StorageManager {
    *
    * For manual control over providers, signing, or individual phases, use the
    * split operations API directly:
-   * createContexts() -> store() -> presignForCommit() -> pull() -> commit()
+   * createContexts() -> store() -> prepareCommit() -> pull() -> commit()
    *
    * @param data - Raw bytes (Uint8Array) or ReadableStream to upload
    * @param options - Upload options including contexts, callbacks, and abort signal
@@ -258,7 +258,7 @@ export class StorageManager {
     // Pull to secondaries via SP-to-SP transfer
     let successfulSecondaries: StorageContext[] = []
     let pullFailures: FailedAttempt[] = []
-    let extraDataMap = new Map<StorageContext, Hex>()
+    let commitMap = new Map<StorageContext, Commit>()
 
     if (secondaries.length > 0) {
       const pullResult = await this._pullToSecondariesWithRetry(primary, secondaries, [storeResult.pieceCid], {
@@ -275,7 +275,7 @@ export class StorageManager {
       })
       successfulSecondaries = pullResult.successful
       pullFailures = pullResult.failedAttempts
-      extraDataMap = pullResult.extraDataMap
+      commitMap = pullResult.commitMap
     }
 
     // Commit on all providers in parallel
@@ -283,9 +283,9 @@ export class StorageManager {
       { ctx: primary, role: 'primary' as const },
       ...successfulSecondaries.map((ctx) => ({ ctx, role: 'secondary' as const })),
     ].map(async ({ ctx, role }) => {
+      const commit = commitMap.get(ctx)
       const result = await ctx.commit({
-        pieces: pieceInputs,
-        extraData: extraDataMap.get(ctx),
+        ...(commit == null ? { pieces: pieceInputs } : { commit }),
         signal: options?.signal,
         onSubmitted: (txHash) =>
           safeInvoke(options?.callbacks?.onPiecesAdded, txHash, ctx.provider.id, [{ pieceCid: storeResult.pieceCid }]),
@@ -733,12 +733,12 @@ export class StorageManager {
   ): Promise<{
     successful: StorageContext[]
     failedAttempts: FailedAttempt[]
-    extraDataMap: Map<StorageContext, Hex>
+    commitMap: Map<StorageContext, Commit>
   }> {
     const usedProviderIds = new Set<bigint>([primary.provider.id, ...secondaries.map((s) => s.provider.id)])
     const successful: StorageContext[] = []
     const failedAttempts: FailedAttempt[] = []
-    const extraDataMap = new Map<StorageContext, Hex>()
+    const commitMap = new Map<StorageContext, Commit>()
 
     for (let i = 0; i < secondaries.length; i++) {
       let currentSecondary = secondaries[i]
@@ -748,18 +748,17 @@ export class StorageManager {
       while (!succeeded && attempts < MAX_SECONDARY_ATTEMPTS) {
         throwIfAborted(options.signal)
         try {
-          // Pre-sign extraData so the same blob is reused for commit
-          let extraData: Hex | undefined
+          // Sign the commit first so the same signature authorizes the pull and the commit
+          let commit: Commit | undefined
           if (options.pieceInputs) {
-            extraData = await currentSecondary.presignForCommit(options.pieceInputs)
+            commit = await currentSecondary.prepareCommit(options.pieceInputs)
           }
 
           const providerId = currentSecondary.provider.id
           const pullResult = await currentSecondary.pull({
-            pieces: pieceCids,
+            ...(commit == null ? { pieces: pieceCids } : { commit }),
             from: (pieceCid) => primary.getPieceUrl(pieceCid),
             signal: options.signal,
-            extraData,
             onProgress: options.onProgress
               ? (cid, status) => safeInvoke(options.onProgress, providerId, cid, status)
               : undefined,
@@ -768,8 +767,8 @@ export class StorageManager {
           if (pullResult.status === 'complete') {
             succeeded = true
             successful.push(currentSecondary)
-            if (extraData) {
-              extraDataMap.set(currentSecondary, extraData)
+            if (commit) {
+              commitMap.set(currentSecondary, commit)
             }
 
             for (const pieceCid of pieceCids) {
@@ -835,7 +834,7 @@ export class StorageManager {
       }
     }
 
-    return { successful, failedAttempts, extraDataMap }
+    return { successful, failedAttempts, commitMap }
   }
 
   /**
