@@ -3,5 +3,5 @@
   "packages/synapse-core": "0.11.0",
   "packages/synapse-react": "0.6.0",
   "packages/filecoin-encryption-envelope": "0.1.1",
-  "packages/keysmith": "0.1.0"
+  "packages/keysmith": "0.2.0"
 }
