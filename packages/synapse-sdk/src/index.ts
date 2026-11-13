@@ -10,6 +10,12 @@
  */
 
 export * from '@filoz/synapse-core/chains'
+export type {
+  AddPiecesCommit,
+  Commit,
+  CommitPiece,
+  CreateDataSetAndAddPiecesCommit,
+} from '@filoz/synapse-core/sp'
 export { formatUnits, parseUnits } from '@filoz/synapse-core/utils'
 export * from './errors/index.ts'
 export { Synapse } from './synapse.ts'

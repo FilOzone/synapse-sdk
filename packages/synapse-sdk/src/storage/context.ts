@@ -35,18 +35,15 @@ import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { schedulePieceDeletions, type UploadPieceStreamingData } from '@filoz/synapse-core/sp'
-import { signAddPieces, signCreateDataSetAndAddPieces } from '@filoz/synapse-core/typed-data'
 import {
   assertAddPiecesFit,
   calculateLastProofDate,
   createPieceUrlPDP,
-  datasetMetadataObjectToEntry,
   dedupePieces,
   epochToDate,
   getPayerAddress,
   type MetadataObject,
   pieceMetadataObjectToEntry,
-  randU256,
   readAllBytes,
   timeUntilEpoch,
 } from '@filoz/synapse-core/utils'
@@ -849,37 +846,84 @@ export class StorageContext {
   }
 
   /**
+   * Sign a commit for the given pieces without sending it.
+   *
+   * The commit is JSON-safe data that holds the pieces and the EIP-712 signature. Pass it to both
+   * {@link pull} and {@link commit} so the wallet signs once for a multi-copy upload, or save it with
+   * `JSON.stringify` and commit it later, for example after a crash. Committing the same commit twice
+   * can never add the pieces twice: FWSS rejects a reused nonce.
+   *
+   * @param pieces - Pieces to sign for, with optional per-piece metadata
+   * @returns The signed commit to pass to pull() or commit()
+   */
+  async prepareCommit(pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>): Promise<SP.Commit> {
+    // prepareAddPieces and prepareCreateDataSetAndAddPieces check the pieces fit before signing
+    const pieceInputs = pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata }))
+    const signer = this._synapse.sessionClient ?? this._synapse.client
+
+    if (this._dataSetId) {
+      return SP.prepareAddPieces(signer, {
+        dataSetId: this._dataSetId,
+        clientDataSetId: await this.getClientDataSetId(),
+        payer: getPayerAddress(this._client.account),
+        pieces: pieceInputs,
+      })
+    }
+
+    return SP.prepareCreateDataSetAndAddPieces(signer, {
+      payee: this._provider.serviceProvider,
+      payer: this._synapse.client.account.address,
+      metadata: this._dataSetMetadata,
+      cdn: this._withCDN,
+      pieces: pieceInputs,
+    })
+  }
+
+  /**
    * Pre-sign EIP-712 extraData for the given pieces.
    *
    * The returned Hex can be passed to both pull() and commit() to avoid
    * redundant wallet signature prompts during multi-copy uploads.
    *
+   * @deprecated Use {@link prepareCommit} and pass the commit to pull() and commit() instead.
    * @param pieces - Pieces to sign for, with optional per-piece metadata
    * @returns Signed extraData hex to pass to pull() or commit()
    */
   async presignForCommit(pieces: Array<{ pieceCid: PieceCID; pieceMetadata?: MetadataObject }>): Promise<Hex> {
-    this.assertPiecesFitMessage(pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata })))
-    const signingPieces = pieces.map((p) => ({
-      pieceCid: p.pieceCid,
-      metadata: pieceMetadataObjectToEntry(p.pieceMetadata),
-    }))
+    const commit = await this.prepareCommit(pieces)
+    return commit.extraData
+  }
 
-    if (this._dataSetId) {
-      return signAddPieces(this._synapse.sessionClient ?? this._synapse.client, {
-        clientDataSetId: await this.getClientDataSetId(),
-        pieces: signingPieces,
-      })
+  /**
+   * Throw if a commit was not prepared for this context's data set.
+   *
+   * The provider accepts a valid commit for another of its data sets, or a create commit with other data set
+   * settings, and either leaves this context with the wrong data set state. A wrong payer or payee fails on chain.
+   */
+  private assertCommitMatches(commit: SP.Commit): void {
+    const fail = (message: string): never => {
+      throw createError('StorageContext', 'commit', message)
     }
-
-    return signCreateDataSetAndAddPieces(this._synapse.sessionClient ?? this._synapse.client, {
-      clientDataSetId: randU256(),
-      payee: this._provider.serviceProvider,
-      payer: this._synapse.client.account.address,
-      metadata: datasetMetadataObjectToEntry(this._dataSetMetadata, {
-        cdn: this._withCDN,
-      }),
-      pieces: signingPieces,
-    })
+    if (commit.kind === 'addPieces') {
+      if (this._dataSetId == null) {
+        fail(`Commit adds pieces to data set ${commit.dataSetId}, but this context creates a new data set`)
+      } else if (BigInt(commit.dataSetId) !== this._dataSetId) {
+        fail(`Commit adds pieces to data set ${commit.dataSetId}, but this context uses data set ${this._dataSetId}`)
+      }
+      return
+    }
+    if (this._dataSetId != null) {
+      fail(`Commit creates a new data set, but this context uses data set ${this._dataSetId}`)
+    }
+    if (commit.cdn !== this._withCDN) {
+      fail(`Commit withCDN is ${commit.cdn}, but this context expects ${this._withCDN}`)
+    }
+    const metadata = commit.metadata ?? {}
+    if (!metadataMatches(metadata, this._dataSetMetadata)) {
+      fail(
+        `Commit data set metadata ${JSON.stringify(metadata)} does not match this context's ${JSON.stringify(this._dataSetMetadata)}`
+      )
+    }
   }
 
   /**
@@ -888,16 +932,28 @@ export class StorageContext {
    * Used for multi-copy uploads: data stored once on primary, then pulled to
    * secondaries via SP-to-SP transfer.
    *
-   * @param options - Pull options: pieces to pull, source (URL or StorageContext), optional extraData, signal, timeout, and onProgress
+   * @param options - Pull options: pieces to pull or a commit from prepareCommit(), source (URL or StorageContext), signal, timeout, and onProgress
    * @returns Status per piece ('complete' or 'failed') and overall result
    */
   async pull(options: PullOptions): Promise<PullResult> {
-    const { pieces, from, signal, onProgress, extraData, timeout, dedupe } = options
-
-    // The SP estimateGas-validates the eventual addPieces, so an oversized batch
-    // fails there too; reject early for a clear error on non-presigned paths.
-    const piecesToFit = pieces.map((pieceCid) => ({ pieceCid }))
-    this.assertPiecesFitMessage(dedupe ? dedupePieces(piecesToFit).pieces : piecesToFit)
+    const { from, signal, onProgress, timeout } = options
+    let pieces: PieceCID[]
+    let extraData: Hex | undefined
+    let dedupe: boolean | undefined
+    if (options.commit == null) {
+      pieces = options.pieces
+      extraData = options.extraData
+      dedupe = options.dedupe
+      // The SP estimateGas-validates the eventual addPieces, so an oversized batch
+      // fails there too; reject early for a clear error on non-presigned paths.
+      const piecesToFit = pieces.map((pieceCid) => ({ pieceCid }))
+      this.assertPiecesFitMessage(dedupe ? dedupePieces(piecesToFit).pieces : piecesToFit)
+    } else {
+      // The commit was checked to fit when it was prepared, and its signature covers exactly its pieces.
+      this.assertCommitMatches(options.commit)
+      pieces = options.commit.pieces.map((piece) => Piece.from(piece.pieceCid))
+      extraData = options.commit.extraData
+    }
 
     const getSourceUrl = (pieceCid: PieceCID): string => {
       if (typeof from === 'string') {
@@ -984,80 +1040,97 @@ export class StorageContext {
    * @returns Transaction hash, confirmed pieceIds, dataSetId, and whether a new data set was created
    */
   async commit(options: CommitOptions): Promise<CommitResult> {
-    const { pieces, extraData, signal } = options
+    const { signal } = options
 
     // Validate message size and metadata early, before any chain reads or signing
-    this.assertPiecesFitMessage(pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata })))
-    for (const piece of pieces) {
-      if (piece.pieceMetadata) {
-        pieceMetadataObjectToEntry(piece.pieceMetadata)
+    if (options.commit == null) {
+      this.assertPiecesFitMessage(options.pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata })))
+      for (const piece of options.pieces) {
+        if (piece.pieceMetadata) {
+          pieceMetadataObjectToEntry(piece.pieceMetadata)
+        }
       }
+    } else {
+      this.assertCommitMatches(options.commit)
     }
-
-    const pieceInputs = pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata }))
 
     try {
       throwIfAborted(signal)
+      const client = this._synapse.sessionClient ?? this._client
       if (this._dataSetId) {
         // Add pieces to existing data set
-        const [, clientDataSetId] = await Promise.all([
-          this._warmStorageService.validateDataSet({ dataSetId: this._dataSetId }),
-          this.getClientDataSetId(),
-        ])
-
-        const addPiecesResult = await SP.addPieces(this._synapse.sessionClient ?? this._client, {
-          dataSetId: this._dataSetId,
-          clientDataSetId,
-          pieces: pieceInputs,
-          serviceURL: this._pdpEndpoint,
-          extraData,
-          signal,
-        })
-        options.onSubmitted?.(addPiecesResult.txHash as Hex)
+        const dataSetId = this._dataSetId
+        let submitted: SP.submitCommit.OutputType
+        if (options.commit == null) {
+          const [, clientDataSetId] = await Promise.all([
+            this._warmStorageService.validateDataSet({ dataSetId }),
+            this.getClientDataSetId(),
+          ])
+          submitted = await SP.addPieces(client, {
+            dataSetId,
+            clientDataSetId,
+            pieces: options.pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata })),
+            serviceURL: this._pdpEndpoint,
+            extraData: options.extraData,
+            signal,
+          })
+        } else {
+          await this._warmStorageService.validateDataSet({ dataSetId })
+          submitted = await SP.submitCommit(client, { serviceURL: this._pdpEndpoint, commit: options.commit, signal })
+        }
+        options.onSubmitted?.(submitted.txHash)
 
         const confirmation = await SP.waitForAddPieces({
           client: this._client,
-          txHash: addPiecesResult.txHash,
-          extraData: addPiecesResult.extraData,
-          pieceCount: addPiecesResult.pieceCount,
+          txHash: submitted.txHash,
+          extraData: submitted.extraData,
+          pieceCount: submitted.pieceCount,
           payer: getPayerAddress(this._client.account),
           signal,
         })
 
         return {
-          txHash: addPiecesResult.txHash as Hex,
+          txHash: submitted.txHash,
           ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash }),
           pieceIds: confirmation.pieceIds,
-          dataSetId: this._dataSetId,
+          dataSetId,
           isNewDataSet: false,
         }
       }
 
       // Create new data set and add pieces
-      const result = await SP.createDataSetAndAddPieces(this._synapse.sessionClient ?? this._client, {
-        cdn: this._withCDN,
-        payee: this._provider.serviceProvider,
-        payer: this._synapse.client.account.address,
-        recordKeeper: this._chain.contracts.fwss.address,
-        pieces: pieceInputs,
-        metadata: this._dataSetMetadata,
-        serviceURL: this._pdpEndpoint,
-        extraData,
-        signal,
-      })
-      options.onSubmitted?.(result.txHash as Hex)
+      const submitted =
+        options.commit == null
+          ? await SP.createDataSetAndAddPieces(client, {
+              cdn: this._withCDN,
+              payee: this._provider.serviceProvider,
+              payer: this._synapse.client.account.address,
+              recordKeeper: this._chain.contracts.fwss.address,
+              pieces: options.pieces.map((p) => ({ pieceCid: p.pieceCid, metadata: p.pieceMetadata })),
+              metadata: this._dataSetMetadata,
+              serviceURL: this._pdpEndpoint,
+              extraData: options.extraData,
+              signal,
+            })
+          : await SP.submitCommit(client, {
+              serviceURL: this._pdpEndpoint,
+              commit: options.commit,
+              recordKeeper: this._chain.contracts.fwss.address,
+              signal,
+            })
+      options.onSubmitted?.(submitted.txHash)
 
       const confirmation = await SP.waitForCreateDataSetAddPieces({
         client: this._client,
-        txHash: result.txHash,
-        extraData: result.extraData,
-        pieceCount: result.pieceCount,
+        txHash: submitted.txHash,
+        extraData: submitted.extraData,
+        pieceCount: submitted.pieceCount,
         signal,
       })
       this._dataSetId = confirmation.dataSetId
 
       return {
-        txHash: result.txHash as Hex,
+        txHash: submitted.txHash,
         ...(confirmation.confirmedTxHash === undefined ? {} : { confirmedTxHash: confirmation.confirmedTxHash }),
         pieceIds: confirmation.pieceIds,
         dataSetId: this._dataSetId,

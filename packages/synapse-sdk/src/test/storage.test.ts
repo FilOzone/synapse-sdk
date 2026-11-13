@@ -1455,6 +1455,254 @@ describe('StorageService', () => {
     })
   })
 
+  describe('prepareCommit', () => {
+    const pdpUrl = 'https://pdp.example.com'
+    const mockTxHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
+
+    async function makeContext(dataSetId?: bigint) {
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }), Mocks.PING())
+      const synapse = new Synapse({ client, source: null, pieceBatching: false })
+      const warmStorageService = new WarmStorageService({ client })
+      return StorageContext.create({ synapse, warmStorageService, dataSetId })
+    }
+
+    it('returns a JSON-safe createDataSetAndAddPieces commit for a context without a data set', async () => {
+      const service = await makeContext()
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+
+      const commit = await service.prepareCommit([{ pieceCid, pieceMetadata: { name: 'a' } }])
+
+      assert.equal(commit.kind, 'createDataSetAndAddPieces')
+      assert.equal(commit.kind === 'createDataSetAndAddPieces' && commit.payee, service.serviceProvider)
+      assert.deepEqual(commit.pieces, [{ pieceCid: pieceCid.toString(), metadata: { name: 'a' } }])
+      assert.deepEqual(JSON.parse(JSON.stringify(commit)), commit)
+      assert.equal(await service.presignForCommit([{ pieceCid }]).then((hex) => hex.startsWith('0x')), true)
+    })
+
+    it('returns an addPieces commit for a context with a data set', async () => {
+      const service = await makeContext(1n)
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+
+      const commit = await service.prepareCommit([{ pieceCid }])
+
+      assert.equal(commit.kind, 'addPieces')
+      assert.equal(commit.kind === 'addPieces' && commit.dataSetId, '1')
+    })
+
+    it('pull sends the commit pieces and signature', async () => {
+      const service = await makeContext()
+      const pieceA = await calculate(new Uint8Array(127).fill(1))
+      const pieceB = await calculate(new Uint8Array(127).fill(2))
+      let captured: Mocks.pdp.PullRequestCapture | undefined
+      server.use(
+        Mocks.pdp.pullPiecesWithCaptureHandler(
+          Mocks.pdp.createPullResponse('complete', [{ pieceCid: pieceA.toString() }, { pieceCid: pieceB.toString() }]),
+          (req) => {
+            captured = req
+          },
+          { baseUrl: pdpUrl }
+        )
+      )
+
+      const commit = await service.prepareCommit([{ pieceCid: pieceA }, { pieceCid: pieceB }])
+      const result = await service.pull({ from: pdpUrl, commit: JSON.parse(JSON.stringify(commit)) })
+
+      assert.equal(result.status, 'complete')
+      assert.equal(captured?.extraData, commit.extraData)
+      assert.deepEqual(
+        captured?.pieces.map((piece) => piece.pieceCid),
+        [pieceA.toString(), pieceB.toString()]
+      )
+      assert.deepEqual(
+        result.pieces.map((piece) => piece.pieceCid.toString()),
+        [pieceA.toString(), pieceB.toString()]
+      )
+    })
+
+    it('pull rejects a commit prepared for another data set', async () => {
+      const fresh = await makeContext()
+      const existing = await makeContext(1n)
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      const commit = await fresh.prepareCommit([{ pieceCid }])
+
+      await rejects(
+        existing.pull({ from: pdpUrl, commit }),
+        /Commit creates a new data set, but this context uses data set 1/
+      )
+    })
+
+    it('commit rejects a create commit on a context with a data set', async () => {
+      const fresh = await makeContext()
+      const existing = await makeContext(1n)
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      const commit = await fresh.prepareCommit([{ pieceCid }])
+
+      await rejects(existing.commit({ commit }), /Commit creates a new data set, but this context uses data set 1/)
+    })
+
+    it('commit rejects an addPieces commit for another data set id', async () => {
+      const existing = await makeContext(1n)
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      const commit = await existing.prepareCommit([{ pieceCid }])
+      assert.equal(commit.kind, 'addPieces')
+
+      await rejects(
+        existing.commit({ commit: { ...commit, dataSetId: '2' } as typeof commit }),
+        /Commit adds pieces to data set 2, but this context uses data set 1/
+      )
+    })
+
+    it('commit rejects an addPieces commit on a context without a data set', async () => {
+      const fresh = await makeContext()
+      const existing = await makeContext(1n)
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      const commit = await existing.prepareCommit([{ pieceCid }])
+
+      await rejects(
+        fresh.commit({ commit }),
+        /Commit adds pieces to data set 1, but this context creates a new data set/
+      )
+    })
+
+    it('commit rejects a create commit prepared with another withCDN', async () => {
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }), Mocks.PING())
+      const synapse = new Synapse({ client, source: null, pieceBatching: false })
+      const warmStorageService = new WarmStorageService({ client })
+      const plain = await StorageContext.create({ synapse, warmStorageService })
+      const withCDN = await StorageContext.create({ synapse, warmStorageService, withCDN: true })
+      assert.equal(plain.dataSetId, undefined)
+      assert.equal(withCDN.dataSetId, undefined)
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      const commit = await plain.prepareCommit([{ pieceCid }])
+
+      await rejects(withCDN.commit({ commit }), /Commit withCDN is false, but this context expects true/)
+    })
+
+    it('commit rejects a create commit prepared with other data set metadata', async () => {
+      const service = await makeContext()
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      const commit = await service.prepareCommit([{ pieceCid }])
+      assert.equal(commit.kind, 'createDataSetAndAddPieces')
+
+      await rejects(
+        service.commit({ commit: { ...commit, metadata: { project: 'other' } } as typeof commit }),
+        /Commit data set metadata \{"project":"other"\} does not match this context's \{\}/
+      )
+    })
+
+    it('commit fails without submitting when an addPieces commit already landed', async () => {
+      const service = await makeContext(1n)
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      server.use(
+        http.post(`${pdpUrl}/pdp/data-sets/:id/pieces`, () =>
+          HttpResponse.text('estimateGas failed: nonce already used', { status: 400 })
+        )
+      )
+      const commit = await service.prepareCommit([{ pieceCid }])
+
+      let submitted = false
+      await rejects(
+        service.commit({
+          commit,
+          onSubmitted: () => {
+            submitted = true
+          },
+        }),
+        (error: any) => {
+          assert.include(error.message, 'Failed to commit pieces on-chain')
+          assert.include(String(error.cause?.message), 'nonce already used')
+          return true
+        }
+      )
+      assert.isFalse(submitted)
+      assert.equal(service.dataSetId, 1n)
+    })
+
+    it('commit fails without submitting when a create commit already landed', async () => {
+      const service = await makeContext()
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      server.use(
+        http.post(`${pdpUrl}/pdp/data-sets/create-and-add`, () =>
+          HttpResponse.text('estimateGas failed: client data set id already used', { status: 400 })
+        )
+      )
+      const commit = await service.prepareCommit([{ pieceCid }])
+
+      let submitted = false
+      await rejects(
+        service.commit({
+          commit,
+          onSubmitted: () => {
+            submitted = true
+          },
+        }),
+        /Failed to commit pieces on-chain/
+      )
+      assert.isFalse(submitted)
+      assert.equal(service.dataSetId, undefined)
+    })
+
+    it('commit with pieces validates the data set before signing', async () => {
+      const service = await makeContext(1n)
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      let signs = 0
+      const account = client.account as { signTypedData: (...args: any[]) => Promise<Hex> }
+      const signTypedData = account.signTypedData.bind(account)
+      account.signTypedData = async (...args) => {
+        signs++
+        return signTypedData(...args)
+      }
+      ;(service as any)._warmStorageService.validateDataSet = async () => {
+        throw new Error('Data set 1 is not live')
+      }
+
+      await rejects(service.commit({ pieces: [{ pieceCid }] }), /Failed to commit pieces on-chain/)
+      assert.equal(signs, 0)
+      // The spy sees signing, so the zero above means commit() never reached it.
+      await service.prepareCommit([{ pieceCid }])
+      assert.equal(signs, 1)
+    })
+
+    it('commit submits a commit loaded from JSON', async () => {
+      const service = await makeContext(1n)
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      let body: { extraData: Hex; pieces: { pieceCid: string }[] } | undefined
+      server.use(
+        http.post(`${pdpUrl}/pdp/data-sets/:id/pieces`, async ({ request, params }) => {
+          body = (await request.json()) as typeof body
+          return new HttpResponse(null, {
+            status: 201,
+            headers: { Location: `/pdp/data-sets/${params.id}/pieces/added/${mockTxHash}` },
+          })
+        })
+      )
+
+      const commit = JSON.parse(JSON.stringify(await service.prepareCommit([{ pieceCid }])))
+      // Stop once submitted: this test checks the request, not the confirmation wait.
+      const controller = new AbortController()
+      let submittedHash: Hex | undefined
+      try {
+        await service.commit({
+          commit,
+          signal: controller.signal,
+          onSubmitted: (txHash) => {
+            submittedHash = txHash
+            controller.abort()
+          },
+        })
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.instanceOf(error.cause, AbortError)
+      }
+      assert.equal(submittedHash, mockTxHash)
+      assert.equal(body?.extraData, commit.extraData)
+      assert.deepEqual(
+        body?.pieces.map((piece) => piece.pieceCid),
+        [pieceCid.toString()]
+      )
+    })
+  })
+
   describe('upload', () => {
     it('should handle errors in batch processing gracefully', async () => {
       server.use(
@@ -1742,9 +1990,9 @@ describe('StorageService', () => {
       const makeSecondary = (id: bigint) =>
         ({
           provider: { id },
-          presignForCommit: async () => {
+          prepareCommit: async () => {
             counts.presigns++
-            return '0x'
+            return { kind: 'createDataSetAndAddPieces', extraData: '0x' }
           },
           pull: async () => {
             counts.pulls++
@@ -1758,6 +2006,55 @@ describe('StorageService', () => {
       } as unknown as StorageContext
       return { counts, makeSecondary, primary }
     }
+
+    it('upload hands the same prepared commit to the secondary pull and commit', async () => {
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }))
+      const synapse = new Synapse({ client, source: null, pieceBatching: false })
+      const pieceCid = await calculate(new Uint8Array(127).fill(1))
+      const prepared = { kind: 'createDataSetAndAddPieces', extraData: '0x1234' }
+      const calls: { prepareCommit: unknown[]; pull: any[]; commit: any[] } = {
+        prepareCommit: [],
+        pull: [],
+        commit: [],
+      }
+      const committed = { txHash: '0xabc', pieceIds: [1n], dataSetId: 9n, isNewDataSet: true }
+      const provider = (id: bigint) => ({ id, pdp: { serviceURL: `https://sp${id}.example.com` } })
+      const primary = {
+        provider: provider(1n),
+        store: async () => ({ pieceCid, size: 127 }),
+        commit: async () => committed,
+        getPieceUrl: () => 'https://sp1.example.com/piece',
+      } as unknown as StorageContext
+      const secondary = {
+        provider: provider(2n),
+        prepareCommit: async (pieces: unknown) => {
+          calls.prepareCommit.push(pieces)
+          return prepared
+        },
+        pull: async (options: any) => {
+          calls.pull.push(options)
+          return { status: 'complete', pieces: [{ pieceCid, status: 'complete', index: 0 }] }
+        },
+        commit: async (options: any) => {
+          calls.commit.push(options)
+          return committed
+        },
+        getPieceUrl: () => 'https://sp2.example.com/piece',
+      } as unknown as StorageContext
+      const storage = synapse.storage as any
+      storage._resolveUploadContexts = async () => ({ contexts: [primary, secondary], explicitProviders: true })
+
+      const result = await synapse.storage.upload(new Uint8Array(127).fill(1), { pieceMetadata: { name: 'a' } })
+
+      assert.equal(result.copies.length, 2)
+      assert.deepEqual(calls.prepareCommit, [[{ pieceCid, pieceMetadata: { name: 'a' } }]])
+      assert.equal(calls.pull.length, 1)
+      assert.strictEqual(calls.pull[0].commit, prepared)
+      assert.notProperty(calls.pull[0], 'pieces')
+      assert.equal(calls.commit.length, 1)
+      assert.strictEqual(calls.commit[0].commit, prepared)
+      assert.notProperty(calls.commit[0], 'pieces')
+    })
 
     it('stops the secondary retry loop when the signal aborts', async () => {
       server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }))
