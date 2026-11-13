@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.6.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.5.1...synapse-react-v0.6.0) (2026-11-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **react:** useDeletePiece resolves with the waitForDeletePieces result instead of a TransactionReceipt.
+* **react:** wait for created data sets and added pieces on chain
+
+### Features
+
+* **react:** wait for created data sets and added pieces on chain ([14a29cc](https://github.com/FilOzone/synapse-sdk/commit/14a29cc34497c3ffb5ce99117ff00b7ce64af05d)), closes [#1049](https://github.com/FilOzone/synapse-sdk/issues/1049)
+
+
+### Bug Fixes
+
+* **core:** tolerate Filecoin null rounds while waiting for receipts ([#1096](https://github.com/FilOzone/synapse-sdk/issues/1096)) ([6469a03](https://github.com/FilOzone/synapse-sdk/commit/6469a0342279c19df9895a38eedb309a9bbee836))
+* **react:** wait for piece deletions with waitForDeletePieces ([330e25e](https://github.com/FilOzone/synapse-sdk/commit/330e25e7512580cb0069f4cf17580459d0a99cad))
+
+
+### Documentation
+
+* piece metadata is not readable from chain; fetch it from the Filecoin API ([#1133](https://github.com/FilOzone/synapse-sdk/issues/1133)) ([8cccb89](https://github.com/FilOzone/synapse-sdk/commit/8cccb895f73d794fd256d366fc3ff69b592fdabc))
+
 ## [0.5.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.5.0...synapse-react-v0.5.1) (2026-10-16)
 
 
