@@ -138,6 +138,29 @@ describe('calculateMultiContextCosts', () => {
     assert.equal(typeof result.ready, 'boolean')
   })
 
+  it('should return the account values used to price the deposit', async () => {
+    // funds 10, lockupCurrent 5, no lockup rate → 5 USDFC available, no debt, unlimited runway
+    server.use(
+      Mocks.JSONRPC({
+        ...Mocks.presets.basic,
+        payments: {
+          ...Mocks.presets.basic.payments,
+          accounts: () => [parseUnits('10', 18), parseUnits('5', 18), 0n, 0n],
+          operatorApprovals: fullyApproved,
+        },
+      })
+    )
+
+    const ctx = makeContext(synapse, warmStorageService, {})
+    const result = await manager.calculateMultiContextCosts([ctx], { pieceSizes: [1n] })
+
+    assert.deepStrictEqual(result.account, {
+      availableFunds: parseUnits('5', 18),
+      debt: 0n,
+      runwayInEpochs: maxUint256,
+    })
+  })
+
   it('should report ready when funded and approved (single new context)', async () => {
     server.use(
       Mocks.JSONRPC({
@@ -349,6 +372,7 @@ describe('calculateMultiContextCosts', () => {
       `depositNeeded (${result.depositNeeded}) should be >= debt (${expectedDebt})`
     )
     assert.equal(result.ready, false)
+    assert.deepStrictEqual(result.account, { availableFunds: 0n, debt: expectedDebt, runwayInEpochs: 0n })
   })
 
   it('should increase deposit with larger runway across multiple contexts', async () => {
