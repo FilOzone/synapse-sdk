@@ -69,6 +69,12 @@ export interface ProviderSelectionOptions extends ProviderSelectionInput {
   excludeProviderIds?: bigint[]
   /** Desired metadata for dataset matching (empty object matches only empty-metadata datasets) */
   metadata?: MetadataObject
+  /**
+   * Select this provider only, bypassing the endorsed pool restriction.
+   * Returns at most one location: the provider's best matching dataset, or a
+   * new-dataset location. Empty if the provider is not in `providers` or is excluded.
+   */
+  providerId?: bigint
 }
 
 /**

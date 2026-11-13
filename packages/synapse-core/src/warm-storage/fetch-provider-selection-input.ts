@@ -11,6 +11,13 @@ export namespace fetchProviderSelectionInput {
     /** Client wallet address (for dataset lookup) */
     address: Address
   }
+
+  export type OutputType = ProviderSelectionInput
+
+  export type ErrorType =
+    | getApprovedPDPProviders.ErrorType
+    | getEndorsedProviderIds.ErrorType
+    | getPdpDataSets.ErrorType
 }
 
 /**
@@ -29,6 +36,7 @@ export namespace fetchProviderSelectionInput {
  * @param client - The client to use to fetch provider selection input.
  * @param options - Client address for dataset lookup
  * @returns ProviderSelectionInput (caller provides metadata via selectProviders options)
+ * @throws Errors {@link fetchProviderSelectionInput.ErrorType}
  */
 export async function fetchProviderSelectionInput(
   client: Client<Transport, Chain>,

@@ -433,6 +433,83 @@ describe('selectProviders', () => {
     })
   })
 
+  describe('explicit providerId', () => {
+    it('selects only the requested provider', () => {
+      const result = selectProviders({
+        providers: [provider1, provider2, provider3],
+        endorsedIds: [],
+        clientDataSets: [],
+        providerId: 2n,
+        count: 3,
+      })
+      assert.equal(result.length, 1)
+      assert.equal(result[0].provider.id, 2n)
+      assert.equal(result[0].dataSetId, null)
+    })
+
+    it('bypasses the endorsed pool restriction', () => {
+      const result = selectProviders({
+        providers: [provider1, provider2],
+        endorsedIds: [1n],
+        clientDataSets: [],
+        providerId: 2n,
+      })
+      assert.equal(result.length, 1)
+      assert.equal(result[0].provider.id, 2n)
+      assert.equal(result[0].endorsed, false)
+    })
+
+    it('marks an endorsed explicit provider as endorsed', () => {
+      const result = selectProviders({
+        providers: [provider1, provider2],
+        endorsedIds: [1n],
+        clientDataSets: [],
+        providerId: 1n,
+      })
+      assert.equal(result[0].endorsed, true)
+    })
+
+    it("returns the provider's best matching data set", () => {
+      const result = selectProviders({
+        providers: [provider1, provider2],
+        endorsedIds: [],
+        clientDataSets: [
+          makeDataSet({ dataSetId: 10n, providerId: 1n, metadata: { app: 'x' }, hasActivePieces: true }),
+          makeDataSet({ dataSetId: 20n, providerId: 2n, metadata: { app: 'x' } }),
+          makeDataSet({ dataSetId: 30n, providerId: 2n, metadata: { app: 'x' }, hasActivePieces: true }),
+          makeDataSet({ dataSetId: 40n, providerId: 2n, metadata: { app: 'y' }, hasActivePieces: true }),
+        ],
+        metadata: { app: 'x' },
+        providerId: 2n,
+      })
+      assert.equal(result.length, 1)
+      assert.equal(result[0].provider.id, 2n)
+      assert.equal(result[0].dataSetId, 30n)
+      assert.equal(result[0].clientDataSetId, 1030n)
+    })
+
+    it('returns empty when the provider is not in providers', () => {
+      const result = selectProviders({
+        providers: [provider1],
+        endorsedIds: [],
+        clientDataSets: [],
+        providerId: 9n,
+      })
+      assert.equal(result.length, 0)
+    })
+
+    it('returns empty when the provider is excluded', () => {
+      const result = selectProviders({
+        providers: [provider1, provider2],
+        endorsedIds: [],
+        clientDataSets: [],
+        providerId: 2n,
+        excludeProviderIds: [2n],
+      })
+      assert.equal(result.length, 0)
+    })
+  })
+
   describe('endorsed flag on results', () => {
     it('marks endorsed providers correctly', () => {
       const result = selectProviders({
