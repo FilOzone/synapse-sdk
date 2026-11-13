@@ -1,34 +1,34 @@
 import type { Address, Hex } from 'viem'
 
 /**
- * Identifies the keyspace a key belongs to.
+ * Identifies the group key a key belongs to.
  *
- * A keyspace is Keysmith's own namespace, chosen by the client and carried in
+ * A group key is Keysmith's own namespace, chosen by the client and carried in
  * every envelope. It is deliberately independent of FWSS: replication and
  * repair put copies of a piece into other datasets, on other providers,
  * sometimes paid for by other accounts, and the piece must still open.
  */
-export interface KeyspaceRef {
-  owner: Address // The wallet that roots this keyspace and signs for it
-  keyspace: Hex // 16 random bytes; names the key namespace, independent of any dataset
+export interface GroupKeyRef {
+  owner: Address // The wallet that roots this group key and signs for it
+  groupKeyId: Hex // 16 random bytes; names the key namespace, independent of any dataset
 }
 
-/** The message an owner signs to start the derivation tree */
-export type KeyspaceKeyMessage = {
-  owner: Address // The wallet that roots this keyspace
+/** The message an owner signs to start the derivation tree. Its `keyspace` field is the EIP-712 wire name for the group key id. */
+export type GroupKeyMessage = {
+  owner: Address // The wallet that roots this group key
   keyspace: Hex // bytes16, canonical lowercase hex
 } & Record<string, unknown>
 
-/** What `keyspaceKeys()` hands back. The signature it came from is never exposed. */
-export interface KeyspaceKeys {
-  kk: Uint8Array // The key for the whole keyspace.
+/** What `deriveGroupKey()` hands back. The signature it came from is never exposed. */
+export interface DerivedGroupKey {
+  kk: Uint8Array // The group key: the secret root every group's key and piece key derives from.
   commitment: string // Non-secret check value for FWSS metadata, under `COMMITMENT_KEY`: `v1.<hex>`.
-  descriptor: GrantDescriptor // What was signed, as a keyspace grant descriptor: `writeTarget(descriptor, kk, scope)`.
+  descriptor: GrantDescriptor // What was signed, as a group key grant descriptor: `writeTarget(descriptor, kk, group)`.
 }
 
-export interface KeyspaceKeysOptions {
+export interface DeriveGroupKeyOptions {
   /**
-   * The commitment an existing keyspace's dataset records under `COMMITMENT_KEY`
+   * The commitment an existing group key's dataset records under `COMMITMENT_KEY`
    * (`foc/kc`). Used to verify RFC 6979 behavior without a second signature.
    */
   commitment?: string
@@ -43,11 +43,11 @@ export interface KeyspaceKeysOptions {
    */
   verifySigner?: boolean
   /**
-   * An optional password mixed into the keyspace key (via Argon2id), so that
+   * An optional password mixed into the group key (via Argon2id), so that
    * a phished signature alone does not reveal it. Without one, the key is
    * exactly what it always was. With one, the same password is needed every
    * time: a wrong one fails against `commitment`, and a forgotten one loses
-   * the keyspace for good.
+   * the group key for good.
    */
   password?: string
 }
@@ -60,8 +60,8 @@ export interface TypedDataSigner {
   signTypedData: (args: {
     domain: { readonly name: string; readonly version: string }
     types: Record<string, readonly { readonly name: string; readonly type: string }[]>
-    primaryType: 'KeyspaceKey'
-    message: KeyspaceKeyMessage
+    primaryType: 'KeyspaceKey' // EIP-712 wire name
+    message: GroupKeyMessage
   }) => Promise<Hex>
 }
 
@@ -69,13 +69,13 @@ export interface TypedDataSigner {
 // A type, not an interface, so it can be passed as FEE's `appMetadata` (a string-keyed record) as it is.
 export type PieceMetadata = {
   'foc/v': 1 // The version of this metadata format
-  'foc/own': Address // The keyspace owner, lowercased.
-  'foc/ks': Hex // The keyspace this piece's key belongs to
-  'foc/scope'?: string // The scope path this piece is in, eg `top-secret/secret`
+  'foc/own': Address // The group key owner, lowercased.
+  'foc/ks': Hex // The group key this piece's key belongs to
+  'foc/scope'?: string // The group path this piece is in, eg `top-secret/secret`
   'foc/salt': Hex // The piece's unique salt
 }
 
-/** What a grant may unlock: the whole keyspace, one scope within it, or one piece, named by its salt. */
+/** What a grant may unlock: the whole group key, one group within it, or one piece, named by its salt. The strings are wire values, signed into claims. */
 export type GrantNode = 'keyspace' | `scope:${string}` | `piece:${string}`
 
 /**
@@ -85,9 +85,9 @@ export type GrantNode = 'keyspace' | `scope:${string}` | `piece:${string}`
  */
 export interface GrantDescriptor {
   v: 1
-  node: string // 'keyspace', 'scope:<path>', or 'piece:<salt>'.
-  owner: Address // The wallet that roots the keyspace, lowercased
-  keyspace: Hex // Spelled as in `foc/ks`
+  node: string // 'keyspace', 'scope:<path>', or 'piece:<salt>' (wire spellings).
+  owner: Address // The wallet that roots the group key, lowercased
+  groupKeyId: Hex // Spelled as in `foc/ks`
 }
 
 /** A node key wrapped to one recipient. Safe to store or send anywhere. */
@@ -98,12 +98,16 @@ export interface Grant extends GrantDescriptor {
   ct: Hex // Wrapped key: ciphertext ‖ tag
 }
 
-/** Which node the caller holds when deriving a piece key: the keyspace, a scope by its path, or one piece by its salt. */
-export type Holding = 'keyspace' | { scope: string } | { piece: Hex }
+/**
+ * Which node the caller holds when deriving a piece key: the group key, a group by its path, or one piece by its salt.
+ * Wire names: `'groupKey'` is node `'keyspace'`; `{ group }` is node `'scope:<path>'` and label `foc/scope`;
+ * `{ piece }` is node `'piece:<salt>'`.
+ */
+export type Holding = 'groupKey' | { group: string } | { piece: Hex }
 
 /** What `writeTarget()` hands a delegate: everything needed to write one piece. */
 export interface WriteTarget {
-  ref: KeyspaceRef // For pieceMetadata(): the keyspace the grant names
-  scope?: string // The scope path to label the piece with; absent for an unlabelled piece
+  ref: GroupKeyRef // For pieceMetadata(): the group key the grant names
+  group?: string // The group path to label the piece with; absent for an unlabelled piece
   key: Uint8Array // The node key to derive the piece key from: pieceKey(key, salt)
 }

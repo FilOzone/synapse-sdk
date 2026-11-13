@@ -6,29 +6,29 @@ import {
   canonicalNode,
   commitment,
   DOMAIN,
+  deriveGroupKey,
   grantDescriptor,
+  groupKeyId,
+  groupKeyMessage,
+  groupName,
+  groupPath,
   holdingOf,
   keyForEnvelope,
-  keyspaceId,
-  keyspaceKeyMessage,
-  keyspaceKeys,
+  keyForGroup,
   lowSrs,
   matchesCommitment,
-  newKeyspace,
+  newGroupKeyId,
   newSalt,
   pieceKey,
   pieceMetadata,
   pieceNode,
-  scopeKey,
-  scopeName,
-  scopePath,
   writeTarget,
 } from '../src/derive.ts'
-import type { KeyspaceRef, TypedDataSigner } from '../src/types.ts'
+import type { GroupKeyRef, TypedDataSigner } from '../src/types.ts'
 
 const account = privateKeyToAccount(generatePrivateKey())
-const ref: KeyspaceRef = { owner: account.address, keyspace: '0x00112233445566778899aabbccddeeff' }
-const kkOf = async (signer: TypedDataSigner, r: KeyspaceRef) => (await keyspaceKeys(signer, r)).kk
+const ref: GroupKeyRef = { owner: account.address, groupKeyId: '0x00112233445566778899aabbccddeeff' }
+const kkOf = async (signer: TypedDataSigner, r: GroupKeyRef) => (await deriveGroupKey(signer, r)).kk
 
 /** A real signer with a call counter, so prompts can be counted. */
 function counting(signer: TypedDataSigner) {
@@ -42,110 +42,110 @@ function counting(signer: TypedDataSigner) {
   return wrapper
 }
 
-describe('keyspaceKeyMessage', () => {
-  it('names the owner and keyspace, and signs nothing about chains or datasets', () => {
-    const message = keyspaceKeyMessage(ref)
-    assert.equal(message.keyspace, ref.keyspace)
+describe('groupKeyMessage', () => {
+  it('names the owner and group key, and signs nothing about chains or datasets', () => {
+    const message = groupKeyMessage(ref)
+    assert.equal(message.keyspace, ref.groupKeyId)
     assert.deepStrictEqual(Object.keys(message).sort(), ['keyspace', 'owner'])
   })
 })
 
-describe('keyspaceKeys', () => {
-  it('derives the same key for the same wallet and keyspace', async () => {
+describe('deriveGroupKey', () => {
+  it('derives the same key for the same wallet and group key id', async () => {
     assert.deepStrictEqual(await kkOf(account, ref), await kkOf(account, ref))
   })
 
-  it('derives an unrelated key for another keyspace, or another wallet', async () => {
+  it('derives an unrelated key for another group key, or another wallet', async () => {
     const other = privateKeyToAccount(generatePrivateKey())
-    assert.notDeepStrictEqual(await kkOf(account, ref), await kkOf(account, { ...ref, keyspace: newKeyspace() }))
+    assert.notDeepStrictEqual(await kkOf(account, ref), await kkOf(account, { ...ref, groupKeyId: newGroupKeyId() }))
     assert.notDeepStrictEqual(await kkOf(account, ref), await kkOf(other, { ...ref, owner: other.address }))
   })
 
-  it('accepts the keyspace in any case, since it is canonicalised before signing', async () => {
-    const upper = ref.keyspace.toUpperCase().replace('0X', '0x') as `0x${string}`
-    assert.deepStrictEqual(await kkOf(account, ref), await kkOf(account, { ...ref, keyspace: upper }))
+  it('accepts the group key in any case, since it is canonicalised before signing', async () => {
+    const upper = ref.groupKeyId.toUpperCase().replace('0X', '0x') as `0x${string}`
+    assert.deepStrictEqual(await kkOf(account, ref), await kkOf(account, { ...ref, groupKeyId: upper }))
   })
 
-  it('returns a commitment derived from the keyspace key, so any key holder can recompute it', async () => {
-    const { kk, commitment: c } = await keyspaceKeys(account, ref)
+  it('returns a commitment derived from the group key, so any key holder can recompute it', async () => {
+    const { kk, commitment: c } = await deriveGroupKey(account, ref)
     assert.equal(c, commitment(kk))
     assert.match(c, /^v1\.[0-9a-f]{32}$/)
-    assert.notEqual(c, (await keyspaceKeys(account, { ...ref, keyspace: newKeyspace() })).commitment)
+    assert.notEqual(c, (await deriveGroupKey(account, { ...ref, groupKeyId: newGroupKeyId() })).commitment)
     assert.ok(!c.includes(bytesToHex(kk).slice(2, 34)), 'the commitment must not contain the key')
   })
 
   it('refuses a signature from any wallet but the owner’s, a session key included', async () => {
     const session = privateKeyToAccount(generatePrivateKey())
-    await assert.rejects(keyspaceKeys(session, ref), /not from the keyspace owner/)
+    await assert.rejects(deriveGroupKey(session, ref), /not from the group key owner/)
     const ownerInOtherCase = { ...ref, owner: account.address.toLowerCase() as `0x${string}` }
-    await keyspaceKeys(account, ownerInOtherCase)
+    await deriveGroupKey(account, ownerInOtherCase)
   })
 
-  it('returns the keyspace descriptor, so an owner writes the way a delegate does', async () => {
-    const { kk, descriptor } = await keyspaceKeys(account, ref)
+  it('returns the group key descriptor, so an owner writes the way a delegate does', async () => {
+    const { kk, descriptor } = await deriveGroupKey(account, ref)
     assert.deepStrictEqual(descriptor, grantDescriptor(ref, 'keyspace'))
     const target = writeTarget(descriptor, kk, 'agent-memory')
     const salt = newSalt()
-    const metadata = pieceMetadata(target.ref, { salt, scope: target.scope })
-    assert.equal(metadata['foc/ks'], ref.keyspace, 'the keyspace comes from what was signed')
+    const metadata = pieceMetadata(target.ref, { salt, group: target.group })
+    assert.equal(metadata['foc/ks'], ref.groupKeyId, 'the group key comes from what was signed')
     assert.deepStrictEqual(pieceKey(target.key, salt), keyForEnvelope(kk, metadata))
   })
 
-  it('signs twice for a new keyspace, and once for one with a recorded commitment', async () => {
+  it('signs twice for a new group key, and once for one with a recorded commitment', async () => {
     const signer = counting(account)
-    const { kk, commitment: kc } = await keyspaceKeys(signer, ref)
-    assert.equal(signer.calls, 2, 'new keyspace: sign, sign again, compare')
-    await keyspaceKeys(signer, ref)
+    const { kk, commitment: kc } = await deriveGroupKey(signer, ref)
+    assert.equal(signer.calls, 2, 'new group key: sign, sign again, compare')
+    await deriveGroupKey(signer, ref)
     assert.equal(signer.calls, 4, 'nothing is remembered between calls')
-    const reopened = await keyspaceKeys(signer, ref, { commitment: kc })
-    assert.equal(signer.calls, 5, 'existing keyspace: the commitment does the checking')
+    const reopened = await deriveGroupKey(signer, ref, { commitment: kc })
+    assert.equal(signer.calls, 5, 'existing group key: the commitment does the checking')
     assert.deepStrictEqual(reopened.kk, kk)
-    await keyspaceKeys(signer, ref, { commitment: kc, verifySigner: true })
+    await deriveGroupKey(signer, ref, { commitment: kc, verifySigner: true })
     assert.equal(signer.calls, 7, 'checking can be forced')
-    await keyspaceKeys(signer, ref, { verifySigner: false })
+    await deriveGroupKey(signer, ref, { verifySigner: false })
     assert.equal(signer.calls, 8, 'or skipped for a signer already vetted')
   })
 
   it('refuses a key that does not match the recorded commitment', async () => {
-    const other = await keyspaceKeys(account, { ...ref, keyspace: newKeyspace() })
+    const other = await deriveGroupKey(account, { ...ref, groupKeyId: newGroupKeyId() })
     await assert.rejects(
-      keyspaceKeys(account, ref, { commitment: other.commitment }),
+      deriveGroupKey(account, ref, { commitment: other.commitment }),
       /does not match the recorded commitment/
     )
-    await assert.rejects(keyspaceKeys(account, ref, { commitment: 'v1.0.00' }), /format v1/)
+    await assert.rejects(deriveGroupKey(account, ref, { commitment: 'v1.0.00' }), /format v1/)
   })
 
   describe('with a password', function () {
     // Each Argon2id pass is 64 MiB and about a second, slower in a browser
     this.timeout(30_000)
-    let locked: Awaited<ReturnType<typeof keyspaceKeys>>
+    let locked: Awaited<ReturnType<typeof deriveGroupKey>>
 
     before(async () => {
-      locked = await keyspaceKeys(account, ref, { password: 'caf\u00e9' })
+      locked = await deriveGroupKey(account, ref, { password: 'caf\u00e9' })
     })
 
     it('derives a different key than without one', async () => {
-      assert.notEqual(bytesToHex(locked.kk), bytesToHex((await keyspaceKeys(account, ref)).kk))
+      assert.notEqual(bytesToHex(locked.kk), bytesToHex((await deriveGroupKey(account, ref)).kk))
     })
 
     it('reopens with the same password in any Unicode normal form', async () => {
-      const again = await keyspaceKeys(account, ref, { password: 'cafe\u0301', commitment: locked.commitment })
+      const again = await deriveGroupKey(account, ref, { password: 'cafe\u0301', commitment: locked.commitment })
       assert.equal(bytesToHex(again.kk), bytesToHex(locked.kk))
     })
 
     it('refuses a wrong password, or a missing one, against the commitment', async () => {
       await assert.rejects(
-        keyspaceKeys(account, ref, { password: 'cafe', commitment: locked.commitment }),
+        deriveGroupKey(account, ref, { password: 'cafe', commitment: locked.commitment }),
         /the password is wrong/
       )
-      await assert.rejects(keyspaceKeys(account, ref, { commitment: locked.commitment }), /may need a password/)
+      await assert.rejects(deriveGroupKey(account, ref, { commitment: locked.commitment }), /may need a password/)
     })
 
     it('refuses a bad password or commitment before the wallet prompts', async () => {
       const signer = counting(account)
-      await assert.rejects(keyspaceKeys(signer, ref, { password: '' }), /non-empty/)
-      await assert.rejects(keyspaceKeys(signer, ref, { password: '\ud800' }), /well-formed/)
-      await assert.rejects(keyspaceKeys(signer, ref, { password: 'x', commitment: 'v1.0.00' }), /format v1/)
+      await assert.rejects(deriveGroupKey(signer, ref, { password: '' }), /non-empty/)
+      await assert.rejects(deriveGroupKey(signer, ref, { password: '\ud800' }), /well-formed/)
+      await assert.rejects(deriveGroupKey(signer, ref, { password: 'x', commitment: 'v1.0.00' }), /format v1/)
       assert.equal(signer.calls, 0)
     })
   })
@@ -156,11 +156,11 @@ describe('keyspaceKeys', () => {
     const flaky: TypedDataSigner = {
       signTypedData: async () => `${r}${(++calls).toString(16).padStart(64, '0')}1b` as const,
     }
-    await assert.rejects(keyspaceKeys(flaky, ref), /not deterministic/)
+    await assert.rejects(deriveGroupKey(flaky, ref), /not deterministic/)
     const abiLike: TypedDataSigner = {
       signTypedData: async () => `0x${'20'.padStart(64, '0')}${'41'.padStart(64, '0')}${'ab'.repeat(65)}` as const,
     }
-    await assert.rejects(keyspaceKeys(abiLike, ref), /64- or 65-byte/)
+    await assert.rejects(deriveGroupKey(abiLike, ref), /64- or 65-byte/)
   })
 })
 
@@ -224,37 +224,37 @@ describe('location independence', () => {
   it('refuses an envelope in any other format, clearly', async () => {
     const kk = await kkOf(account, ref)
     const prototype = { 'foc/v': 1, 'foc/cds': '0x2a', 'foc/epoch': 0, 'foc/salt': newSalt() } as never
-    assert.throws(() => keyForEnvelope(kk, prototype), /format 1 with a keyspace/, 'a pre-release prototype')
+    assert.throws(() => keyForEnvelope(kk, prototype), /format 1 with a group key/, 'a pre-release prototype')
     const future = { ...pieceMetadata(ref, { salt: newSalt() }), 'foc/v': 2 } as never
-    assert.throws(() => keyForEnvelope(kk, future), /format 1 with a keyspace/)
+    assert.throws(() => keyForEnvelope(kk, future), /format 1 with a group key/)
   })
 
   it('refuses malformed envelope metadata clearly, rather than deriving from it', () => {
     const kk = new Uint8Array(32).fill(7)
-    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'a/b' })
+    const metadata = pieceMetadata(ref, { salt: newSalt(), group: 'a/b' })
     assert.throws(() => keyForEnvelope(kk, null as never), /envelope metadata must be an object/)
     const hostile = [
       [{ 'foc/salt': 'hello' }, /piece salt is hex bytes/],
       [{ 'foc/salt': '0x' }, /piece salt is hex bytes/],
       [{ 'foc/salt': 5 }, /piece salt must be a string/],
       [{ 'foc/salt': undefined }, /piece salt must be a string/],
-      [{ 'foc/scope': 5 }, /scope path must be a string/],
-      [{ 'foc/ks': '0xzz' }, /keyspace id is 16 bytes/],
+      [{ 'foc/scope': 5 }, /group path must be a string/],
+      [{ 'foc/ks': '0xzz' }, /group key id is 16 bytes/],
     ] as const
     for (const [fields, error] of hostile) {
       assert.throws(() => keyForEnvelope(kk, { ...metadata, ...fields } as never), error, JSON.stringify(fields))
     }
-    assert.throws(() => keyForEnvelope(kk, metadata, { scope: 5 } as never), /scope path must be a string/)
+    assert.throws(() => keyForEnvelope(kk, metadata, { group: 5 } as never), /group path must be a string/)
   })
 
-  it('given the grant, refuses a piece from another keyspace or owner with a clear reason', async () => {
+  it('given the grant, refuses a piece from another group key or owner with a clear reason', async () => {
     const kk = await kkOf(account, ref)
-    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'team/notes' })
+    const metadata = pieceMetadata(ref, { salt: newSalt(), group: 'team/notes' })
     const grant = grantDescriptor(ref, 'scope:team')
-    const rk = scopeKey(kk, 'team')
+    const rk = keyForGroup(kk, 'team')
     assert.deepStrictEqual(keyForEnvelope(rk, metadata, grant), keyForEnvelope(rk, metadata, holdingOf(grant)))
-    const otherKeyspace = grantDescriptor({ ...ref, keyspace: newKeyspace() }, 'scope:team')
-    assert.throws(() => keyForEnvelope(rk, metadata, otherKeyspace), /This key is for keyspace 0x.*; the piece is in/)
+    const otherGroupKey = grantDescriptor({ ...ref, groupKeyId: newGroupKeyId() }, 'scope:team')
+    assert.throws(() => keyForEnvelope(rk, metadata, otherGroupKey), /This key is for group key 0x.*; the piece is in/)
     const otherOwner = grantDescriptor(
       { ...ref, owner: privateKeyToAccount(generatePrivateKey()).address },
       'scope:team'
@@ -269,39 +269,39 @@ describe('location independence', () => {
   })
 })
 
-describe('scopes', () => {
-  it('give a keyspace holder and a scope holder the same piece key', async () => {
+describe('groups', () => {
+  it('give a group key holder and a group holder the same piece key', async () => {
     const kk = await kkOf(account, ref)
-    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'agent-memory' })
+    const metadata = pieceMetadata(ref, { salt: newSalt(), group: 'agent-memory' })
     assert.deepStrictEqual(
       keyForEnvelope(kk, metadata),
-      keyForEnvelope(scopeKey(kk, 'agent-memory'), metadata, { scope: 'agent-memory' })
+      keyForEnvelope(keyForGroup(kk, 'agent-memory'), metadata, { group: 'agent-memory' })
     )
   })
 
-  it('say so when a scope key is used on a piece with no scope', async () => {
+  it('say so when a group key is used on a piece with no group', async () => {
     const kk = await kkOf(account, ref)
     const unlabelled = pieceMetadata(ref, { salt: newSalt() })
     assert.throws(
-      () => keyForEnvelope(scopeKey(kk, 'agent-memory'), unlabelled, { scope: 'agent-memory' }),
+      () => keyForEnvelope(keyForGroup(kk, 'agent-memory'), unlabelled, { group: 'agent-memory' }),
       /does not contain/
     )
   })
 
   it('are canonicalised: NFC, case kept, no padding', async () => {
     const kk = await kkOf(account, ref)
-    assert.deepStrictEqual(scopeKey(kk, 'café'), scopeKey(kk, 'café'))
-    assert.notDeepStrictEqual(scopeKey(kk, 'Finance'), scopeKey(kk, 'finance'))
-    assert.equal(scopeName('café'), 'café')
-    assert.throws(() => scopeKey(kk, ''), /non-empty/)
-    assert.throws(() => pieceMetadata(ref, { salt: newSalt(), scope: 'secret ' }), /whitespace/)
+    assert.deepStrictEqual(keyForGroup(kk, 'café'), keyForGroup(kk, 'café'))
+    assert.notDeepStrictEqual(keyForGroup(kk, 'Finance'), keyForGroup(kk, 'finance'))
+    assert.equal(groupName('café'), 'café')
+    assert.throws(() => keyForGroup(kk, ''), /non-empty/)
+    assert.throws(() => pieceMetadata(ref, { salt: newSalt(), group: 'secret ' }), /whitespace/)
   })
 })
 
 describe('holdingOf', () => {
   it('reads the level back off a grant, and refuses what it does not understand', () => {
-    assert.equal(holdingOf({ node: 'keyspace' }), 'keyspace')
-    assert.deepStrictEqual(holdingOf({ node: 'scope:agent-memory' }), { scope: 'agent-memory' })
+    assert.equal(holdingOf({ node: 'keyspace' }), 'groupKey')
+    assert.deepStrictEqual(holdingOf({ node: 'scope:agent-memory' }), { group: 'agent-memory' })
     assert.throws(() => holdingOf({ node: 'dataset' }), /Unrecognised grant node/)
     assert.throws(() => holdingOf({ node: 'role:invoices' }), /Unrecognised grant node/)
   })
@@ -310,10 +310,10 @@ describe('holdingOf', () => {
 describe('pieceMetadata and grantDescriptor', () => {
   it('record what a reader needs, in canonical form, and nothing secret', () => {
     const salt = '0x00CDEF0123456789ABCDEF0123456789' as const
-    assert.deepStrictEqual(pieceMetadata(ref, { salt, scope: 'café' }), {
+    assert.deepStrictEqual(pieceMetadata(ref, { salt, group: 'café' }), {
       'foc/v': 1,
       'foc/own': account.address.toLowerCase(),
-      'foc/ks': ref.keyspace,
+      'foc/ks': ref.groupKeyId,
       'foc/scope': 'café',
       'foc/salt': '0x00cdef0123456789abcdef0123456789',
     })
@@ -321,50 +321,50 @@ describe('pieceMetadata and grantDescriptor', () => {
       v: 1,
       node: 'scope:café',
       owner: account.address.toLowerCase(),
-      keyspace: ref.keyspace,
+      groupKeyId: ref.groupKeyId,
     })
   })
 
   it('record the owner on every piece, without it affecting the key', () => {
-    const owned = pieceMetadata(ref, { salt: newSalt(), scope: 'agent-memory' })
+    const owned = pieceMetadata(ref, { salt: newSalt(), group: 'agent-memory' })
     const kk = new Uint8Array(32).fill(7)
-    assert.equal(owned['foc/own'], account.address.toLowerCase(), 'the keyspace owner, lowercased')
+    assert.equal(owned['foc/own'], account.address.toLowerCase(), 'the group key owner, lowercased')
     const relabelled = { ...owned, 'foc/own': '0x0000000000000000000000000000000000000000' as const }
     assert.deepStrictEqual(keyForEnvelope(kk, relabelled), keyForEnvelope(kk, owned), 'derivation ignores it')
   })
 
-  it('refuse a keyspace id that is not 16 bytes of hex', () => {
-    assert.equal(keyspaceId('0x00112233445566778899AABBCCDDEEFF'), ref.keyspace)
-    assert.throws(() => keyspaceId('0x2a'), /16 bytes/)
-    assert.throws(() => pieceMetadata({ ...ref, keyspace: '0x2a' }, { salt: newSalt() }), /16 bytes/)
+  it('refuse a group key id that is not 16 bytes of hex', () => {
+    assert.equal(groupKeyId('0x00112233445566778899AABBCCDDEEFF'), ref.groupKeyId)
+    assert.throws(() => groupKeyId('0x2a'), /16 bytes/)
+    assert.throws(() => pieceMetadata({ ...ref, groupKeyId: '0x2a' }, { salt: newSalt() }), /16 bytes/)
   })
 
-  it('mint distinct salts and keyspaces', () => {
+  it('mint distinct salts and group keys', () => {
     assert.notEqual(newSalt(), newSalt())
-    assert.notEqual(newKeyspace(), newKeyspace())
-    assert.equal(hexToBytes(newKeyspace()).length, 16)
+    assert.notEqual(newGroupKeyId(), newGroupKeyId())
+    assert.equal(hexToBytes(newGroupKeyId()).length, 16)
   })
 })
 
-describe('scope tree', () => {
-  it('lets a scope open every scope beneath it, and nothing above or beside it', async () => {
+describe('group tree', () => {
+  it('lets a group open every group beneath it, and nothing above or beside it', async () => {
     const kk = await kkOf(account, ref)
-    const deep = pieceMetadata(ref, { salt: newSalt(), scope: 'super-secret/secret/internal' })
+    const deep = pieceMetadata(ref, { salt: newSalt(), group: 'super-secret/secret/internal' })
     const expected = keyForEnvelope(kk, deep)
-    assert.deepStrictEqual(keyForEnvelope(scopeKey(kk, 'super-secret'), deep, { scope: 'super-secret' }), expected)
+    assert.deepStrictEqual(keyForEnvelope(keyForGroup(kk, 'super-secret'), deep, { group: 'super-secret' }), expected)
     assert.deepStrictEqual(
-      keyForEnvelope(scopeKey(kk, 'super-secret/secret'), deep, { scope: 'super-secret/secret' }),
+      keyForEnvelope(keyForGroup(kk, 'super-secret/secret'), deep, { group: 'super-secret/secret' }),
       expected
     )
 
-    const upper = pieceMetadata(ref, { salt: newSalt(), scope: 'super-secret' })
+    const upper = pieceMetadata(ref, { salt: newSalt(), group: 'super-secret' })
     assert.throws(
-      () => keyForEnvelope(scopeKey(kk, 'super-secret/secret'), upper, { scope: 'super-secret/secret' }),
+      () => keyForEnvelope(keyForGroup(kk, 'super-secret/secret'), upper, { group: 'super-secret/secret' }),
       /does not contain/
     )
-    const sibling = pieceMetadata(ref, { salt: newSalt(), scope: 'super-secret/finance' })
+    const sibling = pieceMetadata(ref, { salt: newSalt(), group: 'super-secret/finance' })
     assert.throws(
-      () => keyForEnvelope(scopeKey(kk, 'super-secret/secret'), sibling, { scope: 'super-secret/secret' }),
+      () => keyForEnvelope(keyForGroup(kk, 'super-secret/secret'), sibling, { group: 'super-secret/secret' }),
       /does not contain/
     )
   })
@@ -372,52 +372,55 @@ describe('scope tree', () => {
   it('gives siblings unrelated keys: neither opens the other', async () => {
     const kk = await kkOf(account, ref)
     const salt = newSalt()
-    assert.notDeepStrictEqual(scopeKey(kk, 'super-secret'), scopeKey(kk, 'secret'))
-    assert.notDeepStrictEqual(pieceKey(scopeKey(kk, 'super-secret'), salt), pieceKey(scopeKey(kk, 'secret'), salt))
+    assert.notDeepStrictEqual(keyForGroup(kk, 'super-secret'), keyForGroup(kk, 'secret'))
+    assert.notDeepStrictEqual(
+      pieceKey(keyForGroup(kk, 'super-secret'), salt),
+      pieceKey(keyForGroup(kk, 'secret'), salt)
+    )
   })
 
   it('derives a child from its parent, so position is part of the key', async () => {
     const kk = await kkOf(account, ref)
     assert.notDeepStrictEqual(
-      scopeKey(kk, 'secret'),
-      scopeKey(kk, 'super-secret/secret'),
+      keyForGroup(kk, 'secret'),
+      keyForGroup(kk, 'super-secret/secret'),
       'same name, different parent'
     )
-    assert.notDeepStrictEqual(scopeKey(kk, 'a/b'), scopeKey(kk, 'b/a'))
+    assert.notDeepStrictEqual(keyForGroup(kk, 'a/b'), keyForGroup(kk, 'b/a'))
   })
 
   it('canonicalises paths, and refuses empty segments and stray slashes', () => {
-    assert.equal(scopePath('Super/cafe\u0301'), 'Super/caf\u00e9')
-    assert.throws(() => scopePath('super-secret//secret'), /non-empty/)
-    assert.throws(() => scopePath('/super-secret'), /non-empty/)
-    assert.throws(() => scopeName('a/b'), /no "\/"/)
-    assert.deepStrictEqual(holdingOf({ node: 'scope:super-secret/cafe\u0301' }), { scope: 'super-secret/caf\u00e9' })
+    assert.equal(groupPath('Super/cafe\u0301'), 'Super/caf\u00e9')
+    assert.throws(() => groupPath('super-secret//secret'), /non-empty/)
+    assert.throws(() => groupPath('/super-secret'), /non-empty/)
+    assert.throws(() => groupName('a/b'), /no "\/"/)
+    assert.deepStrictEqual(holdingOf({ node: 'scope:super-secret/cafe\u0301' }), { group: 'super-secret/caf\u00e9' })
   })
 
   it('refuses lone surrogates, which would derive the same key as U+FFFD', () => {
-    // team/\ud800 and team/\ufffd encode to the same UTF-8, so they must not both be scopes.
-    assert.throws(() => scopePath('team/\ud800'), /well-formed/)
-    assert.throws(() => scopeName('x\udc00'), /well-formed/)
+    // team/\ud800 and team/\ufffd encode to the same UTF-8, so they must not both be groups.
+    assert.throws(() => groupPath('team/\ud800'), /well-formed/)
+    assert.throws(() => groupName('x\udc00'), /well-formed/)
     assert.throws(() => holdingOf({ node: 'scope:team/\ud800' }), /well-formed/)
-    assert.equal(scopePath('team/\ufffd'), 'team/\ufffd')
-    assert.equal(scopeName('key-\u{1F511}'), 'key-\u{1F511}') // a properly paired surrogate is fine
+    assert.equal(groupPath('team/\ufffd'), 'team/\ufffd')
+    assert.equal(groupName('key-\u{1F511}'), 'key-\u{1F511}') // a properly paired surrogate is fine
   })
 })
 
 describe('writeTarget', () => {
-  it('lets a scope grant write under its own scope, or beneath it, and nowhere else', async () => {
+  it('lets a group grant write under its own group, or beneath it, and nowhere else', async () => {
     const kk = await kkOf(account, ref)
     const grant = grantDescriptor(ref, 'scope:admin/finance')
-    const rk = scopeKey(kk, 'admin/finance')
+    const rk = keyForGroup(kk, 'admin/finance')
 
     const own = writeTarget(grant, rk)
-    assert.equal(own.scope, 'admin/finance', 'defaults to the grant’s own scope')
+    assert.equal(own.group, 'admin/finance', 'defaults to the grant’s own group')
     assert.deepStrictEqual(own.key, rk)
-    assert.deepStrictEqual(own.ref, { owner: grant.owner, keyspace: ref.keyspace })
+    assert.deepStrictEqual(own.ref, { owner: grant.owner, groupKeyId: ref.groupKeyId })
 
     const deeper = writeTarget(grant, rk, 'admin/finance/clerks')
     const salt = newSalt()
-    const metadata = pieceMetadata(deeper.ref, { salt, scope: deeper.scope })
+    const metadata = pieceMetadata(deeper.ref, { salt, group: deeper.group })
     assert.deepStrictEqual(
       pieceKey(deeper.key, salt),
       keyForEnvelope(kk, metadata),
@@ -428,20 +431,23 @@ describe('writeTarget', () => {
     assert.throws(() => writeTarget(grant, rk, 'admin/legal'), /cannot write under/)
   })
 
-  it('lets a keyspace grant write under any scope, or none', async () => {
+  it('lets a group key grant write under any group, or none', async () => {
     const kk = await kkOf(account, ref)
     const grant = grantDescriptor(ref, 'keyspace')
-    assert.equal(writeTarget(grant, kk).scope, undefined)
+    assert.equal(writeTarget(grant, kk).group, undefined)
     assert.deepStrictEqual(writeTarget(grant, kk).key, kk)
-    assert.deepStrictEqual(writeTarget(grant, kk, 'agent-memory').key, scopeKey(kk, 'agent-memory'))
+    assert.deepStrictEqual(writeTarget(grant, kk, 'agent-memory').key, keyForGroup(kk, 'agent-memory'))
   })
 })
 
 describe('commitment', () => {
-  it('matches only the owner’s key for that keyspace', async () => {
-    const { kk, commitment: c } = await keyspaceKeys(account, ref)
+  it('matches only the owner’s key for that group key id', async () => {
+    const { kk, commitment: c } = await deriveGroupKey(account, ref)
     assert.ok(matchesCommitment(kk, c))
-    assert.ok(!matchesCommitment(await kkOf(account, { ...ref, keyspace: newKeyspace() }), c), 'another keyspace')
+    assert.ok(
+      !matchesCommitment(await kkOf(account, { ...ref, groupKeyId: newGroupKeyId() }), c),
+      'another group key id'
+    )
     const other = privateKeyToAccount(generatePrivateKey())
     assert.ok(!matchesCommitment(await kkOf(other, { ...ref, owner: other.address }), c), 'another wallet')
   })
@@ -465,7 +471,7 @@ describe('piece grants', () => {
 
   it('return the piece key for that piece only', async () => {
     const kk = await kkOf(account, ref)
-    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'super-secret' })
+    const metadata = pieceMetadata(ref, { salt: newSalt(), group: 'super-secret' })
     const pk = keyForEnvelope(kk, metadata)
     assert.equal(pieceNode(metadata), `piece:${metadata['foc/salt']}`)
     assert.equal(
@@ -474,7 +480,7 @@ describe('piece grants', () => {
     )
     const holding = holdingOf(grantDescriptor(ref, pieceNode(metadata)))
     assert.deepStrictEqual(keyForEnvelope(pk, metadata, holding), pk)
-    const neighbour = pieceMetadata(ref, { salt: newSalt(), scope: 'super-secret' })
+    const neighbour = pieceMetadata(ref, { salt: newSalt(), group: 'super-secret' })
     assert.throws(() => keyForEnvelope(pk, neighbour, holding), /another piece/)
   })
 
@@ -489,5 +495,16 @@ describe('piece grants', () => {
 describe('canonicalNode', () => {
   it('refuses a piece node that does not name a 16-byte salt', () => {
     assert.throws(() => canonicalNode('piece:0xab'), /16-byte salt/)
+  })
+})
+
+describe('refuses stale option names', () => {
+  const salt = newSalt()
+
+  it('refuses a `scope` option rather than dropping it', () => {
+    const stale = { salt, scope: 'agent-memory' } // not a fresh literal, so TypeScript cannot catch it
+    assert.throws(() => pieceMetadata(ref, stale), /takes `group`, not `scope`/)
+    const maybe = Math.random() < 2 ? 'x' : undefined // a conditional spread: TypeScript accepts this
+    assert.throws(() => pieceMetadata(ref, { salt, ...(maybe && { scope: maybe }) }), /takes `group`, not `scope`/)
   })
 })

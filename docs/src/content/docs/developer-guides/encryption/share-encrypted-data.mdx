@@ -1,6 +1,6 @@
 ---
 title: Share encrypted data
-description: Give session keys, agents and other people access to encrypted files, from a whole keyspace down to one piece.
+description: Give session keys, agents and other people access to encrypted files, from a whole group key down to one piece.
 sidebar:
   order: 2
 ---
@@ -9,52 +9,52 @@ Share encrypted data by giving the recipient a key, not by re-encrypting the dat
 
 | Key shared | What the recipient can decrypt |
 | --- | --- |
-| Keyspace key | Every piece in the keyspace. |
-| Scope key | Pieces in that scope and its descendants, including future pieces. |
+| Group key | Every piece in the group key. |
+| A group’s key | Pieces in that group and its descendants, including future pieces. |
 | Piece key | One piece, effectively read-only. |
 | Share link | One piece. |
 
 :::note[]
-The examples follow on from [Encrypt a file](/developer-guides/encryption/encrypt-a-file/): `keyspaceKey` and `ref` come from `keyspaceKeys()`, and `through()` is the stream helper defined there.
+The examples follow on from [Encrypt a file](/developer-guides/encryption/encrypt-a-file/): `groupKey` and `ref` come from `deriveGroupKey()`, and `through()` is the stream helper defined there.
 :::
 
-## Share a keyspace or scope with a session key
+## Share a group key or group with a session key
 
-A [session key](/developer-guides/session-keys/) cannot sign as the owner, so it cannot derive encryption keys itself. Instead, the owner wraps a key to the session key's public key. Share a scope rather than the whole keyspace when the session needs only one branch of your data.
+A [session key](/developer-guides/session-keys/) cannot sign as the owner, so it cannot derive encryption keys itself. Instead, the owner wraps a key to the session key's public key. Share a group rather than the whole group key when the session needs only one branch of your data.
 
 ```ts twoslash
 // @lib: esnext,dom
 import * as Keysmith from '@filoz/keysmith'
 import { generatePrivateKey } from 'viem/accounts'
 
-declare const keyspaceKey: Uint8Array
-declare const ref: Keysmith.KeyspaceRef
+declare const groupKey: Uint8Array
+declare const ref: Keysmith.GroupKeyRef
 const sessionPrivateKey = generatePrivateKey()
 // ---cut---
 // The session key publishes its key-agreement public key.
 const sessionPublicKey = Keysmith.publicKeyOf(sessionPrivateKey)
 
-// Share the whole keyspace...
-const keyspaceGrant = await Keysmith.wrapTo(sessionPublicKey, keyspaceKey, Keysmith.grantDescriptor(ref, 'keyspace'))
+// Share the whole group key...
+const groupKeyGrant = await Keysmith.wrapTo(sessionPublicKey, groupKey, Keysmith.grantDescriptor(ref, 'keyspace'))
 
-// ...or one scope and the scopes beneath it.
-const scopeGrant = await Keysmith.wrapTo(
+// ...or one group and the groups beneath it.
+const groupGrant = await Keysmith.wrapTo(
   sessionPublicKey,
-  Keysmith.scopeKey(keyspaceKey, 'agent-memory'),
+  Keysmith.keyForGroup(groupKey, 'agent-memory'),
   Keysmith.grantDescriptor(ref, 'scope:agent-memory'),
 )
 
 // Bytes to send or store. Use Base64 or similar over a text channel.
-const bytes = Keysmith.encodeGrant(scopeGrant)
+const bytes = Keysmith.encodeGrant(groupGrant)
 ```
 
 The grant covers encryption only. To store the encrypted data the session key also needs the `CreateDataSet` and `AddPieces` [permissions](/developer-guides/session-keys/#permissions). Always keep the two in step: the Filecoin Pay Console does this for you on `filecoin-pin login`, but if you do your own session key management or use the owner key directly, you'll need to take care of this yourself.
 
 ## Encrypt and decrypt with a received grant
 
-The recipient opens the grant with its private key. [`writeTarget()`](/reference/filoz/keysmith/functions/writetarget/) then picks the key for a new piece: it takes the keyspace from the grant and refuses a scope the grant does not cover.
+The recipient opens the grant with its private key. [`writeTarget()`](/reference/filoz/keysmith/functions/writetarget/) then picks the key for a new piece: it takes the group key id from the grant and refuses a group the grant does not cover.
 
-Anyone can send anyone a grant, so check that it names the owner and keyspace you expect before writing with it.
+Anyone can send anyone a grant, so check that it names the owner and group key id you expect before writing with it.
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -64,23 +64,23 @@ import type { Hex } from 'viem'
 
 declare const sessionPrivateKey: Hex
 declare const bytes: Uint8Array
-declare const expected: Keysmith.KeyspaceRef
+declare const expected: Keysmith.GroupKeyRef
 declare const original: Uint8Array
 declare const downloaded: Uint8Array
 declare function through(bytes: Uint8Array, transform: ReadableWritablePair<Uint8Array, Uint8Array>): Promise<Uint8Array>
 // ---cut---
 const grant = Keysmith.decodeGrant(bytes)
-if (grant.owner !== expected.owner.toLowerCase() || grant.keyspace !== expected.keyspace) {
-  throw new Error('This grant is for another keyspace')
+if (grant.owner !== expected.owner.toLowerCase() || grant.groupKeyId !== expected.groupKeyId) {
+  throw new Error('This grant is for another group key')
 }
 const key = await Keysmith.unwrapWith(sessionPrivateKey, grant)
 
-// Encrypt a new piece in the agent-memory scope.
+// Encrypt a new piece in the agent-memory group.
 const target = Keysmith.writeTarget(grant, key, 'agent-memory')
 const salt = Keysmith.newSalt()
 const encrypted = await through(original, fee.encrypt({
   cek: Keysmith.pieceKey(target.key, salt),
-  appMetadata: Keysmith.pieceMetadata(target.ref, { salt, scope: target.scope }),
+  appMetadata: Keysmith.pieceMetadata(target.ref, { salt, group: target.group }),
   contentLength: original.byteLength,
 }))
 
@@ -88,9 +88,9 @@ const encrypted = await through(original, fee.encrypt({
 const restored = await through(downloaded, fee.decrypt(Keysmith.keyResolver(key, grant)))
 ```
 
-## Pass a narrower scope on
+## Pass a narrower group on
 
-A recipient holding a scope can share a scope beneath it, for example with a sub-agent, without involving the owner's wallet. Keys derive only downward, so the sub-agent cannot reach data outside of the narrow area allowed.
+A recipient holding a group can share a group beneath it, for example with a sub-agent, without involving the owner's wallet. Keys derive only downward, so the sub-agent cannot reach data outside of the narrow area allowed.
 
 ```ts twoslash
 // @lib: esnext,dom
@@ -129,8 +129,8 @@ import type { PieceCID } from '@filoz/synapse-sdk'
 import * as fee from 'filecoin-encryption-envelope'
 import type { Hex } from 'viem'
 
-declare const keyspaceKey: Uint8Array
-declare const ref: Keysmith.KeyspaceRef
+declare const groupKey: Uint8Array
+declare const ref: Keysmith.GroupKeyRef
 declare const encrypted: Uint8Array
 declare const pieceCid: PieceCID
 declare const recipientPublicKey: Hex
@@ -139,7 +139,7 @@ const { appMetadata } = await fee.parse(encrypted)
 const metadata = appMetadata as Keysmith.PieceMetadata
 const grant = await Keysmith.wrapTo(
   recipientPublicKey,
-  Keysmith.keyForEnvelope(keyspaceKey, metadata),
+  Keysmith.keyForEnvelope(groupKey, metadata),
   Keysmith.grantDescriptor(ref, Keysmith.pieceNode(metadata)),
 )
 // The PieceCID is informational: it is not part of what the grant authenticates.
@@ -180,7 +180,7 @@ The key material sits in the URL fragment, which browsers do not send to any ser
 ## From the command line
 
 :::note[]
-At the current time the packaged `filecoin-pin` utility and Filecoin Pay login console only support sharing the entire Keyspace, meaning that all delegated sessions have access to all data in a user's dataset. However the Keysmith API supports finer-grained sharing of just a subset of data uploads for fine-grained encryption control.
+At the current time the packaged `filecoin-pin` utility and Filecoin Pay login console only support sharing the entire group key, meaning that all delegated sessions have access to all data in a user's dataset. However the Keysmith API supports finer-grained sharing of just a subset of data uploads for fine-grained encryption control.
 :::
 
 Filecoin Pin encrypts, shares and decrypts without any code:
@@ -202,5 +202,5 @@ See [Encrypted Uploads](https://github.com/filecoin-project/filecoin-pin#encrypt
 
 ## Limits
 
-* **Grants cannot be revoked or expire.** A shared key keeps opening what it covers, including future pieces under a shared scope.
-* **Check who a Grant is from.** Ensure that the sender's key commitment matches the sender you expected. If your app accepts Grants from someone else they could send you a key from the wrong keyspace, and make your data unrecoverable. The Keysmith API (and `filecoin-pin` utility) provide simple functionality to do this and keep you safe.
+* **Grants cannot be revoked or expire.** A shared key keeps opening what it covers, including future pieces under a shared group.
+* **Check who a Grant is from.** Ensure that the sender's key commitment matches the sender you expected. If your app accepts Grants from someone else they could send you a key from the wrong group key, and make your data unrecoverable. The Keysmith API (and `filecoin-pin` utility) provide simple functionality to do this and keep you safe.
