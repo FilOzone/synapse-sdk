@@ -42,6 +42,14 @@ export interface KeyspaceKeysOptions {
    * keys that are not recoverable by the owner.
    */
   verifySigner?: boolean
+  /**
+   * An optional password mixed into the keyspace key (via Argon2id), so that
+   * a phished signature alone does not reveal it. Without one, the key is
+   * exactly what it always was. With one, the same password is needed every
+   * time: a wrong one fails against `commitment`, and a forgotten one loses
+   * the keyspace for good.
+   */
+  password?: string
 }
 
 /**

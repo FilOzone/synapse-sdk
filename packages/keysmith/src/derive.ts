@@ -4,12 +4,14 @@
  * ```text
  * sig = signTypedData(KeyspaceKey{owner, keyspace})
  * KK  = HKDF(r‖s, "foc/acl/keyspace/v1")      the whole keyspace
+ *       (salt = Argon2id(password, hash(sig message)) if a password is given)
  * RK  = HKDF(KK,  "foc/acl/role/v1"‖scope)     one access scope within it
  * PK  = HKDF(node,"foc/acl/piece/v1"‖salt)    one piece
  * ```
  *
  * @module
  */
+import { argon2idAsync } from '@noble/hashes/argon2.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
@@ -68,8 +70,40 @@ export const COMMITMENT_KEY = 'foc/kc'
 /** The FWSS data-set metadata key naming the keyspace, so the chain alone can list them. */
 export const KEYSPACE_ID_KEY = 'foc/ks'
 
-const derive = (ikm: Uint8Array, info: string, length = 32): Uint8Array =>
-  hkdf(sha256, ikm, undefined, utf8ToBytes(info), length)
+const derive = (ikm: Uint8Array, info: string, length = 32, salt?: Uint8Array): Uint8Array =>
+  hkdf(sha256, ikm, salt, utf8ToBytes(info), length)
+
+/**
+ * Argon2id cost for a keyspace password: RFC 9106's second recommended
+ * option (64 MiB, 3 passes), with one lane since JS runs single-threaded.
+ * The commitment is public, so a phished signature lets an attacker test
+ * guesses offline; this is what makes each one expensive.
+ *
+ * **Never change these**, the version included: any change orphans every
+ * password-protected keyspace.
+ */
+const PASSWORD_KDF = { t: 3, m: 65536, p: 1, dkLen: 32, version: 0x13 } as const
+
+/**
+ * A password in the form it is stretched from: UTF-8 of its Unicode NFC form.
+ *
+ * @throws If it is empty or not well-formed Unicode.
+ */
+function passwordBytes(password: unknown): Uint8Array {
+  const pw = text(password, 'A password')
+  if (/\p{Cs}/u.test(pw) || pw.length === 0) {
+    throw new Error('A password must be non-empty, well-formed Unicode (no lone surrogates)')
+  }
+  return utf8ToBytes(pw.normalize('NFC'))
+}
+
+/**
+ * The HKDF salt for a password-protected keyspace: Argon2id over the
+ * password, salted with the signed message's hash, so it is unique to the
+ * owner and keyspace and nothing can be precomputed across them.
+ */
+const passwordSalt = (password: Uint8Array, messageHash: Hex): Promise<Uint8Array> =>
+  argon2idAsync(password, hexToBytes(messageHash), PASSWORD_KDF)
 
 function randomHex(length: number): Hex {
   const bytes = new Uint8Array(length)
@@ -117,6 +151,14 @@ export function keyspaceKeyMessage(ref: KeyspaceRef): KeyspaceKeyMessage {
  * (`foc/kc`): it signs once, and the commitment catches the same faults. See
  * {@link KeyspaceKeysOptions}.
  *
+ * With `options.password`, the key also depends on that password, so a
+ * phished signature alone no longer yields it. Lose the password and the
+ * keyspace is lost: nothing else can recover it. Only a recorded commitment
+ * can tell a wrong password from a right one, so reopen a protected keyspace
+ * with both `password` and `commitment`, and have the user confirm the
+ * password when creating one: a typo there silently roots the keyspace under
+ * the typo.
+ *
  * Only the owner's own wallet can sign: a key signed by any other wallet,
  * a session key included, is not the key the owner's wallet derives, and
  * nothing downstream could tell. Delegates receive a grant instead.
@@ -125,8 +167,11 @@ export function keyspaceKeyMessage(ref: KeyspaceRef): KeyspaceKeyMessage {
  * a delegate does — `writeTarget(descriptor, kk, scope)` — with the keyspace
  * taken from what was actually signed.
  *
- * @throws If the signer is not deterministic, is not the owner, does not produce an ECDSA signature,
- * or derives a key that does not match `options.commitment`.
+ * @throws Before any signing, if `options.password` is empty or not well-formed
+ * Unicode, or `options.commitment` is not a commitment in format v1. After signing,
+ * if the signer is not deterministic, is not the owner, does not produce an ECDSA
+ * signature, or derives a key that does not match `options.commitment` (with a
+ * password, most often a wrong password).
  */
 export async function keyspaceKeys(
   signer: TypedDataSigner,
@@ -134,6 +179,9 @@ export async function keyspaceKeys(
   options: KeyspaceKeysOptions = {}
 ): Promise<KeyspaceKeys> {
   const message = keyspaceKeyMessage(ref)
+  // Refuse bad options before the wallet prompts, not after
+  const password = options.password == null ? undefined : passwordBytes(options.password)
+  if (options.commitment != null) commitmentFormat(options.commitment)
   const args = { domain: DOMAIN, types: KEYSPACE_KEY_TYPES, primaryType: 'KeyspaceKey' as const, message }
   const first = await signer.signTypedData(args)
   if (options.verifySigner ?? options.commitment == null) {
@@ -146,12 +194,16 @@ export async function keyspaceKeys(
     }
   }
   const rs = lowSrs(first)
-  await assertSignedBy(message.owner, hashTypedData(args), rs)
-  const kk = derive(rs, INFO.keyspace)
+  const hash = hashTypedData(args)
+  await assertSignedBy(message.owner, hash, rs)
+  const salt = password == null ? undefined : await passwordSalt(password, hash)
+  const kk = derive(rs, INFO.keyspace, 32, salt)
   if (options.commitment != null && !matchesCommitment(kk, options.commitment)) {
+    const cause =
+      password == null ? 'the keyspace may need a password' : 'the password is wrong, or this keyspace has none'
     throw new Error(
-      'This key does not match the recorded commitment: the signer is not deterministic, ' +
-        'or the commitment belongs to another keyspace.'
+      `This key does not match the recorded commitment: ${cause}; ` +
+        'or the signer is not deterministic, or the commitment belongs to another keyspace.'
     )
   }
   return { kk, commitment: commitment(kk), descriptor: grantDescriptor(ref, 'keyspace') }
@@ -181,6 +233,13 @@ async function assertSignedBy(owner: Address, hash: Hex, rs: Uint8Array): Promis
  */
 export const commitment = (kk: Uint8Array): string => `v1.${bytesToHex(derive(kk, INFO.commitment, 16)).slice(2)}`
 
+function commitmentFormat(recorded: string): string {
+  if (!/^v1\.[0-9a-f]{32}$/.test(recorded)) {
+    throw new Error(`Not a keyspace commitment in format v1: ${JSON.stringify(recorded)}`)
+  }
+  return recorded
+}
+
 /**
  * Verifies that `kk` is the key you expect: the right root wallet and the right
  * keyspace. Check this before using any key received in a grant.
@@ -188,10 +247,7 @@ export const commitment = (kk: Uint8Array): string => `v1.${bytesToHex(derive(kk
  * @throws If the recorded value is not a commitment in this format.
  */
 export function matchesCommitment(kk: Uint8Array, recorded: string): boolean {
-  if (!/^v1\.[0-9a-f]{32}$/.test(recorded)) {
-    throw new Error(`Not a keyspace commitment in format v1: ${JSON.stringify(recorded)}`)
-  }
-  return commitment(kk) === recorded
+  return commitment(kk) === commitmentFormat(recorded)
 }
 
 /**

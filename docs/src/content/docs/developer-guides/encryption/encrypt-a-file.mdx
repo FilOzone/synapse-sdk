@@ -97,6 +97,7 @@ const original = new Uint8Array(await readFile('sample.txt'))
 
 // 1. Derive the encryption key and public envelope metadata.
 const ref = { owner: account.address, keyspace: Keysmith.newKeyspace() }
+// Optionally add { password } so a phished signature alone cannot derive the key.
 const { kk: keyspaceKey, commitment, descriptor } = await Keysmith.keyspaceKeys(account, ref)
 const target = Keysmith.writeTarget(descriptor, keyspaceKey, 'documents')
 const salt = Keysmith.newSalt()
@@ -186,6 +187,7 @@ Each run creates a new keyspace and new data sets. In an application, read and r
 
 - **Funding or approval fails:** check the test account's FIL and USDFC balances using the [payment guide](/developer-guides/payments/payment-operations/).
 - **Only some copies succeed:** those copies are already stored and billed. Inspect the [upload result](/developer-guides/storage/upload-pipeline/#when-upload-returns) before retrying.
+- **The key does not match the recorded commitment:** if the keyspace was created with a `password`, pass the same password again. See [Protect a keyspace with a password](/developer-guides/encryption/keysmith-encryption-keys/#protect-a-keyspace-with-a-password).
 - **Decryption fails:** check that the key and envelope belong to the same keyspace. Modified or truncated encrypted data also fails authentication; do not use partial output.
 
 For recovery, sharing, and storage permissions, see [Keys and sharing](/developer-guides/encryption/keysmith-encryption-keys/).

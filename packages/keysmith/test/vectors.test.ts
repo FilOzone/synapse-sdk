@@ -15,12 +15,16 @@ describe('test vectors', () => {
   const owner = privateKeyToAccount(vectors.owner.privateKey as Hex)
   const ref = { owner: owner.address, keyspace: vectors.keyspace as Hex }
 
-  it('pins the keyspace key and its commitment', async () => {
+  it('pins the keyspace key and its commitment', async function () {
+    this.timeout(30_000) // one Argon2id pass
     assert.equal(owner.address, vectors.owner.address)
     const keys = await keyspaceKeys(owner, ref)
     assert.equal(bytesToHex(keys.kk), vectors.keyspaceKey.kk)
     assert.equal(keys.commitment, vectors.keyspaceKey.commitment)
     assert.equal(commitment(keys.kk), vectors.keyspaceKey.commitment)
+    const locked = await keyspaceKeys(owner, ref, { password: vectors.passwordKeyspaceKey.password })
+    assert.equal(bytesToHex(locked.kk), vectors.passwordKeyspaceKey.kk)
+    assert.equal(locked.commitment, vectors.passwordKeyspaceKey.commitment)
   })
 
   it('pins the scope key, the envelope and the piece key', () => {
