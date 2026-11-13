@@ -10,9 +10,26 @@ import * as Piece from '../piece/index.ts'
 import type { PieceCID } from '../piece/piece-cid.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { serviceURLJoin } from '../utils/service-url.ts'
-import { isUint8Array, supportsStreamingFetchBody } from '../utils/streams.ts'
+import {
+  isAsyncIterable,
+  isReadableStream,
+  isUint8Array,
+  readableStreamFromAsyncIterable,
+  supportsStreamingFetchBody,
+} from '../utils/streams.ts'
+import { findPiece } from './find-piece.ts'
 
-export type UploadPieceStreamingData = Uint8Array | ReadableStream | import('node:stream/web').ReadableStream
+/**
+ * Data accepted by {@link uploadPieceStreaming}.
+ *
+ * `AsyncIterable<Uint8Array>` covers a Node.js `Readable`, so `fs.createReadStream(path)` can be
+ * passed as is.
+ */
+export type UploadPieceStreamingData =
+  | Uint8Array
+  | ReadableStream
+  | import('node:stream/web').ReadableStream
+  | AsyncIterable<Uint8Array>
 
 export namespace uploadPieceStreaming {
   export type OptionsType = {
@@ -32,13 +49,25 @@ export namespace uploadPieceStreaming {
     retryCount?: number
     /** The delay with exponential backoff between retries in milliseconds. Defaults to {@link RETRY_CONSTANTS.RETRY_DELAY}. */
     retryDelay?: number
+    /**
+     * Whether to wait for the provider to park the piece before returning. When true, polls
+     * {@link findPiece} after finalizing, with the same `signal`. A parked piece can be committed,
+     * pulled by other providers, or retrieved. Defaults to false.
+     */
+    waitForParked?: boolean
   }
   export type OutputType = {
     pieceCid: PieceCID
     size: number
   }
 
-  export type ErrorType = InvalidUploadSizeError | PostPieceError | LocationHeaderError | UploadRedirectError
+  export type ErrorType =
+    | InvalidUploadSizeError
+    | PostPieceError
+    | LocationHeaderError
+    | UploadRedirectError
+    | UploadPieceError
+    | findPiece.ErrorType
 }
 
 /**
@@ -48,6 +77,19 @@ export namespace uploadPieceStreaming {
  * 1. POST /pdp/piece/uploads → get upload session UUID
  * 2. PUT /pdp/piece/uploads/{uuid} → stream data while calculating CommP
  * 3. POST /pdp/piece/uploads/{uuid} → finalize with calculated CommP
+ * 4. With `waitForParked`, GET /pdp/piece?pieceCid={pieceCid} until the piece is parked
+ *
+ * @example
+ * ```ts
+ * import { createReadStream } from 'node:fs'
+ * import * as SP from '@filoz/synapse-core/sp'
+ *
+ * const { pieceCid, size } = await SP.uploadPieceStreaming({
+ *   serviceURL: 'https://pdp.example.com',
+ *   data: createReadStream('./file.bin'),
+ *   waitForParked: true,
+ * })
+ * ```
  *
  * @param options - {@link uploadPieceStreaming.OptionsType}
  * @returns PieceCID and size of uploaded data {@link uploadPieceStreaming.OutputType}
@@ -56,40 +98,18 @@ export namespace uploadPieceStreaming {
 export async function uploadPieceStreaming(
   options: uploadPieceStreaming.OptionsType
 ): Promise<uploadPieceStreaming.OutputType> {
-  // Create upload session (POST /pdp/piece/uploads)
-  const createResponse = await request.post(serviceURLJoin('pdp/piece/uploads', options.serviceURL), {
-    timeout: RETRY_CONSTANTS.TIMEOUT,
-    retry: {
-      methods: ['post'],
-      retries: options.retryCount,
-      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
-    },
-    signal: options.signal,
-  })
+  // Before the session is created, so a source that fails at once (such as a missing file) rejects
+  // with its own error and never reaches the provider.
+  const dataStream = await toReadableStream(options.data, options.signal)
 
-  if (createResponse.error) {
-    if (HttpError.is(createResponse.error)) {
-      throw new PostPieceError(`Failed to create upload session: ${await createResponse.error.response.text()}`)
-    }
-    throw createResponse.error
+  let uploadUuid: string
+  try {
+    uploadUuid = await createUploadSession(options)
+  } catch (error) {
+    // the source is never read, so release it (closes a file stream's handle)
+    dataStream.cancel(error).catch(() => undefined)
+    throw error
   }
-
-  if (createResponse.result.status !== 201) {
-    throw new PostPieceError(`Expected 201 Created, got ${createResponse.result.status}`)
-  }
-
-  // Extract UUID from Location header: /pdp/piece/uploads/{uuid}
-  const location = createResponse.result.headers.get('Location')
-  if (!location) {
-    throw new LocationHeaderError('Upload session created but Location header missing')
-  }
-
-  const locationMatch = location.match(/\/pdp\/piece\/uploads\/([a-fA-F0-9-]+)/)
-  if (!locationMatch) {
-    throw new LocationHeaderError(`Invalid Location header format: ${location}`)
-  }
-
-  const uploadUuid = locationMatch[1]
 
   // Create CommP calculator stream only if PieceCID not provided.
   let pieceCidPromise: Promise<PieceCID> = Promise.resolve(options.pieceCid as PieceCID)
@@ -100,10 +120,6 @@ export async function uploadPieceStreaming(
     pieceCidStream = transform
     pieceCidPromise = result
   }
-
-  const dataStream = isUint8Array(options.data)
-    ? new Blob([options.data as Uint8Array<ArrayBuffer>]).stream()
-    : (options.data as ReadableStream) // ReadableStream types dont match between browsers and Node.js
 
   const size = isUint8Array(options.data) ? options.data.length : options.size
 
@@ -237,8 +253,70 @@ export async function uploadPieceStreaming(
     throw new PostPieceError(`Expected 200 OK for finalization, got ${finalizeResponse.result.status}`)
   }
 
+  if (options.waitForParked) {
+    await findPiece({
+      serviceURL: options.serviceURL,
+      pieceCid,
+      poll: true,
+      signal: options.signal,
+    })
+  }
+
   return {
     pieceCid,
     size: bytesUploaded,
   }
+}
+
+/** POST /pdp/piece/uploads and return the session UUID from the Location header. */
+async function createUploadSession(options: uploadPieceStreaming.OptionsType): Promise<string> {
+  // Create upload session (POST /pdp/piece/uploads)
+  const createResponse = await request.post(serviceURLJoin('pdp/piece/uploads', options.serviceURL), {
+    timeout: RETRY_CONSTANTS.TIMEOUT,
+    retry: {
+      methods: ['post'],
+      retries: options.retryCount,
+      minTimeout: options.retryDelay ?? RETRY_CONSTANTS.RETRY_DELAY,
+    },
+    signal: options.signal,
+  })
+
+  if (createResponse.error) {
+    if (HttpError.is(createResponse.error)) {
+      throw new PostPieceError(`Failed to create upload session: ${await createResponse.error.response.text()}`)
+    }
+    throw createResponse.error
+  }
+
+  if (createResponse.result.status !== 201) {
+    throw new PostPieceError(`Expected 201 Created, got ${createResponse.result.status}`)
+  }
+
+  // Extract UUID from Location header: /pdp/piece/uploads/{uuid}
+  const location = createResponse.result.headers.get('Location')
+  if (!location) {
+    throw new LocationHeaderError('Upload session created but Location header missing')
+  }
+
+  const locationMatch = location.match(/\/pdp\/piece\/uploads\/([a-fA-F0-9-]+)/)
+  if (!locationMatch) {
+    throw new LocationHeaderError(`Invalid Location header format: ${location}`)
+  }
+
+  return locationMatch[1] as string
+}
+
+async function toReadableStream(data: UploadPieceStreamingData, signal?: AbortSignal): Promise<ReadableStream> {
+  if (isUint8Array(data)) {
+    return new Blob([data as Uint8Array<ArrayBuffer>]).stream()
+  }
+  // ReadableStream types dont match between browsers and Node.js. Checked before AsyncIterable,
+  // because ReadableStream is async iterable in some environments.
+  if (isReadableStream(data)) {
+    return data as ReadableStream
+  }
+  if (isAsyncIterable(data)) {
+    return await readableStreamFromAsyncIterable(data, signal)
+  }
+  throw new TypeError('Upload data must be a Uint8Array, ReadableStream, or AsyncIterable<Uint8Array>')
 }

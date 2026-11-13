@@ -20,7 +20,6 @@ import { getPdpDataSet } from '../warm-storage/get-pdp-data-set.ts'
 import type { PdpDataSet } from '../warm-storage/types.ts'
 import { addPieces } from './add-pieces.ts'
 import { createDataSetAndAddPieces } from './create-dataset-add-pieces.ts'
-import { findPiece } from './find-piece.ts'
 import { createPullBatcher, type PullBatchInput, type PullTarget } from './pull-batcher.ts'
 import { type UploadPieceStreamingData, uploadPieceStreaming } from './upload-streaming.ts'
 import { waitForAddPieces, waitForCreateDataSetAddPieces } from './wait-for-receipt.ts'
@@ -590,14 +589,9 @@ export function createPieceBatcher(
         pieceCid: input.pieceCid,
         onProgress: input.onProgress,
         signal: input.signal,
+        waitForParked: true,
       })
       uploadedSize = uploaded.size
-      await findPiece({
-        serviceURL: serviceURL(),
-        pieceCid: uploaded.pieceCid,
-        poll: true,
-        signal: input.signal,
-      })
       return { pieceCid: uploaded.pieceCid, metadata: input.metadata, size: uploaded.size }
     }, input.onParked)
     if (uploadedSize == null) {

@@ -1566,6 +1566,192 @@ InvalidSignature(address expected, address actual)
       assert.strictEqual(result.size, testData.length)
     })
 
+    it('should upload an AsyncIterable and calculate its PieceCID', async () => {
+      const chunk = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
+      const expected = await Piece.calculate(new Uint8Array([...chunk, ...chunk]))
+      let received = 0
+      let returned = false
+      async function* source() {
+        try {
+          yield chunk
+          yield chunk
+        } finally {
+          returned = true
+        }
+      }
+
+      server.use(
+        postPieceUploadsHandler(mockUuid),
+        http.put(`https://pdp.example.com/pdp/piece/uploads/${mockUuid}`, async ({ request }) => {
+          received = (await request.arrayBuffer()).byteLength
+          return HttpResponse.text('No Content', { status: 204 })
+        }),
+        finalizePieceUploadHandler(mockUuid, expected.toString())
+      )
+
+      const result = await uploadPieceStreaming({ serviceURL: 'https://pdp.example.com', data: source() })
+
+      assert.strictEqual(result.pieceCid.toString(), expected.toString())
+      assert.strictEqual(result.size, chunk.length * 2)
+      assert.strictEqual(received, chunk.length * 2)
+      assert.isTrue(returned)
+    })
+
+    it('should close the AsyncIterable when the upload fails', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+      let yielded = 0
+      let returned = false
+      async function* source() {
+        try {
+          yielded++
+          yield new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE)
+          yielded++
+          yield 'not bytes' as unknown as Uint8Array
+          yielded++
+          yield new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE)
+        } finally {
+          returned = true
+        }
+      }
+
+      server.use(
+        postPieceUploadsHandler(mockUuid),
+        http.put(`https://pdp.example.com/pdp/piece/uploads/${mockUuid}`, async ({ request }) => {
+          await request.arrayBuffer()
+          return HttpResponse.text('No Content', { status: 204 })
+        }),
+        finalizePieceUploadHandler(mockUuid, mockPieceCidStr)
+      )
+
+      let rejected = false
+      try {
+        await uploadPieceStreaming({ serviceURL: 'https://pdp.example.com', data: source(), pieceCid })
+      } catch {
+        rejected = true
+      }
+      assert.isTrue(rejected, 'upload should reject on the invalid chunk')
+      assert.isTrue(returned, 'the source should be closed')
+      assert.strictEqual(yielded, 2, 'the source should stop at the invalid chunk')
+    })
+
+    it('should reject with the source error before creating an upload session', async () => {
+      let sessions = 0
+      server.use(
+        http.post('https://pdp.example.com/pdp/piece/uploads', () => {
+          sessions++
+          return HttpResponse.text('Created', { status: 201 })
+        })
+      )
+      const sourceError = new Error('source failed')
+      // biome-ignore lint/correctness/useYield: fails before its first chunk
+      async function* source(): AsyncGenerator<Uint8Array> {
+        throw sourceError
+      }
+
+      let error: unknown
+      try {
+        await uploadPieceStreaming({
+          serviceURL: 'https://pdp.example.com',
+          data: source(),
+          pieceCid: Piece.from(mockPieceCidStr),
+        })
+      } catch (e) {
+        error = e
+      }
+      assert.strictEqual(error, sourceError)
+      assert.strictEqual(sessions, 0)
+    })
+
+    it('should reject data that is not bytes, a stream, or an AsyncIterable', async () => {
+      server.use(postPieceUploadsHandler(mockUuid))
+      try {
+        await uploadPieceStreaming({
+          serviceURL: 'https://pdp.example.com',
+          data: {} as unknown as Uint8Array,
+          pieceCid: Piece.from(mockPieceCidStr),
+        })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, TypeError)
+        assert.include((error as Error).message, 'AsyncIterable')
+      }
+    })
+
+    it('should wait for the piece to be parked with waitForParked', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+      const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
+      let lookups = 0
+
+      server.use(
+        postPieceUploadsHandler(mockUuid),
+        uploadPieceStreamingHandler(mockUuid),
+        finalizePieceUploadHandler(mockUuid, mockPieceCidStr),
+        http.get('https://pdp.example.com/pdp/piece', () => {
+          lookups++
+          if (lookups === 1) {
+            return HttpResponse.text(null, { status: 404 })
+          }
+          return HttpResponse.json({ pieceCid: mockPieceCidStr })
+        })
+      )
+
+      const result = await uploadPieceStreaming({
+        serviceURL: 'https://pdp.example.com',
+        data: testData,
+        pieceCid,
+        waitForParked: true,
+      })
+
+      assert.strictEqual(result.pieceCid.toString(), mockPieceCidStr)
+      assert.strictEqual(lookups, 2)
+    })
+
+    it('should not look the piece up without waitForParked', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+      let lookups = 0
+
+      server.use(
+        postPieceUploadsHandler(mockUuid),
+        uploadPieceStreamingHandler(mockUuid),
+        finalizePieceUploadHandler(mockUuid, mockPieceCidStr),
+        http.get('https://pdp.example.com/pdp/piece', () => {
+          lookups++
+          return HttpResponse.json({ pieceCid: mockPieceCidStr })
+        })
+      )
+
+      await uploadPieceStreaming({
+        serviceURL: 'https://pdp.example.com',
+        data: new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE),
+        pieceCid,
+      })
+
+      assert.strictEqual(lookups, 0)
+    })
+
+    it('should throw FindPieceError when waitForParked fails', async () => {
+      const pieceCid = Piece.from(mockPieceCidStr)
+
+      server.use(
+        postPieceUploadsHandler(mockUuid),
+        uploadPieceStreamingHandler(mockUuid),
+        finalizePieceUploadHandler(mockUuid, mockPieceCidStr),
+        http.get('https://pdp.example.com/pdp/piece', () => HttpResponse.text('bad request', { status: 400 }))
+      )
+
+      try {
+        await uploadPieceStreaming({
+          serviceURL: 'https://pdp.example.com',
+          data: new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE),
+          pieceCid,
+          waitForParked: true,
+        })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, FindPieceError)
+      }
+    })
+
     it('should track progress during upload', async () => {
       const pieceCid = Piece.from(mockPieceCidStr)
       const testData = new Uint8Array(256).fill(0x42)
