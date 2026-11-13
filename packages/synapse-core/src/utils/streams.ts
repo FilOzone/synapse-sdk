@@ -1,3 +1,5 @@
+import { abortable } from './abort.ts'
+
 /**
  * Type guard to check if a value is a ReadableStream
  * @param value - The value to check
@@ -23,6 +25,45 @@ export function isAsyncIterable(value: unknown): value is AsyncIterable<Uint8Arr
     value !== null &&
     Symbol.asyncIterator in value &&
     typeof (value as AsyncIterable<Uint8Array>)[Symbol.asyncIterator] === 'function'
+  )
+}
+
+/**
+ * Wrap an AsyncIterable in a ReadableStream. The first chunk is read before returning, so the
+ * source's own errors reject here; cancelling the stream calls the iterator's `return`.
+ *
+ * @param iterable - The source to read
+ * @param signal - Aborts the wait for the first chunk
+ * @returns A stream of the iterable's chunks
+ */
+export async function readableStreamFromAsyncIterable<T>(
+  iterable: AsyncIterable<T>,
+  signal?: AbortSignal
+): Promise<ReadableStream<T>> {
+  const iterator = iterable[Symbol.asyncIterator]()
+  let first: IteratorResult<T> | undefined
+  try {
+    first = await abortable(iterator.next(), signal)
+  } catch (error) {
+    Promise.resolve(iterator.return?.()).catch(() => undefined)
+    throw error
+  }
+  return new ReadableStream<T>(
+    {
+      async pull(controller) {
+        const result = first ?? (await iterator.next())
+        first = undefined
+        if (result.done) {
+          controller.close()
+          return
+        }
+        controller.enqueue(result.value)
+      },
+      async cancel(reason) {
+        await iterator.return?.(reason)
+      },
+    },
+    { highWaterMark: 0 }
   )
 }
 
