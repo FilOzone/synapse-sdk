@@ -154,26 +154,20 @@ Getting the costs for uploading to an existing data set:
 // @lib: esnext,dom
 // @noErrors
 import { Synapse, SIZE_CONSTANTS } from "@filoz/synapse-sdk"
-import { getDataSetLeafCount } from '@filoz/synapse-core/pdp-verifier'
-import { getDataSet } from '@filoz/synapse-core/warm-storage'
 import { privateKeyToAccount } from 'viem/accounts'
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...'), source: 'my-app' })
 // ---cut---
-// Read the existing data set so reserve replenishment is estimated correctly.
-const dataSet = await getDataSet(synapse.readClient, { dataSetId: 42n })
-if (dataSet == null) throw new Error('Data set not found')
-const dataSetLeafCount = await getDataSetLeafCount(synapse.readClient, { dataSetId: 42n })
-
-const { rates, fees, depositNeeded } = await synapse.storage.getUploadCosts({
-  isNewDataSet: false,
-  dataSetLeafCount,
-  currentLifecycleReserveBalance: dataSet.lifecycleReserveBalance,
-  pendingOneTimePayments: dataSet.pendingOneTimePayments,
-  pdpEndEpoch: dataSet.pdpEndEpoch,
+// The data set's leaf count, lifecycle reserve and pending fees are read on-chain,
+// so rates and reserve replenishment are estimated correctly.
+const { rates, fees, depositNeeded, account } = await synapse.storage.getUploadCosts({
+  dataSetId: 42n,
   pieceSizes: [100n * SIZE_CONSTANTS.MiB],
 })
 // fees.addPiecesFee is the one-time fee for this upload
 // Pass every known raw piece size when committing a multi-piece batch.
+
+// Available balance after depositing, from the same account snapshot used for pricing
+const balanceAfterDeposit = account.availableFunds + depositNeeded - account.debt
 ```
 
 Getting the costs for uploading to a new data set:
