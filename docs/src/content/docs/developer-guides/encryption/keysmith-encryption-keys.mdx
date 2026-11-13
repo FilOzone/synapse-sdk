@@ -210,3 +210,27 @@ const { kk: keyspaceKey } = await Keysmith.keyspaceKeys(account, ref, { commitme
 // Now we have the key, pipe this piece, or any other in the keyspace, through this to decrypt it.
 const decryptor = fee.decrypt(Keysmith.keyResolver(keyspaceKey))
 ```
+
+### Protect a keyspace with a password
+
+By default, the wallet's signature alone derives the keyspace key, so anyone who tricks the owner into signing that one message can derive it too. To prevent that, pass a `password` to `keyspaceKeys()`: the key then depends on both the signature and the password. Keysmith stretches the password with Argon2id, which takes about a second and 64 MiB of memory.
+
+The cost is recovery: **if the password is lost, the keyspace and everything in it are lost**, and nothing can bring them back.
+
+- **When creating a keyspace,** ask the user to type the password twice and compare. Keysmith has nothing to check it against yet, so a typo would silently create the keyspace under the typo.
+- **When reopening a keyspace,** pass both `password` and the recorded `commitment`. Only the commitment can tell a wrong password from a right one: without it, a wrong password silently derives a different key that decrypts nothing.
+- An empty password, or one that isn't well-formed Unicode, is refused before the wallet prompts. Passwords are compared in Unicode NFC form, so the same text typed on different keyboards matches.
+
+```ts twoslash
+// @lib: esnext,dom
+import * as Keysmith from '@filoz/keysmith'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const account = privateKeyToAccount('0x...')
+declare const password: string // Confirmed by the user when the keyspace was created
+declare const commitment: string // From the data set's Keysmith.COMMITMENT_KEY
+declare const keyspace: `0x${string}`
+// ---cut---
+const ref = { owner: account.address, keyspace }
+const { kk: keyspaceKey } = await Keysmith.keyspaceKeys(account, ref, { password, commitment })
+```

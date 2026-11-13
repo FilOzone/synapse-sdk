@@ -115,19 +115,39 @@ describe('keyspaceKeys', () => {
     await assert.rejects(keyspaceKeys(account, ref, { commitment: 'v1.0.00' }), /format v1/)
   })
 
-  it('mixes in an optional password, which a wrong guess cannot get past the commitment', async () => {
-    const plain = await keyspaceKeys(account, ref)
-    const locked = await keyspaceKeys(account, ref, { password: 'caf\u00e9' })
-    assert.notEqual(bytesToHex(locked.kk), bytesToHex(plain.kk))
-    // NFC: a decomposed é is the same password
-    const again = await keyspaceKeys(account, ref, { password: 'cafe\u0301', commitment: locked.commitment })
-    assert.equal(bytesToHex(again.kk), bytesToHex(locked.kk))
-    await assert.rejects(
-      keyspaceKeys(account, ref, { password: 'cafe', commitment: locked.commitment }),
-      /password is wrong/
-    )
-    await assert.rejects(keyspaceKeys(account, ref, { commitment: locked.commitment }), /password is wrong/)
-    await assert.rejects(keyspaceKeys(account, ref, { password: '' }), /non-empty/)
+  describe('with a password', function () {
+    // Each Argon2id pass is 64 MiB and about a second, slower in a browser
+    this.timeout(30_000)
+    let locked: Awaited<ReturnType<typeof keyspaceKeys>>
+
+    before(async () => {
+      locked = await keyspaceKeys(account, ref, { password: 'caf\u00e9' })
+    })
+
+    it('derives a different key than without one', async () => {
+      assert.notEqual(bytesToHex(locked.kk), bytesToHex((await keyspaceKeys(account, ref)).kk))
+    })
+
+    it('reopens with the same password in any Unicode normal form', async () => {
+      const again = await keyspaceKeys(account, ref, { password: 'cafe\u0301', commitment: locked.commitment })
+      assert.equal(bytesToHex(again.kk), bytesToHex(locked.kk))
+    })
+
+    it('refuses a wrong password, or a missing one, against the commitment', async () => {
+      await assert.rejects(
+        keyspaceKeys(account, ref, { password: 'cafe', commitment: locked.commitment }),
+        /the password is wrong/
+      )
+      await assert.rejects(keyspaceKeys(account, ref, { commitment: locked.commitment }), /may need a password/)
+    })
+
+    it('refuses a bad password or commitment before the wallet prompts', async () => {
+      const signer = counting(account)
+      await assert.rejects(keyspaceKeys(signer, ref, { password: '' }), /non-empty/)
+      await assert.rejects(keyspaceKeys(signer, ref, { password: '\ud800' }), /well-formed/)
+      await assert.rejects(keyspaceKeys(signer, ref, { password: 'x', commitment: 'v1.0.00' }), /format v1/)
+      assert.equal(signer.calls, 0)
+    })
   })
 
   it('rejects a randomising signer, and anything that is not plain ECDSA', async () => {
