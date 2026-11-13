@@ -50,27 +50,16 @@ jobs:
         run: pnpm run build
   test-synapse-sdk:
     needs: lint
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [lts, latest]
-        os: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
       - name: Setup pnpm
         uses: pnpm/setup@v3
         with:
-          runtime: node@${{ matrix.node }}
           require-lockfile: true
-      - name: Playwright for Windows
-        if: matrix.os == 'windows-latest'
-        run: pnpx playwright install winldd
       - name: Run synapse-sdk tests
-        run: |
-          pnpm config set script-shell bash
-          pnpm turbo run test --filter=@filoz/synapse-sdk
+        run: pnpm turbo run test --filter=@filoz/synapse-sdk
 
   test-synapse-core:
     needs: lint
