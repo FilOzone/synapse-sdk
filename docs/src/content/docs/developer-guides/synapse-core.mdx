@@ -279,11 +279,15 @@ console.log(`Data set ${dataSetId} created and piece ${pieceCid.toString()} adde
 import * as sp from "@filoz/synapse-core/sp"
 const serviceURL = "https://provider.example.com"
 // ---cut---
-// Stream upload — PieceCID is calculated during transfer
+// Stream upload — PieceCID is calculated during transfer.
+// `data` can be a Uint8Array, a ReadableStream, or any AsyncIterable<Uint8Array>,
+// such as a Node.js `fs.createReadStream(path)`.
 const stream = new ReadableStream<Uint8Array>({ /* ... */ })
 const uploaded = await sp.uploadPieceStreaming({
   data: stream,
   serviceURL,
+  // Resolve only once the provider has parked the piece, so it can be committed
+  waitForParked: true,
   onProgress(bytes) {
     console.log(`${bytes} bytes uploaded`)
   },
