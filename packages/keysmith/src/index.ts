@@ -39,6 +39,7 @@ export {
   GROUP_KEY_TYPES,
   grantDescriptor,
   groupKeyId,
+  groupKeyIdOf,
   groupKeyMessage,
   groupName,
   groupPath,
@@ -46,6 +47,7 @@ export {
   keyForEnvelope,
   keyForGroup,
   keyResolver,
+  LEGACY_GROUP_KEY_ID_KEY,
   lowSrs,
   matchesCommitment,
   newGroupKeyId,
@@ -53,6 +55,7 @@ export {
   pieceKey,
   pieceMetadata,
   pieceNode,
+  readPieceMetadata,
   writeTarget,
 } from './derive.ts'
 export type {
@@ -65,6 +68,8 @@ export type {
   GroupKeyRef,
   Holding,
   PieceMetadata,
+  PieceMetadataV1,
+  PieceMetadataView,
   TypedDataSigner,
   WriteTarget,
 } from './types.ts'

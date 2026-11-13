@@ -9,10 +9,13 @@
  * PK  = HKDF(node,"foc/acl/piece/v1"‖salt)    one piece
  * ```
  *
- * The wire names (`KeyspaceKey`, `keyspace`, `foc/ks`, `foc/scope`, `scope:<path>`)
- * keep their original spelling: they are signed or hashed, so renaming them would
- * orphan existing keys. In the API, a "keyspace" is a group key (its id is the group key id)
- * and a "scope" is a group.
+ * Some wire names keep their original spelling (`KeyspaceKey`, `keyspace`, the HKDF info strings):
+ * they are signed or hashed, so renaming them would orphan existing keys. The labels and grant
+ * nodes were renamed in piece metadata format 2 (`foc/gkid`, `foc/group`, `'groupKey'`,
+ * `'group:<path>'`); readers accept the old spellings (`foc/ks`, `foc/scope`, `'keyspace'`,
+ * `'scope:<path>'`) forever, since old pieces and signed claims carry them permanently.
+ * Keys never depend on a label name or a node prefix. In the API, a "keyspace" is a group key
+ * (its id is the group key id) and a "scope" is a group.
  *
  * @module
  */
@@ -21,7 +24,7 @@ import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Address, Hex } from 'viem'
-import { bytesToHex, hashTypedData, hexToBytes, recoverAddress } from 'viem'
+import { bytesToHex, hashTypedData, hexToBytes, isAddress, recoverAddress } from 'viem'
 import type {
   DerivedGroupKey,
   DeriveGroupKeyOptions,
@@ -31,6 +34,8 @@ import type {
   GroupKeyRef,
   Holding,
   PieceMetadata,
+  PieceMetadataV1,
+  PieceMetadataView,
   TypedDataSigner,
   WriteTarget,
 } from './types.ts'
@@ -73,8 +78,35 @@ const INFO = {
 
 /** The FWSS data-set metadata key the commitment is written to. */
 export const COMMITMENT_KEY = 'foc/kc'
-/** The FWSS data-set metadata key naming the group key, so the chain alone can list them. */
-export const GROUP_KEY_ID_KEY = 'foc/ks'
+/**
+ * The FWSS data-set metadata key naming the group key, so the chain alone can list them.
+ * New data sets record this key. Data sets made before format 2 record {@link LEGACY_GROUP_KEY_ID_KEY}.
+ * Apps listing a user's data sets must match either key (see {@link groupKeyIdOf}). Synapse reuses a
+ * data set only on an exact metadata match, so to keep adding to an existing `foc/ks` data set, pass
+ * its metadata as it is.
+ */
+export const GROUP_KEY_ID_KEY = 'foc/gkid'
+/** The data-set metadata key older data sets record the group key under. Read it; do not write it. */
+export const LEGACY_GROUP_KEY_ID_KEY = 'foc/ks'
+
+/**
+ * The group key id a data set records, from either {@link GROUP_KEY_ID_KEY} or {@link LEGACY_GROUP_KEY_ID_KEY},
+ * canonicalized. Undefined when it records neither.
+ *
+ * @throws If it records both and they differ, or a value is not a group key id.
+ */
+export function groupKeyIdOf(dataSetMetadata: Record<string, string>): Hex | undefined {
+  const current = dataSetMetadata[GROUP_KEY_ID_KEY]
+  const legacy = dataSetMetadata[LEGACY_GROUP_KEY_ID_KEY]
+  const a = current == null ? undefined : groupKeyId(current)
+  const b = legacy == null ? undefined : groupKeyId(legacy)
+  if (a != null && b != null && a !== b) {
+    throw new Error(
+      `This data set records two different group keys: ${a} (${GROUP_KEY_ID_KEY}) and ${b} (${LEGACY_GROUP_KEY_ID_KEY})`
+    )
+  }
+  return a ?? b
+}
 
 const derive = (ikm: Uint8Array, info: string, length = 32, salt?: Uint8Array): Uint8Array =>
   hkdf(sha256, ikm, salt, utf8ToBytes(info), length)
@@ -212,7 +244,7 @@ export async function deriveGroupKey(
         'or the signer is not deterministic, or the commitment belongs to another group key.'
     )
   }
-  return { kk, commitment: commitment(kk), descriptor: grantDescriptor(ref, 'keyspace') }
+  return { kk, commitment: commitment(kk), descriptor: grantDescriptor(ref, 'groupKey') }
 }
 
 /**
@@ -300,46 +332,74 @@ const walk = (key: Uint8Array, names: string[]): Uint8Array =>
  * indicate a *path*). Case is significant.
  *
  * @throws If the name is empty, padded with whitespace, contains `/`, or is not well-formed Unicode.
- * The empty/padded/`/` error says "scope", the wire term: claims-vectors.json pins its text.
  */
-export function groupName(name: string): string {
+export const groupName = (name: string): string => checkName(name, 'group')
+
+// `noun` is "scope" when reading a legacy `scope:` node: claims-vectors.json pins that text.
+function checkName(name: string, noun: 'group' | 'scope'): string {
   // Lone surrogates risk two different names deriving the same key, so refuse them.
   if (/\p{Cs}/u.test(name)) {
-    throw new Error(`A group name must be well-formed Unicode (no lone surrogates), got ${JSON.stringify(name)}`)
+    throw new Error(`A ${noun} name must be well-formed Unicode (no lone surrogates), got ${JSON.stringify(name)}`)
   }
   const normalised = name.normalize('NFC')
   if (normalised.length === 0 || normalised.trim() !== normalised || normalised.includes('/')) {
     throw new Error(
-      `A scope name must be non-empty, with no leading or trailing whitespace and no "/", got ${JSON.stringify(name)}`
+      `A ${noun} name must be non-empty, with no leading or trailing whitespace and no "/", got ${JSON.stringify(name)}`
     )
   }
   return normalised
 }
 
+const pathOf = (path: string, noun: 'group' | 'scope') =>
+  text(path, `A ${noun} path`)
+    .split('/')
+    .map((name) => checkName(name, noun))
+    .join('/')
+
 /** Canonicalize group path: canonical names joined by `/`, top group first. */
-export const groupPath = (path: string): string => text(path, 'A group path').split('/').map(groupName).join('/')
+export const groupPath = (path: string): string => pathOf(path, 'group')
+
+/** What a grant node means, whichever spelling it came in. Path and salt are canonical. */
+export type NodeKind = { kind: 'groupKey' } | { kind: 'group'; path: string } | { kind: 'piece'; salt: Hex }
 
 /**
- * A grant node in canonical form (wire spellings): `keyspace`, `scope:` plus a canonical group
- * path, or `piece:` plus a piece's salt in lowercase hex.
+ * Parse a grant node, in either spelling: `'groupKey'` or legacy `'keyspace'`, `'group:<path>'` or legacy
+ * `'scope:<path>'`, `'piece:<salt>'`. Every decision about a node goes through this, never a string compare.
+ *
+ * @throws If the node is not one of those, or its path or salt is malformed.
  */
-export function canonicalNode(node: string): string {
-  if (text(node, 'A grant node') === 'keyspace') {
-    return 'keyspace'
-  }
-  if (node.startsWith('scope:')) {
-    return `scope:${groupPath(node.slice('scope:'.length))}`
-  }
+export function nodeKind(node: string): NodeKind {
+  if (text(node, 'A grant node') === 'groupKey' || node === 'keyspace') return { kind: 'groupKey' }
+  if (node.startsWith('group:')) return { kind: 'group', path: pathOf(node.slice('group:'.length), 'group') }
+  if (node.startsWith('scope:')) return { kind: 'group', path: pathOf(node.slice('scope:'.length), 'scope') }
   if (node.startsWith('piece:')) {
     const salt = saltOf(node.slice('piece:'.length))
     if (salt.length !== 2 + 2 * 16) throw new Error(`A piece node names a 16-byte salt, got ${JSON.stringify(node)}`)
-    return `piece:${salt}`
+    return { kind: 'piece', salt }
   }
   throw new Error(`Unrecognised grant node: ${node}`)
 }
 
 /**
- * The grant node for one piece, from its envelope metadata: `piece:<salt>`.
+ * A grant node with path and salt canonical, **in the spelling it came in**. For nodes
+ * received in signed or wrapped data: the spelling is signed or bound into the wrap's AAD,
+ * so it must never be rewritten.
+ */
+export function canonicalNode(node: string): string {
+  const k = nodeKind(node)
+  if (k.kind === 'groupKey') return node
+  if (k.kind === 'group') return `${node.startsWith('scope:') ? 'scope' : 'group'}:${k.path}`
+  return `piece:${k.salt}`
+}
+
+/** A node in the current spelling (`'groupKey'`, `'group:<path>'`, `'piece:<salt>'`): for nodes this code writes anew. */
+export function newNode(node: string): GrantNode {
+  const k = nodeKind(node)
+  return k.kind === 'groupKey' ? 'groupKey' : k.kind === 'group' ? `group:${k.path}` : `piece:${k.salt}`
+}
+
+/**
+ * The grant node for one piece, from its envelope metadata (either format): `piece:<salt>`.
  *
  * A piece grant is bound to the salt, not the CID: the salt is what the key is
  * derived from, it has one canonical spelling, and `keyForEnvelope` checks it
@@ -348,6 +408,64 @@ export function canonicalNode(node: string): string {
  */
 export const pieceNode = (metadata: Pick<PieceMetadata, 'foc/salt'>): GrantNode =>
   `piece:${saltOf(metadata['foc/salt'])}`
+
+/**
+ * Read a piece's envelope metadata, in format 1 (`foc/ks`, `foc/scope`) or format 2
+ * (`foc/gkid`, `foc/group`), into one shape. Readers accept both forever: pieces written
+ * before format 2 carry authenticated labels that can never be edited.
+ *
+ * Takes the metadata as FEE returns it (`info.appMetadata`), unvalidated. Each format is
+ * strict: a format 2 envelope with a format 1 label, or the reverse, is refused.
+ *
+ * @throws If `foc/v` is not 1 or 2, a label of the other format is present, or a field is malformed.
+ */
+export function readPieceMetadata(
+  envelopeMetadata: PieceMetadata | PieceMetadataV1 | Readonly<Record<string, unknown>> | undefined
+): PieceMetadataView {
+  if (envelopeMetadata == null || typeof envelopeMetadata !== 'object') {
+    throw new Error(
+      `A piece's envelope metadata must be an object, got ${envelopeMetadata === null ? 'null' : typeof envelopeMetadata}`
+    )
+  }
+  const m = envelopeMetadata as Readonly<Record<string, unknown>>
+  const version = m['foc/v']
+  // Format changes break key derivation, so guard first
+  if (version !== 1 && version !== 2) {
+    throw new Error(
+      `This piece's envelope is not format 1 or 2 with a group key (foc/v ${String(version)}); ` +
+        'this version reads formats 1 and 2.'
+    )
+  }
+  const [idKey, groupKey, otherId, otherGroup] =
+    version === 1
+      ? (['foc/ks', 'foc/scope', 'foc/gkid', 'foc/group'] as const)
+      : (['foc/gkid', 'foc/group', 'foc/ks', 'foc/scope'] as const)
+  if (typeof m[idKey] !== 'string') {
+    throw new Error(
+      `This piece's envelope is not format ${version} with a group key (foc/v ${version}, ` +
+        `${idKey} ${String(m[idKey])}); this version reads formats 1 and 2.`
+    )
+  }
+  if (m[otherId] !== undefined || m[otherGroup] !== undefined) {
+    throw new Error(
+      `This piece's envelope is format ${version}, which labels the group key ${idKey} and the group ${groupKey}; ` +
+        `it must not carry ${otherId} or ${otherGroup}.`
+    )
+  }
+  const own = m['foc/own']
+  const group = m[groupKey]
+  // Absent means not gated; present must be an address, or a gate would be skipped
+  if (own !== undefined && !(typeof own === 'string' && isAddress(own, { strict: false }))) {
+    throw new Error(`foc/own must be an address, got ${JSON.stringify(own)}`)
+  }
+  return {
+    version,
+    ...(own === undefined ? {} : { owner: own as Address }),
+    groupKeyId: groupKeyId(m[idKey] as string),
+    ...(group == null ? {} : { group: pathOf(group as string, version === 1 ? 'scope' : 'group') }),
+    salt: saltOf(m['foc/salt'] as string),
+  }
+}
 
 /** A salt in the form it is derived from and compared in: hex bytes, lowercase. */
 function saltOf(salt: string): Hex {
@@ -373,7 +491,8 @@ export function text(value: unknown, what: string): string {
 }
 
 /**
- * Piece FEE envelope metadata entries.
+ * Piece FEE envelope metadata entries, format 2. Older pieces carry format 1 labels
+ * (`foc/ks`, `foc/scope`); read either with {@link readPieceMetadata}.
  *
  * Everything a reader needs travels with the piece, so a copy opens wherever
  * replication or repair puts it.
@@ -386,10 +505,10 @@ export function pieceMetadata(ref: GroupKeyRef, options: { salt: Hex; group?: st
     throw new Error(`A piece salt is 16 random bytes, from newSalt(); got ${(salt.length - 2) / 2}`)
   }
   return {
-    'foc/v': 1,
+    'foc/v': 2,
     'foc/own': ref.owner.toLowerCase() as Address,
-    'foc/ks': groupKeyId(ref.groupKeyId),
-    ...(options.group == null ? {} : { 'foc/scope': groupPath(options.group) }),
+    'foc/gkid': groupKeyId(ref.groupKeyId),
+    ...(options.group == null ? {} : { 'foc/group': groupPath(options.group) }),
     'foc/salt': salt,
   }
 }
@@ -397,8 +516,10 @@ export function pieceMetadata(ref: GroupKeyRef, options: { salt: Hex; group?: st
 /**
  * The descriptor naming what a grant unlocks, ready for `wrapTo()`.
  *
- * `node` is a wire string: `'keyspace'` for the group key, `'scope:<path>'` for a group,
+ * `node` is a wire string: `'groupKey'` for the group key, `'group:<path>'` for a group,
  * `'piece:<salt>'` for one piece. `owner` and `groupKeyId` are signed as `owner` and `keyspace`.
+ * A legacy `'keyspace'` or `'scope:<path>'` is accepted and written in the current spelling, since
+ * this builds a new grant; to re-wrap a received one, keep its descriptor as it came.
  *
  * Build descriptors with `grantDescriptor()` rather than filling the
  * structure by hand: the descriptor is authenticated as the grant's AAD and
@@ -408,7 +529,7 @@ export function pieceMetadata(ref: GroupKeyRef, options: { salt: Hex; group?: st
 export function grantDescriptor(ref: GroupKeyRef, node: GrantNode): GrantDescriptor {
   return {
     v: 1,
-    node: canonicalNode(node) as GrantNode,
+    node: newNode(node),
     owner: ref.owner.toLowerCase() as Address,
     groupKeyId: groupKeyId(ref.groupKeyId),
   }
@@ -422,8 +543,8 @@ export function grantDescriptor(ref: GroupKeyRef, node: GrantNode): GrantDescrip
  * piece's group or an ancestor of it. A piece holder already has the key, and
  * gets it back only for the piece whose salt it names.
  *
- * Takes the metadata as FEE returns it (`info.appMetadata`), unvalidated, and
- * checks every field before using it.
+ * Takes the metadata as FEE returns it (`info.appMetadata`), format 1 or 2,
+ * unvalidated, and checks every field before using it (see {@link readPieceMetadata}).
  *
  * Pass the grant that delivered the key as `holding` where you have it: then the
  * piece's owner and group key are checked against the grant too, so a key from the
@@ -435,51 +556,35 @@ export function grantDescriptor(ref: GroupKeyRef, node: GrantNode): GrantDescrip
  */
 export function keyForEnvelope(
   node: Uint8Array,
-  envelopeMetadata: PieceMetadata | Readonly<Record<string, unknown>> | undefined,
+  envelopeMetadata: PieceMetadata | PieceMetadataV1 | Readonly<Record<string, unknown>> | undefined,
   holder: Holding | GrantDescriptor = 'groupKey'
 ): Uint8Array {
-  if (envelopeMetadata == null || typeof envelopeMetadata !== 'object') {
-    throw new Error(
-      `A piece's envelope metadata must be an object, got ${envelopeMetadata === null ? 'null' : typeof envelopeMetadata}`
-    )
-  }
-  // Every field is checked below before it is used.
-  const metadata = envelopeMetadata as PieceMetadata
-  // Format changes break key derivation, so guard first
-  if (metadata['foc/v'] !== 1 || typeof metadata['foc/ks'] !== 'string') {
-    throw new Error(
-      `This piece's envelope is not format 1 with a group key (foc/v ${String(metadata['foc/v'])}, ` +
-        `foc/ks ${String(metadata['foc/ks'])}); this version reads only that.`
-    )
-  }
-  groupKeyId(metadata['foc/ks'])
+  // Reads format 1 or 2, and checks every field before it is used
+  const piece = readPieceMetadata(envelopeMetadata)
 
   // Given the grant itself, check the piece is in the grant's group key before deriving anything
   let holding: Holding
   if (typeof holder === 'object' && 'node' in holder) {
-    const own = metadata['foc/own']
-    if (groupKeyId(holder.groupKeyId) !== groupKeyId(metadata['foc/ks'])) {
-      throw new Error(
-        `This key is for group key ${holder.groupKeyId}; the piece is in group key ${metadata['foc/ks']}.`
-      )
+    if (groupKeyId(holder.groupKeyId) !== piece.groupKeyId) {
+      throw new Error(`This key is for group key ${holder.groupKeyId}; the piece is in group key ${piece.groupKeyId}.`)
     }
-    if (typeof own === 'string' && own.toLowerCase() !== holder.owner.toLowerCase()) {
-      throw new Error(`This key is from owner ${holder.owner}; the piece belongs to ${own}.`)
+    if (piece.owner != null && piece.owner.toLowerCase() !== holder.owner.toLowerCase()) {
+      throw new Error(`This key is from owner ${holder.owner}; the piece belongs to ${piece.owner}.`)
     }
     holding = holdingOf(holder)
   } else holding = holder
 
   // If a direct piece grant, verify this is for the correct piece before deriving
   if (holding !== 'groupKey' && 'piece' in holding) {
-    if (saltOf(holding.piece) !== saltOf(metadata['foc/salt'])) {
+    if (saltOf(holding.piece) !== piece.salt) {
       throw new Error('This piece key belongs to another piece: the envelope names a different salt.')
     }
     return node.slice()
   }
 
   // Verify the held group contains the piece's group before deriving
-  const group = metadata['foc/scope']
-  const target = group == null ? [] : groupPath(group).split('/')
+  const group = piece.group
+  const target = group == null ? [] : group.split('/')
   const held = holding === 'groupKey' ? [] : groupPath(holding.group).split('/')
   if (held.length > target.length || held.some((name, i) => name !== target[i])) {
     throw new Error(
@@ -489,7 +594,7 @@ export function keyForEnvelope(
   }
 
   // Go!
-  return pieceKey(walk(node, target.slice(held.length)), metadata['foc/salt'])
+  return pieceKey(walk(node, target.slice(held.length)), piece.salt)
 }
 
 /**
@@ -519,13 +624,9 @@ export const keyResolver =
  * @throws If the grant names a node this version does not understand.
  */
 export function holdingOf(grant: Pick<GrantDescriptor, 'node'>): Holding {
-  const node = canonicalNode(grant.node)
-  if (node === 'keyspace') {
-    return 'groupKey'
-  }
-  return node.startsWith('piece:')
-    ? { piece: node.slice('piece:'.length) as Hex }
-    : { group: node.slice('scope:'.length) }
+  const k = nodeKind(grant.node)
+  if (k.kind === 'groupKey') return 'groupKey'
+  return k.kind === 'piece' ? { piece: k.salt } : { group: k.path }
 }
 
 /**

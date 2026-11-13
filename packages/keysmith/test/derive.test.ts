@@ -7,24 +7,30 @@ import {
   commitment,
   DOMAIN,
   deriveGroupKey,
+  GROUP_KEY_ID_KEY,
   grantDescriptor,
   groupKeyId,
+  groupKeyIdOf,
   groupKeyMessage,
   groupName,
   groupPath,
   holdingOf,
   keyForEnvelope,
   keyForGroup,
+  LEGACY_GROUP_KEY_ID_KEY,
   lowSrs,
   matchesCommitment,
   newGroupKeyId,
+  newNode,
   newSalt,
+  nodeKind,
   pieceKey,
   pieceMetadata,
   pieceNode,
+  readPieceMetadata,
   writeTarget,
 } from '../src/derive.ts'
-import type { GroupKeyRef, TypedDataSigner } from '../src/types.ts'
+import type { GroupKeyRef, PieceMetadataV1, TypedDataSigner } from '../src/types.ts'
 
 const account = privateKeyToAccount(generatePrivateKey())
 const ref: GroupKeyRef = { owner: account.address, groupKeyId: '0x00112233445566778899aabbccddeeff' }
@@ -83,11 +89,11 @@ describe('deriveGroupKey', () => {
 
   it('returns the group key descriptor, so an owner writes the way a delegate does', async () => {
     const { kk, descriptor } = await deriveGroupKey(account, ref)
-    assert.deepStrictEqual(descriptor, grantDescriptor(ref, 'keyspace'))
+    assert.deepStrictEqual(descriptor, grantDescriptor(ref, 'groupKey'))
     const target = writeTarget(descriptor, kk, 'agent-memory')
     const salt = newSalt()
     const metadata = pieceMetadata(target.ref, { salt, group: target.group })
-    assert.equal(metadata['foc/ks'], ref.groupKeyId, 'the group key comes from what was signed')
+    assert.equal(metadata['foc/gkid'], ref.groupKeyId, 'the group key comes from what was signed')
     assert.deepStrictEqual(pieceKey(target.key, salt), keyForEnvelope(kk, metadata))
   })
 
@@ -225,8 +231,8 @@ describe('location independence', () => {
     const kk = await kkOf(account, ref)
     const prototype = { 'foc/v': 1, 'foc/cds': '0x2a', 'foc/epoch': 0, 'foc/salt': newSalt() } as never
     assert.throws(() => keyForEnvelope(kk, prototype), /format 1 with a group key/, 'a pre-release prototype')
-    const future = { ...pieceMetadata(ref, { salt: newSalt() }), 'foc/v': 2 } as never
-    assert.throws(() => keyForEnvelope(kk, future), /format 1 with a group key/)
+    const future = { ...pieceMetadata(ref, { salt: newSalt() }), 'foc/v': 3 } as never
+    assert.throws(() => keyForEnvelope(kk, future), /not format 1 or 2.*reads formats 1 and 2/)
   })
 
   it('refuses malformed envelope metadata clearly, rather than deriving from it', () => {
@@ -238,8 +244,8 @@ describe('location independence', () => {
       [{ 'foc/salt': '0x' }, /piece salt is hex bytes/],
       [{ 'foc/salt': 5 }, /piece salt must be a string/],
       [{ 'foc/salt': undefined }, /piece salt must be a string/],
-      [{ 'foc/scope': 5 }, /group path must be a string/],
-      [{ 'foc/ks': '0xzz' }, /group key id is 16 bytes/],
+      [{ 'foc/group': 5 }, /group path must be a string/],
+      [{ 'foc/gkid': '0xzz' }, /group key id is 16 bytes/],
     ] as const
     for (const [fields, error] of hostile) {
       assert.throws(() => keyForEnvelope(kk, { ...metadata, ...fields } as never), error, JSON.stringify(fields))
@@ -250,14 +256,14 @@ describe('location independence', () => {
   it('given the grant, refuses a piece from another group key or owner with a clear reason', async () => {
     const kk = await kkOf(account, ref)
     const metadata = pieceMetadata(ref, { salt: newSalt(), group: 'team/notes' })
-    const grant = grantDescriptor(ref, 'scope:team')
+    const grant = grantDescriptor(ref, 'group:team')
     const rk = keyForGroup(kk, 'team')
     assert.deepStrictEqual(keyForEnvelope(rk, metadata, grant), keyForEnvelope(rk, metadata, holdingOf(grant)))
-    const otherGroupKey = grantDescriptor({ ...ref, groupKeyId: newGroupKeyId() }, 'scope:team')
+    const otherGroupKey = grantDescriptor({ ...ref, groupKeyId: newGroupKeyId() }, 'group:team')
     assert.throws(() => keyForEnvelope(rk, metadata, otherGroupKey), /This key is for group key 0x.*; the piece is in/)
     const otherOwner = grantDescriptor(
       { ...ref, owner: privateKeyToAccount(generatePrivateKey()).address },
-      'scope:team'
+      'group:team'
     )
     assert.throws(() => keyForEnvelope(rk, metadata, otherOwner), /This key is from owner/)
   })
@@ -300,8 +306,10 @@ describe('groups', () => {
 
 describe('holdingOf', () => {
   it('reads the level back off a grant, and refuses what it does not understand', () => {
-    assert.equal(holdingOf({ node: 'keyspace' }), 'groupKey')
-    assert.deepStrictEqual(holdingOf({ node: 'scope:agent-memory' }), { group: 'agent-memory' })
+    assert.equal(holdingOf({ node: 'groupKey' }), 'groupKey')
+    assert.equal(holdingOf({ node: 'keyspace' }), 'groupKey', 'legacy spelling')
+    assert.deepStrictEqual(holdingOf({ node: 'group:agent-memory' }), { group: 'agent-memory' })
+    assert.deepStrictEqual(holdingOf({ node: 'scope:agent-memory' }), { group: 'agent-memory' }, 'legacy spelling')
     assert.throws(() => holdingOf({ node: 'dataset' }), /Unrecognised grant node/)
     assert.throws(() => holdingOf({ node: 'role:invoices' }), /Unrecognised grant node/)
   })
@@ -311,15 +319,15 @@ describe('pieceMetadata and grantDescriptor', () => {
   it('record what a reader needs, in canonical form, and nothing secret', () => {
     const salt = '0x00CDEF0123456789ABCDEF0123456789' as const
     assert.deepStrictEqual(pieceMetadata(ref, { salt, group: 'café' }), {
-      'foc/v': 1,
+      'foc/v': 2,
       'foc/own': account.address.toLowerCase(),
-      'foc/ks': ref.groupKeyId,
-      'foc/scope': 'café',
+      'foc/gkid': ref.groupKeyId,
+      'foc/group': 'café',
       'foc/salt': '0x00cdef0123456789abcdef0123456789',
     })
     assert.deepStrictEqual(grantDescriptor(ref, 'scope:café'), {
       v: 1,
-      node: 'scope:café',
+      node: 'group:café',
       owner: account.address.toLowerCase(),
       groupKeyId: ref.groupKeyId,
     })
@@ -410,7 +418,7 @@ describe('group tree', () => {
 describe('writeTarget', () => {
   it('lets a group grant write under its own group, or beneath it, and nowhere else', async () => {
     const kk = await kkOf(account, ref)
-    const grant = grantDescriptor(ref, 'scope:admin/finance')
+    const grant = grantDescriptor(ref, 'group:admin/finance')
     const rk = keyForGroup(kk, 'admin/finance')
 
     const own = writeTarget(grant, rk)
@@ -433,7 +441,7 @@ describe('writeTarget', () => {
 
   it('lets a group key grant write under any group, or none', async () => {
     const kk = await kkOf(account, ref)
-    const grant = grantDescriptor(ref, 'keyspace')
+    const grant = grantDescriptor(ref, 'groupKey')
     assert.equal(writeTarget(grant, kk).group, undefined)
     assert.deepStrictEqual(writeTarget(grant, kk).key, kk)
     assert.deepStrictEqual(writeTarget(grant, kk, 'agent-memory').key, keyForGroup(kk, 'agent-memory'))
@@ -475,7 +483,7 @@ describe('piece grants', () => {
     const pk = keyForEnvelope(kk, metadata)
     assert.equal(pieceNode(metadata), `piece:${metadata['foc/salt']}`)
     assert.equal(
-      pieceNode({ 'foc/salt': '0x00ABCDEF0123456789ABCDEF01234567' }),
+      pieceNode({ ...metadata, 'foc/salt': '0x00ABCDEF0123456789ABCDEF01234567' }),
       'piece:0x00abcdef0123456789abcdef01234567'
     )
     const holding = holdingOf(grantDescriptor(ref, pieceNode(metadata)))
@@ -506,5 +514,96 @@ describe('refuses stale option names', () => {
     assert.throws(() => pieceMetadata(ref, stale), /takes `group`, not `scope`/)
     const maybe = Math.random() < 2 ? 'x' : undefined // a conditional spread: TypeScript accepts this
     assert.throws(() => pieceMetadata(ref, { salt, ...(maybe && { scope: maybe }) }), /takes `group`, not `scope`/)
+  })
+})
+
+describe('format 2 and the legacy names', () => {
+  const salt = '0x000102030405060708090a0b0c0d0e0f' as const
+  const v2 = pieceMetadata(ref, { salt, group: 'admin/finance' })
+  const v1: PieceMetadataV1 = {
+    'foc/v': 1,
+    'foc/own': v2['foc/own'],
+    'foc/ks': ref.groupKeyId,
+    'foc/scope': 'admin/finance',
+    'foc/salt': salt,
+  }
+
+  it('writes format 2, and reads both formats as the same labels', () => {
+    assert.deepStrictEqual(Object.keys(v2).sort(), ['foc/gkid', 'foc/group', 'foc/own', 'foc/salt', 'foc/v'])
+    const { version: a, ...r1 } = readPieceMetadata(v1)
+    const { version: b, ...r2 } = readPieceMetadata(v2)
+    assert.deepStrictEqual([a, b], [1, 2])
+    assert.deepStrictEqual(r1, r2)
+    assert.deepStrictEqual(r1, { owner: v2['foc/own'], groupKeyId: ref.groupKeyId, group: 'admin/finance', salt })
+    assert.equal(readPieceMetadata({ ...v2, 'foc/group': undefined }).group, undefined)
+  })
+
+  it('keeps each format strict, and names the versions it reads', () => {
+    assert.throws(() => readPieceMetadata({ ...v2, 'foc/ks': ref.groupKeyId }), /format 2.*must not carry foc\/ks/)
+    assert.throws(
+      () => readPieceMetadata({ ...v2, 'foc/scope': 'a' }),
+      /format 2.*must not carry foc\/ks or foc\/scope/
+    )
+    assert.throws(() => readPieceMetadata({ ...v1, 'foc/gkid': ref.groupKeyId }), /format 1.*must not carry foc\/gkid/)
+    assert.throws(
+      () => readPieceMetadata({ ...v1, 'foc/group': 'a' }),
+      /format 1.*must not carry foc\/gkid or foc\/group/
+    )
+    assert.throws(() => readPieceMetadata({ ...v1, 'foc/v': 2 }), /not format 2 with a group key/)
+    assert.throws(() => readPieceMetadata({ ...v2, 'foc/v': 3 }), /not format 1 or 2.*reads formats 1 and 2/)
+    assert.throws(() => readPieceMetadata({ ...v2, 'foc/v': undefined }), /reads formats 1 and 2/)
+    assert.throws(() => readPieceMetadata(undefined), /must be an object/)
+  })
+
+  it('never lets a label name or node prefix change a key', async () => {
+    const kk = await kkOf(account, ref)
+    const rk = keyForGroup(kk, 'admin/finance')
+    const want = keyForEnvelope(kk, v1)
+    assert.deepStrictEqual(keyForEnvelope(kk, v2), want)
+    assert.deepStrictEqual(keyForEnvelope(rk, v1, { group: 'admin/finance' }), want)
+    assert.deepStrictEqual(keyForEnvelope(rk, v2, { group: 'admin/finance' }), want)
+    // a grant node in either spelling holds the same thing, so derives the same key
+    for (const [legacy, current] of [
+      ['scope:admin/finance', 'group:admin/finance'],
+      ['scope:admin', 'group:admin'],
+      ['keyspace', 'groupKey'],
+    ] as const) {
+      const held = legacy === 'keyspace' ? kk : keyForGroup(kk, legacy.slice('scope:'.length))
+      const old = { ...grantDescriptor(ref, current), node: legacy }
+      assert.deepStrictEqual(holdingOf(old), holdingOf({ node: current }))
+      assert.deepStrictEqual(keyForEnvelope(held, v1, old), keyForEnvelope(held, v2, grantDescriptor(ref, current)))
+      assert.deepStrictEqual(keyForEnvelope(held, v2, old), want)
+    }
+    assert.deepStrictEqual(pieceNode(v1), pieceNode(v2))
+  })
+
+  it('writes the current node spelling for new things, and keeps a received one', () => {
+    assert.equal(grantDescriptor(ref, 'keyspace').node, 'groupKey')
+    assert.equal(grantDescriptor(ref, 'scope:a/b').node, 'group:a/b')
+    assert.equal(newNode('scope:cafe\u0301'), 'group:caf\u00e9')
+    assert.equal(canonicalNode('keyspace'), 'keyspace')
+    assert.equal(canonicalNode('scope:cafe\u0301'), 'scope:caf\u00e9')
+    assert.equal(canonicalNode('group:cafe\u0301'), 'group:caf\u00e9')
+    assert.deepStrictEqual(nodeKind('scope:a/b'), nodeKind('group:a/b'))
+    assert.deepStrictEqual(nodeKind('keyspace'), nodeKind('groupKey'))
+    assert.throws(() => nodeKind('group:a/'), /A group name must be non-empty/)
+    assert.throws(() => nodeKind('scope:a/'), /A scope name must be non-empty/) // pinned by claims-vectors.json
+    assert.throws(() => nodeKind('groupKey:x'), /Unrecognised grant node/)
+  })
+
+  it('finds the group key on a data set under either key, and refuses a conflict', () => {
+    const id = ref.groupKeyId
+    const upper = id.toUpperCase().replace('0X', '0x')
+    assert.equal(GROUP_KEY_ID_KEY, 'foc/gkid')
+    assert.equal(LEGACY_GROUP_KEY_ID_KEY, 'foc/ks')
+    assert.equal(groupKeyIdOf({ [GROUP_KEY_ID_KEY]: id }), id)
+    assert.equal(groupKeyIdOf({ [LEGACY_GROUP_KEY_ID_KEY]: upper }), id)
+    assert.equal(groupKeyIdOf({ [GROUP_KEY_ID_KEY]: id, [LEGACY_GROUP_KEY_ID_KEY]: upper }), id)
+    assert.equal(groupKeyIdOf({ 'foc/kc': 'v1.00' }), undefined)
+    assert.throws(
+      () => groupKeyIdOf({ [GROUP_KEY_ID_KEY]: id, [LEGACY_GROUP_KEY_ID_KEY]: newGroupKeyId() }),
+      /two different group keys/
+    )
+    assert.throws(() => groupKeyIdOf({ [GROUP_KEY_ID_KEY]: 'nope' }), /group key id is 16 bytes/)
   })
 })

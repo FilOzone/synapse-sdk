@@ -17,7 +17,7 @@ import { decodeGrant, encodeGrant, publicKeyOf, unwrapWith, wrapTo } from '../sr
 
 const account = privateKeyToAccount(generatePrivateKey())
 const ref: GroupKeyRef = { owner: account.address, groupKeyId: '0x00112233445566778899aabbccddeeff' }
-const descriptor = grantDescriptor(ref, 'keyspace')
+const descriptor = grantDescriptor(ref, 'groupKey')
 const kkOf = async () => (await deriveGroupKey(account, ref)).kk
 
 describe('publicKeyOf', () => {
@@ -64,10 +64,10 @@ describe('wrapTo / unwrapWith', () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()
     const rk = keyForGroup(kk, 'café')
-    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'scope:café'))
+    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'group:caf\u00e9'))
     const mangled = {
       ...grant,
-      node: 'scope:café',
+      node: 'group:cafe\u0301',
       owner: grant.owner.toUpperCase().replace('0X', '0x'),
       groupKeyId: grant.groupKeyId.toUpperCase().replace('0X', '0x'),
     }
@@ -86,7 +86,7 @@ describe('wrapTo / unwrapWith', () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()
     const rk = keyForGroup(kk, 'agent-memory')
-    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'scope:agent-memory'))
+    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'group:agent-memory'))
     assert.deepStrictEqual(await unwrapWith(recipient, grant), rk)
     assert.deepStrictEqual(holdingOf(grant), { group: 'agent-memory' })
   })
@@ -203,7 +203,12 @@ describe('wrapTo / unwrapWith', () => {
     }
     const grant = await wrapTo(publicKeyOf(recipient), keyForGroup(kk, 'caf\u00e9'), handBuilt as never)
     const { alg: _a, epk: _e, iv: _i, ct: _c, ...carried } = grant
-    assert.deepStrictEqual(carried, grantDescriptor(ref, 'scope:caf\u00e9'), 'canonical, and nothing extra')
+    // A received spelling is signed into the AAD, so wrapping keeps it and canonicalizes only the path
+    assert.deepStrictEqual(
+      carried,
+      { ...grantDescriptor(ref, 'group:caf\u00e9'), node: 'scope:caf\u00e9' },
+      'canonical, and nothing extra'
+    )
   })
 
   it('refuses something that is not a private key where one is needed', async () => {

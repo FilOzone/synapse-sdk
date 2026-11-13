@@ -1,0 +1,34 @@
+{
+  "description": "Pinned Keysmith format 2 outputs. These vectors were produced by this implementation (FIP-1253 draft); they are not independent of it. They pin format 2 labels and the current grant node spellings. vectors.json and claims-vectors.json are the legacy-read suite: the same keys under the old names. Same owner, group key id, group, salt and keys as vectors.json: only the label names and grant node spellings differ. The private keys are the well-known Anvil/Hardhat development keys: public, never for anything of value.",
+  "owner": {
+    "privateKey": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  },
+  "groupKeyId": "0x00112233445566778899aabbccddeeff",
+  "group": {
+    "path": "admin/finance",
+    "key": "0xcfdd43d7d26f125efdfa8030c5415dacf96163d5b1013f0e09dc2c44a3064396"
+  },
+  "piece": {
+    "metadata": {
+      "foc/v": 2,
+      "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "foc/gkid": "0x00112233445566778899aabbccddeeff",
+      "foc/group": "admin/finance/clerks",
+      "foc/salt": "0x000102030405060708090a0b0c0d0e0f"
+    },
+    "key": "0x2fb557dd03240b061d5d05baa3030f75b2a9b910c935e909c19b8fa34bb1f2b8"
+  },
+  "recipient": {
+    "privateKey": "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+    "publicKey": "0x045e37be3bda1b6f6473cea4109645c929bae6d26d596525244cffb239468a3e1cd00c7adf30482122b34c98d2188e1e9c19d117a6ff7e8a95bfaf51502d5d16d5"
+  },
+  "grant": {
+    "cbor": "0xa70001017367726f75703a61646d696e2f66696e616e63650254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff045841044760e7eadb9fa8aca911cfe8160d8b4258184367d14a0ca68645c7c14c2ce7725f803c7d919a639e7293addbf94f9476068774f2c5f2ac9d6a53d07faff22875054ce374870d04e708f2ac142b38065830698bf5e43f2a02b43fb5d5f9cb561a6c3a1e27f6844c939de66826b46c37308fee3787e457dcbc6fed1be38810ab3ef9",
+    "aad": "0x84017367726f75703a61646d696e2f66696e616e636554f39fd6e51aad88f6f4ce6ab8827279cfffb922665000112233445566778899aabbccddeeff"
+  },
+  "pieceGrant": {
+    "cbor": "0xa7000101782870696563653a307830303031303230333034303530363037303830393061306230633064306530660254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff04584104e72f9fbcbc0e123c2cb1b5c5f40a83641db48957c003aa4800200115ef9d8f14d73f977b96a22206c80dd8fc77ecfc4aebcb27a77202ad31d5bc3bcf03c7d12a054cada3a3b644854c31904cbec706583084c2731c472c80db4fd3b3a917f73b9d8050f7538ab84c2aab2df52c5941c31c88704f3217ea73cd01b795d6d6cf9c76",
+    "aad": "0x8401782870696563653a3078303030313032303330343035303630373038303930613062306330643065306654f39fd6e51aad88f6f4ce6ab8827279cfffb922665000112233445566778899aabbccddeeff"
+  }
+}

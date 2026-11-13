@@ -35,13 +35,13 @@ const sessionPrivateKey = generatePrivateKey()
 const sessionPublicKey = Keysmith.publicKeyOf(sessionPrivateKey)
 
 // Share the whole group key...
-const groupKeyGrant = await Keysmith.wrapTo(sessionPublicKey, groupKey, Keysmith.grantDescriptor(ref, 'keyspace'))
+const groupKeyGrant = await Keysmith.wrapTo(sessionPublicKey, groupKey, Keysmith.grantDescriptor(ref, 'groupKey'))
 
 // ...or one group and the groups beneath it.
 const groupGrant = await Keysmith.wrapTo(
   sessionPublicKey,
   Keysmith.keyForGroup(groupKey, 'agent-memory'),
-  Keysmith.grantDescriptor(ref, 'scope:agent-memory'),
+  Keysmith.grantDescriptor(ref, 'group:agent-memory'),
 )
 
 // Bytes to send or store. Use Base64 or similar over a text channel.
@@ -105,7 +105,7 @@ const notes = Keysmith.writeTarget(grant, key, 'agent-memory/notes')
 const subGrant = await Keysmith.wrapTo(
   subAgentPublicKey,
   notes.key,
-  Keysmith.grantDescriptor(notes.ref, 'scope:agent-memory/notes'),
+  Keysmith.grantDescriptor(notes.ref, 'group:agent-memory/notes'),
 )
 ```
 
@@ -136,7 +136,7 @@ declare const pieceCid: PieceCID
 declare const recipientPublicKey: Hex
 // ---cut---
 const { appMetadata } = await fee.parse(encrypted)
-const metadata = appMetadata as Keysmith.PieceMetadata
+const metadata = appMetadata as Keysmith.PieceMetadata | Keysmith.PieceMetadataV1 // Format 2, or an older piece's format 1
 const grant = await Keysmith.wrapTo(
   recipientPublicKey,
   Keysmith.keyForEnvelope(groupKey, metadata),
