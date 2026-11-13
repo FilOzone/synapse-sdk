@@ -205,7 +205,7 @@ piece can never be edited. Format 2 renames them for new writes; readers accept 
 Each format is strict: a format 2 envelope carrying `foc/ks` or `foc/scope`, a format 1 envelope
 carrying `foc/gkid` or `foc/group`, and any other `foc/v` are refused with a clear error.
 `readPieceMetadata(metadata)` parses either into `{ version, owner?, groupKeyId, group?, salt }`;
-use it instead of reading the labels yourself. The data set key follows the same rename:
+use it instead of reading the labels yourself. Types: `PieceMetadataV1`, `PieceMetadataV2`, `PieceMetadata` (an alias of the format written today, V2) and `AnyPieceMetadata` (the union of every format read). The data set key follows the same rename:
 
 | Where | Written | Also read |
 | --- | --- | --- |
@@ -706,8 +706,8 @@ a new dataset's metadata too.
 | `keyResolver(node, grant or holding?)` | The same, as a FEE key resolver: `fee.decrypt(keyResolver(node, grant))` |
 | `writeTarget(grant, key, group?)` | For a delegate: the ref, group and key to write a piece, refusing groups its grant does not cover, and piece grants |
 | `holdingOf(grant)` | Which node a grant carries — group key, group or piece — for `keyForEnvelope` |
-| `pieceMetadata(ref, { salt, group? })` | What the envelope must record: format 2 |
-| `readPieceMetadata(metadata)` | An envelope's labels, format 1 or 2, as `{ version, owner?, groupKeyId, group?, salt }`; refuses a mixed or unknown format |
+| `pieceMetadata(ref, { salt, group? })` | What the envelope must record: format 2, as `PieceMetadata` |
+| `readPieceMetadata(metadata)` | An envelope's labels (`AnyPieceMetadata`), format 1 or 2, as `{ version, owner?, groupKeyId, group?, salt }`; refuses a mixed or unknown format |
 | `pieceNode(metadata)` | The grant node for one piece, `piece:<salt>`, from its envelope metadata (either format) |
 | `commitment(kk)` | The non-secret check value, recomputable by any `KK` holder |
 | `matchesCommitment(kk, recorded)` | Whether a key matches a recorded commitment |

@@ -65,9 +65,9 @@ export interface TypedDataSigner {
   }) => Promise<Hex>
 }
 
-/** FEE envelope entries to enable key derivation/recovery: format 2, what `pieceMetadata()` writes. */
+/** FEE envelope entries to enable key derivation/recovery, format 2. */
 // A type, not an interface, so it can be passed as FEE's `appMetadata` (a string-keyed record) as it is.
-export type PieceMetadata = {
+export type PieceMetadataV2 = {
   'foc/v': 2 // The version of this metadata format
   'foc/own': Address // The group key owner, lowercased.
   'foc/gkid': Hex // The group key this piece's key belongs to
@@ -83,6 +83,12 @@ export type PieceMetadataV1 = {
   'foc/scope'?: string // Now `foc/group`
   'foc/salt': Hex
 }
+
+/** The format `pieceMetadata()` writes today. */
+export type PieceMetadata = PieceMetadataV2
+
+/** Every format this release reads. A new format version adds a `PieceMetadataVn`, repoints `PieceMetadata`, and extends this union. */
+export type AnyPieceMetadata = PieceMetadataV1 | PieceMetadataV2
 
 /** A piece's labels from either format, as `readPieceMetadata()` returns them: canonical, validated. */
 export interface PieceMetadataView {

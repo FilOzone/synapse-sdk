@@ -59,6 +59,7 @@ export {
   writeTarget,
 } from './derive.ts'
 export type {
+  AnyPieceMetadata,
   DerivedGroupKey,
   DeriveGroupKeyOptions,
   Grant,
@@ -69,6 +70,7 @@ export type {
   Holding,
   PieceMetadata,
   PieceMetadataV1,
+  PieceMetadataV2,
   PieceMetadataView,
   TypedDataSigner,
   WriteTarget,

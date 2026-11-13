@@ -136,7 +136,7 @@ declare const pieceCid: PieceCID
 declare const recipientPublicKey: Hex
 // ---cut---
 const { appMetadata } = await fee.parse(encrypted)
-const metadata = appMetadata as Keysmith.PieceMetadata | Keysmith.PieceMetadataV1 // Format 2, or an older piece's format 1
+const metadata = appMetadata as Keysmith.AnyPieceMetadata // Format 2, or an older piece's format 1
 const grant = await Keysmith.wrapTo(
   recipientPublicKey,
   Keysmith.keyForEnvelope(groupKey, metadata),

@@ -110,6 +110,7 @@ export interface ReadRequest {
 /**
  * The labels a provider read from a piece's FEE envelope, in format 2 or the legacy format 1.
  * `foc/v` may be left out: it is then taken from which labels are present.
+ * Hand-written, not derived from `AnyPieceMetadata`: fields are plain strings (not `Address`/`Hex`) and `foc/own` is optional.
  */
 export type PieceLabels =
   | {

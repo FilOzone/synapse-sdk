@@ -26,6 +26,7 @@ import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, hashTypedData, hexToBytes, isAddress, recoverAddress } from 'viem'
 import type {
+  AnyPieceMetadata,
   DerivedGroupKey,
   DeriveGroupKeyOptions,
   GrantDescriptor,
@@ -34,7 +35,6 @@ import type {
   GroupKeyRef,
   Holding,
   PieceMetadata,
-  PieceMetadataV1,
   PieceMetadataView,
   TypedDataSigner,
   WriteTarget,
@@ -420,7 +420,7 @@ export const pieceNode = (metadata: Pick<PieceMetadata, 'foc/salt'>): GrantNode 
  * @throws If `foc/v` is not 1 or 2, a label of the other format is present, or a field is malformed.
  */
 export function readPieceMetadata(
-  envelopeMetadata: PieceMetadata | PieceMetadataV1 | Readonly<Record<string, unknown>> | undefined
+  envelopeMetadata: AnyPieceMetadata | Readonly<Record<string, unknown>> | undefined
 ): PieceMetadataView {
   if (envelopeMetadata == null || typeof envelopeMetadata !== 'object') {
     throw new Error(
@@ -556,7 +556,7 @@ export function grantDescriptor(ref: GroupKeyRef, node: GrantNode): GrantDescrip
  */
 export function keyForEnvelope(
   node: Uint8Array,
-  envelopeMetadata: PieceMetadata | PieceMetadataV1 | Readonly<Record<string, unknown>> | undefined,
+  envelopeMetadata: AnyPieceMetadata | Readonly<Record<string, unknown>> | undefined,
   holder: Holding | GrantDescriptor = 'groupKey'
 ): Uint8Array {
   // Reads format 1 or 2, and checks every field before it is used
