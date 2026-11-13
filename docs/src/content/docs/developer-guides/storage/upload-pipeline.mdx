@@ -97,7 +97,7 @@ const results = await resultsPromise
 
 `flush()` waits for accepted uploads and pulls to finish parking, then submits their pending batch windows. It does not report whether every upload was submitted or confirmed successfully. Inspect the settled results for rejections and check `complete` on fulfilled upload results. Start uploads before flushing; awaiting an upload first in limiter mode can leave it waiting indefinitely.
 
-Compatible uploads can report the same transaction hash in their callbacks. Batched secondary pulls sign their per-piece authorization separately from the eventual commit batch, so interactive wallets can prompt again at commit time. To reuse one signature for pull and commit, disable batching or use the split operations with the same presigned `extraData`.
+Compatible uploads can report the same transaction hash in their callbacks. Batched secondary pulls sign their per-piece authorization separately from the eventual commit batch, so interactive wallets can prompt again at commit time. To reuse one signature for pull and commit, disable batching or use the split operations with the same `commit` from `prepareCommit()`.
 
 Set `pieceBatching: false` when creating `Synapse` to disable batching. Use the [split operations](#split-operations) when you need manual control over provider selection, signing, or each store, pull, and commit phase.
 
@@ -290,7 +290,7 @@ In the split operations pipeline, your client uploads data **once** to the prima
 | **Control** | Automatic | Manual per-phase |
 | **Error recovery** | Re-upload on commit failure | Retry commit without re-upload |
 | **Batch files** | One call per file | Store many, commit in batch |
-| **Wallet prompts** | Managed internally | Control via `presignForCommit()` |
+| **Wallet prompts** | Managed internally | Control via `prepareCommit()` |
 | **Best for** | Most use cases | Production pipelines, custom UX |
 
 ### The Pipeline
@@ -364,13 +364,12 @@ const [primary, secondary] = await synapse.storage.createContexts({
 const pieceCid = null as unknown as PieceCID;
 const abortController = new AbortController()
 // ---cut---
-// Pre-sign to avoid double wallet prompts during pull + commit
-const extraData = await secondary.presignForCommit([{ pieceCid }])
+// Sign once to avoid double wallet prompts during pull + commit
+const commit = await secondary.prepareCommit([{ pieceCid }])
 
 const pullResult = await secondary.pull({
-  pieces: [pieceCid],
+  commit,                                  // signed commit, reused for commit() (or pass `pieces` instead)
   from: (cid) => primary.getPieceUrl(cid), // source URL builder (or URL string)
-  extraData,                               // pre-signed auth (optional, reused for commit)
   signal: abortController.signal,          // cancellation (optional)
   onProgress: (cid, status) => {           // status callback (optional)
     console.log(`${cid}: ${status}`)
@@ -388,9 +387,40 @@ if (pullResult.status !== "complete") {
 
 The `from` parameter accepts either a URL string (base service URL) or a function that returns a piece URL for a given PieceCID.
 
-`pullResult.pieces` has one entry per input piece, in input order, and each entry's `index` is its position in `pieces`. Set `dedupe: true` to send each PieceCID only once: repeated inputs share the first one's status and are listed in `pullResult.dropped`. When you pass a pre-signed `extraData` with `dedupe`, sign it over the deduped pieces.
+`pullResult.pieces` has one entry per input piece, in input order, and each entry's `index` is its position in `pieces` (or in the commit's pieces). When you pass `pieces`, set `dedupe: true` to send each PieceCID only once: repeated inputs share the first one's status and are listed in `pullResult.dropped`. A `commit` is pulled exactly as it was signed, so remove duplicates before calling `prepareCommit()`.
 
-**Pre-signing**: `presignForCommit()` creates an EIP-712 signature that can be reused for both `pull()` and `commit()`. This avoids prompting the wallet twice. Pass the same `extraData` to both calls.
+**Signing once**: `prepareCommit()` signs the pieces and returns a commit that carries them, so it can be reused for both `pull()` and `commit()`. This avoids prompting the wallet twice. Pass the same `commit` to both calls, without `pieces`. `pull()` and `commit()` reject a commit prepared for another data set, or a new data set commit prepared with other `metadata` or `withCDN`.
+
+**Saving a commit**: the commit is plain JSON-safe data, so you can save it with `JSON.stringify` before committing. After a crash, first check on chain whether it already landed, then resubmit only if nothing did:
+
+```ts twoslash
+// @lib: esnext,dom
+import { Synapse, type Commit } from "@filoz/synapse-sdk"
+import { getAddPiecesResult, getCreateDataSetAndAddPiecesResult } from "@filoz/synapse-core/warm-storage"
+import { privateKeyToAccount } from "viem/accounts"
+const synapse = Synapse.create({ account: privateKeyToAccount("0x..."), source: "my-app" })
+const saved = "{}"
+// ---cut---
+const commit: Commit = JSON.parse(saved)
+const pieceCount = commit.pieces.length
+
+let landed: { dataSetId: bigint; pieceIds: bigint[] } | undefined
+if (commit.kind === "addPieces") {
+  const result = await getAddPiecesResult(synapse.client, { payer: commit.payer, extraData: commit.extraData, pieceCount })
+  if (result.added) landed = result
+} else {
+  const result = await getCreateDataSetAndAddPiecesResult(synapse.client, { extraData: commit.extraData, pieceCount })
+  if (result.created) landed = result
+}
+
+if (landed) {
+  console.log(`Already committed to data set ${landed.dataSetId}`, landed.pieceIds)
+} else {
+  // Nothing landed: resubmit the same commit from a context for the same provider and settings
+}
+```
+
+Resubmit from a context on the same provider with the same settings: for an `addPieces` commit, the same data set; for a new data set commit, the same `metadata` and `withCDN`, and no data set yet. Resubmitting the same commit can never add the pieces twice, because FWSS rejects a reused nonce. Resubmitting one that already landed fails instead of returning the piece IDs, which is why the check comes first.
 
 ### Commit Phase
 
@@ -408,7 +438,7 @@ const contexts = await synapse.storage.createContexts({
 })
 const [primary, secondary] = contexts
 const pieceCid = null as unknown as PieceCID;
-const extraData = null as unknown as Hex;
+const commit = await secondary.prepareCommit([{ pieceCid, pieceMetadata: { filename: "doc.pdf" } }])
 const abortController = new AbortController()
 const onSubmitted = (txHash: Hex) => {
   console.log(`Transaction submitted: ${txHash}`)
@@ -424,8 +454,7 @@ const [primaryCommit, secondaryCommit] = await Promise.allSettled([
     },
   }),
   secondary.commit({
-    pieces: [{ pieceCid, pieceMetadata: { filename: "doc.pdf" } }],
-    extraData,          // pre-signed auth from presignForCommit() (optional)
+    commit,             // signed commit from prepareCommit(), used for pull() (optional)
     signal: abortController.signal, // cancellation (optional)
     onSubmitted: (txHash) => {
       console.log(`Transaction submitted: ${txHash}`)
@@ -453,7 +482,7 @@ The result:
 ### Multi-File Batch Example
 
 :::note[Batch Strategy]
-The pattern below follows an optimal sequence: **(1)** store all files on the primary first so they're available for pull, **(2)** pre-sign once for all pieces on the secondary, **(3)** pull all pieces in a single call, **(4)** commit on both providers in parallel. This minimizes wallet prompts and maximizes parallelism.
+The pattern below follows an optimal sequence: **(1)** store all files on the primary first so they're available for pull, **(2)** prepare one commit for all pieces on the secondary, **(3)** pull all pieces in a single call, **(4)** commit on both providers in parallel. This minimizes wallet prompts and maximizes parallelism.
 :::
 
 Upload multiple files to 2 providers with full error handling:
@@ -485,24 +514,23 @@ for (const file of files) {
   console.log(`Stored ${result.pieceCid}`)
 }
 
-// Pre-sign for all pieces on secondary
+// Sign one commit for all pieces on secondary
 const pieceCids = stored.map(s => s.pieceCid)
-const extraData = await secondary.presignForCommit(
+const commit = await secondary.prepareCommit(
   pieceCids.map(cid => ({ pieceCid: cid }))
 )
 
 // Pull all pieces to secondary
 const pullResult = await secondary.pull({
-  pieces: pieceCids,
+  commit,
   from: (cid) => primary.getPieceUrl(cid),
-  extraData,
 })
 
 // Commit on both providers
 const [primaryCommit, secondaryCommit] = await Promise.allSettled([
   primary.commit({ pieces: pieceCids.map(cid => ({ pieceCid: cid })) }),
   pullResult.status === "complete"
-    ? secondary.commit({ pieces: pieceCids.map(cid => ({ pieceCid: cid })), extraData })
+    ? secondary.commit({ commit })
     : Promise.reject(new Error("Pull failed, skipping secondary commit")), // not advised!
 ])
 
