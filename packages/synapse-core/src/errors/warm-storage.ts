@@ -1,3 +1,4 @@
+import type { ResolvedLocation } from '../warm-storage/location-types.ts'
 import { isSynapseError, SynapseError, type SynapseErrorOptions } from './base.ts'
 
 export class DataSetNotFoundError extends SynapseError {
@@ -45,5 +46,47 @@ export class PDPProviderUnavailableError extends SynapseError {
 
   static override is(value: unknown): value is PDPProviderUnavailableError {
     return isSynapseError(value) && value.name === 'PDPProviderUnavailableError'
+  }
+}
+
+/** A provider that failed the reachability check during provider selection. */
+export interface UnreachableProvider {
+  /** The candidate location whose provider did not answer */
+  location: ResolvedLocation
+  /** The error the ping failed with */
+  error: unknown
+}
+
+/**
+ * No endorsed provider could be selected for the primary location, either
+ * because none is eligible or because every eligible one failed its ping.
+ */
+export class NoEndorsedProviderError extends SynapseError {
+  override name: 'NoEndorsedProviderError' = 'NoEndorsedProviderError'
+  /** The endorsed candidates that failed their ping, in ranked order. Empty when none was eligible. */
+  readonly failures: UnreachableProvider[]
+
+  constructor(failures: UnreachableProvider[] = []) {
+    super(
+      failures.length === 0
+        ? 'No endorsed provider available'
+        : 'No endorsed provider available — all endorsed provider(s) failed health check',
+      {
+        details:
+          failures.length === 0
+            ? undefined
+            : failures
+                .map(
+                  ({ location, error }) =>
+                    `Provider ${location.provider.serviceProvider} (ID: ${location.provider.id}): ${error instanceof Error ? error.message : String(error)}`
+                )
+                .join('; '),
+      }
+    )
+    this.failures = failures
+  }
+
+  static override is(value: unknown): value is NoEndorsedProviderError {
+    return isSynapseError(value) && value.name === 'NoEndorsedProviderError'
   }
 }

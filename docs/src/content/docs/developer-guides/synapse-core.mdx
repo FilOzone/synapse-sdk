@@ -376,6 +376,30 @@ const [secondary] = selectProviders({
 
 The `endorsedIds` parameter controls which providers are eligible. When non-empty, **only** endorsed providers can be selected (no fallback to non-endorsed). When empty, all approved providers are eligible. See [Storage Provider Tiers](/core-concepts/storage-providers) for what approval and endorsement mean and how providers qualify.
 
+Pass `providerId` to `selectProviders()` to target one provider: it returns that provider's best matching data set, or a new data set location, regardless of `endorsedIds`.
+
+`selectProviders()` does not check that a provider answers. `selectReachableProviders()` fetches the selection input, pings each ranked candidate, and skips the ones that fail, so every returned location is from a reachable provider:
+
+```ts twoslash
+// @lib: esnext,dom
+import { createPublicClient, http } from "viem"
+import { privateKeyToAccount } from "viem/accounts"
+import { calibration } from "@filoz/synapse-core/chains"
+const account = privateKeyToAccount("0x...")
+const publicClient = createPublicClient({ chain: calibration, transport: http() })
+// ---cut---
+import { selectReachableProviders } from "@filoz/synapse-core/warm-storage"
+
+// The primary must be endorsed; the secondary can be any approved provider.
+// Throws NoEndorsedProviderError if no endorsed provider answers.
+const [primary, secondary] = await selectReachableProviders(publicClient, {
+  address: account.address,
+  metadata: { source: "my-app" },
+  count: 2,
+  requireEndorsedPrimary: true,
+})
+```
+
 ### SP-to-SP Pull
 
 Transfer pieces between providers without using client bandwidth:

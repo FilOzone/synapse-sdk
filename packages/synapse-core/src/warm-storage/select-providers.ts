@@ -16,9 +16,13 @@ import type { ProviderSelectionOptions, ResolvedLocation } from './location-type
  * those with existing pieces sort before empty ones, and older datasets
  * (lower ID) sort before newer ones.
  *
- * This function does NOT perform health checks — the caller should
- * validate reachability via SP.ping() and call again with
- * excludeProviderIds if a provider fails.
+ * With `providerId`, the pool is that one provider, whether or not it is
+ * endorsed, and the result is its best matching dataset or a new-dataset
+ * location. The result is empty when the provider is not in `providers` or is
+ * listed in `excludeProviderIds`.
+ *
+ * This function does NOT perform health checks. Use
+ * selectReachableProviders() to select providers that answer a ping.
  *
  * @param options - Pre-fetched chain data and selection parameters
  * @returns Ranked array of locations up to `count` length.
@@ -30,10 +34,14 @@ export function selectProviders(options: ProviderSelectionOptions): ResolvedLoca
   const excludeProviderIds = options.excludeProviderIds ?? []
   const metadata = options.metadata ?? {}
 
-  // Determine the eligible pool: restricted to endorsed if endorsedIds is non-empty
+  // Determine the eligible pool: an explicit provider, otherwise restricted
+  // to endorsed if endorsedIds is non-empty
+  const providerId = options.providerId
   const isPoolRestricted = options.endorsedIds.length > 0
   const eligibleProviders = options.providers.filter(
-    (p) => !excludeProviderIds.includes(p.id) && (!isPoolRestricted || options.endorsedIds.includes(p.id))
+    (p) =>
+      !excludeProviderIds.includes(p.id) &&
+      (providerId == null ? !isPoolRestricted || options.endorsedIds.includes(p.id) : p.id === providerId)
   )
 
   if (eligibleProviders.length === 0) {
