@@ -499,7 +499,11 @@ export interface PieceRecord {
  * and data set that has already been created/selected.
  */
 export interface UploadOptions extends StoreOptions, UploadCallbacks {
-  /** Custom metadata for this specific piece (key-value pairs) */
+  /**
+   * Custom metadata for this specific piece (key-value pairs).
+   *
+   * Piece metadata is not stored on chain, so it can't be read back from the contracts. Fetch it from the Filecoin API (https://api.filecoin.io/docs).
+   */
   pieceMetadata?: MetadataObject
   /**
    * Optional AbortSignal to cancel the upload.
