@@ -30,7 +30,7 @@
 import type { AccountClient, ReadClient } from '@filoz/synapse-core'
 import { paginate } from '@filoz/synapse-core'
 import type { FilecoinChain } from '@filoz/synapse-core/chains'
-import { InvalidPieceCIDError } from '@filoz/synapse-core/errors'
+import { InvalidPieceCIDError, NoEndorsedProviderError, PDPProviderUnavailableError } from '@filoz/synapse-core/errors'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
@@ -48,11 +48,11 @@ import {
   timeUntilEpoch,
 } from '@filoz/synapse-core/utils'
 import {
-  fetchProviderSelectionInput,
   getPdpDataSet,
   metadataMatches,
   type ResolvedLocation,
-  selectProviders,
+  resolveProviderLocations,
+  selectReachableProviders,
 } from '@filoz/synapse-core/warm-storage'
 import type { Address, Hash, Hex } from 'viem'
 import { getBlockNumber } from 'viem/actions'
@@ -87,16 +87,6 @@ import { type BatchedUploadResult, getPieceBatchingService } from './piece-batch
 import { terminateServiceFlow } from './terminate.ts'
 
 const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
-
-/**
- * Maximum concurrent per-dataset reads while resolving a provider's matching
- * data set in {@link StorageContext.resolveByProviderId}. Datasets are evaluated
- * oldest-first by a sliding pool of this many reads, capping RPC fan-out for
- * clients with many datasets per provider (FilOzone/synapse-sdk#631).
- *
- * Exported so tests can derive expected call bounds from it instead of hard-coding.
- */
-export const RESOLVE_CONCURRENCY = 10
 
 export interface StorageContextOptions {
   /** The Synapse instance */
@@ -286,18 +276,11 @@ export class StorageContext {
       )
     } else if (hasProviderIds) {
       // Resolve explicit provider IDs (deduplicated)
-      const uniqueProviderIds = [...new Set(options.providerIds)]
-      resolutions = await Promise.all(
-        uniqueProviderIds.map((providerId) =>
-          StorageContext.resolveByProviderId(
-            clientAddress,
-            providerId,
-            options.metadata ?? {},
-            options.warmStorageService,
-            spRegistry,
-            options.synapse.readClient.chain.legacyPieceStorageIdLimit
-          )
-        )
+      resolutions = await StorageContext.resolveByProviderIds(
+        options.synapse.readClient,
+        clientAddress,
+        [...new Set(options.providerIds)],
+        options.metadata ?? {}
       )
     }
 
@@ -433,14 +416,13 @@ export class StorageContext {
 
     // Handle explicit provider ID selection
     if (options.providerId != null) {
-      return await StorageContext.resolveByProviderId(
+      const [result] = await StorageContext.resolveByProviderIds(
+        synapse.readClient,
         clientAddress,
-        options.providerId,
-        requestedMetadata,
-        warmStorageService,
-        spRegistry,
-        synapse.readClient.chain.legacyPieceStorageIdLimit
+        [options.providerId],
+        requestedMetadata
       )
+      return result
     }
 
     // Smart selection when no specific parameters provided
@@ -502,184 +484,43 @@ export class StorageContext {
   }
 
   /**
-   * Resolve the best matching DataSet for a Provider using a specific provider ID.
+   * Resolve a location for each of the given provider IDs, in order.
    *
-   * Selection logic:
-   * 1. Filters for the provider's active datasets owned by the client, sorted
-   *    ascending by dataSetId (oldest first)
-   * 2. Checks compact datasets first; falls back to legacy datasets only
-   *    when none match the metadata
-   * 3. Within a tier, {@link findBestDataSetMatch} prefers the oldest metadata
-   *    match that has active pieces, otherwise the oldest metadata match
+   * Delegates to core's resolveProviderLocations, which reads the client's
+   * data sets once for all providers.
    */
-  private static async resolveByProviderId(
+  private static async resolveByProviderIds(
+    readClient: ReadClient,
     clientAddress: Address,
-    providerId: bigint,
-    requestedMetadata: Record<string, string>,
-    warmStorageService: WarmStorageService,
-    spRegistry: SPRegistryService,
-    legacyPieceStorageIdLimit: bigint
-  ): Promise<ProviderSelectionResult> {
-    const [provider, dataSets] = await Promise.all([
-      spRegistry.getProvider({ providerId }),
-      Array.fromAsync(
-        paginate(({ cursor }) => warmStorageService.getClientDataSets({ address: clientAddress, cursor }))
-      ),
-    ])
-
-    if (provider == null) {
-      throw createError('StorageContext', 'resolveByProviderId', `Provider ID ${providerId} not found in registry`)
-    }
-
-    // Filter for this provider's active datasets, sorted ascending by ID
-    // (oldest first). Compare as bigint so ordering stays correct for IDs
-    // beyond Number.MAX_SAFE_INTEGER.
-    const providerDataSets = dataSets
-      .filter((dataSet) => dataSet.dataSetId && dataSet.providerId === provider.id && dataSet.pdpEndEpoch === 0n)
-      .sort((a, b) => {
-        if (a.dataSetId < b.dataSetId) return -1
-        if (a.dataSetId > b.dataSetId) return 1
-        return 0
+    providerIds: bigint[],
+    requestedMetadata: Record<string, string>
+  ): Promise<ProviderSelectionResult[]> {
+    try {
+      const locations = await resolveProviderLocations(readClient, {
+        address: clientAddress,
+        providerIds,
+        metadata: requestedMetadata,
       })
-
-    // Legacy IDs are always lower than compact IDs, so the ascending sort
-    // above already groups them into a legacy prefix and a compact suffix.
-    const splitIndex = providerDataSets.findIndex((dataSet) => dataSet.dataSetId >= legacyPieceStorageIdLimit)
-    const legacyDataSets = splitIndex === -1 ? providerDataSets : providerDataSets.slice(0, splitIndex)
-    const compactDataSets = splitIndex === -1 ? [] : providerDataSets.slice(splitIndex)
-
-    const selectedDataSet =
-      (await StorageContext.findBestDataSetMatch(compactDataSets, requestedMetadata, warmStorageService)) ??
-      (await StorageContext.findBestDataSetMatch(legacyDataSets, requestedMetadata, warmStorageService))
-
-    if (selectedDataSet != null) {
-      return {
-        provider,
-        dataSetId: selectedDataSet.dataSetId,
-        dataSetMetadata: selectedDataSet.dataSetMetadata,
+      return locations.map((location) => StorageContext.toProviderSelectionResult(location))
+    } catch (error) {
+      if (PDPProviderUnavailableError.is(error)) {
+        throw createError(
+          'StorageContext',
+          'resolveByProviderIds',
+          `Provider ID ${error.providerId} not found in registry`
+        )
       }
+      throw error
     }
-
-    return {
-      provider,
-      dataSetId: null,
-      dataSetMetadata: requestedMetadata,
-    }
-  }
-
-  /**
-   * Find the best metadata-matching dataset within a single legacy/compact
-   * tier, given datasets already sorted ascending by ID (oldest first).
-   *
-   * Evaluates datasets oldest-first through a sliding pool of at most
-   * RESOLVE_CONCURRENCY reads, reading metadata before checking for pieces.
-   * Prefers the oldest metadata match that has active pieces, otherwise the
-   * oldest metadata match; returns null when nothing matches. Stops starting
-   * datasets newer than the oldest non-empty match once it is known, so the
-   * read fan-out shrinks to roughly the match position.
-   *
-   * The pool caps RPC fan-out for clients with many datasets per provider
-   * (FilOzone/synapse-sdk#631).
-   */
-  private static async findBestDataSetMatch(
-    dataSets: { dataSetId: bigint }[],
-    requestedMetadata: Record<string, string>,
-    warmStorageService: WarmStorageService
-  ): Promise<{ dataSetId: bigint; dataSetMetadata: Record<string, string> } | null> {
-    type EvaluatedDataSet = {
-      dataSetId: bigint
-      dataSetMetadata: Record<string, string>
-      hasPieces: boolean
-    }
-
-    // Result is selected by index, not completion order, because reads finish out
-    // of order: `bestNonEmptyIndex` is the oldest non-empty metadata match and
-    // `firstMatchIndex` the oldest metadata match (the fallback). Metadata is read
-    // first and hasActivePieces only on a metadata match, so non-matching
-    // datasets skip the leaf-count read.
-    const evaluated: (EvaluatedDataSet | null)[] = new Array(dataSets.length).fill(null)
-    let firstMatchIndex = Number.POSITIVE_INFINITY
-    let bestNonEmptyIndex = Number.POSITIVE_INFINITY
-
-    const evaluate = async (index: number, dataSetId: bigint): Promise<void> => {
-      // bestNonEmptyIndex can drop below this index after the task starts (an
-      // older read finished and found pieces), so re-check here and after the
-      // metadata read to drop work that can no longer win.
-      if (index > bestNonEmptyIndex) {
-        return
-      }
-
-      const dataSetMetadata = await warmStorageService.getDataSetMetadata({ dataSetId })
-      if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
-        return
-      }
-
-      if (index < firstMatchIndex) {
-        firstMatchIndex = index
-      }
-
-      if (index > bestNonEmptyIndex) {
-        return
-      }
-
-      const hasPieces = await warmStorageService.hasActivePieces({ dataSetId })
-      evaluated[index] = { dataSetId, dataSetMetadata, hasPieces }
-      if (hasPieces && index < bestNonEmptyIndex) {
-        bestNonEmptyIndex = index
-      }
-    }
-
-    // Sliding pool: keep at most RESOLVE_CONCURRENCY reads in flight, topping up
-    // the instant one finishes so the window slides forward instead of stalling
-    // at a batch boundary. Datasets newer than the oldest non-empty match are
-    // never started, so the fan-out shrinks to roughly the match position.
-    const inFlight = new Set<Promise<void>>()
-    let nextIndex = 0
-    let failure: unknown
-    while (nextIndex < dataSets.length || inFlight.size > 0) {
-      while (
-        failure == null &&
-        inFlight.size < RESOLVE_CONCURRENCY &&
-        nextIndex < dataSets.length &&
-        nextIndex <= bestNonEmptyIndex
-      ) {
-        const index = nextIndex++
-        const task = evaluate(index, dataSets[index].dataSetId)
-          .catch((error) => {
-            failure ??= error
-          })
-          .finally(() => {
-            inFlight.delete(task)
-          })
-        inFlight.add(task)
-      }
-
-      // Nothing left to start (failure, or every remaining dataset is newer than
-      // the oldest non-empty match) and nothing in flight: done.
-      if (inFlight.size === 0) {
-        break
-      }
-      await Promise.race(inFlight)
-      if (failure != null) {
-        break
-      }
-    }
-
-    if (failure != null) {
-      throw failure
-    }
-
-    const selectedIndex = bestNonEmptyIndex === Number.POSITIVE_INFINITY ? firstMatchIndex : bestNonEmptyIndex
-    return selectedIndex === Number.POSITIVE_INFINITY ? null : evaluated[selectedIndex]
   }
 
   /**
    * Smart provider selection with ping-retry.
    *
-   * Fetches chain data once, then selects up to `count` providers from the
-   * cached result, pinging each candidate and excluding failures. When
-   * requireEndorsedPrimary=true, the first slot requires an endorsed provider;
-   * remaining slots accept any approved provider.
+   * Delegates to core's selectReachableProviders, which fetches chain data
+   * once, then selects up to `count` providers, pinging each candidate and
+   * excluding failures. When requireEndorsedPrimary=true, the first slot
+   * requires an endorsed provider; remaining slots accept any approved provider.
    *
    * @param options - Selection parameters
    * @returns Resolved providers with dataset info, up to `count` length
@@ -692,95 +533,22 @@ export class StorageContext {
     excludeProviderIds: bigint[]
     requireEndorsedPrimary: boolean
   }): Promise<ProviderSelectionResult[]> {
-    const { synapse, metadata, count, requireEndorsedPrimary } = options
-    const clientAddress = synapse.client.account.address
-
-    const input = await fetchProviderSelectionInput(synapse.readClient, {
-      address: clientAddress,
-    })
-
-    // Select a healthy candidate for each copy. Endorsed primary candidates
-    // are pinged concurrently, while results are consumed in ranked order.
-    const results: ProviderSelectionResult[] = []
-    const excludeProviderIds = [...options.excludeProviderIds]
-
-    for (let i = 0; i < count; i++) {
-      const endorsedSlot = requireEndorsedPrimary && i === 0
-      let found = false
-      const pingFailures: Array<{ candidate: ResolvedLocation; error: unknown }> = []
-
-      // Keep selecting and pinging until a healthy provider is found
-      // or all candidates are exhausted
-      for (;;) {
-        if (endorsedSlot && input.endorsedIds.length === 0) break
-
-        // There are few endorsed providers, so check the complete ranked pool
-        // concurrently. Other slots keep the existing one-at-a-time behavior.
-        const candidates = selectProviders({
-          ...input,
-          endorsedIds: endorsedSlot ? input.endorsedIds : [],
-          count: endorsedSlot ? input.endorsedIds.length : 1,
-          excludeProviderIds,
-          metadata,
-        })
-
-        if (candidates.length === 0) break
-
-        const healthChecks = candidates.map(async (candidate) => {
-          try {
-            await SP.ping(candidate.provider.pdp.serviceURL)
-            return { ok: true as const, candidate }
-          } catch (error) {
-            return { ok: false as const, candidate, error }
-          }
-        })
-
-        // Await in selection order so a faster, lower-ranked provider cannot
-        // displace a healthy higher-ranked provider. The checks themselves are
-        // already in flight, so a failed candidate does not delay starting the next.
-        for await (const outcome of healthChecks) {
-          if (outcome.ok) {
-            results.push(StorageContext.toProviderSelectionResult(outcome.candidate))
-            excludeProviderIds.push(outcome.candidate.provider.id)
-            found = true
-            break
-          }
-          excludeProviderIds.push(outcome.candidate.provider.id)
-          pingFailures.push(outcome)
-        }
-
-        if (found) break
+    try {
+      const locations = await selectReachableProviders(options.synapse.readClient, {
+        address: options.synapse.client.account.address,
+        metadata: options.metadata,
+        count: options.count,
+        excludeProviderIds: options.excludeProviderIds,
+        requireEndorsedPrimary: options.requireEndorsedPrimary,
+      })
+      return locations.map((location) => StorageContext.toProviderSelectionResult(location))
+    } catch (error) {
+      if (NoEndorsedProviderError.is(error)) {
+        const details = error.details == null ? '' : ` - ${error.details}`
+        throw new Error(`StorageContext smartSelect failed: ${error.shortMessage}${details}`, { cause: error })
       }
-
-      if (endorsedSlot && !found) {
-        const healthCheckError =
-          pingFailures.length > 0
-            ? new AggregateError(
-                pingFailures.map(({ error }) => error),
-                pingFailures
-                  .map(
-                    ({ candidate, error }) =>
-                      `Provider ${candidate.provider.serviceProvider} (ID: ${candidate.provider.id}): ${error instanceof Error ? error.message : String(error)}`
-                  )
-                  .join('; ')
-              )
-            : undefined
-        throw createError(
-          'StorageContext',
-          'smartSelect',
-          healthCheckError == null
-            ? 'No endorsed provider available'
-            : `No endorsed provider available — all endorsed provider(s) failed health check`,
-          healthCheckError
-        )
-      }
-
-      if (!found) {
-        break
-      }
+      throw error
     }
-
-    return results
   }
 
   /**

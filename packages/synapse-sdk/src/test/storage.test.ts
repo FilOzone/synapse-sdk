@@ -11,9 +11,9 @@ import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { CID } from 'multiformats/cid'
-import { bytesToHex, createWalletClient, type Hex, numberToHex, toFunctionSelector, http as viemHttp } from 'viem'
+import { bytesToHex, createWalletClient, type Hex, numberToHex, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { RESOLVE_CONCURRENCY, StorageContext } from '../storage/context.ts'
+import { StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
@@ -23,36 +23,6 @@ const server = setup()
 
 const pdpOptions = {
   baseUrl: 'https://pdp.example.com',
-}
-
-// The two per-data-set reads resolveByProviderId issues; both take the data set
-// id as their first uint256 argument, so the id is the first 32-byte word after
-// the 4-byte selector in the call data.
-const RESOLVE_READ_SELECTORS = [
-  toFunctionSelector('getAllDataSetMetadata(uint256)'),
-  toFunctionSelector('getDataSetLeafCount(uint256)'),
-]
-
-/**
- * Mock RPC delay hook that holds every per-data-set resolve read (metadata and
- * piece) except those for `fastSetId`, which answer immediately. `fastSetId` is
- * then the only data set with no delay on any of its reads, so it always settles
- * first. This forces the resolver's oldest match to be known before the sliding
- * pool can advance, exercising the early-exit deterministically rather than
- * relying on the order in which equal-latency mock responses happen to resolve.
- */
-function delayNonOldestReads(fastSetId: bigint, delayMs = 50): Mocks.JSONRPCHooks {
-  return {
-    delay: async (request) => {
-      if (request.method !== 'eth_call') return
-      const data: string | undefined = request.params?.[0]?.data
-      if (data == null || !RESOLVE_READ_SELECTORS.some((selector) => data.startsWith(selector))) return
-      const setId = BigInt(`0x${data.slice(10, 74)}`)
-      if (setId !== fastSetId) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs))
-      }
-    },
-  }
 }
 
 describe('StorageService', () => {
@@ -423,10 +393,9 @@ describe('StorageService', () => {
       assert.equal(service.dataSetId, compactId)
     })
 
-    it('should bound RPC fan-out when a provider has many data sets (#631)', async () => {
-      // One provider with many active, metadata-matching data sets owned by the
-      // client, the oldest of which already has pieces. The fan-out must stay
-      // bounded by the resolve concurrency rather than the data-set count.
+    it('should select the oldest non-empty match across paginated data sets', async () => {
+      // One provider with more active, metadata-matching data sets than fit in
+      // one contract page (100), the oldest of which already has pieces.
       const DATA_SET_COUNT = 196
       const expectedDataSetBase = {
         cacheMissRailId: 0n,
@@ -447,47 +416,31 @@ describe('StorageService', () => {
         pdpRailId: BigInt(i + 1),
       }))
 
-      let getDataSetLeafCountCalls = 0
-      let getAllDataSetMetadataCalls = 0
       server.use(
-        Mocks.JSONRPC(
-          {
-            ...Mocks.presets.basic,
-            pdpVerifier: {
-              ...Mocks.presets.basic.pdpVerifier,
-              getDataSetLeafCount: (args) => {
-                getDataSetLeafCountCalls++
-                const [dataSetId] = args
-                return [dataSetId === 1n ? 1n : 0n]
-              },
-            },
-            warmStorageView: {
-              ...Mocks.presets.basic.warmStorageView,
-              // Paginate (contract page size is 100) to avoid an infinite loop.
-              getClientDataSets: (args) => {
-                const offset = Number(args[1])
-                const limit = Number(args[2])
-                return [expectedDataSets.slice(offset, offset + limit)]
-              },
-              getAllDataSetMetadata: () => {
-                getAllDataSetMetadataCalls++
-                return [[], []]
-              },
-              getDataSet: (args) => {
-                const [dataSetId] = args
-                return [
-                  expectedDataSets.find((ds) => ds.dataSetId === dataSetId) ?? ({} as (typeof expectedDataSets)[0]),
-                ]
-              },
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getDataSetLeafCount: (args) => {
+              const [dataSetId] = args
+              return [dataSetId === 1n ? 1n : 0n]
             },
           },
-          // Hold every non-oldest resolve read so the oldest (id 1) settles
-          // first. This makes the fan-out bound below deterministic for this
-          // fixture rather than a race on equal-latency mock responses: the
-          // oldest non-empty match is known before the sliding window can
-          // advance past its first fill.
-          delayNonOldestReads(1n)
-        ),
+          warmStorageView: {
+            ...Mocks.presets.basic.warmStorageView,
+            // Paginate (contract page size is 100) to avoid an infinite loop.
+            getClientDataSets: (args) => {
+              const offset = Number(args[1])
+              const limit = Number(args[2])
+              return [expectedDataSets.slice(offset, offset + limit)]
+            },
+            getAllDataSetMetadata: () => [[], []],
+            getDataSet: (args) => {
+              const [dataSetId] = args
+              return [expectedDataSets.find((ds) => ds.dataSetId === dataSetId) ?? ({} as (typeof expectedDataSets)[0])]
+            },
+          },
+        }),
         Mocks.PING({
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
@@ -497,28 +450,13 @@ describe('StorageService', () => {
 
       const service = await StorageContext.create({ synapse, warmStorageService, providerId: 1n })
 
-      // Oldest non-empty match is selected, and the fan-out stays bounded.
       assert.equal(service.dataSetId, 1n)
-      // The oldest match (id 1) is forced to settle first, so the sliding window
-      // never advances past its first fill: at most one window of metadata reads
-      // plus one of piece reads. Derive the bound from RESOLVE_CONCURRENCY so it
-      // tracks the concurrency rather than hard-coding the count.
-      const maxExpectedCalls = RESOLVE_CONCURRENCY * 2
-      assert.ok(
-        getDataSetLeafCountCalls <= maxExpectedCalls,
-        `expected <=${maxExpectedCalls} getDataSetLeafCount calls, got ${getDataSetLeafCountCalls} (unbounded fan-out regression)`
-      )
-      assert.ok(
-        getAllDataSetMetadataCalls <= maxExpectedCalls,
-        `expected <=${maxExpectedCalls} getAllDataSetMetadata calls, got ${getAllDataSetMetadataCalls} (unbounded fan-out regression)`
-      )
     })
 
-    it('should select the oldest non-empty match across the resolve window (#631)', async () => {
-      // The oldest metadata match is empty and the only non-empty match lives
-      // past the first window of in-flight reads, so selection must reach beyond
-      // the first window and return the non-empty match rather than the empty
-      // fallback.
+    it('should prefer a newer non-empty match over the oldest empty match', async () => {
+      // The oldest metadata match is empty and the only non-empty match is
+      // newer, so selection must return the non-empty match rather than the
+      // empty fallback.
       const DATA_SET_COUNT = 30
       const NON_EMPTY_ID = 25n
       const expectedDataSetBase = {
@@ -577,15 +515,9 @@ describe('StorageService', () => {
       assert.equal(service.dataSetId, NON_EMPTY_ID)
     })
 
-    it('should prefer the oldest of several non-empty matches and skip newer ones (#631)', async () => {
+    it('should prefer the oldest of several non-empty matches', async () => {
       // Two non-empty metadata matches: the oldest (id 1) and a newer one deep in
-      // the list (id 25). The oldest must win, and because it is found before the
-      // newer one's window starts, the newer one's leaf count is never
-      // read. This pins both the oldest-wins ordering and the early-exit guard,
-      // which a "newest non-empty wins" or "no early-exit" regression would break.
-      // The non-oldest resolve reads are delayed so the oldest match settles
-      // first, making "never read the newer match" deterministic for this
-      // fixture rather than a race on mock-response ordering.
+      // the list (id 25). The oldest must win.
       const DATA_SET_COUNT = 30
       const OLDEST_NON_EMPTY_ID = 1n
       const NEWER_NON_EMPTY_ID = 25n
@@ -608,37 +540,30 @@ describe('StorageService', () => {
         pdpRailId: BigInt(i + 1),
       }))
 
-      const pieceCountQueriedIds: bigint[] = []
       server.use(
-        Mocks.JSONRPC(
-          {
-            ...Mocks.presets.basic,
-            pdpVerifier: {
-              ...Mocks.presets.basic.pdpVerifier,
-              getDataSetLeafCount: (args) => {
-                const [dataSetId] = args
-                pieceCountQueriedIds.push(dataSetId)
-                return [dataSetId === OLDEST_NON_EMPTY_ID || dataSetId === NEWER_NON_EMPTY_ID ? 1n : 0n]
-              },
-            },
-            warmStorageView: {
-              ...Mocks.presets.basic.warmStorageView,
-              getClientDataSets: (args) => {
-                const offset = Number(args[1])
-                const limit = Number(args[2])
-                return [expectedDataSets.slice(offset, offset + limit)]
-              },
-              getAllDataSetMetadata: () => [[], []],
-              getDataSet: (args) => {
-                const [dataSetId] = args
-                return [
-                  expectedDataSets.find((ds) => ds.dataSetId === dataSetId) ?? ({} as (typeof expectedDataSets)[0]),
-                ]
-              },
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getDataSetLeafCount: (args) => {
+              const [dataSetId] = args
+              return [dataSetId === OLDEST_NON_EMPTY_ID || dataSetId === NEWER_NON_EMPTY_ID ? 1n : 0n]
             },
           },
-          delayNonOldestReads(OLDEST_NON_EMPTY_ID)
-        ),
+          warmStorageView: {
+            ...Mocks.presets.basic.warmStorageView,
+            getClientDataSets: (args) => {
+              const offset = Number(args[1])
+              const limit = Number(args[2])
+              return [expectedDataSets.slice(offset, offset + limit)]
+            },
+            getAllDataSetMetadata: () => [[], []],
+            getDataSet: (args) => {
+              const [dataSetId] = args
+              return [expectedDataSets.find((ds) => ds.dataSetId === dataSetId) ?? ({} as (typeof expectedDataSets)[0])]
+            },
+          },
+        }),
         Mocks.PING({
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
@@ -650,11 +575,6 @@ describe('StorageService', () => {
 
       // Oldest non-empty match wins.
       assert.equal(service.dataSetId, OLDEST_NON_EMPTY_ID)
-      // The newer non-empty match is never inspected once the oldest is known.
-      assert.ok(
-        !pieceCountQueriedIds.includes(NEWER_NON_EMPTY_ID),
-        `getDataSetLeafCount should not be read for the newer match ${NEWER_NON_EMPTY_ID}, queried: ${pieceCountQueriedIds.join(', ')}`
-      )
     })
 
     it('should handle provider selection callbacks', async () => {
