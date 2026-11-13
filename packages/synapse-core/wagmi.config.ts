@@ -30,6 +30,8 @@ const DeploymentSchema = z
     FWSS_IMPLEMENTATION_ADDRESS: zAddress,
     FWSS_VIEW_ADDRESS: zAddress,
     ENDORSEMENT_SET_ADDRESS: zAddress,
+    FWSS_DISPATCHER_ADDRESS: zAddress.optional(),
+    FWSS_DISPATCHER_TRANSITION_ADDRESS: zAddress.optional(),
     // Deployment-planning metadata is intentionally opaque to ABI generation.
     contracts: z.record(z.string(), z.unknown()).optional(),
   })
