@@ -49,37 +49,9 @@
     "dist/src/**/*.d.ts.map"
   ],
   "scripts": {
-    "build": "wireit",
-    "lint": "wireit",
+    "build": "tsc --build",
+    "lint": "biome check .",
     "lint:fix": "biome check --fix ."
-  },
-  "wireit": {
-    "build": {
-      "command": "tsc --build --pretty",
-      "clean": "if-file-deleted",
-      "files": [
-        "src/**/*.ts",
-        "tsconfig.json"
-      ],
-      "output": [
-        "dist/**"
-      ],
-      "dependencies": [
-        "../synapse-core:build",
-        "../synapse-sdk:build"
-      ]
-    },
-    "lint": {
-      "command": "biome check .",
-      "files": [
-        "src/**/*.ts",
-        "../../biome.json"
-      ],
-      "output": [],
-      "dependencies": [
-        "build"
-      ]
-    }
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",

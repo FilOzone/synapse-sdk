@@ -76,72 +76,15 @@
     }
   },
   "scripts": {
-    "build": "wireit",
-    "lint": "wireit",
+    "build": "tsc --build",
+    "lint": "biome check .",
     "lint:fix": "biome check --fix .",
-    "test": "wireit",
-    "test:node": "wireit",
-    "test:browser": "wireit",
+    "test": "pnpm run test:node && pnpm run test:browser",
+    "test:node": "playwright-test \"src/test/**/*.test.ts\" --mode node",
+    "test:browser": "playwright-test \"src/test/**/*.test.ts\" --assets ./src/test/mocks",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm run clean && pnpm run build",
     "update:msw": "pnpx msw init src/test/mocks/ --save"
-  },
-  "wireit": {
-    "build": {
-      "command": "tsc --build --pretty",
-      "clean": "if-file-deleted",
-      "files": [
-        "src/**/*.ts",
-        "tsconfig.json"
-      ],
-      "output": [
-        "dist/**"
-      ],
-      "dependencies": [
-        "../synapse-core:build"
-      ]
-    },
-    "lint": {
-      "command": "biome check .",
-      "files": [
-        "src/**/*.ts",
-        "../../biome.json"
-      ],
-      "output": [],
-      "dependencies": [
-        "build"
-      ]
-    },
-    "test": {
-      "command": "pnpm run test:node && pnpm run test:browser",
-      "files": [
-        "src/**/*.ts"
-      ],
-      "output": [],
-      "dependencies": [
-        "lint"
-      ]
-    },
-    "test:node": {
-      "command": "playwright-test \"src/test/**/*.test.ts\" --mode node",
-      "files": [
-        "src/**/*.ts"
-      ],
-      "output": [],
-      "dependencies": [
-        "../synapse-core:build"
-      ]
-    },
-    "test:browser": {
-      "command": "playwright-test \"src/test/**/*.test.ts\" --assets ./src/test/mocks",
-      "files": [
-        "src/**/*.ts"
-      ],
-      "output": [],
-      "dependencies": [
-        "../synapse-core:build"
-      ]
-    }
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",

@@ -13,6 +13,7 @@ on:
       - docs/**
       - packages/**
       - package.json
+      - turbo.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - tsconfig.json
@@ -24,6 +25,9 @@ concurrency:
   group: docs-preview-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
   # A newer build or closing the PR replaces a pending deploy
   cancel-in-progress: true
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
 jobs:
   deploy:
     name: Deploy docs preview

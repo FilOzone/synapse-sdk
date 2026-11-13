@@ -4,53 +4,10 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "wireit",
-    "build": "wireit",
+    "dev": "astro dev",
+    "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"
-  },
-  "wireit": {
-    "build": {
-      "command": "astro build",
-      "env": {
-        "CHECK_LINKS": {
-          "external": true
-        }
-      },
-      "files": [
-        "src/**",
-        "public/**",
-        "tsconfig.json",
-        "astro.config.mjs"
-      ],
-      "packageLocks": [
-        "pnpm-lock.yaml"
-      ],
-      "output": [
-        "dist/**"
-      ],
-      "dependencies": [
-        "../packages/keysmith:build",
-        "../packages/synapse-core:build",
-        "../packages/synapse-sdk:build",
-        "../packages/synapse-react:build"
-      ]
-    },
-    "dev": {
-      "command": "astro dev",
-      "service": true,
-      "files": [
-        "src/**/*.ts",
-        "tsconfig.json",
-        "astro.config.mjs"
-      ],
-      "dependencies": [
-        "../packages/keysmith:build",
-        "../packages/synapse-core:build",
-        "../packages/synapse-sdk:build",
-        "../packages/synapse-react:build"
-      ]
-    }
   },
   "dependencies": {
     "@filoz/keysmith": "workspace:*",

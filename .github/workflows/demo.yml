@@ -13,6 +13,9 @@ permissions:
 concurrency:
   group: demo
   cancel-in-progress: false
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -22,8 +25,7 @@ jobs:
       - uses: pnpm/setup@v3
         with:
           require-lockfile: true
-      - run: pnpm run build
-      - run: pnpm -r --filter synapse-playground run build
+      - run: pnpm turbo run build --filter=synapse-playground
       - run: pnpm --dir apps/synapse-playground exec wrangler deploy --env production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

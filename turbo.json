@@ -1,0 +1,36 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "globalDependencies": ["tsconfig.json", "biome.json"],
+  "globalPassThroughEnv": ["CI", "PLAYWRIGHT_*"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "docs#build": {
+      "dependsOn": ["^build"],
+      "env": ["CHECK_LINKS"],
+      "outputs": ["dist/**"]
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build", "build", "lint"]
+    },
+    "test:node": {
+      "dependsOn": ["^build"]
+    },
+    "@filoz/synapse-core#test:node": {
+      "dependsOn": ["^build", "build"]
+    },
+    "test:browser": {
+      "dependsOn": ["^build"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

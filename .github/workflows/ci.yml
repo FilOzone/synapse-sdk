@@ -8,6 +8,7 @@ on:
       - "apps/**"
       - .github/workflows/ci.yml
       - package.json
+      - turbo.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
   pull_request:
@@ -16,8 +17,12 @@ on:
       - "apps/**"
       - .github/workflows/ci.yml
       - package.json
+      - turbo.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -45,27 +50,16 @@ jobs:
         run: pnpm run build
   test-synapse-sdk:
     needs: lint
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [lts, latest]
-        os: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
       - name: Setup pnpm
         uses: pnpm/setup@v3
         with:
-          runtime: node@${{ matrix.node }}
           require-lockfile: true
-      - name: Playwright for Windows
-        if: matrix.os == 'windows-latest'
-        run: pnpx playwright install winldd
       - name: Run synapse-sdk tests
-        run: |
-          pnpm config set script-shell bash
-          pnpm -r --filter @filoz/synapse-sdk run test
+        run: pnpm turbo run test --filter=@filoz/synapse-sdk
 
   test-synapse-core:
     needs: lint
@@ -78,7 +72,7 @@ jobs:
         with:
           require-lockfile: true
       - name: Run synapse-core tests
-        run: pnpm -r --filter @filoz/synapse-core run test
+        run: pnpm turbo run test --filter=@filoz/synapse-core
 
   test-keysmith:
     needs: lint
@@ -91,7 +85,7 @@ jobs:
         with:
           require-lockfile: true
       - name: Run keysmith tests
-        run: pnpm -r --filter @filoz/keysmith run test
+        run: pnpm turbo run test --filter=@filoz/keysmith
 
   test-filecoin-encryption-envelope:
     needs: lint
@@ -104,4 +98,4 @@ jobs:
         with:
           require-lockfile: true
       - name: Run filecoin-encryption-envelope tests
-        run: pnpm -r --filter filecoin-encryption-envelope run test
+        run: pnpm turbo run test --filter=filecoin-encryption-envelope

@@ -89,7 +89,7 @@ Follow Biome and TypeScript for formatting and syntax. Use `.ts` extensions on r
 
 ## Testing
 
-`pnpm test` runs build, lint, and tests in Node and a browser. Tests use the bundled `assert` package,
+`pnpm turbo test` runs build, lint, and tests in Node and a browser. Tests use the bundled `assert` package,
 not `node:assert`. Put shared hex and byte vectors in `test/cose-fixtures.ts` and general test helpers
 in `test/helpers.ts`.
 

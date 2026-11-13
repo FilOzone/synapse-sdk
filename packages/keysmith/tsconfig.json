@@ -6,6 +6,11 @@
   },
   "include": ["src", "test", "test/**/*.json"],
   "exclude": ["node_modules", "dist"],
+  "references": [
+    {
+      "path": "../filecoin-encryption-envelope/tsconfig.json"
+    }
+  ],
   "typedocOptions": {
     "entryPointStrategy": "resolve",
     "entryPoints": ["src/index.ts"]

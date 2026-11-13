@@ -35,65 +35,12 @@
     "dist/src/**/*.d.ts.map"
   ],
   "scripts": {
-    "build": "wireit",
-    "test": "wireit",
-    "test:node": "wireit",
-    "test:browser": "wireit",
-    "lint": "wireit",
+    "build": "tsc --build",
+    "test": "pnpm run test:node && pnpm run test:browser",
+    "test:node": "playwright-test \"test/**/*.test.ts\" --mode node --runner mocha",
+    "test:browser": "playwright-test \"test/**/*.test.ts\" --runner mocha",
+    "lint": "biome check .",
     "lint:fix": "biome check --fix ."
-  },
-  "wireit": {
-    "build": {
-      "command": "tsc --build --pretty",
-      "clean": "if-file-deleted",
-      "files": [
-        "src/**/*.ts",
-        "test/**/*.ts",
-        "tsconfig.json"
-      ],
-      "output": [
-        "dist/**"
-      ]
-    },
-    "test": {
-      "command": "pnpm run test:node && pnpm run test:browser",
-      "files": [
-        "src/**/*.ts",
-        "test/**/*.ts"
-      ],
-      "output": [],
-      "dependencies": [
-        "lint"
-      ]
-    },
-    "test:node": {
-      "command": "playwright-test \"test/**/*.test.ts\" --mode node --runner mocha",
-      "files": [
-        "src/**/*.ts",
-        "test/**/*.ts"
-      ],
-      "output": []
-    },
-    "test:browser": {
-      "command": "playwright-test \"test/**/*.test.ts\" --runner mocha",
-      "files": [
-        "src/**/*.ts",
-        "test/**/*.ts"
-      ],
-      "output": []
-    },
-    "lint": {
-      "command": "biome check .",
-      "files": [
-        "src/**/*.ts",
-        "test/**/*.ts",
-        "../../biome.json"
-      ],
-      "output": [],
-      "dependencies": [
-        "build"
-      ]
-    }
   },
   "dependencies": {
     "cborg": "6.1.2",
