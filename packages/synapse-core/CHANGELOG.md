@@ -1,5 +1,63 @@
 # Changelog
 
+## [0.11.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.10.3...synapse-core-v0.11.0) (2026-11-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** deletePieces, schedulePieceDeletions, deletePiece and schedulePieceDeletion return `{ txHash, dataSetId, pieceIds }` instead of `{ hash }`.
+* **core:** `SP.ping` resolves to `undefined` instead of the `Response`, and discards the body. `findPiece` without `poll` throws on the first 404 instead of retrying it, and `findPiece.ErrorType` no longer lists `TimeoutError` (timeouts were already thrown as FindPieceError).
+* **core:** align epoch helpers on bigint and expose fundedUntilEpoch
+* **core:** convert runway in epochs to a date
+* **core:** batch createPieceBatcher pulls into one pull request ([#1051](https://github.com/FilOzone/synapse-sdk/issues/1051))
+* **core:** wait for SP-submitted transactions on chain instead of statusUrl
+
+### Features
+
+* **core:** add findAuthorizers to find the wallets that authorized a session key ([#1121](https://github.com/FilOzone/synapse-sdk/issues/1121)) ([873b519](https://github.com/FilOzone/synapse-sdk/commit/873b51907486c2e739bb6d86acc45115dceacb1f))
+* **core:** add hasPiece and isReachable boolean checks ([#1123](https://github.com/FilOzone/synapse-sdk/issues/1123)) ([485b20d](https://github.com/FilOzone/synapse-sdk/commit/485b20d229dda85c5bb5a6103a8b26cf2e71e055))
+* **core:** add input index to pull results and opt-in PieceCID dedupe ([#1052](https://github.com/FilOzone/synapse-sdk/issues/1052)) ([942aed2](https://github.com/FilOzone/synapse-sdk/commit/942aed2a44cec4c4d301ae45b23f40686b7eef34))
+* **core:** add streaming piece downloads with PieceCID validation ([17c4004](https://github.com/FilOzone/synapse-sdk/commit/17c40047fbc0e10b0c723b617cb2b14017d1db9c)), closes [#699](https://github.com/FilOzone/synapse-sdk/issues/699)
+* **core:** align epoch helpers on bigint and expose fundedUntilEpoch ([3adbd76](https://github.com/FilOzone/synapse-sdk/commit/3adbd76929dfd71551901a138ef177678f492456))
+* **core:** batch createPieceBatcher pulls into one pull request ([#1051](https://github.com/FilOzone/synapse-sdk/issues/1051)) ([828daa5](https://github.com/FilOzone/synapse-sdk/commit/828daa50098e08b0dcd20a25d5f37c7497032b92))
+* **core:** convert runway in epochs to a date ([3a850f4](https://github.com/FilOzone/synapse-sdk/commit/3a850f4134845c524513d5c4eb13b11e82b43cde)), closes [#1102](https://github.com/FilOzone/synapse-sdk/issues/1102)
+* **core:** export abort helpers and accept a signal in getTransport ([a4a9919](https://github.com/FilOzone/synapse-sdk/commit/a4a9919979e2e66f3af27c972cced5f2fc0df521))
+* **core:** export FwssPermissions map from console scope IDs ([#1107](https://github.com/FilOzone/synapse-sdk/issues/1107)) ([f5b874b](https://github.com/FilOzone/synapse-sdk/commit/f5b874ba49a43ed3aa753de2200b8e7772fdfb93)), closes [#1104](https://github.com/FilOzone/synapse-sdk/issues/1104)
+* **core:** non-throwing addPiecesFits and maxFittingPieces helper ([#1056](https://github.com/FilOzone/synapse-sdk/issues/1056)) ([4a8ea2c](https://github.com/FilOzone/synapse-sdk/commit/4a8ea2ca93656faeabbd6eab5ed5e6718e77a6ca))
+* **core:** prepare a commit as data and submit it later ([725141c](https://github.com/FilOzone/synapse-sdk/commit/725141ce296352f139978bbb35441a60829fdb53)), closes [#1116](https://github.com/FilOzone/synapse-sdk/issues/1116)
+* **core:** price an existing data set by ID in getUploadCosts ([3c8f630](https://github.com/FilOzone/synapse-sdk/commit/3c8f6301292f0bbb270b66ff5af11b932a8bad69)), closes [#1117](https://github.com/FilOzone/synapse-sdk/issues/1117)
+* **core:** return clientDataSetId from selectProviders ([#1097](https://github.com/FilOzone/synapse-sdk/issues/1097)) ([d9ac672](https://github.com/FilOzone/synapse-sdk/commit/d9ac672060e238fb3481facb6a7b24fded809295))
+* **core:** select reachable providers and resolve explicit providers in one call ([10d7cb9](https://github.com/FilOzone/synapse-sdk/commit/10d7cb954663c03ca55cb0b520d48dee2f3ab841)), closes [#1118](https://github.com/FilOzone/synapse-sdk/issues/1118)
+* **core:** wait for parking and accept async iterables in uploadPieceStreaming ([f94478c](https://github.com/FilOzone/synapse-sdk/commit/f94478c45d0dba23bb51b90087da0c4324185aea)), closes [#1120](https://github.com/FilOzone/synapse-sdk/issues/1120)
+* **core:** wait for SP-submitted transactions on chain instead of statusUrl ([5203d91](https://github.com/FilOzone/synapse-sdk/commit/5203d9125c4d117e5f5891d664952cb6cf271875)), closes [#1049](https://github.com/FilOzone/synapse-sdk/issues/1049)
+
+
+### Bug Fixes
+
+* **core:** keep the serviceURL path when building provider URLs ([#1106](https://github.com/FilOzone/synapse-sdk/issues/1106)) ([0c4cf8e](https://github.com/FilOzone/synapse-sdk/commit/0c4cf8ea644beed10b5c688f6152eeb0df1cfab1)), closes [#1101](https://github.com/FilOzone/synapse-sdk/issues/1101)
+* **core:** reject getPDPProvidersByIds on RPC failure or abort ([#1113](https://github.com/FilOzone/synapse-sdk/issues/1113)) ([029cb2a](https://github.com/FilOzone/synapse-sdk/commit/029cb2a2acb7437c9862bb37c48ce5c7596c9397))
+* **core:** return null from epochToDate and document migration ([0754dc1](https://github.com/FilOzone/synapse-sdk/commit/0754dc1c1d44d7a93c6b80e4dabcd40360eb78e6))
+* **core:** return txHash from schedulePieceDeletions and deletePieces ([d546b84](https://github.com/FilOzone/synapse-sdk/commit/d546b840dc43fb6d253082c3dbbb6d6d3372d521)), closes [#1091](https://github.com/FilOzone/synapse-sdk/issues/1091)
+* **core:** set Filecoin block time on chain definitions ([#1064](https://github.com/FilOzone/synapse-sdk/issues/1064)) ([9ecb970](https://github.com/FilOzone/synapse-sdk/commit/9ecb97012e01514c13aaa2fdc8b9533fb97e7ce0))
+* **core:** stop streamed downloads once the body exceeds the PieceCID size ([e817c92](https://github.com/FilOzone/synapse-sdk/commit/e817c924bea3ff96e6737b305623bb5e3e4cf483)), closes [#699](https://github.com/FilOzone/synapse-sdk/issues/699)
+* **core:** stream piece uploads without buffering ([#1067](https://github.com/FilOzone/synapse-sdk/issues/1067)) ([daa2db5](https://github.com/FilOzone/synapse-sdk/commit/daa2db53f9a493df95850b8ebc81e0a5e570670a))
+* **core:** tolerate Filecoin null rounds while waiting for receipts ([#1096](https://github.com/FilOzone/synapse-sdk/issues/1096)) ([6469a03](https://github.com/FilOzone/synapse-sdk/commit/6469a0342279c19df9895a38eedb309a9bbee836))
+
+
+### Chores
+
+* **deps:** bump playwright-test to 15 for ubuntu 26.04 runners ([#1086](https://github.com/FilOzone/synapse-sdk/issues/1086)) ([c937823](https://github.com/FilOzone/synapse-sdk/commit/c93782351b4bdc5be4f1308bba06e26407d6946f))
+* **deps:** update iso-web to 4.0.0 ([#1065](https://github.com/FilOzone/synapse-sdk/issues/1065)) ([7c8086b](https://github.com/FilOzone/synapse-sdk/commit/7c8086bf51b0f1604be044cf98276b87e3943a85))
+* **synapse-core:** update filecoin-services ref to v1.5.0 ([#1034](https://github.com/FilOzone/synapse-sdk/issues/1034)) ([16ed590](https://github.com/FilOzone/synapse-sdk/commit/16ed5906560b54d16b2321c9a968e2cd839f942f))
+
+
+### Documentation
+
+* **core:** say that only an unlimited FWSS approval counts as approved ([#1122](https://github.com/FilOzone/synapse-sdk/issues/1122)) ([61122e0](https://github.com/FilOzone/synapse-sdk/commit/61122e0b79b6d079f7349bcc4b15a4a5f07df9fe))
+* piece metadata is not readable from chain; fetch it from the Filecoin API ([#1133](https://github.com/FilOzone/synapse-sdk/issues/1133)) ([8cccb89](https://github.com/FilOzone/synapse-sdk/commit/8cccb895f73d794fd256d366fc3ff69b592fdabc))
+* price an existing data set with dataSetId in getUploadCosts ([7ef0988](https://github.com/FilOzone/synapse-sdk/commit/7ef0988d39304a2252950971318b61c0241d2912))
+* refresh AGENTS.md and contributing guide ([#1115](https://github.com/FilOzone/synapse-sdk/issues/1115)) ([08eeb8d](https://github.com/FilOzone/synapse-sdk/commit/08eeb8dbd781465c3072c898891b40963172f3ef))
+
 ## [0.10.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.10.2...synapse-core-v0.10.3) (2026-10-23)
 
 
