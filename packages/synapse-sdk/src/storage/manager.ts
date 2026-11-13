@@ -218,7 +218,7 @@ export class StorageManager {
    * split operations API directly:
    * createContexts() -> store() -> prepareCommit() -> pull() -> commit()
    *
-   * @param data - Raw bytes (Uint8Array) or ReadableStream to upload
+   * @param data - Raw bytes (Uint8Array), a ReadableStream, or an AsyncIterable<Uint8Array> (such as a Node.js `Readable`) to upload
    * @param options - Upload options including contexts, callbacks, and abort signal
    * @returns Upload result with pieceCid, copies, and completion status
    * @throws StoreError if primary store fails (before any data is committed)

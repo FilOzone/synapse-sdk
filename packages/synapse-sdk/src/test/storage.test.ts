@@ -1866,6 +1866,51 @@ describe('StorageService', () => {
     })
   })
 
+  describe('store', () => {
+    const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+
+    async function createService() {
+      const synapse = new Synapse({ client, source: null, pieceBatching: false })
+      const warmStorageService = new WarmStorageService({ client })
+      return await StorageContext.create({ synapse, warmStorageService, dataSetId: 1n })
+    }
+
+    it('says the piece could not be confirmed when the provider fails the parking lookup', async () => {
+      server.use(
+        Mocks.JSONRPC({ ...Mocks.presets.basic }),
+        Mocks.PING(),
+        Mocks.pdp.postPieceUploadsHandler(mockUuid, pdpOptions),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid, pdpOptions),
+        Mocks.pdp.finalizePieceUploadHandler(mockUuid, undefined, pdpOptions),
+        http.get('https://pdp.example.com/pdp/piece', () => HttpResponse.text('bad request', { status: 400 }))
+      )
+      const service = await createService()
+
+      try {
+        await service.store(new Uint8Array(127).fill(42))
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to confirm piece storage')
+      }
+    })
+
+    it('says the piece could not be stored when the upload fails', async () => {
+      server.use(
+        Mocks.JSONRPC({ ...Mocks.presets.basic }),
+        Mocks.PING(),
+        http.post('https://pdp.example.com/pdp/piece/uploads', () => HttpResponse.text('boom', { status: 400 }))
+      )
+      const service = await createService()
+
+      try {
+        await service.store(new Uint8Array(127).fill(42))
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to store piece on service provider')
+      }
+    })
+  })
+
   describe('abort handling', () => {
     it('commit rejects an already-aborted signal before any chain read or request', async () => {
       let ethCalls = 0

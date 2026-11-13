@@ -30,7 +30,12 @@
 import type { AccountClient, ReadClient } from '@filoz/synapse-core'
 import { paginate } from '@filoz/synapse-core'
 import type { FilecoinChain } from '@filoz/synapse-core/chains'
-import { InvalidPieceCIDError, NoEndorsedProviderError, PDPProviderUnavailableError } from '@filoz/synapse-core/errors'
+import {
+  FindPieceError,
+  InvalidPieceCIDError,
+  NoEndorsedProviderError,
+  PDPProviderUnavailableError,
+} from '@filoz/synapse-core/errors'
 import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
@@ -574,7 +579,7 @@ export class StorageContext {
    * pulling to other providers via pull(), on-chain commitment via commit(),
    * or retrieval via getPieceUrl() (not yet committed; eligible for GC).
    *
-   * @param data - Raw bytes or readable stream to upload
+   * @param data - Raw bytes (Uint8Array), a ReadableStream, or an AsyncIterable<Uint8Array> (such as a Node.js `Readable`) to upload
    * @param options - Optional pieceCid (skip CommP), signal, and onProgress callback
    * @returns PieceCid and size of the stored piece
    */
@@ -591,20 +596,13 @@ export class StorageContext {
         pieceCid: options?.pieceCid,
         signal: options?.signal,
         onProgress: options?.onProgress,
+        waitForParked: true,
       })
     } catch (error) {
-      throw createError('StorageContext', 'store', 'Failed to store piece on service provider', error)
-    }
-
-    try {
-      await SP.findPiece({
-        serviceURL: this._pdpEndpoint,
-        pieceCid: uploadResult.pieceCid,
-        poll: true,
-        signal: options?.signal,
-      })
-    } catch (error) {
-      throw createError('StorageContext', 'store', 'Failed to confirm piece storage', error)
+      const message = FindPieceError.is(error)
+        ? 'Failed to confirm piece storage'
+        : 'Failed to store piece on service provider'
+      throw createError('StorageContext', 'store', message, error)
     }
 
     return {
@@ -933,7 +931,7 @@ export class StorageContext {
    * in options to avoid redundant computation. For streaming uploads, pieceCid must be
    * provided as it cannot be calculated without consuming the stream.
    *
-   * @param data - Raw bytes or readable stream to upload
+   * @param data - Raw bytes (Uint8Array), a ReadableStream, or an AsyncIterable<Uint8Array> (such as a Node.js `Readable`) to upload
    * @param options - Upload options including callbacks, pieceMetadata, pieceCid, and signal
    * @returns Upload result with pieceCid, size, and a single-element copies array
    */
