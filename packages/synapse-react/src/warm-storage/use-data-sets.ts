@@ -6,6 +6,11 @@ import { skipToken, type UseQueryOptions, useQuery } from '@tanstack/react-query
 import type { Address } from 'viem'
 import { useChainId, useConfig } from 'wagmi'
 
+/**
+ * A data set with its pieces.
+ *
+ * Piece metadata is not stored on chain, so it can't be read back from the contracts. Fetch it from the Filecoin API (https://api.filecoin.io/docs).
+ */
 export interface DataSetWithPieces extends PdpDataSet {
   pieces: Piece[]
 }

@@ -41,6 +41,8 @@ Contracts expect the **32-byte digest only**, not the full CID: `digest.bytes.su
 
 User-facing `Record<string, string>`, internally `MetadataEntry[]` sorted alphabetically for EIP-712. Limits in `src/utils/metadata.ts`: data sets max 10 keys, pieces max 3, keys max 32 chars, values max 96 chars. Use `Object.create(null)` for objects built from contract data.
 
+Piece metadata is signed and emitted in FWSS `PieceAdded` events but not stored in contract state, so there is no on-chain getter for it. Point users who need to read it to the [Filecoin API](https://api.filecoin.io/docs) (`GET /{network}/data-sets/{dataSetId}/pieces/{pieceId}`). Data-set metadata is still readable on chain.
+
 ## Package Scripts
 
 Tasks run through Turborepo (root `turbo.json`), which handles dependencies and caching. `pnpm turbo <task>` runs a task with its dependencies; `pnpm run <task>` runs the bare script.

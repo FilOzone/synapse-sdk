@@ -54,6 +54,11 @@ export type PdpDataSetInfo = {
 
 export interface PdpDataSet extends DataSetInfo, PdpDataSetInfo {}
 
+/**
+ * A piece in a PDP data set.
+ *
+ * Pieces carry no `metadata` field. Piece metadata is not stored on chain, so it can't be read back from the contracts. Fetch it from the Filecoin API (https://api.filecoin.io/docs).
+ */
 export interface Piece {
   cid: PieceCID
   id: bigint

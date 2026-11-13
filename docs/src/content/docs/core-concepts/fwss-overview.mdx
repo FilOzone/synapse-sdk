@@ -85,7 +85,7 @@ When a new data set is created in `PDPVerifier`, this function is called to set 
 
 #### _`piecesAdded()`_
 
-When pieces are added to an existing data set, this function validates and emits piece metadata and updates payment rail configuration if needed. Piece metadata is available through `PieceAdded` events or an indexer, not contract getters.
+When pieces are added to an existing data set, this function validates and emits piece metadata and updates payment rail configuration if needed. Piece metadata can't be read from contract getters; fetch it from the [Filecoin API](https://api.filecoin.io/docs) or from `PieceAdded` events.
 
 **Key actions for first data set**:
 

@@ -195,9 +195,9 @@ Batched secondary pulls sign their per-piece authorization separately from the e
 
 Newly added piece metadata is no longer stored in FWSS contract state, including additions to existing data sets. Upload and commit options still accept metadata, which is validated, signed, and emitted in `PieceAdded` events.
 
-`WarmStorageService.getPieceMetadata()` and `getPieceMetadataByKey()` were deprecated in 1.2.1 and are removed in 2.0.0. Read piece metadata from FWSS `PieceAdded` events or an indexer.
+`WarmStorageService.getPieceMetadata()` and `getPieceMetadataByKey()` were deprecated in 1.2.1 and are removed in 2.0.0. Piece metadata can no longer be read from chain. Fetch it from the [Filecoin API](https://api.filecoin.io/docs) instead: `GET /{network}/data-sets/{dataSetId}/pieces/{pieceId}` returns a piece with its `metadata`, and `GET /{network}/pieces` finds pieces by owner, PieceCID or provider. You can also decode FWSS `PieceAdded` events yourself.
 
-For React integrations using the updated core, each data set returned by `useDataSets()` now has a `pieces: Piece[]` array whose items have no `metadata` field. Update components that read `piece.metadata` to use event or indexer data. See the [core metadata migration](#action-replace-core-piece-metadata-reads) for the removed actions and replacement types.
+For React integrations using the updated core, each data set returned by `useDataSets()` now has a `pieces: Piece[]` array whose items have no `metadata` field. Update components that read `piece.metadata` to fetch it from the [Filecoin API](https://api.filecoin.io/docs). See the [core metadata migration](#action-replace-core-piece-metadata-reads) for the removed actions and replacement types.
 
 ---
 
@@ -322,7 +322,7 @@ const page = await getPieces(client, { dataSet, address, cursor })
 const pieces: Piece[] = page.items
 ```
 
-FWSS no longer persists piece metadata in contract state. Read it from FWSS `PieceAdded` events or an indexer. Upload and commit inputs continue to accept piece metadata for those events. Data-set metadata getters remain available.
+FWSS no longer persists piece metadata in contract state, so it can't be read from chain. Fetch it from the [Filecoin API](https://api.filecoin.io/docs), or decode FWSS `PieceAdded` events yourself. Upload and commit inputs continue to accept piece metadata for those events. Data-set metadata getters remain available.
 
 ---
 
