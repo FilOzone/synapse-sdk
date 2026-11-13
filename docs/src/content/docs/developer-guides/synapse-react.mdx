@@ -190,7 +190,7 @@ const StorageExample = () => {
 :::
 
 :::caution[Piece metadata]
-Each data set returned by `useDataSets()` has a `pieces: Piece[]` array whose items have no `metadata` field. Read piece metadata from FWSS `PieceAdded` events or an indexer instead. See the [migration guide](/developer-guides/migration-guide/#action-replace-core-piece-metadata-reads) for the core API changes.
+Each data set returned by `useDataSets()` has a `pieces: Piece[]` array whose items have no `metadata` field. Piece metadata can't be read from chain; fetch it from the [Filecoin API](https://api.filecoin.io/docs) instead. See the [migration guide](/developer-guides/migration-guide/#action-replace-core-piece-metadata-reads) for the core API changes.
 :::
 
 ### Upload several files to one data set
