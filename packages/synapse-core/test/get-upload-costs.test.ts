@@ -2,9 +2,10 @@
 
 import assert from 'assert'
 import { setup } from 'iso-web/msw'
-import { createPublicClient, http, maxUint256, parseUnits } from 'viem'
+import { createPublicClient, custom, http, maxUint256, parseUnits } from 'viem'
 import { calibration } from '../src/chains.ts'
 import { ServiceAlreadyTerminatedError } from '../src/errors/pdp.ts'
+import { DataSetNotFoundError } from '../src/errors/warm-storage.ts'
 import { ADDRESSES, JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { leafCountToRawSize, rawSizeToLeafCount } from '../src/utils/pdp-size.ts'
 import { getUploadCosts } from '../src/warm-storage/get-upload-costs.ts'
@@ -216,6 +217,33 @@ describe('getUploadCosts', () => {
       `depositNeeded (${result.depositNeeded}) should be >= debt (${expectedDebt})`
     )
     assert.equal(result.ready, false)
+    assert.deepStrictEqual(result.account, { availableFunds: 0n, debt: expectedDebt, runwayInEpochs: 0n })
+  })
+
+  it('should return the account values used to price the deposit', async () => {
+    // funds 10, lockupCurrent 5, no lockup rate → 5 USDFC available, no debt, unlimited runway
+    server.use(
+      JSONRPC({
+        ...presets.basic,
+        payments: {
+          ...presets.basic.payments,
+          accounts: () => [parseUnits('10', 18), parseUnits('5', 18), 0n, 0n],
+        },
+      })
+    )
+
+    const client = createPublicClient({ chain: calibration, transport: http() })
+
+    const result = await getUploadCosts(client, {
+      clientAddress: ADDRESSES.client1,
+      pieceSizes: [1n],
+    })
+
+    assert.deepStrictEqual(result.account, {
+      availableFunds: parseUnits('5', 18),
+      debt: 0n,
+      runwayInEpochs: maxUint256,
+    })
   })
 
   it('should increase deposit when extraRunwayEpochs is specified', async () => {
@@ -410,6 +438,152 @@ describe('getUploadCosts', () => {
       }),
       ServiceAlreadyTerminatedError
     )
+  })
+
+  describe('with dataSetId', () => {
+    const halfTiB = (1n << 40n) / 2n
+    const leafCount = rawSizeToLeafCount(halfTiB)
+    const lifecycleReserveBalance = parseUnits('0.01', 18)
+    const pendingOneTimePayments = parseUnits('0.005', 18)
+
+    function useDataSet(overrides: { pdpEndEpoch?: bigint } = {}) {
+      const baseGetDataSet = presets.basic.warmStorageView?.getDataSet
+      if (baseGetDataSet == null) throw new Error('basic preset must define getDataSet')
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            ...presets.basic.warmStorageView,
+            getDataSet: (args) => {
+              const [info] = baseGetDataSet(args)
+              if (args[0] !== 1n) return [info]
+              return [
+                {
+                  ...info,
+                  lifecycleReserveBalance,
+                  pendingOneTimePayments,
+                  pdpEndEpoch: overrides.pdpEndEpoch ?? 0n,
+                },
+              ]
+            },
+          },
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getDataSetLeafCount: () => [leafCount],
+          },
+        })
+      )
+    }
+
+    it('should match the explicit existing-data-set state', async () => {
+      useDataSet()
+      const client = createPublicClient({ chain: calibration, transport: http() })
+
+      const byId = await getUploadCosts(client, {
+        clientAddress: ADDRESSES.client1,
+        pieceSizes: [halfTiB],
+        dataSetId: 1n,
+      })
+      const explicit = await getUploadCosts(client, {
+        clientAddress: ADDRESSES.client1,
+        pieceSizes: [halfTiB],
+        isNewDataSet: false,
+        dataSetLeafCount: leafCount,
+        currentLifecycleReserveBalance: lifecycleReserveBalance,
+        pendingOneTimePayments,
+        pdpEndEpoch: 0n,
+      })
+
+      assert.deepStrictEqual(byId, explicit)
+      assert.equal(byId.fees.createDataSetFee, 0n)
+    })
+
+    it('should accept isNewDataSet: false', async () => {
+      useDataSet()
+      const client = createPublicClient({ chain: calibration, transport: http() })
+
+      const result = await getUploadCosts(client, {
+        clientAddress: ADDRESSES.client1,
+        pieceSizes: [halfTiB],
+        dataSetId: 1n,
+        isNewDataSet: false,
+      })
+
+      assert.equal(result.fees.createDataSetFee, 0n)
+    })
+
+    it('should throw DataSetNotFoundError for a missing data set', async () => {
+      useDataSet()
+      const client = createPublicClient({ chain: calibration, transport: http() })
+
+      await assert.rejects(
+        getUploadCosts(client, {
+          clientAddress: ADDRESSES.client1,
+          pieceSizes: [1n],
+          dataSetId: 99n,
+        }),
+        DataSetNotFoundError
+      )
+    })
+
+    it('should throw ServiceAlreadyTerminatedError for a terminated data set', async () => {
+      useDataSet({ pdpEndEpoch: 42n })
+      const client = createPublicClient({ chain: calibration, transport: http() })
+
+      await assert.rejects(
+        getUploadCosts(client, {
+          clientAddress: ADDRESSES.client1,
+          pieceSizes: [1n],
+          dataSetId: 1n,
+        }),
+        ServiceAlreadyTerminatedError
+      )
+    })
+
+    /** A client whose transport counts requests and fails each one. */
+    function countingClient() {
+      const counter = { requests: 0 }
+      const client = createPublicClient({
+        chain: calibration,
+        transport: custom({
+          request: async () => {
+            counter.requests++
+            throw new Error('unexpected RPC request')
+          },
+        }),
+      })
+      return { client, counter }
+    }
+
+    it('should reject dataSetId with isNewDataSet: true without any RPC request', async () => {
+      const { client, counter } = countingClient()
+
+      await assert.rejects(
+        getUploadCosts(client, {
+          clientAddress: ADDRESSES.client1,
+          pieceSizes: [1n],
+          dataSetId: 1n,
+          isNewDataSet: true,
+        }),
+        /dataSetId cannot be combined with isNewDataSet: true/
+      )
+      assert.equal(counter.requests, 0)
+    })
+
+    it('should reject dataSetId with explicit data-set state without any RPC request', async () => {
+      const { client, counter } = countingClient()
+
+      await assert.rejects(
+        getUploadCosts(client, {
+          clientAddress: ADDRESSES.client1,
+          pieceSizes: [1n],
+          dataSetId: 1n,
+          dataSetLeafCount: 0n,
+        }),
+        /dataSetId cannot be combined with dataSetLeafCount/
+      )
+      assert.equal(counter.requests, 0)
+    })
   })
 
   it('should add CDN fixed lockup for new CDN datasets', async () => {
