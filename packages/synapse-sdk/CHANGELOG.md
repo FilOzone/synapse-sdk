@@ -1,5 +1,48 @@
 # Changelog
 
+## [3.0.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v2.0.2...synapse-sdk-v3.0.0) (2026-11-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** align epoch helpers on bigint and expose fundedUntilEpoch
+* **core:** convert runway in epochs to a date
+* **core:** batch createPieceBatcher pulls into one pull request ([#1051](https://github.com/FilOzone/synapse-sdk/issues/1051))
+
+### Features
+
+* **core:** add findAuthorizers to find the wallets that authorized a session key ([#1121](https://github.com/FilOzone/synapse-sdk/issues/1121)) ([873b519](https://github.com/FilOzone/synapse-sdk/commit/873b51907486c2e739bb6d86acc45115dceacb1f))
+* **core:** add input index to pull results and opt-in PieceCID dedupe ([#1052](https://github.com/FilOzone/synapse-sdk/issues/1052)) ([942aed2](https://github.com/FilOzone/synapse-sdk/commit/942aed2a44cec4c4d301ae45b23f40686b7eef34))
+* **core:** align epoch helpers on bigint and expose fundedUntilEpoch ([3adbd76](https://github.com/FilOzone/synapse-sdk/commit/3adbd76929dfd71551901a138ef177678f492456))
+* **core:** batch createPieceBatcher pulls into one pull request ([#1051](https://github.com/FilOzone/synapse-sdk/issues/1051)) ([828daa5](https://github.com/FilOzone/synapse-sdk/commit/828daa50098e08b0dcd20a25d5f37c7497032b92))
+* **core:** convert runway in epochs to a date ([3a850f4](https://github.com/FilOzone/synapse-sdk/commit/3a850f4134845c524513d5c4eb13b11e82b43cde)), closes [#1102](https://github.com/FilOzone/synapse-sdk/issues/1102)
+* **core:** use @hugomrdias/commp-wasm for PieceCID hashing ([#1018](https://github.com/FilOzone/synapse-sdk/issues/1018)) ([d9bf76e](https://github.com/FilOzone/synapse-sdk/commit/d9bf76e0bd3c71967f97577a45924fd5456e6d1a))
+* **sdk:** add downloadStream to StorageManager and StorageContext ([71272a0](https://github.com/FilOzone/synapse-sdk/commit/71272a0ae01864cd8ba8e14f2011c161e89bbc46)), closes [#699](https://github.com/FilOzone/synapse-sdk/issues/699)
+* **sdk:** add StorageContext.prepareCommit and accept commits in pull and commit ([cd992ec](https://github.com/FilOzone/synapse-sdk/commit/cd992ec60d25f8db595cced967c2e82e58d1fccf))
+* **sdk:** return account values from calculateMultiContextCosts ([e80095f](https://github.com/FilOzone/synapse-sdk/commit/e80095f0fda795be5d2d3c1fffb099f3b63dea62))
+* **synapse-sdk:** wait for commits on chain so fee-replaced transactions resolve ([54a4a1a](https://github.com/FilOzone/synapse-sdk/commit/54a4a1a1012a86eebdd87d69d253d30a94c42a9d)), closes [#1049](https://github.com/FilOzone/synapse-sdk/issues/1049)
+
+
+### Bug Fixes
+
+* **core:** return null from epochToDate and document migration ([0754dc1](https://github.com/FilOzone/synapse-sdk/commit/0754dc1c1d44d7a93c6b80e4dabcd40360eb78e6))
+* **filbeam:** add timeout and abort signal to getDataSetStats ([#1010](https://github.com/FilOzone/synapse-sdk/issues/1010)) ([421d151](https://github.com/FilOzone/synapse-sdk/commit/421d15149938a5e87f061be4720ebcae25f52480))
+* increase max upload size to 64 GiB padded ([#997](https://github.com/FilOzone/synapse-sdk/issues/997)) ([290ed9e](https://github.com/FilOzone/synapse-sdk/commit/290ed9e73704908fba380ed1cede060b11409d7e))
+* **sdk:** forward abort signal to commit ([#1000](https://github.com/FilOzone/synapse-sdk/issues/1000)) ([245144a](https://github.com/FilOzone/synapse-sdk/commit/245144a80d98793992810cacba40c6b2fa0bdb49))
+* **sdk:** name downloadStream in StorageManager download errors ([3876c79](https://github.com/FilOzone/synapse-sdk/commit/3876c79dc7c2c8ea129a010e71410be74029feaf)), closes [#699](https://github.com/FilOzone/synapse-sdk/issues/699)
+* **sdk:** read txHash from schedulePieceDeletions ([d350fc3](https://github.com/FilOzone/synapse-sdk/commit/d350fc31241365a75c153c0b94986b9e8a8db9b2))
+
+
+### Chores
+
+* **deps:** bump playwright-test to 15 for ubuntu 26.04 runners ([#1086](https://github.com/FilOzone/synapse-sdk/issues/1086)) ([c937823](https://github.com/FilOzone/synapse-sdk/commit/c93782351b4bdc5be4f1308bba06e26407d6946f))
+
+
+### Documentation
+
+* piece metadata is not readable from chain; fetch it from the Filecoin API ([#1133](https://github.com/FilOzone/synapse-sdk/issues/1133)) ([8cccb89](https://github.com/FilOzone/synapse-sdk/commit/8cccb895f73d794fd256d366fc3ff69b592fdabc))
+* refresh AGENTS.md and contributing guide ([#1115](https://github.com/FilOzone/synapse-sdk/issues/1115)) ([08eeb8d](https://github.com/FilOzone/synapse-sdk/commit/08eeb8dbd781465c3072c898891b40963172f3ef))
+
 ## [2.0.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v2.0.1...synapse-sdk-v2.0.2) (2026-09-25)
 
 
