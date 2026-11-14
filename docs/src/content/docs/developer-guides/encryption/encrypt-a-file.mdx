@@ -181,7 +181,7 @@ node --env-file=.env encrypt-file.ts
 
 Success prints a PieceCID, the replica data set IDs, and a verification message. `restored.txt` matches `sample.txt` byte for byte. Keep the PieceCID and data set IDs to retrieve this upload later.
 
-Each run creates a new group key and new data sets. In an application, read and reuse existing data set metadata when adding files to that group key. New data sets record the group key id as `foc/gkid`; data sets created before format 2 record `foc/ks`, so match either key when listing a user's data sets (`Keysmith.groupKeyIdOf()` reads both), and pass an existing data set's metadata as it is to keep adding to it. Generate a fresh salt and piece key for every encryption attempt.
+Each run creates a new group key and new data sets. In an application, read and reuse existing data set metadata when adding files to that group key. Generate a fresh salt and piece key for every encryption attempt.
 
 ## If the example fails
 

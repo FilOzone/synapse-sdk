@@ -65,30 +65,33 @@ export interface TypedDataSigner {
   }) => Promise<Hex>
 }
 
-/** FEE envelope entries to enable key derivation/recovery, format 2. */
+/**
+ * FEE envelope entries to enable key derivation/recovery, format 2. Readers accept it; this release
+ * does not write it yet. It differs from format 1 only in `foc/group`, the old `foc/scope`.
+ */
 // A type, not an interface, so it can be passed as FEE's `appMetadata` (a string-keyed record) as it is.
 export type PieceMetadataV2 = {
   'foc/v': 2 // The version of this metadata format
   'foc/own': Address // The group key owner, lowercased.
-  'foc/gkid': Hex // The group key this piece's key belongs to
+  'foc/ks': Hex // Key set: the group key id, naming the set of keys derived from one group key
   'foc/group'?: string // The group path this piece is in, eg `top-secret/secret`
   'foc/salt': Hex // The piece's unique salt
 }
 
-/** Format 1, as older pieces carry it: read only, never written. Same fields as format 2 under their old names. */
+/** FEE envelope entries to enable key derivation/recovery, format 1: what this release writes. */
 export type PieceMetadataV1 = {
-  'foc/v': 1
-  'foc/own': Address
-  'foc/ks': Hex // Now `foc/gkid`
-  'foc/scope'?: string // Now `foc/group`
-  'foc/salt': Hex
+  'foc/v': 1 // The version of this metadata format
+  'foc/own': Address // The group key owner, lowercased.
+  'foc/ks': Hex // Key set: the group key id, naming the set of keys derived from one group key
+  'foc/scope'?: string // The group path this piece is in, eg `top-secret/secret`
+  'foc/salt': Hex // The piece's unique salt
 }
 
-/** The format `pieceMetadata()` writes today. */
-export type PieceMetadata = PieceMetadataV2
-
-/** Every format this release reads. A new format version adds a `PieceMetadataVn`, repoints `PieceMetadata`, and extends this union. */
-export type AnyPieceMetadata = PieceMetadataV1 | PieceMetadataV2
+/**
+ * The format `pieceMetadata()` writes today: {@link PieceMetadataV1}. A later release switches the
+ * writers to format 2 (once the Go and Curio readers ship): add a `PieceMetadataVn`, repoint this alias.
+ */
+export type PieceMetadata = PieceMetadataV1
 
 /** A piece's labels from either format, as `readPieceMetadata()` returns them: canonical, validated. */
 export interface PieceMetadataView {
@@ -101,8 +104,8 @@ export interface PieceMetadataView {
 
 /**
  * What a grant may unlock: the whole group key, one group within it, or one piece, named by its salt.
- * The strings are wire values, signed into claims. `'groupKey'` and `'group:<path>'` are written now;
- * `'keyspace'` and `'scope:<path>'` are the legacy spellings, read forever.
+ * The strings are wire values, signed into claims. This release writes `'keyspace'` and `'scope:<path>'`;
+ * `'groupKey'` and `'group:<path>'` are read too, and a later release writes them.
  */
 export type GrantNode = 'groupKey' | `group:${string}` | `piece:${string}` | 'keyspace' | `scope:${string}`
 
@@ -113,9 +116,9 @@ export type GrantNode = 'groupKey' | `group:${string}` | `piece:${string}` | 'ke
  */
 export interface GrantDescriptor {
   v: 1
-  node: string // 'groupKey', 'group:<path>', or 'piece:<salt>' (wire spellings); legacy 'keyspace' and 'scope:<path>' are read too.
+  node: string // 'keyspace', 'scope:<path>' or 'piece:<salt>' as written now; 'groupKey' and 'group:<path>' are read too.
   owner: Address // The wallet that roots the group key, lowercased
-  groupKeyId: Hex // Spelled as in `foc/gkid`
+  groupKeyId: Hex // Spelled as in `foc/ks` (key set)
 }
 
 /** A node key wrapped to one recipient. Safe to store or send anywhere. */
@@ -128,8 +131,8 @@ export interface Grant extends GrantDescriptor {
 
 /**
  * Which node the caller holds when deriving a piece key: the group key, a group by its path, or one piece by its salt.
- * Wire names: `'groupKey'` is node `'groupKey'` (legacy `'keyspace'`); `{ group }` is node `'group:<path>'`
- * (legacy `'scope:<path>'`) and label `foc/group` (legacy `foc/scope`); `{ piece }` is node `'piece:<salt>'`.
+ * Wire names: `'groupKey'` is node `'keyspace'` (format 2: `'groupKey'`); `{ group }` is node `'scope:<path>'`
+ * (format 2: `'group:<path>'`) and label `foc/scope` (format 2: `foc/group`); `{ piece }` is node `'piece:<salt>'`.
  */
 export type Holding = 'groupKey' | { group: string } | { piece: Hex }
 

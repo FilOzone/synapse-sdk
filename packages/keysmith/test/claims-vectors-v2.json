@@ -1,5 +1,5 @@
 {
-  "description": "Keysmith claim chains with format 2 labels and current node spellings, and chains that mix them with the legacy spellings. These vectors were produced by this implementation (FIP-1253 draft); they are not independent of it. They pin format 2 labels and the current grant node spellings. vectors.json and claims-vectors.json are the legacy-read suite: the same keys under the old names. Keys are the public Anvil development keys. Byte strings are 0x-prefixed lowercase hex; integers too large for JSON are decimal strings.",
+  "description": "Keysmith claim chains with format 2 labels and format 2 node spellings, and chains that mix them with the legacy spellings. These vectors were produced by this implementation (FIP-1253 draft); they are not independent of it. They pin format 2 labels and the format 2 grant node spellings. vectors.json and claims-vectors.json are the legacy-read suite: the same keys under the old names. Keys are the public Anvil development keys. Byte strings are 0x-prefixed lowercase hex; integers too large for JSON are decimal strings.",
   "domain": {
     "name": "FOC Encryption",
     "version": "1"
@@ -87,7 +87,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "admin/finance/clerks",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
@@ -106,7 +106,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "admin/legal",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
@@ -125,7 +125,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
       "chainId": "314159",
@@ -133,7 +133,7 @@
       "expect": {
         "result": "refused",
         "step": "piece",
-        "reason": "group:admin/finance does not reach this piece (group (none))"
+        "reason": "group:admin/finance does not reach this piece (scope (none))"
       }
     },
     {
@@ -161,7 +161,7 @@
       "pieceCid": "0x015591202233045cbb956831a8e247ed06f7f293fadf1a1b646bec8542ac6a4cd2292913636927",
       "labels": {
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "admin/finance/clerks",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
@@ -174,27 +174,7 @@
       }
     },
     {
-      "name": "A format 2 envelope carrying foc/ks is refused",
-      "presentation": "0x830182ab0001016b67726f75703a61646d696e0254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff045470997970c51812dc3a010c7d01b50e0d17dc79c80501061a0004cb2f0750e20127d1598482a8ea8bd50f2581c156085841aed6a1fb151546c04cf4d17a4d5ecb7b1faa1d102e89d18e6054aa9f79a7186f435aedd119453193e44bf4b2fa388a39ac3cb320f57c6b55985a870459fc1acc1c0a506982807649650e311e4c69af4ac904170b1a6add4680a60001017367726f75703a61646d696e2f66696e616e6365045490f79bf6eb2c4f870365e785982e1f101e93b90605000750d4e4be81283ee8a9c53cba8b62a9cfd908584179f2889eca2973fb7e52bee1ad7c2855cb1bcd929da377b4e1d3e2e2c4c7bb8871036720ead053f910adefb112ed7e96ba04bdc1d455716fd6198d1dbe968f201ba3005827015591202233045cbb956831a8e247ed06f7f293fadf1a1b646bec8542ac6a4cd2292913636927011a6ad41b000258416efb57f4b33d4f80ff13a18f294a42d5fb730d1fa734d354b90c5ec18496a94c3050dcb8c08ba4dc31afd296b6f9887dcd7e37199b84db2653de13f32e4c4c0b1b",
-      "pieceCid": "0x015591202233045cbb956831a8e247ed06f7f293fadf1a1b646bec8542ac6a4cd2292913636927",
-      "labels": {
-        "foc/v": 2,
-        "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
-        "foc/group": "admin/finance/clerks",
-        "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803",
-        "foc/ks": "0x00112233445566778899aabbccddeeff"
-      },
-      "chainId": "314159",
-      "now": 1792285200,
-      "expect": {
-        "result": "refused",
-        "step": "piece",
-        "reason": "This piece's envelope is format 2, which labels the group key foc/gkid and the group foc/group; it must not carry foc/ks or foc/scope."
-      }
-    },
-    {
-      "name": "A format 1 envelope carrying foc/gkid is refused",
+      "name": "Labels carrying both foc/scope and foc/group are refused",
       "presentation": "0x830182ab0001016b67726f75703a61646d696e0254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff045470997970c51812dc3a010c7d01b50e0d17dc79c80501061a0004cb2f0750e20127d1598482a8ea8bd50f2581c156085841aed6a1fb151546c04cf4d17a4d5ecb7b1faa1d102e89d18e6054aa9f79a7186f435aedd119453193e44bf4b2fa388a39ac3cb320f57c6b55985a870459fc1acc1c0a506982807649650e311e4c69af4ac904170b1a6add4680a60001017367726f75703a61646d696e2f66696e616e6365045490f79bf6eb2c4f870365e785982e1f101e93b90605000750d4e4be81283ee8a9c53cba8b62a9cfd908584179f2889eca2973fb7e52bee1ad7c2855cb1bcd929da377b4e1d3e2e2c4c7bb8871036720ead053f910adefb112ed7e96ba04bdc1d455716fd6198d1dbe968f201ba3005827015591202233045cbb956831a8e247ed06f7f293fadf1a1b646bec8542ac6a4cd2292913636927011a6ad41b000258416efb57f4b33d4f80ff13a18f294a42d5fb730d1fa734d354b90c5ec18496a94c3050dcb8c08ba4dc31afd296b6f9887dcd7e37199b84db2653de13f32e4c4c0b1b",
       "pieceCid": "0x015591202233045cbb956831a8e247ed06f7f293fadf1a1b646bec8542ac6a4cd2292913636927",
       "labels": {
@@ -203,14 +183,14 @@
         "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/scope": "admin/finance/clerks",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff"
+        "foc/group": "admin/finance/clerks"
       },
       "chainId": "314159",
       "now": 1792285200,
       "expect": {
         "result": "refused",
         "step": "piece",
-        "reason": "This piece's envelope is format 1, which labels the group key foc/ks and the group foc/scope; it must not carry foc/gkid or foc/group."
+        "reason": "A format 2 envelope must not carry foc/scope"
       }
     },
     {
@@ -220,7 +200,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "super-secret",
         "foc/salt": "0x9f3c41d2e07b6a58c1f20e4d7b93a6c5"
       },
@@ -239,7 +219,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "super-secret",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
@@ -258,7 +238,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "agent-memory/notes",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
@@ -296,7 +276,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "a/b/c",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
@@ -315,7 +295,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "a/x",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
@@ -334,7 +314,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "a/b/c",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
@@ -353,7 +333,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "a/b/c",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
@@ -372,7 +352,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "a/b/c",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },
@@ -391,7 +371,7 @@
       "labels": {
         "foc/v": 2,
         "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
         "foc/group": "a/b",
         "foc/salt": "0x3b7e0c9a51f24d86a0d1e7c45b29f803"
       },

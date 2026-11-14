@@ -167,11 +167,7 @@ await synapse.storage.upload(encrypted, { metadata })
 
 The FEE envelope lives with the encrypted piece and identifies all that is needed to decrypt it. Group names, owner addresses, and salts are all stored in clear and visible to anyone. *Do not put secrets in these fields*.
 
-The envelope labels are `foc/v` (`2`), `foc/own`, `foc/gkid`, `foc/group` and `foc/salt`. Pieces written before format 2 carry `foc/v` `1` with `foc/ks` and `foc/scope` in place of `foc/gkid` and `foc/group`, and always will, since FEE authenticates the labels. Read either with [`readPieceMetadata()`](/reference/filoz/keysmith/functions/readpiecemetadata/) rather than reading the labels yourself.
-
-:::note[Finding existing data sets]
-New data sets record the group key id under `foc/gkid`; older ones record it under `foc/ks`. An app listing a user's data sets must match **either** key: [`groupKeyIdOf()`](/reference/filoz/keysmith/functions/groupkeyidof/) reads both. Synapse reuses a data set only on an exact metadata match, so to keep adding to an existing `foc/ks` data set, pass its metadata as it is.
-:::
+The envelope labels are `foc/v`, `foc/own`, `foc/ks`, `foc/scope` and `foc/salt`. `foc/ks` (key set) is the group key id: it names the set of keys derived from one group key, and the data set records it under the same key. This release writes envelope format 1 and reads formats 1 and 2, which differ only in the group label (`foc/group` instead of `foc/scope`) and in the grant node spellings (`'groupKey'` and `'group:<path>'` instead of `'keyspace'` and `'scope:<path>'`). A later release will write format 2 once the Go and Curio readers ship. FEE authenticates the labels, so existing pieces keep their format. Read either with [`readPieceMetadata()`](/reference/filoz/keysmith/functions/readpiecemetadata/) rather than reading the labels yourself, and compare grant nodes by meaning with [`nodeKind()`](/reference/filoz/keysmith/functions/nodekind/).
 
 ## Recover keys
 
@@ -198,22 +194,18 @@ declare const downloaded: Uint8Array
 declare const dataSetMetadata: Record<string, string> | undefined // Optional, if you still have it
 
 // ---cut---
-// The envelope names the group key id and its owner, in format 1 or 2.
+// The envelope names the group key id and its owner.
 const { appMetadata } = await fee.parse(downloaded)
-const envelope = Keysmith.readPieceMetadata(appMetadata)
-if (envelope.owner?.toLowerCase() !== account.address.toLowerCase()) {
+const envelope = appMetadata as Keysmith.PieceMetadata
+if (envelope['foc/own'] !== account.address.toLowerCase()) {
   throw new Error('This piece belongs to another owner')
 }
-const ref = { owner: account.address, groupKeyId: envelope.groupKeyId }
+const ref = { owner: account.address, groupKeyId: envelope['foc/ks'] }
 
-// Use the data set's commitment only if it records the same group key id (under either key).
+// Use the data set's commitment only if it records the same group key id.
 // Without it, recovery still works: the wallet just needs to sign twice.
-// Conflicting keys make groupKeyIdOf throw; treat that as no usable commitment.
-let dataSetGroupKeyId: string | undefined
-try {
-  dataSetGroupKeyId = dataSetMetadata && Keysmith.groupKeyIdOf(dataSetMetadata)
-} catch {}
-const commitment = dataSetMetadata && dataSetGroupKeyId === ref.groupKeyId
+const recorded = dataSetMetadata?.[Keysmith.GROUP_KEY_ID_KEY] // foc/ks, the key set
+const commitment = dataSetMetadata && recorded != null && Keysmith.groupKeyId(recorded) === ref.groupKeyId
   ? dataSetMetadata[Keysmith.COMMITMENT_KEY]
   : undefined
 const { kk: groupKey } = await Keysmith.deriveGroupKey(account, ref, { commitment })

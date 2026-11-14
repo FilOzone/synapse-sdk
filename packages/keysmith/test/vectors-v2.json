@@ -1,5 +1,5 @@
 {
-  "description": "Pinned Keysmith format 2 outputs. These vectors were produced by this implementation (FIP-1253 draft); they are not independent of it. They pin format 2 labels and the current grant node spellings. vectors.json and claims-vectors.json are the legacy-read suite: the same keys under the old names. Same owner, group key id, group, salt and keys as vectors.json: only the label names and grant node spellings differ. The private keys are the well-known Anvil/Hardhat development keys: public, never for anything of value.",
+  "description": "Pinned Keysmith format 2 outputs. These vectors were produced by this implementation (FIP-1253 draft); they are not independent of it. They pin format 2 labels and the format 2 grant node spellings. vectors.json and claims-vectors.json are the legacy-read suite: the same keys under the old names. Same owner, group key id, group, salt and keys as vectors.json: only the label names and grant node spellings differ. The private keys are the well-known Anvil/Hardhat development keys: public, never for anything of value.",
   "owner": {
     "privateKey": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
     "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
@@ -13,7 +13,7 @@
     "metadata": {
       "foc/v": 2,
       "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-      "foc/gkid": "0x00112233445566778899aabbccddeeff",
+      "foc/ks": "0x00112233445566778899aabbccddeeff",
       "foc/group": "admin/finance/clerks",
       "foc/salt": "0x000102030405060708090a0b0c0d0e0f"
     },

@@ -2,16 +2,8 @@ import assert from 'assert'
 import { encode } from 'cborg'
 import { bytesToHex, type Hex, hexToBytes } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import {
-  commitment,
-  deriveGroupKey,
-  holdingOf,
-  keyForEnvelope,
-  keyForGroup,
-  pieceMetadata,
-  readPieceMetadata,
-} from '../src/derive.ts'
-import type { PieceMetadataV1 } from '../src/types.ts'
+import { commitment, deriveGroupKey, holdingOf, keyForEnvelope, keyForGroup, pieceMetadata } from '../src/derive.ts'
+import type { PieceMetadata } from '../src/types.ts'
 import { decodeGrant, publicKeyOf, unwrapWith } from '../src/wrap.ts'
 import vectors from './vectors.json' with { type: 'json' }
 
@@ -19,8 +11,6 @@ import vectors from './vectors.json' with { type: 'json' }
 // passes them all. These pin actual outputs for fixed inputs: if one fails, a
 // release would orphan every key derived before it. Other implementations can
 // check themselves against the same file.
-// This file is the legacy-read suite: its labels and grant nodes are the format 1 spellings
-// (`foc/ks`, `foc/scope`, `scope:`), which readers accept forever. Format 2 is in vectors-v2.json.
 describe('test vectors', () => {
   const owner = privateKeyToAccount(vectors.owner.privateKey as Hex)
   const ref = { owner: owner.address, groupKeyId: vectors.keyspace as Hex }
@@ -40,13 +30,11 @@ describe('test vectors', () => {
   it('pins the group key, the envelope and the piece key', () => {
     const kkBytes = hexToBytes(vectors.keyspaceKey.kk as Hex)
     assert.equal(bytesToHex(keyForGroup(kkBytes, vectors.scope.path)), vectors.scope.key)
-    const metadata = vectors.piece.metadata as PieceMetadataV1
-    // pieceMetadata() now writes format 2: the same piece, under the new label names
-    const { version: _, ...v1 } = readPieceMetadata(metadata)
-    const { version: __, ...v2 } = readPieceMetadata(
-      pieceMetadata(ref, { salt: metadata['foc/salt'], group: metadata['foc/scope'] as string })
+    const metadata = vectors.piece.metadata as PieceMetadata
+    assert.deepStrictEqual(
+      pieceMetadata(ref, { salt: metadata['foc/salt'], group: metadata['foc/scope'] as string }),
+      metadata
     )
-    assert.deepStrictEqual(v2, v1)
     assert.equal(bytesToHex(keyForEnvelope(kkBytes, metadata)), vectors.piece.key)
   })
 
@@ -67,7 +55,7 @@ describe('test vectors', () => {
   it('opens the pinned piece grant, for that piece only', async () => {
     const grant = decodeGrant(hexToBytes(vectors.pieceGrant.cbor as Hex))
     const node = await unwrapWith(vectors.recipient.privateKey as Hex, grant)
-    const metadata = vectors.piece.metadata as PieceMetadataV1
+    const metadata = vectors.piece.metadata as PieceMetadata
     assert.equal(bytesToHex(keyForEnvelope(node, metadata, holdingOf(grant))), vectors.piece.key)
   })
 })

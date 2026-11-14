@@ -23,17 +23,18 @@ import {
   canonicalNode,
   commitment,
   DOMAIN,
+  gatedOwner,
   grantDescriptor,
   groupKeyId,
+  groupLabelOf,
   groupPath,
   holdingOf,
   keyForEnvelope,
-  newNode,
   nodeKind,
-  readPieceMetadata,
   writeTarget,
+  writtenNode,
 } from './derive.ts'
-import type { Grant, GroupKeyRef, PieceMetadataView } from './types.ts'
+import type { Grant, GrantNode, GroupKeyRef } from './types.ts'
 import { decodeGrant, encodeGrant, unwrapWith } from './wrap.ts'
 
 const STRICT = {
@@ -82,7 +83,7 @@ export const READ_REQUEST_TYPES = {
 
 /** One link: what its bearer may read, and how much further they may delegate. */
 export interface Claim {
-  node: string // Grant node, spelled as signed: 'groupKey', 'group:<path>' or 'piece:<salt>', or legacy 'keyspace' or 'scope:<path>'
+  node: string // Grant node, spelled as signed: 'keyspace', 'scope:<path>' or 'piece:<salt>' as written now; 'groupKey' and 'group:<path>' are read too
   bearer: Address // Who may present this link, and sign the next one
   maxDepth: number // Links the bearer may add below this one
   keyCommitment: Hex // First 16 bytes of the node key's commitment: what the bearer checks after unwrapping
@@ -93,7 +94,7 @@ export interface Claim {
 /** A chain, root first, with the fields every link inherits from the root. */
 export interface ClaimChain {
   owner: Address // The group key owner, whose wallet signs the root
-  groupKeyId: Hex // Spelled as in `foc/gkid`
+  groupKeyId: Hex // Spelled as in `foc/ks` (key set)
   chainId: bigint // The network the claims are for, so a header cannot be replayed on another
   groupKeyCommitment: Hex // `foc/kc` without its `v1.` prefix, so a bearer can record it on new datasets
   expires: number // Unix seconds. The whole chain stops working then
@@ -108,34 +109,37 @@ export interface ReadRequest {
 }
 
 /**
- * The labels a provider read from a piece's FEE envelope, in format 2 or the legacy format 1.
- * `foc/v` may be left out: it is then taken from which labels are present.
- * Hand-written, not derived from `AnyPieceMetadata`: fields are plain strings (not `Address`/`Hex`) and `foc/own` is optional.
+ * The labels a provider read from a piece's FEE envelope: format 1 (`foc/scope`) or format 2 (`foc/group`).
+ * The format is taken from which labels are present, never from `foc/v`, which is ignored (a provider
+ * may pass it as a string). `foc/ks` (key set) is the group key id in both.
+ * Hand-written: fields are plain strings (not `Address`/`Hex`) and `foc/own` is optional.
  */
 export type PieceLabels =
   | {
-      'foc/v'?: 2
+      'foc/v'?: unknown
       'foc/own'?: string // The group key owner; a piece without it is not gated
-      'foc/gkid': string // The group key id
-      'foc/group'?: string // The group path, if any
+      'foc/ks': string // Key set: the group key id
+      'foc/scope'?: string // The group path, if any
       'foc/salt': string // Names the piece for a piece link
     }
   | {
-      'foc/v'?: 1
+      'foc/v'?: unknown
       'foc/own'?: string
       'foc/ks': string
-      'foc/scope'?: string
+      'foc/group'?: string
       'foc/salt': string
     }
 
-/** Labels as envelope metadata: `foc/v`, if left out, is whichever format the labels present belong to. */
-const asMetadata = (piece: PieceLabels) => ({
-  ...piece,
-  'foc/v': piece['foc/v'] ?? ('foc/gkid' in piece || 'foc/group' in piece ? 2 : 1), // An explicit `foc/v` wins
-})
+const rawLabels = (piece: PieceLabels) => piece as Readonly<Record<string, unknown>>
 
-/** Labels as the one canonical view. */
-const labelsOf = (piece: PieceLabels): PieceMetadataView => readPieceMetadata(asMetadata(piece))
+/** Format 2 if `foc/group` is present, else format 1. Label names only: `foc/v` is never read. */
+const formatOf = (piece: PieceLabels): 1 | 2 => (rawLabels(piece)['foc/group'] === undefined ? 1 : 2)
+
+/** Labels as envelope metadata, with `foc/v` set from the label names. */
+const asMetadata = (piece: PieceLabels) => ({ ...piece, 'foc/v': formatOf(piece) })
+
+/** The canonical group path the labels name, if any. Reads only the group labels. */
+const groupOf = (piece: PieceLabels) => groupLabelOf(rawLabels(piece), formatOf(piece))
 
 /** Anything that signs EIP-712 typed data: a viem account or wallet client. */
 export interface ClaimSigner {
@@ -233,14 +237,13 @@ function keyBelow(
   const target = nodeKind(node)
   if (target.kind === 'piece') {
     if (!piece) throw new Error(`${node} names a piece: deriving its key needs the piece's labels`)
-    const labels = labelsOf(piece)
-    if (labels.salt !== target.salt || labels.groupKeyId !== ref.groupKeyId) {
+    if (pieceNodeOf(piece) !== `piece:${target.salt}` || groupKeyId(piece['foc/ks']) !== ref.groupKeyId) {
       throw new Error(`The piece labels given are not for ${node} in group key ${ref.groupKeyId}`)
     }
     return keyForEnvelope(heldKey, asMetadata(piece), holdingOf({ node: heldNode }))
   }
   const group = target.kind === 'group' ? target.path : undefined
-  return writeTarget(grantDescriptor(ref, heldNode as never), heldKey, group).key.slice()
+  return writeTarget(grantDescriptor(ref, heldNode as GrantNode), heldKey, group).key.slice()
 }
 
 /**
@@ -258,7 +261,7 @@ export async function rootClaim(
     groupKeyId: Hex
     chainId: bigint
     kk: Uint8Array // The group key, from deriveGroupKey()
-    node: string // Either spelling; the claim is written in the current one
+    node: string // Either spelling; the claim is written in the one this release writes (format 1)
     bearer: Address
     maxDepth: number
     expires: number // Unix seconds. Required: providers check no revocation, so this is what ends the claim
@@ -269,8 +272,8 @@ export async function rootClaim(
 ): Promise<{ chain: ClaimChain; nodeKey: Uint8Array }> {
   if (!isAddress(input.owner) || !isAddress(input.bearer)) throw new Error('owner and bearer must be addresses')
   const ref = { owner: getAddress(input.owner), groupKeyId: groupKeyId(input.groupKeyId) }
-  const node = newNode(input.node) // A new claim: the current spelling, whatever the caller wrote
-  const nodeKey = keyBelow(input.kk, 'groupKey', node, ref, input.piece)
+  const node = writtenNode(input.node) // A new claim: the spelling this release writes, whatever the caller wrote
+  const nodeKey = keyBelow(input.kk, 'keyspace', node, ref, input.piece)
   const link = {
     node,
     bearer: getAddress(input.bearer),
@@ -304,7 +307,7 @@ export async function delegateClaim(
   chain: ClaimChain,
   input: {
     parentKey: Uint8Array // The key for the final link's node, as openDelivery() returned it
-    node: string // Either spelling; the new link is written in the current one. Earlier links keep theirs
+    node: string // Either spelling; the new link is written in the format 1 spelling. Earlier links keep theirs
     bearer: Address
     maxDepth: number
     pieceCid?: Uint8Array
@@ -319,7 +322,7 @@ export async function delegateClaim(
   if (keyCommitmentOf(input.parentKey) !== parent.keyCommitment) {
     throw new Error(`parentKey is not the key link ${chain.links.length - 1} commits to`)
   }
-  const node = newNode(input.node)
+  const node = writtenNode(input.node)
   const step = { node, bearer: getAddress(input.bearer), maxDepth: depth(input.maxDepth) }
   checkStep(parent, step, input.piece, chain.links.length)
   const nodeKey = keyBelow(input.parentKey, parent.node, node, chain, input.piece)
@@ -369,13 +372,19 @@ export async function signRequest(
 
 const within = (parent: string, child: string) => child === parent || child.startsWith(`${parent}/`)
 
-/** Whether `node` reaches the piece these labels describe. */
+/**
+ * The piece node naming these labels' piece, in canonical form: labels are compared canonically, never as raw text.
+ * Reads only `foc/salt`.
+ */
+const pieceNodeOf = (piece: PieceLabels) => canonicalNode(`piece:${piece['foc/salt']}`)
+
+/** Whether `node` reaches the piece these labels describe. Reads only the label the node's kind needs. */
 export function reaches(node: string, piece: PieceLabels): boolean {
   const held = nodeKind(node)
   if (held.kind === 'groupKey') return true
-  const labels = labelsOf(piece)
-  if (held.kind === 'piece') return held.salt === labels.salt
-  return labels.group != null && within(held.path, labels.group)
+  if (held.kind === 'piece') return `piece:${held.salt}` === pieceNodeOf(piece)
+  const group = groupOf(piece)
+  return group != null && within(held.path, group)
 }
 
 /** What a grant is picked for: reading one piece, or writing (or reading) under a group of a group key. */
@@ -397,18 +406,12 @@ export function pickGrant<T extends { claim: VerifiedClaim }>(
   if ('scope' in target) throw new Error('pickGrant takes `group`, not `scope`')
   const now = options.now ?? Math.floor(Date.now() / 1000)
   // Validate the target once, so bad input fails the same way whatever grants are held
-  const {
-    owner: rawOwner,
-    groupKeyId: id,
-    group,
-  } = 'piece' in target
-    ? labelsOf(target.piece)
-    : {
-        owner: target.owner,
-        groupKeyId: groupKeyId(target.groupKeyId),
-        group: target.group == null ? undefined : groupPath(target.group),
-      }
-  const owner = rawOwner ? getAddress(rawOwner) : undefined
+  const own = gatedOwner('piece' in target ? target.piece['foc/own'] : target.owner)
+  const owner = own === undefined ? undefined : getAddress(own)
+  const id = groupKeyId('piece' in target ? target.piece['foc/ks'] : target.groupKeyId)
+  let group: string | undefined
+  if ('piece' in target) group = groupOf(target.piece)
+  else if (target.group != null) group = groupPath(target.group)
   const covers =
     'piece' in target
       ? (node: string) => reaches(node, target.piece)
@@ -432,10 +435,12 @@ export function pickGrant<T extends { claim: VerifiedClaim }>(
   return best
 }
 
-// the group key 0, 'group:a/b' 2, any piece above every group
+// the group key 0, 'scope:a/b' 2, any piece above every group
 const narrowness = ({ node }: { node: string }) => {
   const k = nodeKind(node)
-  return k.kind === 'groupKey' ? 0 : k.kind === 'piece' ? Number.POSITIVE_INFINITY : k.path.split('/').length
+  if (k.kind === 'groupKey') return 0
+  if (k.kind === 'piece') return Number.POSITIVE_INFINITY
+  return k.path.split('/').length
 }
 
 /**
@@ -477,7 +482,7 @@ function checkStep(
   if (from.kind === 'groupKey') narrower = true
   else if (to.kind === 'piece') {
     if (!piece) throw new Error(`Link ${index} names a piece: checking it needs the piece's labels`)
-    narrower = to.salt === labelsOf(piece).salt && reaches(parent.node, piece)
+    narrower = `piece:${to.salt}` === pieceNodeOf(piece) && reaches(parent.node, piece)
   } else narrower = from.kind === 'group' && to.kind === 'group' && within(from.path, to.path)
   if (!narrower) throw new Error(`Link ${index} widens ${parent.node} to ${child.node}`)
 }
@@ -577,16 +582,16 @@ export async function verifyPresentation(
     signature: request.signature,
   })
   if (signer !== claim.bearer) throw new Error('The request is not signed by the final bearer')
-  if (options.piece['foc/own'] === undefined) return claim // Not gated; other labels are not read
-  const labels = labelsOf(options.piece) // Throws on an invalid `foc/own`
-  const owner = labels.owner
-  if (owner && (owner.toLowerCase() !== claim.owner.toLowerCase() || labels.groupKeyId !== claim.groupKeyId)) {
+  const { piece } = options
+  const owner = gatedOwner(piece['foc/own']) // Throws on a truthy `foc/own` that is not an address
+  if (owner === undefined) return claim // Not gated; other labels are not read
+  if (owner.toLowerCase() !== claim.owner.toLowerCase() || groupKeyId(piece['foc/ks']) !== claim.groupKeyId) {
     throw new Error('The piece belongs to another owner or group key')
   }
-  if (owner && !reaches(claim.node, options.piece)) {
+  if (!reaches(claim.node, piece)) {
     // Pinned verbatim by claims-vectors.json (cross-implementation): a format 1 piece keeps saying `scope`, its label's name.
-    const word = labels.version === 1 ? 'scope' : 'group'
-    throw new Error(`${claim.node} does not reach this piece (${word} ${labels.group ?? '(none)'})`)
+    const [word, label] = formatOf(piece) === 1 ? (['scope', 'foc/scope'] as const) : (['group', 'foc/group'] as const)
+    throw new Error(`${claim.node} does not reach this piece (${word} ${rawLabels(piece)[label] ?? '(none)'})`)
   }
   return claim
 }
@@ -625,7 +630,7 @@ function assertGrantNamesClaim(grant: Grant, claim: { owner: Address; groupKeyId
   if (
     getAddress(grant.owner) !== claim.owner ||
     grant.groupKeyId.toLowerCase() !== claim.groupKeyId ||
-    newNode(grant.node) !== newNode(claim.node) // Same node, whichever spelling each was signed in
+    writtenNode(grant.node) !== writtenNode(claim.node) // Same node, whichever spelling each was signed in
   ) {
     throw new Error("The delivery's key is for another node than its claim")
   }

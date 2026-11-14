@@ -17,7 +17,7 @@ import { decodeGrant, encodeGrant, publicKeyOf, unwrapWith, wrapTo } from '../sr
 
 const account = privateKeyToAccount(generatePrivateKey())
 const ref: GroupKeyRef = { owner: account.address, groupKeyId: '0x00112233445566778899aabbccddeeff' }
-const descriptor = grantDescriptor(ref, 'groupKey')
+const descriptor = grantDescriptor(ref, 'keyspace')
 const kkOf = async () => (await deriveGroupKey(account, ref)).kk
 
 describe('publicKeyOf', () => {
@@ -64,14 +64,25 @@ describe('wrapTo / unwrapWith', () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()
     const rk = keyForGroup(kk, 'café')
-    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'group:caf\u00e9'))
+    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'scope:café'))
     const mangled = {
       ...grant,
-      node: 'group:cafe\u0301',
+      node: 'scope:café',
       owner: grant.owner.toUpperCase().replace('0X', '0x'),
       groupKeyId: grant.groupKeyId.toUpperCase().replace('0X', '0x'),
     }
     assert.deepStrictEqual(await unwrapWith(recipient, mangled as never), rk)
+  })
+
+  it('opens a grant whose node is spelled the format 2 way, and keeps that spelling', async () => {
+    const kk = await kkOf()
+    const recipient = generatePrivateKey()
+    const rk = keyForGroup(kk, 'café')
+    const v2 = { ...grantDescriptor(ref, 'scope:caf\u00e9'), node: 'group:cafe\u0301' }
+    const grant = await wrapTo(publicKeyOf(recipient), rk, v2 as never)
+    assert.equal(grant.node, 'group:caf\u00e9', 'canonical path, received spelling: it is bound into the wrap')
+    assert.deepStrictEqual(await unwrapWith(recipient, { ...grant, node: 'group:cafe\u0301' } as never), rk)
+    assert.deepStrictEqual(holdingOf(grant), { group: 'café' })
   })
 
   it('treats fields outside the descriptor as informational', async () => {
@@ -86,7 +97,7 @@ describe('wrapTo / unwrapWith', () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()
     const rk = keyForGroup(kk, 'agent-memory')
-    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'group:agent-memory'))
+    const grant = await wrapTo(publicKeyOf(recipient), rk, grantDescriptor(ref, 'scope:agent-memory'))
     assert.deepStrictEqual(await unwrapWith(recipient, grant), rk)
     assert.deepStrictEqual(holdingOf(grant), { group: 'agent-memory' })
   })
@@ -203,12 +214,7 @@ describe('wrapTo / unwrapWith', () => {
     }
     const grant = await wrapTo(publicKeyOf(recipient), keyForGroup(kk, 'caf\u00e9'), handBuilt as never)
     const { alg: _a, epk: _e, iv: _i, ct: _c, ...carried } = grant
-    // A received spelling is signed into the AAD, so wrapping keeps it and canonicalizes only the path
-    assert.deepStrictEqual(
-      carried,
-      { ...grantDescriptor(ref, 'group:caf\u00e9'), node: 'scope:caf\u00e9' },
-      'canonical, and nothing extra'
-    )
+    assert.deepStrictEqual(carried, grantDescriptor(ref, 'scope:caf\u00e9'), 'canonical, and nothing extra')
   })
 
   it('refuses something that is not a private key where one is needed', async () => {

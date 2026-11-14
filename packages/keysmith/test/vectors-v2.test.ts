@@ -11,7 +11,7 @@ import {
   pieceMetadata,
   readPieceMetadata,
 } from '../src/derive.ts'
-import type { PieceMetadata } from '../src/types.ts'
+import type { PieceMetadataV2 } from '../src/types.ts'
 import { decodeGrant, publicKeyOf, unwrapWith } from '../src/wrap.ts'
 import legacy from './vectors.json' with { type: 'json' }
 import vectors from './vectors-v2.json' with { type: 'json' }
@@ -27,11 +27,18 @@ describe('format 2 test vectors', () => {
   it('pins the envelope, and its key is the one the format 1 envelope gave', async function () {
     this.timeout(30_000)
     const { kk } = await deriveGroupKey(owner, ref)
-    const metadata = vectors.piece.metadata as PieceMetadata
-    assert.deepStrictEqual(
-      pieceMetadata(ref, { salt: metadata['foc/salt'], group: metadata['foc/group'] as string }),
-      metadata
-    )
+    const metadata = vectors.piece.metadata as PieceMetadataV2
+    // This release writes format 1, so format 2 is read here, not written: the writer's output differs only in two names.
+    const {
+      'foc/v': _v,
+      'foc/scope': scope,
+      ...written
+    } = pieceMetadata(ref, {
+      salt: metadata['foc/salt'],
+      group: metadata['foc/group'] as string,
+    })
+    const { 'foc/v': _v2, 'foc/group': group, ...read } = metadata
+    assert.deepStrictEqual([written, scope], [read, group])
     assert.equal(bytesToHex(keyForEnvelope(kk, metadata)), vectors.piece.key)
     assert.equal(vectors.piece.key, legacy.piece.key)
     assert.equal(bytesToHex(keyForGroup(kk, vectors.group.path)), vectors.group.key)
@@ -50,7 +57,7 @@ describe('format 2 test vectors', () => {
   it('opens the pinned piece grant, for that piece only', async () => {
     const grant = decodeGrant(hexToBytes(vectors.pieceGrant.cbor as Hex))
     const node = await unwrapWith(vectors.recipient.privateKey as Hex, grant)
-    const metadata = vectors.piece.metadata as PieceMetadata
+    const metadata = vectors.piece.metadata as PieceMetadataV2
     assert.equal(bytesToHex(keyForEnvelope(node, metadata, holdingOf(grant))), vectors.piece.key)
     const { v, node: n, owner, groupKeyId } = grant
     assert.equal(bytesToHex(encode([v, n, hexToBytes(owner), hexToBytes(groupKeyId)])), vectors.pieceGrant.aad)
