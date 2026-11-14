@@ -74,6 +74,17 @@ describe('wrapTo / unwrapWith', () => {
     assert.deepStrictEqual(await unwrapWith(recipient, mangled as never), rk)
   })
 
+  it('opens a grant whose node is spelled the format 2 way, and keeps that spelling', async () => {
+    const kk = await kkOf()
+    const recipient = generatePrivateKey()
+    const rk = keyForGroup(kk, 'café')
+    const v2 = { ...grantDescriptor(ref, 'scope:caf\u00e9'), node: 'group:cafe\u0301' }
+    const grant = await wrapTo(publicKeyOf(recipient), rk, v2 as never)
+    assert.equal(grant.node, 'group:caf\u00e9', 'canonical path, received spelling: it is bound into the wrap')
+    assert.deepStrictEqual(await unwrapWith(recipient, { ...grant, node: 'group:cafe\u0301' } as never), rk)
+    assert.deepStrictEqual(holdingOf(grant), { group: 'café' })
+  })
+
   it('treats fields outside the descriptor as informational', async () => {
     const kk = await kkOf()
     const recipient = generatePrivateKey()

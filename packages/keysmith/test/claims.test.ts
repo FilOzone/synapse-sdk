@@ -5,22 +5,37 @@ import { bytesToHex, hexToBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
   authorizationHeader,
+  type Claim,
+  type ClaimChain,
   decodeDelivery,
   decodePresentation,
   delegateClaim,
   encodeDelivery,
   encodePresentation,
+  keyCommitmentOf,
   MAX_REQUEST_LIFETIME,
   openDelivery,
   type PieceLabels,
   pickGrant,
+  READ_GRANT_TYPES,
+  reaches,
   rootClaim,
   signRequest,
   type VerifiedClaim,
   verifyChain,
   verifyPresentation,
 } from '../src/claims.ts'
-import { commitment, deriveGroupKey, grantDescriptor, keyForEnvelope, keyForGroup, newSalt } from '../src/derive.ts'
+import {
+  commitment,
+  DOMAIN,
+  deriveGroupKey,
+  grantDescriptor,
+  keyForEnvelope,
+  keyForGroup,
+  newSalt,
+  nodeKind,
+  readPieceMetadata,
+} from '../src/derive.ts'
 import { encodeGrant, publicKeyOf, wrapTo } from '../src/wrap.ts'
 
 const owner = privateKeyToAccount(generatePrivateKey())
@@ -42,6 +57,12 @@ const labels = (group?: string, salt: Hex = newSalt()): PieceLabels => ({
   ...(group ? { 'foc/scope': group } : {}),
   'foc/salt': salt,
 })
+const labels2 = (group?: string, salt: Hex = newSalt()): PieceLabels => ({
+  'foc/own': owner.address.toLowerCase(),
+  'foc/ks': keyId,
+  ...(group ? { 'foc/group': group } : {}),
+  'foc/salt': salt,
+})
 const PIECE = hexToBytes('0x0155912024a8a2a4d3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3')
 
 /** The root for `a`, signed by the owner. */
@@ -49,6 +70,45 @@ async function root(node: string, maxDepth: number) {
   const { kk, commitment: kc } = await keys()
   const { chain, nodeKey } = await rootClaim(owner, { ...ref, chainId, kk, node, bearer: a.address, maxDepth, expires })
   return { chain, kk, kc, key: nodeKey }
+}
+
+/**
+ * A chain with exactly these node spellings (a group key, then groups), signed by hand: the writers
+ * only write format 1, so this is how a chain written in format 2 is built.
+ */
+async function handChain(nodes: string[], spareDepth = 0) {
+  const { kk } = await keys()
+  const signers = [owner, a, b]
+  const bearers = [a, b, stranger]
+  const groupKeyCommitment = keyCommitmentOf(kk)
+  const links: Claim[] = []
+  for (const [i, node] of nodes.entries()) {
+    const k = nodeKind(node)
+    const key = k.kind === 'group' ? keyForGroup(kk, k.path) : kk
+    const link = {
+      node,
+      bearer: (bearers[i] as typeof a).address,
+      maxDepth: nodes.length - 1 - i + spareDepth,
+      keyCommitment: keyCommitmentOf(key),
+    }
+    const signature = await (signers[i] as typeof a).signTypedData({
+      domain: DOMAIN,
+      types: READ_GRANT_TYPES,
+      primaryType: 'ReadGrant',
+      message: {
+        v: 1,
+        ...link,
+        owner: owner.address,
+        keyspace: keyId,
+        chainId,
+        keyspaceCommitment: groupKeyCommitment,
+        expires: BigInt(expires),
+      },
+    })
+    links.push({ ...link, signature })
+  }
+  const chain: ClaimChain = { owner: owner.address, groupKeyId: keyId, chainId, groupKeyCommitment, expires, links }
+  return { chain, kk }
 }
 
 describe('claims', () => {
@@ -387,5 +447,245 @@ describe('claims', () => {
     const delivery = encodeDelivery(chain, await wrapTo(publicKeyOf(aKey), nodeKey, grantDescriptor(ref, node)))
     assert.deepEqual(decodeDelivery(delivery).chain, chain)
     assert.deepEqual((await openDelivery(aKey, delivery, { now })).key, nodeKey)
+  })
+
+  it('writes the format 1 spelling for a caller-supplied node, whichever it is given in', async () => {
+    const team = await root('group:team', 1)
+    assert.equal((await verifyChain(team.chain, { now })).node, 'scope:team')
+    assert.deepEqual(team.key, keyForGroup(team.kk, 'team'))
+    const child = await delegateClaim(a, team.chain, {
+      node: 'group:team/alice',
+      parentKey: team.key,
+      bearer: b.address,
+      maxDepth: 0,
+      now,
+    })
+    assert.equal(child.chain.links.at(-1)?.node, 'scope:team/alice')
+    assert.equal((await root('groupKey', 0)).chain.links[0]?.node, 'keyspace')
+    assert.equal((await root('keyspace', 0)).chain.links[0]?.node, 'keyspace')
+  })
+
+  it('reads format 2 nodes in a chain: mixed spellings, and no widening across them', async () => {
+    const v2 = await handChain(['groupKey', 'group:team', 'group:team/alice'])
+    assert.equal((await verifyChain(v2.chain, { now })).node, 'group:team/alice')
+    const mixed = await handChain(['keyspace', 'group:team', 'scope:team/alice'])
+    assert.equal((await verifyChain(mixed.chain, { now })).node, 'scope:team/alice')
+    for (const [from, to] of [
+      ['scope:team/alice', 'group:team'],
+      ['group:team/alice', 'scope:team'],
+      ['group:team', 'keyspace'],
+      ['scope:team', 'groupKey'],
+    ] as const) {
+      const widened = await handChain([from, to])
+      await assert.rejects(
+        verifyChain(widened.chain, { now }),
+        new RegExp(`widens ${from.replace('/', '\\/')} to ${to}`)
+      )
+    }
+  })
+
+  it('delegates from a received format 2 link, writing its own link in format 1 and keeping the old one as signed', async () => {
+    const { chain, kk } = await handChain(['group:team'], 1)
+    const { chain: two } = await delegateClaim(a, chain, {
+      node: 'group:team/alice',
+      parentKey: keyForGroup(kk, 'team'),
+      bearer: b.address,
+      maxDepth: 0,
+    })
+    assert.deepEqual(
+      two.links.map((l) => l.node),
+      ['group:team', 'scope:team/alice']
+    )
+    assert.equal((await verifyChain(two, { now })).node, 'scope:team/alice')
+  })
+
+  it('opens a delivery whose claim or wrap spells the node the format 2 way, keeping the received spelling', async () => {
+    const { chain, kk } = await handChain(['group:team'])
+    const team = keyForGroup(kk, 'team')
+    const open = async (node: string) => {
+      const wrap = await wrapTo(publicKeyOf(aKey), team, { ...grantDescriptor(ref, 'scope:team'), node })
+      return openDelivery(aKey, encodeDelivery(chain, wrap), { now })
+    }
+    for (const node of ['group:team', 'scope:team']) {
+      const opened = await open(node)
+      assert.deepEqual(opened.key, team)
+      assert.equal(opened.grant.node, node, 'a received spelling is kept: it is bound into the wrap')
+      assert.equal(opened.claim.node, 'group:team')
+    }
+    await assert.rejects(open('group:other'), /another node/)
+  })
+
+  it('reads either spelling when deciding what a node reaches, with labels in either format', () => {
+    const v2 = labels2('team/alice')
+    for (const node of ['keyspace', 'groupKey', 'scope:team', 'group:team']) {
+      assert.ok(reaches(node, labels('team/alice')), node)
+      assert.ok(reaches(node, v2), node)
+    }
+    assert.ok(reaches('scope:team/alice', v2))
+    assert.ok(!reaches('scope:team/bob', v2))
+    assert.ok(!reaches('group:team/bob', labels('team/alice')))
+    assert.ok(!reaches('group:team/bob', v2))
+    assert.ok(reaches(`piece:${v2['foc/salt']}`, v2))
+  })
+
+  it('picks the narrowest grant across spellings, and takes labels in either format', () => {
+    const held = (node: string) => ({
+      claim: { owner: owner.address, groupKeyId: keyId, chainId, expires, node, bearer: a.address } as VerifiedClaim,
+    })
+    const team = held('group:team')
+    const alice = held('scope:team/alice')
+    const whole = held('keyspace')
+    for (const piece of [labels('team/alice/notes'), labels2('team/alice/notes')]) {
+      assert.equal(pickGrant([whole, team, alice], { piece }, { chainId, now }), alice)
+    }
+    assert.equal(pickGrant([whole, team, alice], { ...ref, group: 'team/x' }, { chainId, now }), team)
+    assert.equal(pickGrant([alice], { ...ref, group: 'team' }, { chainId, now }), undefined)
+    assert.equal(pickGrant([held('groupKey'), alice], { piece: labels2() }, { chainId, now })?.claim.node, 'groupKey')
+  })
+
+  it('verifies a presentation with format 2 labels, saying `group` where format 1 says `scope`', async () => {
+    const { chain } = await root('scope:team', 0)
+    const bytes = encodePresentation(chain, await signRequest(a, chain, { pieceCid: PIECE, expires: now + 100, now }))
+    const check = (piece: PieceLabels) => verifyPresentation(bytes, { pieceCid: PIECE, piece, chainId, now })
+    assert.equal((await check(labels2('team/x'))).node, 'scope:team')
+    await assert.rejects(check(labels2('other')), /scope:team does not reach this piece \(group other\)/)
+    await assert.rejects(check(labels('other')), /scope:team does not reach this piece \(scope other\)/)
+  })
+
+  it('takes the format from which labels are present, and never reads foc/v', async () => {
+    const { chain } = await root('scope:team', 0)
+    const bytes = encodePresentation(chain, await signRequest(a, chain, { pieceCid: PIECE, expires: now + 100, now }))
+    const check = (piece: unknown) =>
+      verifyPresentation(bytes, { pieceCid: PIECE, piece: piece as PieceLabels, chainId, now })
+    // A provider may pass it as a string (from Go or JSON), or wrongly, or not at all
+    for (const v of ['1', '2', 1, 2, 7, null, undefined]) {
+      assert.equal((await check({ ...labels('team/x'), 'foc/v': v })).node, 'scope:team', `v1 labels, foc/v ${v}`)
+      assert.equal((await check({ ...labels2('team/x'), 'foc/v': v })).node, 'scope:team', `v2 labels, foc/v ${v}`)
+    }
+    const parsed = { ...labels('team/x'), 'foc/v': '1' } // As a provider hands it over: foc/v is not in the type, and ignored
+    assert.ok(reaches('scope:team', parsed))
+    // Both group labels: refused, whatever foc/v says
+    for (const v of [1, 2, undefined]) {
+      await assert.rejects(
+        check({ ...labels('team/x'), 'foc/group': 'team/x', 'foc/v': v }),
+        /A format 2 envelope must not carry foc\/scope/
+      )
+    }
+    assert.throws(
+      () => reaches('scope:team', { ...labels('team/x'), 'foc/group': 'team/x' } as PieceLabels),
+      /A format 2 envelope must not carry foc\/scope/
+    )
+  })
+
+  it('refuses a present foc/own that is not an address, and treats a falsy one as not gated', async () => {
+    const { chain } = await root('scope:team', 0)
+    const bytes = encodePresentation(chain, await signRequest(a, chain, { pieceCid: PIECE, expires: now + 100, now }))
+    const piece = labels('secret')
+    const held = [
+      {
+        claim: {
+          node: 'scope:team',
+          owner: owner.address,
+          groupKeyId: keyId,
+          chainId,
+          expires,
+          bearer: a.address,
+        } as VerifiedClaim,
+      },
+    ]
+    for (const bad of [1, true, ['x'], {}, 'nope']) {
+      const bent = { ...piece, 'foc/own': bad } as never
+      await assert.rejects(
+        verifyPresentation(bytes, { pieceCid: PIECE, piece: bent, chainId, now }),
+        /foc\/own must be an address/
+      )
+      assert.throws(() => pickGrant(held, { piece: bent }, { chainId, now }), /foc\/own must be an address/)
+      assert.throws(() => readPieceMetadata({ ...piece, 'foc/v': 1, 'foc/own': bad }), /foc\/own must be an address/)
+      const v2 = { ...labels2('secret'), 'foc/v': 2, 'foc/own': bad }
+      assert.throws(() => readPieceMetadata(v2), /foc\/own must be an address/)
+    }
+    for (const falsy of [undefined, null, '']) {
+      const ungated = { ...piece, 'foc/own': falsy } as never
+      assert.equal(
+        (await verifyPresentation(bytes, { pieceCid: PIECE, piece: ungated, chainId, now })).node,
+        'scope:team'
+      )
+      assert.equal(readPieceMetadata({ ...piece, 'foc/v': 1, 'foc/own': falsy }).owner, undefined)
+    }
+    assert.equal(
+      (await verifyPresentation(bytes, { pieceCid: PIECE, piece: {} as never, chainId, now })).node,
+      'scope:team'
+    )
+    const rest = { 'foc/ks': keyId, 'foc/salt': 'x' } as never
+    assert.equal((await verifyPresentation(bytes, { pieceCid: PIECE, piece: rest, chainId, now })).node, 'scope:team')
+  })
+
+  // Outcomes of the code at 400e56ec (0.1.0) for stored or legacy labels, which this release must keep.
+  it('treats bad format 1 labels as 0.1.0 did: only the label a decision needs is read', async () => {
+    const { chain: whole } = await root('keyspace', 0)
+    const { chain: team } = await root('scope:team', 0)
+    const present = async (chain: typeof whole) =>
+      encodePresentation(chain, await signRequest(a, chain, { pieceCid: PIECE, expires: now + 100, now }))
+    const [wholeBytes, teamBytes] = [await present(whole), await present(team)]
+    const grant = (node: string) => [
+      {
+        claim: { owner: owner.address, groupKeyId: keyId, chainId, expires, node, bearer: a.address } as VerifiedClaim,
+      },
+    ]
+    const salt = newSalt()
+    const base = {
+      'foc/own': owner.address.toLowerCase(),
+      'foc/ks': keyId,
+      'foc/scope': 'team/alice',
+      'foc/salt': salt,
+    }
+    const outcome = async (f: () => unknown) => {
+      try {
+        return String(await f())
+      } catch {
+        return 'throw'
+      }
+    }
+    // [labels, reaches: group key, group, piece; presented to a group key root, a group root; picked for: group, piece]
+    const T = 'throw'
+    const rows: [string, Record<string, unknown>, string[]][] = [
+      ['good', {}, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
+      ['no foc/ks', { 'foc/ks': undefined }, ['true', 'true', 'true', T, T, T, T]],
+      ['bad foc/ks', { 'foc/ks': '0xzz' }, ['true', 'true', 'true', T, T, T, T]],
+      ['bad salt', { 'foc/salt': 'zz' }, ['true', 'true', T, 'served', 'served', 'found', T]],
+      ['no salt', { 'foc/salt': undefined }, ['true', 'true', T, 'served', 'served', 'found', T]],
+      ['bad scope', { 'foc/scope': ' x' }, ['true', T, 'true', 'served', T, T, T]],
+      ['scope not a string', { 'foc/scope': 1 }, ['true', T, 'true', 'served', T, T, T]],
+      ['no owner', { 'foc/own': undefined }, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
+      ['empty owner', { 'foc/own': '' }, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
+      ['null owner', { 'foc/own': null }, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
+      ['owner not an address', { 'foc/own': 'nope' }, ['true', 'true', 'true', T, T, T, T]],
+      ['owner a number', { 'foc/own': 1 }, ['true', 'true', 'true', T, T, T, T]],
+      ['foc/v a string', { 'foc/v': '1' }, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
+    ]
+    for (const [name, change, want] of rows) {
+      const piece = { ...base, ...change } as PieceLabels
+      const present1 = (bytes: Uint8Array) => async () =>
+        (await verifyPresentation(bytes, { pieceCid: PIECE, piece, chainId, now })) && 'served'
+      const pick = (node: string) => async () =>
+        pickGrant(grant(node), { piece }, { chainId, now }) ? 'found' : 'undefined'
+      const got = [
+        await outcome(() => reaches('keyspace', piece)),
+        await outcome(() => reaches('scope:team', piece)),
+        await outcome(() => reaches(`piece:${salt}`, piece)),
+        await outcome(present1(wholeBytes)),
+        await outcome(present1(teamBytes)),
+        await outcome(pick('scope:team')),
+        await outcome(pick(`piece:${salt}`)),
+      ]
+      assert.deepStrictEqual(got, want, name)
+    }
+  })
+
+  it('keeps format 1 wording for malformed format 1 labels', () => {
+    const base = { 'foc/v': 1, 'foc/own': owner.address, 'foc/ks': keyId, 'foc/salt': newSalt() }
+    assert.throws(() => readPieceMetadata({ ...base, 'foc/scope': ' x' }), /A scope name/)
+    assert.throws(() => readPieceMetadata({ ...base, 'foc/scope': 1 }), /A scope path must be a string/)
+    assert.throws(() => readPieceMetadata({ ...base, 'foc/v': 2, 'foc/group': ' x' }), /A group name/)
   })
 })

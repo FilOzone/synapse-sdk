@@ -50,9 +50,11 @@ export {
   matchesCommitment,
   newGroupKeyId,
   newSalt,
+  nodeKind,
   pieceKey,
   pieceMetadata,
   pieceNode,
+  readPieceMetadata,
   writeTarget,
 } from './derive.ts'
 export type {
@@ -65,6 +67,9 @@ export type {
   GroupKeyRef,
   Holding,
   PieceMetadata,
+  PieceMetadataV1,
+  PieceMetadataV2,
+  PieceMetadataView,
   TypedDataSigner,
   WriteTarget,
 } from './types.ts'

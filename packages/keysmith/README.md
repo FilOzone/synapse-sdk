@@ -65,26 +65,28 @@ of data with others on a safe, ad-hoc basis.
 
 **There is no subdivision below the Piece level**.
 
-ℹ️ NOTE: A group key was previously called a *keyspace*, and a group a *scope*. The
-wire formats keep the original spelling so existing keys and encrypted data keep
-working: the `KeyspaceKey` and `ReadGrant` EIP-712 types and their `keyspace` fields,
-the `foc/ks` and `foc/scope` metadata keys, the HKDF info strings, and the
-`'keyspace'` and `'scope:<path>'` grant nodes.
+ℹ️ NOTE: A group key was previously called a *keyspace*, and a group a *scope*. The wire formats keep
+the original spelling so existing keys and encrypted data keep working: the `KeyspaceKey` and
+`ReadGrant` EIP-712 types and their `keyspace` fields, the `foc/ks` metadata key, the HKDF info
+strings, and the `foc/scope` label and the `'keyspace'` and `'scope:<path>'` grant nodes that this
+release writes. Format 2 renames the group label and the nodes; this release reads both and writes
+format 1 (see [Format 1 and format 2](#format-1-and-format-2)).
 
 | Term | Meaning |
 | --- | --- |
 | **group key** (`KK`, `kk`) | The secret root key of one tree, derived from the owner's wallet signature |
 | **group key id** (`groupKeyId`) | The public 16 random bytes that name a group key: `foc/ks` in envelopes and dataset metadata. Not a key |
+| **key set** (`foc/ks`) | The label that carries the group key id: it names the set of keys derived from one group key |
 | **group** | A named subtree, such as `'agent-memory'` or `'top-secret/secret'` |
 | **a group's key** (`RK`) | The key for one group, from `keyForGroup` |
 | **piece key** | The key for one piece |
 
 | API name | Wire name |
 | --- | --- |
-| Holding `'groupKey'`; `grantDescriptor(ref, 'keyspace')` | grant node `'keyspace'` |
-| Holding `{ group }`; `grantDescriptor(ref, 'scope:<path>')` | grant node `'scope:<path>'`, piece label `foc/scope` |
+| Holding `'groupKey'`; `grantDescriptor(ref, 'keyspace')` | grant node `'keyspace'` (format 2: `'groupKey'`) |
+| Holding `{ group }`; `grantDescriptor(ref, 'scope:<path>')` | grant node `'scope:<path>'`, piece label `foc/scope` (format 2: `'group:<path>'`, `foc/group`) |
 | Holding `{ piece }` | grant node `'piece:<salt>'` |
-| `groupKeyId` | `foc/ks`; EIP-712 `keyspace` |
+| `groupKeyId` | `foc/ks` (key set); EIP-712 `keyspace` |
 | `groupKeyCommitment` | `foc/kc` (without `v1.`); EIP-712 `keyspaceCommitment` |
 | `GroupKeyMessage { owner, keyspace }` | EIP-712 `KeyspaceKey { owner, keyspace }` |
 
@@ -184,8 +186,49 @@ however, use public key recovery metadata in two places:
 
 | Where | Keys | Written | Needed to decrypt? |
 | --- | --- | --- | --- |
-| FEE envelope (`pieceMetadata`) | `foc/v`, `foc/own`, `foc/ks`, `foc/scope`, `foc/salt` | per piece | **yes** — this is what `keyForEnvelope` reads, and the source of truth |
+| FEE envelope (`pieceMetadata`) | `foc/v`, `foc/own`, `foc/ks` (key set), `foc/scope`, `foc/salt` | per piece | **yes** — this is what `keyForEnvelope` reads, and the source of truth |
 | FWSS dataset metadata | `foc/ks`, `foc/kc` | once, at `createDataSet` | no — lets a client list its group key ids from the chain, and check its key before decrypting |
+
+### Format 1 and format 2
+
+**This release writes format 1 and reads formats 1 and 2.** A later release switches the writers to
+format 2, once the Go port and Curio can read it. Readers accept both formats forever: envelope labels
+are authenticated by FEE (they go into the AEAD), and nodes are signed, so what is already stored or
+issued can never be edited.
+
+| Format 1 (written now) | Format 2 (read now, written later) |
+| --- | --- |
+| `foc/v`: `1` | `foc/v`: `2` |
+| `foc/own` | `foc/own` |
+| `foc/ks` (key set: the group key id) | `foc/ks` (unchanged) |
+| `foc/scope` (optional) | `foc/group` (optional) |
+| `foc/salt` | `foc/salt` |
+
+The data set key stays `foc/ks` (`GROUP_KEY_ID_KEY`) in both. Format 2 only renames `foc/scope` to
+`foc/group`. Each format is strict: a format 2 envelope must not carry `foc/scope`, a format 1
+envelope must not carry `foc/group`, and any other `foc/v` is refused with a clear error. That is
+the one deliberate tightening of 0.1.0, on both sides: the envelope side refuses `foc/group` in format 1
+(and `foc/scope` in format 2), and the claim side refuses labels that carry both `foc/scope` and
+`foc/group`. No Keysmith ever wrote either, and Keysmith owns the `foc/` prefix. `readPieceMetadata(metadata)` parses either into
+`{ version, owner?, groupKeyId, group?, salt }`; use it instead of reading the labels yourself.
+Types: `PieceMetadataV1`, `PieceMetadataV2`, and `PieceMetadata`, an alias of the format written today (V1).
+
+Grant nodes follow the same rename. They are signed (the `ReadGrant` `node` field) and bound into
+a wrapped grant's AAD, so a received node string is never rewritten to the other spelling:
+
+| Written now | Also read |
+| --- | --- |
+| `'keyspace'` | `'groupKey'` |
+| `'scope:<path>'` | `'group:<path>'` |
+| `'piece:<salt>'` | (unchanged) |
+
+Every comparison reads a node by what it means, not its spelling, so mixed chains are valid (a
+`'keyspace'` root delegating to `'group:x'`, or `'scope:a'` to `'group:a/b'`) and widening is refused
+across spellings (`'scope:a/b'` to `'group:a'`). Compare nodes the same way: `nodeKind(claim.node).kind === 'groupKey'`
+matches both `'keyspace'` and `'groupKey'`. Nodes that code writes anew (`rootClaim`, `delegateClaim`,
+`grantDescriptor`) use the format 1 spelling, whichever spelling the caller passes. `wrapTo` and
+`unwrapWith` keep the descriptor's spelling, since it is authenticated. Keys never depend on a label
+name or a node prefix.
 
 - **No key material lives on chain.** The group key id is public by design; the commitment is a one-way function of a key that is never published.
 - **Every piece names its owner.** A provider implementing gated retrieval can use `foc/own` to check that a grant chain is rooted at that owner. This field is for verification, not key derivation; setting it does not enable retrieval gating automatically.
@@ -263,7 +306,7 @@ or store, and `decodeGrant` reads them back. `unwrapWith` takes either.
 ```text
 grant = {                 ; a CBOR map
   0 => 1,                 ; v: version 1 implies ECDH-ES + A256GCM over secp256k1
-  1 => tstr,              ; node: "keyspace" / "scope:<path>" / "piece:<salt>"
+  1 => tstr,              ; node: "keyspace" / "scope:<path>" / "piece:<salt>" (format 2 spellings "groupKey" / "group:<path>" are read too)
   2 => bstr .size 20,     ; owner
   3 => bstr .size 16,     ; group key id
   4 => bstr .size 65,     ; epk, the ephemeral public key, uncompressed
@@ -383,7 +426,7 @@ The end of the claim chain is a **request** signed by the final bearer to prove
 they are the legitimate holder of the grant.
 
 Relying parties can check the claim chain against the piece's FEE metadata (`foc/own`, `foc/ks`,
-`foc/scope`, `foc/salt`) with **no on-chain lookups required**.
+`foc/scope`, `foc/salt`; or `foc/group` in format 2) with **no on-chain lookups required**.
 
 ### Example flows
 
@@ -545,7 +588,7 @@ request = {                                ; exactly these keys
    2 => signature,                         ; the final bearer's, over ReadRequest
 }
 
-node      = "keyspace" / tstr              ; or "scope:" + canonical group path, or "piece:0x" + 32 lowercase hex digits
+node      = "keyspace" / tstr              ; or "scope:" + canonical group path, or "piece:0x" + 32 lowercase hex digits; "groupKey" and "group:" + path are read too
 signature = bstr .size 65                  ; r ‖ s ‖ v, with s ≤ n/2 (low s) and v = 27 or 28
 ```
 
@@ -554,11 +597,16 @@ Decoders accept exactly one encoding of each value: the bytes must be core deter
 decoded. So map keys must be in order and text must be well-formed UTF-8, besides the usual
 minimal integers, definite lengths, no tags, no duplicate keys and no trailing bytes. Integers
 must fit in 53 bits. Unknown keys are refused everywhere. A node must be in canonical form
-(`canonicalNode(node) === node`). `rootClaim`, `delegateClaim` and `signRequest` normalize
+(`canonicalNode(node) === node`; this keeps the received spelling). `rootClaim`, `delegateClaim` and `signRequest` normalize
 whatever their signer returns to low s and v = 27 or 28.
 
 The piece labels are compared in canonical form, never as raw text: `foc/own` as an address,
-`foc/ks` and `foc/salt` as lowercase hex, `foc/scope` after `groupPath()`.
+`foc/ks` and `foc/salt` as lowercase hex, `foc/scope` (format 2: `foc/group`) after `groupPath()`.
+`foc/own` is read as 0.1.0 did: absent or falsy means the piece is not gated; a truthy value that is not a
+string address is refused. The claim-side functions (`verifyPresentation`, `reaches`, `pickGrant`,
+`openDelivery`) take the format from which labels are present (`foc/group` means format 2) and
+never read `foc/v`, so a provider may pass it as a string or leave it out. They read only the labels a
+decision needs, so a bad `foc/salt` or `foc/scope` is not an error unless the node asks for it.
 
 Every link's signature covers the fields it inherits from the root, so a link cannot be moved
 under a root that differs in any of them, and nobody below the owner can change the root's
@@ -659,12 +707,14 @@ a new dataset's metadata too.
 | `keyResolver(node, grant or holding?)` | The same, as a FEE key resolver: `fee.decrypt(keyResolver(node, grant))` |
 | `writeTarget(grant, key, group?)` | For a delegate: the ref, group and key to write a piece, refusing groups its grant does not cover, and piece grants |
 | `holdingOf(grant)` | Which node a grant carries — group key, group or piece — for `keyForEnvelope` |
-| `pieceMetadata(ref, { salt, group? })` | What the envelope must record |
-| `pieceNode(metadata)` | The grant node for one piece, `piece:<salt>`, from its envelope metadata |
+| `pieceMetadata(ref, { salt, group? })` | What the envelope must record: format 1, as `PieceMetadata` |
+| `readPieceMetadata(metadata)` | An envelope's labels, format 1 or 2, as `{ version, owner?, groupKeyId, group?, salt }`; refuses a mixed or unknown format |
+| `nodeKind(node)` | What a grant node means, in either spelling: `{ kind: 'groupKey' }`, `{ kind: 'group', path }` or `{ kind: 'piece', salt }` |
+| `pieceNode(metadata)` | The grant node for one piece, `piece:<salt>`, from its envelope metadata (either format) |
 | `commitment(kk)` | The non-secret check value, recomputable by any `KK` holder |
 | `matchesCommitment(kk, recorded)` | Whether a key matches a recorded commitment |
-| `GROUP_KEY_ID_KEY` / `COMMITMENT_KEY` | FWSS metadata keys for the group key id and commitment |
-| `grantDescriptor(ref, node)` | Name what a grant unlocks: `'keyspace'`, `'scope:<path>'` or `'piece:<salt>'` |
+| `GROUP_KEY_ID_KEY` / `COMMITMENT_KEY` | FWSS metadata keys for the group key id (`foc/ks`, key set) and commitment (`foc/kc`) |
+| `grantDescriptor(ref, node)` | Name what a grant unlocks: `'keyspace'`, `'scope:<path>'` or `'piece:<salt>'`; the format 2 spellings are accepted and written as these |
 | `wrapTo(publicKey, key, descriptor)` | Wrap a node key for a recipient |
 | `encodeGrant(grant)` / `decodeGrant(bytes)` | A grant to and from its CBOR bytes, for delivery or storage |
 | `unwrapWith(privateKey, grant)` | Open a grant, as bytes or decoded |
