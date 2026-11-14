@@ -67,9 +67,11 @@ export interface TypedDataSigner {
 
 /**
  * FEE envelope entries to enable key derivation/recovery, format 2. Readers accept it; this release
- * does not write it yet. It differs from format 1 only in `foc/group`, the old `foc/scope`.
+ * does not write it yet. Format 2 is `foc/v` 2 with `foc/group` in place of `foc/scope`.
+ *
+ * Both formats are types, not interfaces, so either can be passed as FEE's `appMetadata`
+ * (a string-keyed record) as it is.
  */
-// A type, not an interface, so it can be passed as FEE's `appMetadata` (a string-keyed record) as it is.
 export type PieceMetadataV2 = {
   'foc/v': 2 // The version of this metadata format
   'foc/own': Address // The group key owner, lowercased.
@@ -116,7 +118,7 @@ export type GrantNode = 'groupKey' | `group:${string}` | `piece:${string}` | 'ke
  */
 export interface GrantDescriptor {
   v: 1
-  node: string // 'keyspace', 'scope:<path>' or 'piece:<salt>' as written now; 'groupKey' and 'group:<path>' are read too.
+  node: string // A GrantNode, spelled exactly as wrapped; compare with nodeKind()
   owner: Address // The wallet that roots the group key, lowercased
   groupKeyId: Hex // Spelled as in `foc/ks` (key set)
 }
@@ -130,9 +132,9 @@ export interface Grant extends GrantDescriptor {
 }
 
 /**
- * Which node the caller holds when deriving a piece key: the group key, a group by its path, or one piece by its salt.
- * Wire names: `'groupKey'` is node `'keyspace'` (format 2: `'groupKey'`); `{ group }` is node `'scope:<path>'`
- * (format 2: `'group:<path>'`) and label `foc/scope` (format 2: `foc/group`); `{ piece }` is node `'piece:<salt>'`.
+ * Which node the caller holds when deriving a piece key: the whole group key, a group by its path, or one
+ * piece by its salt. These are API names, not wire strings: `holdingOf()` maps a grant's {@link GrantNode},
+ * in either spelling, to one of them.
  */
 export type Holding = 'groupKey' | { group: string } | { piece: Hex }
 

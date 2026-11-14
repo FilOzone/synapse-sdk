@@ -17,7 +17,7 @@
  * and `'group:<path>'`. This release writes format 1 and reads both, forever, since stored pieces
  * and signed claims carry their spelling permanently. A later release switches the writers to
  * format 2, once the Go and Curio readers ship. Keys never depend on a label name or a node
- * prefix. In the API, a "keyspace" is a group key (its id is the group key id) and a "scope" is a group.
+ * prefix. On the wire, "keyspace" means the group key (its id is the group key id) and "scope" means a group.
  *
  * @module
  */
@@ -315,7 +315,7 @@ const walk = (key: Uint8Array, names: string[]): Uint8Array =>
  */
 export const groupName = (name: string): string => checkName(name, 'group')
 
-// `noun` is "scope" when reading a legacy `scope:` node: claims-vectors.json pins that text.
+// `noun` is "scope" for format 1 (a `'scope:'` node or the `foc/scope` label): claims-vectors.json pins that text.
 function checkName(name: string, noun: 'group' | 'scope'): string {
   // Lone surrogates risk two different names deriving the same key, so refuse them.
   if (/\p{Cs}/u.test(name)) {
@@ -343,8 +343,8 @@ export const groupPath = (path: string): string => pathOf(path, 'group')
 export type NodeKind = { kind: 'groupKey' } | { kind: 'group'; path: string } | { kind: 'piece'; salt: Hex }
 
 /**
- * Parse a grant node, in either spelling: `'groupKey'` or legacy `'keyspace'`, `'group:<path>'` or legacy
- * `'scope:<path>'`, `'piece:<salt>'`. Every decision about a node goes through this, never a string compare.
+ * Parse a grant node, in either spelling: `'keyspace'` or `'groupKey'`, `'scope:<path>'` or
+ * `'group:<path>'`, `'piece:<salt>'`. Every decision about a node goes through this, never a string compare.
  *
  * @throws If the node is not one of those, or its path or salt is malformed.
  */
@@ -375,7 +375,7 @@ export function canonicalNode(node: string): string {
 /**
  * The spelling this release writes for a grant node, whichever spelling it is given: format 1,
  * `'keyspace'`, `'scope:<path>'`, `'piece:<salt>'`. For nodes this code writes anew; the release
- * that switches writers to format 2 changes only this and {@link pieceMetadata}.
+ * that switches writers to format 2 changes only this, {@link pieceMetadata} and the `PieceMetadata` alias.
  */
 export function writtenNode(node: string): GrantNode {
   const k = nodeKind(node)
@@ -398,7 +398,7 @@ export const pieceNode = (metadata: Pick<PieceMetadata, 'foc/salt'>): GrantNode 
 /**
  * The wallet a piece is gated to, as the labels spell it. Absent or falsy means not gated.
  *
- * @throws If `foc/own` is truthy but not an address, or a gate would be skipped.
+ * @throws If `foc/own` is truthy but not an address: refused rather than read as not gated.
  */
 export function gatedOwner(own: unknown): Address | undefined {
   if (!own) return undefined
@@ -510,10 +510,8 @@ export function pieceMetadata(ref: GroupKeyRef, options: { salt: Hex; group?: st
 /**
  * The descriptor naming what a grant unlocks, ready for `wrapTo()`.
  *
- * `node` is a wire string: `'keyspace'` for the group key, `'scope:<path>'` for a group,
- * `'piece:<salt>'` for one piece. `owner` and `groupKeyId` are signed as `owner` and `keyspace`.
- * Either spelling is accepted (`'groupKey'`, `'group:<path>'`) and written in the one this release
- * writes, format 1, since this builds a new grant; to re-wrap a received one, keep its descriptor as it came.
+ * `node` may be any {@link GrantNode} spelling. This builds a new grant, so the descriptor carries the
+ * spelling this release writes ({@link writtenNode}). To re-wrap a received grant, keep its descriptor as it came.
  *
  * Build descriptors with `grantDescriptor()` rather than filling the
  * structure by hand: the descriptor is authenticated as the grant's AAD and
@@ -544,7 +542,7 @@ export function grantDescriptor(ref: GroupKeyRef, node: GrantNode): GrantDescrip
  * piece's owner and group key are checked against the grant too, so a key from the
  * wrong group key fails here with a clear reason rather than later inside FEE.
  *
- * @throws If the piece is not in this format, belongs to another owner or group key
+ * @throws If the piece is not format 1 or 2, belongs to another owner or group key
  * than the grant, the held group does not contain the piece's group, or the held
  * piece is a different piece.
  */

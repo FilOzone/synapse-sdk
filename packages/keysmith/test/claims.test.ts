@@ -562,7 +562,8 @@ describe('claims', () => {
       assert.equal((await check({ ...labels('team/x'), 'foc/v': v })).node, 'scope:team', `v1 labels, foc/v ${v}`)
       assert.equal((await check({ ...labels2('team/x'), 'foc/v': v })).node, 'scope:team', `v2 labels, foc/v ${v}`)
     }
-    assert.ok(reaches('scope:team', { ...labels('team/x'), 'foc/v': '1' } as PieceLabels))
+    const parsed = { ...labels('team/x'), 'foc/v': '1' } // As a provider hands it over: foc/v is not in the type, and ignored
+    assert.ok(reaches('scope:team', parsed))
     // Both group labels: refused, whatever foc/v says
     for (const v of [1, 2, undefined]) {
       await assert.rejects(

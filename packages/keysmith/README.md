@@ -206,9 +206,10 @@ issued can never be edited.
 
 The data set key stays `foc/ks` (`GROUP_KEY_ID_KEY`) in both. Format 2 only renames `foc/scope` to
 `foc/group`. Each format is strict: a format 2 envelope must not carry `foc/scope`, a format 1
-envelope must not carry `foc/group`, and any other `foc/v` is refused with a clear error. The format 1
-check is the one deliberate tightening of 0.1.0: no Keysmith ever wrote `foc/group` into format 1, and
-Keysmith owns the `foc/` prefix. `readPieceMetadata(metadata)` parses either into
+envelope must not carry `foc/group`, and any other `foc/v` is refused with a clear error. That is
+the one deliberate tightening of 0.1.0, on both sides: the envelope side refuses `foc/group` in format 1
+(and `foc/scope` in format 2), and the claim side refuses labels that carry both `foc/scope` and
+`foc/group`. No Keysmith ever wrote either, and Keysmith owns the `foc/` prefix. `readPieceMetadata(metadata)` parses either into
 `{ version, owner?, groupKeyId, group?, salt }`; use it instead of reading the labels yourself.
 Types: `PieceMetadataV1`, `PieceMetadataV2`, and `PieceMetadata`, an alias of the format written today (V1).
 

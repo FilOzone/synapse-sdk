@@ -83,12 +83,18 @@ export const READ_REQUEST_TYPES = {
 
 /** One link: what its bearer may read, and how much further they may delegate. */
 export interface Claim {
-  node: string // Grant node, spelled as signed: 'keyspace', 'scope:<path>' or 'piece:<salt>' as written now; 'groupKey' and 'group:<path>' are read too
-  bearer: Address // Who may present this link, and sign the next one
-  maxDepth: number // Links the bearer may add below this one
-  keyCommitment: Hex // First 16 bytes of the node key's commitment: what the bearer checks after unwrapping
-  signature: Hex // EIP-712: the owner's on the root, the previous bearer's on every later link
-  pieceCid?: Uint8Array // Where a piece link's piece lives. A locator only: not signed, never decided on
+  /** A {@link GrantNode}, spelled exactly as signed. Compare with {@link nodeKind}. */
+  node: string
+  /** Who may present this link, and sign the next one. */
+  bearer: Address
+  /** Links the bearer may add below this one. */
+  maxDepth: number
+  /** First 16 bytes of the node key's commitment: what the bearer checks after unwrapping. */
+  keyCommitment: Hex
+  /** EIP-712: the owner's on the root, the previous bearer's on every later link. */
+  signature: Hex
+  /** Where a piece link's piece lives. A locator only: not signed, never decided on. */
+  pieceCid?: Uint8Array
 }
 
 /** A chain, root first, with the fields every link inherits from the root. */
@@ -96,7 +102,7 @@ export interface ClaimChain {
   owner: Address // The group key owner, whose wallet signs the root
   groupKeyId: Hex // Spelled as in `foc/ks` (key set)
   chainId: bigint // The network the claims are for, so a header cannot be replayed on another
-  groupKeyCommitment: Hex // `foc/kc` without its `v1.` prefix, so a bearer can record it on new datasets
+  groupKeyCommitment: Hex // `foc/kc` without its `v1.` prefix
   expires: number // Unix seconds. The whole chain stops working then
   links: Claim[] // Root first
 }
@@ -115,19 +121,19 @@ export interface ReadRequest {
  * Hand-written: fields are plain strings (not `Address`/`Hex`) and `foc/own` is optional.
  */
 export type PieceLabels =
+  // Format 1
   | {
-      'foc/v'?: unknown
-      'foc/own'?: string // The group key owner; a piece without it is not gated
+      'foc/own'?: string // The group key owner; absent or falsy means not gated
       'foc/ks': string // Key set: the group key id
-      'foc/scope'?: string // The group path, if any
+      'foc/scope'?: string // Format 1's group path label, if any
       'foc/salt': string // Names the piece for a piece link
     }
+  // Format 2
   | {
-      'foc/v'?: unknown
-      'foc/own'?: string
-      'foc/ks': string
-      'foc/group'?: string
-      'foc/salt': string
+      'foc/own'?: string // The group key owner; absent or falsy means not gated
+      'foc/ks': string // Key set: the group key id
+      'foc/group'?: string // Format 2's group path label, if any
+      'foc/salt': string // Names the piece for a piece link
     }
 
 const rawLabels = (piece: PieceLabels) => piece as Readonly<Record<string, unknown>>
@@ -225,7 +231,7 @@ const recoverIssuer = (chain: ClaimChain, link: Claim) =>
 /**
  * The key for `node`, derived from a key the caller holds for `heldNode`, so a
  * claim can only ever commit to a key that really sits below its issuer's.
- * A piece node needs the piece's FEE metadata, which must name that piece.
+ * A piece node needs the piece's labels, which must name that piece in this group key.
  */
 function keyBelow(
   heldKey: Uint8Array,
@@ -261,7 +267,7 @@ export async function rootClaim(
     groupKeyId: Hex
     chainId: bigint
     kk: Uint8Array // The group key, from deriveGroupKey()
-    node: string // Either spelling; the claim is written in the one this release writes (format 1)
+    node: string // Any GrantNode spelling; the claim is written as writtenNode() spells it
     bearer: Address
     maxDepth: number
     expires: number // Unix seconds. Required: providers check no revocation, so this is what ends the claim
@@ -307,7 +313,7 @@ export async function delegateClaim(
   chain: ClaimChain,
   input: {
     parentKey: Uint8Array // The key for the final link's node, as openDelivery() returned it
-    node: string // Either spelling; the new link is written in the format 1 spelling. Earlier links keep theirs
+    node: string // Any GrantNode spelling; the new link is written as writtenNode() spells it, earlier links keep theirs
     bearer: Address
     maxDepth: number
     pieceCid?: Uint8Array
@@ -548,8 +554,8 @@ async function verifyLinks(chain: ClaimChain, piece: PieceLabels | undefined): P
 
 /**
  * What a gating provider checks on a request, with only the header and the
- * piece's labels: the chain, the request's piece, lifetime and signer, and that the final node reaches the piece. A piece without
- * `foc/own` is not gated.
+ * piece's labels: the chain, the request's piece, lifetime and signer, and that the final node reaches the piece. A piece whose
+ * `foc/own` is absent or falsy is not gated.
  *
  * @throws With the reason the request is refused.
  */
