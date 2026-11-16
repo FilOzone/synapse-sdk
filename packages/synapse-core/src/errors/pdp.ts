@@ -334,13 +334,49 @@ export class InvalidUploadSizeError extends SynapseError {
   }
 }
 
+/**
+ * Why a piece download failed.
+ *
+ * - `http`: the provider answered with a non-2xx status. See {@link DownloadPieceError.status}.
+ * - `empty`: the response had no body, or an empty one.
+ * - `size`: the body is larger than the size encoded in the expected PieceCID.
+ * - `mismatch`: the bytes hash to a different PieceCID.
+ *
+ * `empty`, `size` and `mismatch` are verification failures: the provider served bytes that are not the piece.
+ */
+export type DownloadPieceErrorReason = 'http' | 'empty' | 'size' | 'mismatch'
+
+export interface DownloadPieceErrorOptions {
+  /** The underlying request error, such as an `HttpError`. */
+  cause?: Error
+  /** Why the download failed. */
+  reason?: DownloadPieceErrorReason
+  /** The HTTP status of the response, for `http` failures. */
+  status?: number
+}
+
 export class DownloadPieceError extends SynapseError {
   override name: 'DownloadPieceError' = 'DownloadPieceError'
+  /** Why the download failed. `undefined` when the error was created without a reason. */
+  reason?: DownloadPieceErrorReason
+  /** The HTTP status of the response, set when `reason` is `http`. */
+  status?: number
+  /** `true` when the provider answered that it does not have the piece (404). */
+  notFound: boolean
 
-  constructor(error: string) {
+  constructor(error: string, options: DownloadPieceErrorOptions = {}) {
     super(`Failed to download piece.`, {
       details: error,
+      cause: options.cause,
     })
+    this.reason = options.reason
+    this.status = options.status
+    this.notFound = options.status === 404
+  }
+
+  /** `true` when the provider served bytes that do not match the expected PieceCID (`empty`, `size` or `mismatch`). */
+  get verificationFailed(): boolean {
+    return this.reason === 'empty' || this.reason === 'size' || this.reason === 'mismatch'
   }
 
   static override is(value: unknown): value is DownloadPieceError {

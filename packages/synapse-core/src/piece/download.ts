@@ -18,7 +18,8 @@ type RequestOptions = {
 }
 
 /**
- * GET `options.url` and return the successful response, mapping HTTP errors to {@link DownloadPieceError}.
+ * GET `options.url` and return the successful response, mapping HTTP errors to a {@link DownloadPieceError}
+ * with `reason: 'http'`, the response `status` and the `HttpError` as `cause`.
  */
 async function fetchPiece(options: RequestOptions): Promise<Response> {
   const response = await request.get(options.url, {
@@ -31,7 +32,13 @@ async function fetchPiece(options: RequestOptions): Promise<Response> {
   })
   if (response.error) {
     if (HttpError.is(response.error)) {
-      throw new DownloadPieceError(await response.error.response.text())
+      const { status } = response.error.response
+      const body = await response.error.response.text()
+      throw new DownloadPieceError(body || `HTTP ${status}`, {
+        cause: response.error,
+        reason: 'http',
+        status,
+      })
     }
     throw response.error
   }
@@ -89,6 +96,10 @@ export namespace downloadStream {
  * Because the error only arrives after the last chunk, consumers that persist data (e.g. to a file)
  * must treat the bytes as untrusted until the stream closes cleanly, and discard them on error.
  *
+ * {@link DownloadPieceError.reason} says which failure it was: `http` for a non-2xx response (with
+ * `status`, and `notFound` set on a 404), or `empty`, `size` and `mismatch` for bytes that are not the
+ * piece (`verificationFailed` is `true` for these).
+ *
  * Pass `validate: false` to skip validation, in which case `expectedPieceCid` is not needed.
  *
  * @param options - {@link downloadStream.OptionsType}
@@ -130,7 +141,8 @@ export async function downloadStream(options: downloadStream.OptionsType): Promi
         if (h.count() + BigInt(chunk.length) > expectedSize) {
           controller.error(
             new DownloadPieceError(
-              `Response body is larger than the ${expectedSize} bytes of ${String(parsedPieceCid)}`
+              `Response body is larger than the ${expectedSize} bytes of ${String(parsedPieceCid)}`,
+              { reason: 'size' }
             )
           )
           return
@@ -140,14 +152,15 @@ export async function downloadStream(options: downloadStream.OptionsType): Promi
       },
       flush(controller) {
         if (h.count() === 0n) {
-          controller.error(new DownloadPieceError('Response body is empty'))
+          controller.error(new DownloadPieceError('Response body is empty', { reason: 'empty' }))
           return
         }
         const calculatedPieceCid = h.finalize()
         if (!calculatedPieceCid.equals(parsedPieceCid)) {
           controller.error(
             new DownloadPieceError(
-              `PieceCID verification failed. Expected: ${String(parsedPieceCid)}, Got: ${String(calculatedPieceCid)}`
+              `PieceCID verification failed. Expected: ${String(parsedPieceCid)}, Got: ${String(calculatedPieceCid)}`,
+              { reason: 'mismatch' }
             )
           )
         }
@@ -158,7 +171,7 @@ export async function downloadStream(options: downloadStream.OptionsType): Promi
 
 function responseBody(response: Response): ReadableStream<Uint8Array> {
   if (response.body == null) {
-    throw new DownloadPieceError('Response body is null')
+    throw new DownloadPieceError('Response body is null', { reason: 'empty' })
   }
   return response.body
 }
