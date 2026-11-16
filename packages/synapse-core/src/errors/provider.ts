@@ -1,5 +1,4 @@
 import type { HttpError } from 'iso-web/http'
-import { decodePDPError } from '../utils/decode-pdp-errors.ts'
 import { isSynapseError, SynapseError } from './base.ts'
 
 const symbol = Symbol.for('synapse-provider-error')
@@ -27,9 +26,14 @@ export class ProviderError extends SynapseError {
   /** `true` when the service provider answered 404. */
   notFound: boolean
 
-  constructor(message: string, error: string, options: ProviderErrorOptions = {}) {
+  /**
+   * @param message - The short message, such as `Failed to pull pieces from storage provider.`
+   * @param details - What went wrong, such as the decoded response body.
+   * @param options - The HTTP status and the underlying error.
+   */
+  constructor(message: string, details: string | undefined, options: ProviderErrorOptions = {}) {
     super(message, {
-      details: decodePDPError(error),
+      details,
       cause: options.cause,
     })
     this.status = options.status

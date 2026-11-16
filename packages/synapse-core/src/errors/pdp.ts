@@ -22,7 +22,7 @@ export class CreateDataSetError extends ProviderError {
   override name: 'CreateDataSetError' = 'CreateDataSetError'
 
   constructor(error: string, options?: ProviderErrorOptions) {
-    super(`Failed to create data set.`, error, options)
+    super(`Failed to create data set.`, decodePDPError(error), options)
   }
 
   static override is(value: unknown): value is CreateDataSetError {
@@ -36,7 +36,11 @@ export class GetDataSetError extends ProviderError {
   constructor(error: string, options: ProviderErrorOptions = {}) {
     // Without a status, an empty body is the legacy signal for "not found".
     const notFound = options.status === 404 || (options.status === undefined && !error)
-    super(notFound ? 'Data set not found.' : 'Failed to get data set.', error, options)
+    super(
+      notFound ? 'Data set not found.' : 'Failed to get data set.',
+      error ? decodePDPError(error) : undefined,
+      options
+    )
   }
 
   static override is(value: unknown): value is GetDataSetError {
@@ -48,7 +52,7 @@ export class PostPieceError extends ProviderError {
   override name: 'PostPieceError' = 'PostPieceError'
 
   constructor(error: string, options?: ProviderErrorOptions) {
-    super(`Failed to create upload session.`, error, options)
+    super(`Failed to create upload session.`, decodePDPError(error), options)
   }
 
   static override is(value: unknown): value is PostPieceError {
@@ -60,7 +64,7 @@ export class UploadPieceError extends ProviderError {
   override name: 'UploadPieceError' = 'UploadPieceError'
 
   constructor(error: string, options?: ProviderErrorOptions) {
-    super(`Failed to upload piece.`, error, options)
+    super(`Failed to upload piece.`, decodePDPError(error), options)
   }
 
   static override is(value: unknown): value is UploadPieceError {
@@ -96,7 +100,7 @@ export class FindPieceError extends ProviderError {
   declare notFound: boolean
 
   constructor(error: string, options: FindPieceErrorOptions = {}) {
-    super(`Failed to find piece.`, error, options)
+    super(`Failed to find piece.`, decodePDPError(error), options)
     this.notFound = options.notFound ?? options.status === 404
   }
 
@@ -109,7 +113,7 @@ export class AddPiecesError extends ProviderError {
   override name: 'AddPiecesError' = 'AddPiecesError'
 
   constructor(error: string, options?: ProviderErrorOptions) {
-    super(`Failed to add pieces.`, error, options)
+    super(`Failed to add pieces.`, decodePDPError(error), options)
   }
 
   static override is(value: unknown): value is AddPiecesError {
@@ -185,7 +189,7 @@ export class DeletePieceError extends ProviderError {
   override name: 'DeletePieceError' = 'DeletePieceError'
 
   constructor(error: string, options?: ProviderErrorOptions) {
-    super(`Failed to delete piece.`, error, options)
+    super(`Failed to delete piece.`, decodePDPError(error), options)
   }
 
   static override is(value: unknown): value is DeletePieceError {
@@ -197,7 +201,7 @@ export class TerminateServiceError extends ProviderError {
   override name: 'TerminateServiceError' = 'TerminateServiceError'
 
   constructor(error: string, options?: ProviderErrorOptions) {
-    super(`Failed to request data set termination.`, error, options)
+    super(`Failed to request data set termination.`, decodePDPError(error), options)
   }
 
   static override is(value: unknown): value is TerminateServiceError {
@@ -255,7 +259,7 @@ export class WaitForTerminateServiceError extends ProviderError {
   override name: 'WaitForTerminateServiceError' = 'WaitForTerminateServiceError'
 
   constructor(error: string, options?: ProviderErrorOptions) {
-    super(`Failed to wait for data set termination.`, error, options)
+    super(`Failed to wait for data set termination.`, decodePDPError(error), options)
   }
 
   static override is(value: unknown): value is WaitForTerminateServiceError {
@@ -320,32 +324,19 @@ export class InvalidUploadSizeError extends SynapseError {
  */
 export type DownloadPieceErrorReason = 'http' | 'empty' | 'size' | 'mismatch'
 
-export interface DownloadPieceErrorOptions {
-  /** The underlying request error, such as an `HttpError`. */
-  cause?: Error
-  /** Why the download failed. */
+export interface DownloadPieceErrorOptions extends ProviderErrorOptions {
+  /** Why the download failed. Defaults to `http` when `status` is set. */
   reason?: DownloadPieceErrorReason
-  /** The HTTP status of the response, for `http` failures. */
-  status?: number
 }
 
-export class DownloadPieceError extends SynapseError {
+export class DownloadPieceError extends ProviderError {
   override name: 'DownloadPieceError' = 'DownloadPieceError'
-  /** Why the download failed. `undefined` when the error was created without a reason. */
+  /** Why the download failed. `undefined` when the error was created without a reason or status. */
   reason?: DownloadPieceErrorReason
-  /** The HTTP status of the response, set when `reason` is `http`. */
-  status?: number
-  /** `true` when the provider answered that it does not have the piece (404). */
-  notFound: boolean
 
   constructor(error: string, options: DownloadPieceErrorOptions = {}) {
-    super(`Failed to download piece.`, {
-      details: error,
-      cause: options.cause,
-    })
-    this.reason = options.reason
-    this.status = options.status
-    this.notFound = options.status === 404
+    super(`Failed to download piece.`, error, options)
+    this.reason = options.reason ?? (options.status === undefined ? undefined : 'http')
   }
 
   /** `true` when the provider served bytes that do not match the expected PieceCID (`empty`, `size` or `mismatch`). */
