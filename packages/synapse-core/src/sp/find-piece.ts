@@ -89,7 +89,7 @@ export async function findPiece(options: findPiece.OptionsType): Promise<findPie
   if (response.error) {
     const error = response.error
     if (HttpError.is(error)) {
-      throw new FindPieceError(await error.response.text(), { cause: error, notFound: error.code === 404 })
+      throw await FindPieceError.fromHttpError(error)
     }
     if (TimeoutError.is(error)) {
       throw new FindPieceError('Timeout waiting for piece to be found', { cause: error })
@@ -100,7 +100,7 @@ export async function findPiece(options: findPiece.OptionsType): Promise<findPie
   const result = response.result
   if (result.status === 202) {
     result.body?.cancel().catch(() => undefined)
-    throw new FindPieceError('Piece is still being processed', { notFound: true })
+    throw new FindPieceError('Piece is still being processed', { notFound: true, status: 202 })
   }
   let data: { pieceCid?: unknown }
   try {

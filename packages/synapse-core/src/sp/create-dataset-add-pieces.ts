@@ -87,7 +87,7 @@ export async function createDataSetAndAddPiecesApiRequest(
 
   if (response.error) {
     if (HttpError.is(response.error)) {
-      throw new CreateDataSetError(await response.error.response.text())
+      throw await CreateDataSetError.fromHttpError(response.error)
     }
     throw response.error
   }

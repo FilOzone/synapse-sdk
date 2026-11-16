@@ -68,7 +68,7 @@ export async function deletePieces(options: deletePieces.OptionsType): Promise<d
 
   if (response.error) {
     if (HttpError.is(response.error)) {
-      throw new DeletePieceError(await response.error.response.text())
+      throw await DeletePieceError.fromHttpError(response.error)
     }
     throw response.error
   }
