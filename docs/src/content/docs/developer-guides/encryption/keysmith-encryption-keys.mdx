@@ -164,7 +164,7 @@ await synapse.storage.upload(encrypted, { metadata })
 
 The FEE envelope lives with the encrypted piece and identifies all that is needed to decrypt it. Group names, owner addresses, and salts are all stored in clear and visible to anyone. *Do not put secrets in these fields*.
 
-The envelope labels are `foc/v` (`2`), `foc/own`, `foc/gkid` (the group key id), `foc/group` and `foc/salt`, and the data set records the group key id under `foc/gkid` too. FEE authenticates the labels. Read them with [`readPieceMetadata()`](/reference/filoz/keysmith/functions/readpiecemetadata/) rather than reading them yourself, and look up a data set's group key id with [`groupKeyIdOf()`](/reference/filoz/keysmith/functions/groupkeyidof/). Anything written by an earlier version of Keysmith (0.1.0) is not readable and is refused with an error that says so.
+The envelope labels are `foc/v` (`2`), `foc/own`, `foc/gkid` (the group key id), `foc/group` and `foc/salt`, and the data set records the group key id under `foc/gkid` too. FEE authenticates the labels. Read them with [`readPieceMetadata()`](/reference/filoz/keysmith/functions/readpiecemetadata/) rather than reading them yourself, and look up a data set's group key id with [`groupKeyIdOf()`](/reference/filoz/keysmith/functions/groupkeyidof/). Anything written by an earlier version of Keysmith (0.1.0) is not readable and is refused with an error that says so. `groupKeyIdOf()` returning `undefined` does not mean "not encrypted": a data set recording `foc/ks`, or a `v1.` `foc/kc`, is a Keysmith 0.1.0 encrypted data set, and an app should not add new data to it.
 
 ## Recover keys
 

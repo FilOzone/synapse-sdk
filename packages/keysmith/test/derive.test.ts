@@ -323,6 +323,17 @@ describe('holdingOf', () => {
     assert.throws(() => holdingOf({ node: 'scope:invoices' }), /Unrecognised grant node/)
     assert.throws(() => holdingOf({ node: 'keyspace' }), /Unrecognised grant node/)
   })
+
+  it('refuses a keysmith 0.1.0 grant by name, before reading its node', async () => {
+    const format1 = { v: 1, node: 'scope:a', owner: ref.owner, keyspace: ref.groupKeyId } as never
+    const named = /keysmith 0\.1\.0 \(format 1\) data is not supported/
+    assert.throws(() => holdingOf(format1), named)
+    assert.throws(() => holdingOf({ ...(format1 as object), node: 'keyspace' } as never), named)
+    assert.throws(() => writeTarget(format1, new Uint8Array(32)), named)
+    const groupKey = await groupKeyOf(account, ref)
+    const metadata = pieceMetadata(ref, { salt: newSalt() })
+    assert.throws(() => keyForEnvelope(groupKey, metadata, format1), named)
+  })
 })
 
 describe('pieceMetadata and grantDescriptor', () => {
@@ -581,6 +592,14 @@ describe('readPieceMetadata', () => {
     assert.throws(() => readPieceMetadata(format1), /keysmith 0\.1\.0 \(format 1\) data is not supported/)
   })
 
+  it('refuses foc/v "1" as a string as 0.1.0 too, but "2" as a string is just refused', () => {
+    assert.throws(
+      () => readPieceMetadata({ ...written, 'foc/v': '1' }),
+      /keysmith 0\.1\.0 \(format 1\) data is not supported/
+    )
+    assert.throws(() => readPieceMetadata({ ...written, 'foc/v': '2' }), /not format 2/)
+  })
+
   it('canonicalises nodes, and refuses malformed ones', () => {
     assert.equal(canonicalNode('groupKey'), 'groupKey')
     assert.equal(canonicalNode('group:cafe\u0301'), 'group:caf\u00e9')
@@ -604,6 +623,11 @@ describe('data set metadata', () => {
 
   it('returns undefined for a keysmith 0.1.0 data set, so a lookup skips it', () => {
     assert.equal(groupKeyIdOf({ 'foc/ks': id, 'foc/kc': 'v1.00112233445566778899aabbccddeeff' }), undefined)
+  })
+
+  it('refuses metadata that is not an object, clearly', () => {
+    assert.throws(() => groupKeyIdOf(null as never), /Data set metadata must be an object, got null/)
+    assert.throws(() => groupKeyIdOf(undefined as never), /Data set metadata must be an object, got undefined/)
   })
 
   it('refuses malformed or non-string values', () => {

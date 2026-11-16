@@ -940,7 +940,7 @@
       "now": 1792285200,
       "expect": {
         "result": "refused",
-        "step": "root",
+        "step": "request",
         "reason": "The chain names another network"
       }
     },

@@ -374,11 +374,15 @@ export function dataSetMetadata(ref: GroupKeyRef, groupKeyCommitment: string): R
 /**
  * The group key id a data set's metadata records under `foc/gkid`, canonical, or `undefined` if it records none.
  * A data set without `foc/gkid`, including one written by keysmith 0.1.0 (`foc/ks`), returns `undefined`, so a
- * lookup across a wallet's data sets skips it.
+ * lookup across a wallet's data sets skips it. `undefined` does not mean "not encrypted": a data set recording
+ * `foc/ks`, or a `v1.` `foc/kc`, is a keysmith 0.1.0 encrypted data set, and an app should not add new data to it.
  *
- * @throws If `foc/gkid` is malformed or not a string.
+ * @throws If the metadata is not an object, or `foc/gkid` is malformed or not a string.
  */
 export function groupKeyIdOf(metadata: Readonly<Record<string, string>>): Hex | undefined {
+  if (metadata == null || typeof metadata !== 'object') {
+    throw new Error(`Data set metadata must be an object, got ${metadata === null ? 'null' : typeof metadata}`)
+  }
   const id = metadata['foc/gkid']
   return id === undefined ? undefined : groupKeyId(id)
 }
@@ -448,7 +452,7 @@ export function readPieceMetadata(
   const m = envelopeMetadata as Readonly<Record<string, unknown>>
   const version = m['foc/v']
   // Format changes break key derivation, so guard first
-  if (version === 1) throw format1Error('this piece is labelled foc/v 1')
+  if (String(version) === '1') throw format1Error('this piece is labelled foc/v 1')
   if (version !== 2 || typeof m['foc/gkid'] !== 'string') {
     throw new Error(
       `This piece's envelope is not format 2 with a group key (foc/v ${JSON.stringify(version)}, ` +
@@ -557,13 +561,13 @@ export function keyForEnvelope(
   // Given the grant itself, check the piece is in the grant's group key before deriving anything
   let holding: Holding
   if (typeof holder === 'object' && 'node' in holder) {
+    holding = holdingOf(holder)
     if (groupKeyId(holder.groupKeyId) !== piece.groupKeyId) {
       throw new Error(`This key is for group key ${holder.groupKeyId}; the piece is in group key ${piece.groupKeyId}.`)
     }
     if (piece.owner != null && piece.owner.toLowerCase() !== holder.owner.toLowerCase()) {
       throw new Error(`This key is from owner ${holder.owner}; the piece belongs to ${piece.owner}.`)
     }
-    holding = holdingOf(holder)
   } else holding = holder
 
   // If a direct piece grant, verify this is for the correct piece before deriving
@@ -613,9 +617,10 @@ export const keyResolver =
  * nothing distinguishes them once unwrapped — but the grant that delivered the
  * key does, so keep the whole grant, not just the key.
  *
- * @throws If the grant names a node this version does not understand.
+ * @throws If the grant is from keysmith 0.1.0 (`v` 1), or names a node this version does not understand.
  */
-export function holdingOf(grant: Pick<GrantDescriptor, 'node'>): Holding {
+export function holdingOf(grant: Pick<GrantDescriptor, 'node'> & { v?: unknown }): Holding {
+  if (grant.v === 1) throw format1Error('a grant with v 1')
   const k = nodeKind(grant.node)
   if (k.kind === 'groupKey') return 'groupKey'
   return k.kind === 'piece' ? { piece: k.salt } : { group: k.path }

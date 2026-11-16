@@ -213,6 +213,8 @@ format adds a `PieceMetadataV3` and repoints the alias. Keysmith owns the `foc/`
 A data set records the group key id as `foc/gkid`, and the commitment as `foc/kc` (`v2.<32 hex>`).
 Look the id up with `groupKeyIdOf(dataSetMetadata)` rather than reading the key: it returns the id
 canonical (or `undefined`, including for a keysmith 0.1.0 data set, or throws if the value is malformed).
+`undefined` does not mean "not encrypted": a data set recording `foc/ks`, or a `v1.` `foc/kc`, is a keysmith 0.1.0
+encrypted data set, and an app should not add new data to it.
 Write the metadata with `dataSetMetadata(ref, commitment)`. Synapse reuses a data set only on an exact metadata match,
 so to keep adding to an existing data set, pass that data set's own metadata as it is rather than
 rebuilding it.

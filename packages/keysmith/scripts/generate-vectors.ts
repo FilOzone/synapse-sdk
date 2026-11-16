@@ -87,11 +87,13 @@ function seedRandom(seed: string) {
 const typeString = (name: string, fields: readonly { name: string; type: string }[]) =>
   `${name}(${fields.map((f) => `${f.type} ${f.name}`).join(',')})`
 
-function refusal(run: () => unknown): string {
+function refusal(run: () => unknown, expected: RegExp): string {
   try {
     run()
   } catch (err) {
-    return (err as Error).message
+    const { message } = err as Error
+    if (!expected.test(message)) throw new Error(`Expected a refusal matching ${expected}, got "${message}"`)
+    return message
   }
   throw new Error('Expected a refusal, got none')
 }
@@ -173,17 +175,23 @@ async function derivationVectors() {
       {
         what: 'An envelope from keysmith 0.1.0 (foc/v 1)',
         metadata: format1Metadata,
-        reason: refusal(() => readPieceMetadata(format1Metadata)),
+        reason: refusal(
+          () => readPieceMetadata(format1Metadata),
+          /format 1\) data is not supported: this piece is labelled foc\/v 1/
+        ),
       },
       {
         what: 'A grant from keysmith 0.1.0 (v 1)',
         cbor: bytesToHex(format1Grant),
-        reason: refusal(() => decodeGrant(format1Grant)),
+        reason: refusal(() => decodeGrant(format1Grant), /format 1\) data is not supported: a grant with v 1/),
       },
       {
         what: 'A group key commitment from keysmith 0.1.0 (v1.)',
         commitment: format1Commitment,
-        reason: refusal(() => matchesCommitment(groupKey, format1Commitment)),
+        reason: refusal(
+          () => matchesCommitment(groupKey, format1Commitment),
+          /format 1\) data is not supported: a v1 commitment/
+        ),
       },
     ],
   })
@@ -215,6 +223,7 @@ const P3 = {
 } as const
 
 type Piece = typeof P1 | typeof P2 | typeof P3
+const FORMAT1 = /keysmith 0\.1\.0 \(format 1\) data is not supported/
 type Step = 'decode' | 'root' | 'link' | 'request' | 'piece'
 type Who = keyof typeof WHO
 type Parts = { version: number; links: Map<number | string, unknown>[]; request: Map<number, unknown> }
@@ -361,6 +370,7 @@ async function claimVectors() {
     chainId?: bigint
     now?: number
     expect: 'served' | Step
+    reason?: RegExp
   }[] = []
   const add = (
     name: string,
@@ -368,8 +378,9 @@ async function claimVectors() {
     piece: Piece,
     labelSet: Record<string, unknown>,
     expect: 'served' | Step,
+    reason?: RegExp,
     more: { chainId?: bigint; now?: number } = {}
-  ) => cases.push({ name, presentation, piece, labels: labelSet, expect, ...more })
+  ) => cases.push({ name, presentation, piece, labels: labelSet, expect, reason, ...more })
 
   const L1 = labels('agent-memory', P1)
   const L2 = labels('admin/finance/clerks', P2)
@@ -377,13 +388,41 @@ async function claimVectors() {
 
   // Examples
   add('Example 1: B fetches an agent-memory piece', e1Bytes, P1, L1, 'served')
-  add('Example 1: B asks for a super-secret piece', e1Bytes, P1, labels('super-secret', P1), 'piece')
+  add(
+    'Example 1: B asks for a super-secret piece',
+    e1Bytes,
+    P1,
+    labels('super-secret', P1),
+    'piece',
+    /does not reach this piece/
+  )
   const e1Extra = await signed(WHO.B, e1.chain, link('group:agent-memory', 'D', 0, e1.nodeKey))
   const overDepth = { ...e1.chain, links: [...e1.chain.links, e1Extra] }
-  add('Example 1: B adds a link for D (B has maxDepth 0)', await present(overDepth, 'D', P1), P1, L1, 'link')
+  add(
+    'Example 1: B adds a link for D (B has maxDepth 0)',
+    await present(overDepth, 'D', P1),
+    P1,
+    L1,
+    'link',
+    /exceeds link 1's maxDepth/
+  )
   add('Example 2: C fetches an admin/finance/clerks piece', e2Bytes, P2, L2, 'served')
-  add('Example 2: C asks for an admin/legal piece', e2Bytes, P2, labels('admin/legal', P2), 'piece')
-  add('Example 2: C asks for an unlabelled piece', e2Bytes, P2, labels(undefined, P2), 'piece')
+  add(
+    'Example 2: C asks for an admin/legal piece',
+    e2Bytes,
+    P2,
+    labels('admin/legal', P2),
+    'piece',
+    /does not reach this piece/
+  )
+  add(
+    'Example 2: C asks for an unlabelled piece',
+    e2Bytes,
+    P2,
+    labels(undefined, P2),
+    'piece',
+    /does not reach this piece/
+  )
 
   // Attacks on the chain
   const e2Links = e2.chain.links as [Claim, Claim, Claim]
@@ -391,28 +430,46 @@ async function claimVectors() {
     ...e2.chain,
     links: [e2Links[0], e2Links[1], await signed(WHO.B, e2.chain, link('groupKey', 'C', 0, groupKey))],
   }
-  add('Widening: B issues C the whole group key', await present(widened, 'C', P2), P2, L2, 'link')
+  add(
+    'Widening: B issues C the whole group key',
+    await present(widened, 'C', P2),
+    P2,
+    L2,
+    'link',
+    /widens group:admin to groupKey/
+  )
   const forgedLink = await signed(
     WHO.C,
     e2.chain,
     link('group:admin/finance', 'C', 0, keyForGroup(groupKey, 'admin/finance'))
   )
   const forged = { ...e2.chain, links: [e2Links[0], e2Links[1], forgedLink] }
-  add('Forged link: C signs its own link', await present(forged, 'C', P2), P2, L2, 'link')
+  add(
+    'Forged link: C signs its own link',
+    await present(forged, 'C', P2),
+    P2,
+    L2,
+    'link',
+    /is not signed by link 1's bearer/
+  )
   add(
     "Stolen header used to fetch a different piece of C's group",
     e2Bytes,
     P1,
     labels('admin/finance/clerks', P1),
-    'request'
+    'request',
+    /names another piece/
   )
-  add('Header replayed ten minutes after it was sent', e2Bytes, P2, L2, 'request', { now: NOW + 600 })
+  add('Header replayed ten minutes after it was sent', e2Bytes, P2, L2, 'request', /request has expired/, {
+    now: NOW + 600,
+  })
   add(
     'Five days later: the same links, with a fresh request',
     await present(e2.chain, 'C', P2, NOW + 432000),
     P2,
     L2,
     'served',
+    undefined,
     { now: NOW + 432000 }
   )
   add(
@@ -421,6 +478,7 @@ async function claimVectors() {
     P2,
     L2,
     'root',
+    /chain expired/,
     { now: NOW + 691200 }
   )
 
@@ -430,7 +488,7 @@ async function claimVectors() {
     const signer = i === 0 ? WHO.owner : WHO[ring[i - 1] as Who]
     nine.links.push(await signed(signer, nine, link('groupKey', bearer, ring.length - 1 - i, groupKey)))
   }
-  add('Too long: a chain of nine links', await present(nine, 'A', P1), P1, L1, 'decode')
+  add('Too long: a chain of nine links', await present(nine, 'A', P1), P1, L1, 'decode', /array of 1 to 8 links/)
 
   // Example 3, one piece
   add('Example 3: B fetches the one piece it was given', e3Bytes, P3, L3, 'served')
@@ -439,7 +497,8 @@ async function claimVectors() {
     await present(e3.chain, 'B', P2),
     P2,
     labels('super-secret', P2),
-    'piece'
+    'piece',
+    /does not reach this piece/
   )
   const swapped = {
     ...e3.chain,
@@ -469,7 +528,8 @@ async function claimVectors() {
     await present(overReach, 'B', P3),
     P3,
     L3,
-    'link'
+    'link',
+    /widens group:agent-memory to piece/
   )
 
   // Attacks on the root: A re-signs it, so the signature is well formed but not the owner's
@@ -483,16 +543,25 @@ async function claimVectors() {
     await present(await rootSignedByA({ maxDepth: 5 }), 'C', P2),
     P2,
     L2,
-    'root'
+    'root',
+    /root is not signed by the owner/
   )
   add(
     "A extends its root's expiry by a year",
     await present(await rootSignedByA({}, ROOT_EXPIRES + 31536000), 'C', P2),
     P2,
     L2,
-    'root'
+    'root',
+    /root is not signed by the owner/
   )
-  add('A signs its own root, naming the owner', await present(await rootSignedByA({}), 'C', P2), P2, L2, 'root')
+  add(
+    'A signs its own root, naming the owner',
+    await present(await rootSignedByA({}), 'C', P2),
+    P2,
+    L2,
+    'root',
+    /root is not signed by the owner/
+  )
   add("The owner revokes A's session key: Example 2 again, no chain read", e2Bytes, P2, L2, 'served')
 
   // Signed under the 0.1.0 domain, which no longer verifies
@@ -503,14 +572,22 @@ async function claimVectors() {
     await present({ ...e1.chain, links: [oldRoot, e1.chain.links[1] as Claim] }, 'B', P1),
     P1,
     L1,
-    'root'
+    'root',
+    /root is not signed by the owner/
   )
   const oldRequest = await signedRequest(WHO.B, P1.cid, fresh(NOW), oldDomain)
-  add('A request signed under the 0.1.0 EIP-712 domain', encodePresentation(e1.chain, oldRequest), P1, L1, 'request')
+  add(
+    'A request signed under the 0.1.0 EIP-712 domain',
+    encodePresentation(e1.chain, oldRequest),
+    P1,
+    L1,
+    'request',
+    /not signed by the final bearer/
+  )
 
   // Encoding: what a strict decoder refuses. All start from Example 1.
   const e1Parts = () => parts(e1Bytes)
-  const refuse = (name: string, bytes: Uint8Array) => add(name, bytes, P1, L1, 'decode')
+  const refuse = (name: string, bytes: Uint8Array, reason: RegExp) => add(name, bytes, P1, L1, 'decode', reason)
   const mutate = (from: Uint8Array, change: (p: Parts) => unknown) => {
     const p = parts(from)
     change(p)
@@ -519,15 +596,21 @@ async function claimVectors() {
   const withParts = (change: (p: Parts) => unknown) => mutate(e1Bytes, change)
   refuse(
     'Map keys in reverse order (not the deterministic encoding)',
-    concat(Uint8Array.of(0x83), encode(2), rawArray(e1Parts().links.map(reversed)), reversed(e1Parts().request))
+    concat(Uint8Array.of(0x83), encode(2), rawArray(e1Parts().links.map(reversed)), reversed(e1Parts().request)),
+    /not canonical CBOR/
   )
   refuse(
     'Integers in a longer form than needed',
-    concat(e1Bytes.subarray(0, 1), Uint8Array.of(0x18, 0x02), e1Bytes.subarray(2))
+    concat(e1Bytes.subarray(0, 1), Uint8Array.of(0x18, 0x02), e1Bytes.subarray(2)),
+    /not canonical CBOR/
   )
-  refuse('Indefinite-length arrays', concat(Uint8Array.of(0x9f), e1Bytes.subarray(1), Uint8Array.of(0xff)))
-  refuse('A byte after the presentation', concat(e1Bytes, Uint8Array.of(0)))
-  refuse('The presentation inside a CBOR tag', concat(Uint8Array.of(0xd8, 0x18), e1Bytes))
+  refuse(
+    'Indefinite-length arrays',
+    concat(Uint8Array.of(0x9f), e1Bytes.subarray(1), Uint8Array.of(0xff)),
+    /not canonical CBOR/
+  )
+  refuse('A byte after the presentation', concat(e1Bytes, Uint8Array.of(0)), /not canonical CBOR/)
+  refuse('The presentation inside a CBOR tag', concat(Uint8Array.of(0xd8, 0x18), e1Bytes), /not canonical CBOR/)
   const req = e1Parts().request
   refuse(
     'A request map with key 2 twice',
@@ -541,64 +624,77 @@ async function claimVectors() {
         [2, req.get(2)],
         [2, req.get(2)],
       ])
-    )
+    ),
+    /not canonical CBOR/
   )
   const nodeBytes = new TextEncoder().encode('group:agent-memory')
   const at = indexOf(e1Bytes, nodeBytes)
   const illFormed = e1Bytes.slice()
   illFormed[at + nodeBytes.length - 1] = 0xff
-  refuse('Ill-formed UTF-8 in a node string', illFormed)
+  refuse('Ill-formed UTF-8 in a node string', illFormed, /not canonical CBOR/)
   refuse(
     'A request with an unknown field 3',
-    withParts((p) => p.request.set(3, 0))
+    withParts((p) => p.request.set(3, 0)),
+    /request has an unknown field 3/
   )
   refuse(
     'A link with an unknown field 12',
-    withParts((p) => p.links[1]?.set(12, 0))
+    withParts((p) => p.links[1]?.set(12, 0)),
+    /Link 1 has an unknown field 12/
   )
   refuse(
     'A link with a text key',
-    withParts((p) => p.links[1]?.set('x', 0))
+    withParts((p) => p.links[1]?.set('x', 0)),
+    /Link 1 has an unknown field x/
   )
   refuse(
     'A later link repeating the root-only field 2 (owner)',
-    withParts((p) => p.links[1]?.set(2, hexToBytes(WHO.owner.address)))
+    withParts((p) => p.links[1]?.set(2, hexToBytes(WHO.owner.address))),
+    /Link 1 repeats a root-only field/
   )
-  refuse('A presentation array of 4 items', cbor(e1Parts(), [0]))
+  refuse('A presentation array of 4 items', cbor(e1Parts(), [0]), /Not a version 2 presentation/)
   refuse(
     'Format version 1 (keysmith 0.1.0)',
-    withParts((p) => (p.version = 1))
+    withParts((p) => (p.version = 1)),
+    /keysmith 0\.1\.0 \(format 1\) data is not supported: a version 1 presentation/
   )
   refuse(
     'Format version 3',
-    withParts((p) => (p.version = 3))
+    withParts((p) => (p.version = 3)),
+    /Not a version 2 presentation/
   )
   refuse(
     'A link with v = 1 (keysmith 0.1.0)',
-    withParts((p) => p.links[0]?.set(0, 1))
+    withParts((p) => p.links[0]?.set(0, 1)),
+    /keysmith 0\.1\.0 \(format 1\) data is not supported: link 0 has v 1/
   )
   refuse(
     'A link with v = 3',
-    withParts((p) => p.links[0]?.set(0, 3))
+    withParts((p) => p.links[0]?.set(0, 3)),
+    /Link 0 has an unsupported version/
   )
   refuse(
     'chainId of 2^53, beyond the integer range',
-    withParts((p) => p.links[0]?.set(6, 2n ** 53n))
+    withParts((p) => p.links[0]?.set(6, 2n ** 53n)),
+    /not canonical CBOR/
   )
   refuse(
     'maxDepth of 256',
-    withParts((p) => p.links[1]?.set(5, 256))
+    withParts((p) => p.links[1]?.set(5, 256)),
+    /maxDepth must be 0 to 255/
   )
   refuse(
     'A node that is not canonical ("group:agent-memory/")',
-    withParts((p) => p.links[1]?.set(1, 'group:agent-memory/'))
+    withParts((p) => p.links[1]?.set(1, 'group:agent-memory/')),
+    /A group name must be non-empty/
   )
   add(
     'A piece node with a 1-byte salt',
     mutate(e3Bytes, (p) => p.links[1]?.set(1, 'piece:0xab')),
     P3,
     L3,
-    'decode'
+    'decode',
+    /names a 16-byte salt/
   )
   const highS = (sig: Uint8Array) => {
     const out = sig.slice()
@@ -608,7 +704,8 @@ async function claimVectors() {
   }
   refuse(
     'A request signature with a high s',
-    withParts((p) => p.request.set(2, highS(p.request.get(2) as Uint8Array)))
+    withParts((p) => p.request.set(2, highS(p.request.get(2) as Uint8Array))),
+    /must have a low s/
   )
   refuse(
     'A request signature with v = 0 or 1',
@@ -616,11 +713,20 @@ async function claimVectors() {
       const sig = (p.request.get(2) as Uint8Array).slice()
       sig[64] = (sig[64] as number) - 27
       p.request.set(2, sig)
-    })
+    }),
+    /must have a low s/
   )
 
   // Network, and the labels as an envelope spells them
-  add('A presentation for another network (verifier on chain 314)', e1Bytes, P1, L1, 'root', { chainId: 314n })
+  add(
+    'A presentation for another network (verifier on chain 314)',
+    e1Bytes,
+    P1,
+    L1,
+    'request',
+    /names another network/,
+    { chainId: 314n }
+  )
   add(
     'Labels: foc/gkid in uppercase hex (compared as bytes)',
     e1Bytes,
@@ -656,8 +762,8 @@ async function claimVectors() {
   const ungated = without({ ...L1, 'foc/group': 'something-else' }, 'foc/own')
   add('A piece with no foc/own is not gated: served without checking the group', e1Bytes, P1, ungated, 'served')
   const format1 = { ...without(L1, 'foc/gkid', 'foc/group'), 'foc/ks': GROUP_KEY_ID, 'foc/scope': 'agent-memory' }
-  add('Labels from keysmith 0.1.0 (foc/v 1) are refused', e1Bytes, P1, { ...format1, 'foc/v': 1 }, 'piece')
-  add('Labels from keysmith 0.1.0 (foc/ks, no foc/v) are refused', e1Bytes, P1, format1, 'piece')
+  add('Labels from keysmith 0.1.0 (foc/v 1) are refused', e1Bytes, P1, { ...format1, 'foc/v': 1 }, 'piece', FORMAT1)
+  add('Labels from keysmith 0.1.0 (foc/ks, no foc/v) are refused', e1Bytes, P1, format1, 'piece', FORMAT1)
 
   // Run every case through the implementation; its answer is the vector
   const out = []
@@ -679,6 +785,9 @@ async function claimVectors() {
     }
     if ((expect.result === 'served') !== (c.expect === 'served')) {
       throw new Error(`${c.name}: expected ${c.expect}, got ${JSON.stringify(expect)}`)
+    }
+    if (expect.result === 'refused' && !c.reason?.test(expect.reason)) {
+      throw new Error(`${c.name}: expected a reason matching ${c.reason}, got "${expect.reason}"`)
     }
     out.push({
       name: c.name,
