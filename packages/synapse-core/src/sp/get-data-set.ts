@@ -59,7 +59,7 @@ export async function getDataSet(options: getDataSet.OptionsType): Promise<getDa
   })
   if (response.error) {
     if (HttpError.is(response.error)) {
-      throw new GetDataSetError(await response.error.response.text())
+      throw await GetDataSetError.fromHttpError(response.error)
     }
     throw response.error
   }

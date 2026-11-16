@@ -85,7 +85,7 @@ export async function addPiecesApiRequest(
 
   if (response.error) {
     if (HttpError.is(response.error)) {
-      throw new AddPiecesError(await response.error.response.text())
+      throw await AddPiecesError.fromHttpError(response.error)
     }
     throw response.error
   }

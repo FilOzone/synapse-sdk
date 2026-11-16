@@ -7,12 +7,13 @@
  */
 
 import assert from 'assert'
-import { AbortError } from 'iso-web/http'
+import { AbortError, HttpError } from 'iso-web/http'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { createWalletClient, decodeAbiParameters, type Hex, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { calibration } from '../src/chains.ts'
+import { ProviderError } from '../src/errors/provider.ts'
 import { PullError } from '../src/errors/pull.ts'
 import * as Mocks from '../src/mocks/index.ts'
 import * as Piece from '../src/piece/index.ts'
@@ -133,7 +134,37 @@ describe('Pull', () => {
           (error as PullError).message.includes('Failed to pull pieces'),
           'Error message should mention pull failure'
         )
+        assert.strictEqual(error.status, 400)
+        assert.strictEqual(error.notFound, false)
+        assert.ok(HttpError.is(error.cause), 'cause should be the HttpError')
       }
+    })
+
+    it('should keep the 429 status when the pull queue is full', async () => {
+      server.use(
+        http.post(`${TEST_ENDPOINT}/pdp/piece/pull`, () => {
+          return new HttpResponse('pull queue backpressure', { status: 429 })
+        })
+      )
+
+      await assert.rejects(
+        pullPiecesApiRequest({ ...baseOptions(), retryCount: 0 }),
+        (error: unknown) =>
+          error instanceof PullError &&
+          error.status === 429 &&
+          error.details?.endsWith('pull queue backpressure') === true &&
+          HttpError.is(error.cause)
+      )
+    })
+
+    it('should use the status as details when the body is empty', async () => {
+      server.use(http.post(`${TEST_ENDPOINT}/pdp/piece/pull`, () => new HttpResponse(null, { status: 502 })))
+
+      await assert.rejects(
+        pullPiecesApiRequest({ ...baseOptions(), retryCount: 0 }),
+        (error: unknown) =>
+          error instanceof PullError && error.status === 502 && error.details?.endsWith('HTTP 502') === true
+      )
     })
 
     it('should handle network errors', async () => {
@@ -329,7 +360,7 @@ describe('Pull', () => {
 
       await assert.rejects(
         waitForPullPiecesApiRequest({ ...baseOptions(), pollInterval: 10, timeout: 1000 }),
-        (error: unknown) => error instanceof PullError
+        (error: unknown) => error instanceof PullError && error.status === 429
       )
       assert.strictEqual(calls, 1)
     })
@@ -345,7 +376,7 @@ describe('Pull', () => {
 
       await assert.rejects(
         waitForPullPiecesApiRequest({ ...baseOptions(), pollInterval: 10, retryCount: 1 }),
-        (error: unknown) => error instanceof PullError
+        (error: unknown) => error instanceof PullError && error.status === 503
       )
       assert.strictEqual(calls, 2)
     })
@@ -635,7 +666,22 @@ describe('Pull', () => {
     it('should have static is() type guard', () => {
       const error = new PullError('test error')
       assert.strictEqual(PullError.is(error), true)
+      assert.strictEqual(ProviderError.is(error), true)
       assert.strictEqual(PullError.is(new Error('not pull error')), false)
+    })
+
+    it('should keep the one-argument constructor working', () => {
+      const error = new PullError('test error')
+      assert.ok(error.details?.endsWith('test error'))
+      assert.strictEqual(error.status, undefined)
+      assert.strictEqual(error.notFound, false)
+      assert.strictEqual(error.cause, undefined)
+    })
+
+    it('should include the status in toJSON', () => {
+      const error = new PullError('too many pieces', { status: 400 })
+      assert.strictEqual(error.toJSON().status, 400)
+      assert.strictEqual(new PullError('test error').toJSON().status, undefined)
     })
   })
 })
