@@ -623,8 +623,8 @@ The piece labels are compared in canonical form, never as raw text: `foc/own` as
 `foc/gkid` and `foc/salt` as lowercase hex, `foc/group` after `groupPath()`.
 `foc/own` absent or falsy means the piece is not gated; a truthy value that is not a
 string address is refused. The claim-side functions (`verifyPresentation`, `reaches`, `pickGrant`,
-`openDelivery`) never read `foc/v` except to refuse 0.1.0 labels (`foc/v` 1, or `foc/ks`), so a provider may
-pass it as a string or leave it out. They read only the labels a
+`openDelivery`) accept `foc/v` absent, `2` or `"2"`, so a provider may pass it as a string or leave it out.
+They refuse 0.1.0 labels (`foc/v` 1 or `"1"`, or `foc/ks`) and any other `foc/v`. They read only the labels a
 decision needs, so a bad `foc/salt` or `foc/group` is not an error unless the node asks for it.
 
 Every link's signature covers the fields it inherits from the root, so a link cannot be moved

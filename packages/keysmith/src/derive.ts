@@ -77,6 +77,18 @@ const INFO = {
 export const format1Error = (what: string): Error =>
   new Error(`keysmith 0.1.0 (format 1) data is not supported: ${what}`)
 
+/**
+ * Check a grant descriptor's `v`: it must be exactly the number 2. `v` 1 or `"1"` is keysmith 0.1.0's.
+ * With `required: false` an absent `v` passes (node-only input), but a present one is still checked.
+ *
+ * @throws If `v` is not 2.
+ */
+export function assertGrantVersion(v: unknown, { required }: { required: boolean }): void {
+  if (v === undefined && !required) return
+  if (v === 1 || v === '1') throw format1Error('a grant with v 1')
+  if (v !== 2) throw new Error(`Unsupported grant version: ${JSON.stringify(v)}`)
+}
+
 /** The FWSS data-set metadata key the commitment is written to. */
 export const COMMITMENT_KEY = 'foc/kc'
 
@@ -425,11 +437,16 @@ export function groupLabelOf(m: Readonly<Record<string, unknown>>): string | und
 /**
  * The group key id a piece's labels name under `foc/gkid`, canonical.
  *
- * @throws If the labels are from keysmith 0.1.0, or the id is malformed.
+ * @throws If the labels are from keysmith 0.1.0, `foc/v` is not absent, 2 or "2", or the id is malformed.
  */
 export function labelsGroupKeyId(m: Readonly<Record<string, unknown>>): Hex {
-  if (String(m['foc/v']) === '1' || (m['foc/gkid'] === undefined && m['foc/ks'] !== undefined)) {
+  const v = m['foc/v']
+  if (v === 1 || v === '1' || (m['foc/gkid'] === undefined && m['foc/ks'] !== undefined)) {
     throw format1Error('this piece carries foc/v 1 or foc/ks labels')
+  }
+  // Absent, 2 or "2" only: a provider may pass a string, but a later format is not read as format 2
+  if (v !== undefined && v !== 2 && v !== '2') {
+    throw new Error(`Unsupported piece label format: foc/v ${JSON.stringify(v)}`)
   }
   return groupKeyId(m['foc/gkid'] as string)
 }
@@ -561,6 +578,7 @@ export function keyForEnvelope(
   // Given the grant itself, check the piece is in the grant's group key before deriving anything
   let holding: Holding
   if (typeof holder === 'object' && 'node' in holder) {
+    assertGrantVersion(holder.v, { required: true })
     holding = holdingOf(holder)
     if (groupKeyId(holder.groupKeyId) !== piece.groupKeyId) {
       throw new Error(`This key is for group key ${holder.groupKeyId}; the piece is in group key ${piece.groupKeyId}.`)
@@ -617,10 +635,12 @@ export const keyResolver =
  * nothing distinguishes them once unwrapped — but the grant that delivered the
  * key does, so keep the whole grant, not just the key.
  *
- * @throws If the grant is from keysmith 0.1.0 (`v` 1), or names a node this version does not understand.
+ * Takes a full grant or just `{ node }`: `v` is checked only when present.
+ *
+ * @throws If `v` is present and not 2 (`v` 1 is keysmith 0.1.0's), or the node is not one this version understands.
  */
 export function holdingOf(grant: Pick<GrantDescriptor, 'node'> & { v?: unknown }): Holding {
-  if (grant.v === 1) throw format1Error('a grant with v 1')
+  assertGrantVersion(grant.v, { required: false })
   const k = nodeKind(grant.node)
   if (k.kind === 'groupKey') return 'groupKey'
   return k.kind === 'piece' ? { piece: k.salt } : { group: k.path }
@@ -638,12 +658,13 @@ export function holdingOf(grant: Pick<GrantDescriptor, 'node'> & { v?: unknown }
  * else is refused here, before a piece is encrypted under a key its intended
  * readers could never derive.
  *
- * @throws If the grant is a piece grant, the group lies outside the grant's subtree, or the key is not 32 bytes.
+ * @throws If the grant's `v` is not 2, the grant is a piece grant, the group lies outside the grant's subtree, or the key is not 32 bytes.
  */
 export function writeTarget(grant: GrantDescriptor, nodeKey: Uint8Array, group?: string): WriteTarget {
   if (nodeKey.length !== 32) {
     throw new Error(`Expected a 32-byte node key, got ${nodeKey.length} bytes`)
   }
+  assertGrantVersion(grant.v, { required: true })
   const holding = holdingOf(grant)
   if (holding !== 'groupKey' && 'piece' in holding) {
     throw new Error('A piece grant opens one existing piece and cannot write: FEE needs a fresh key for every object.')

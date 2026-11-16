@@ -454,14 +454,19 @@ describe('claims', () => {
     await assert.rejects(check(labels()), /group:team does not reach this piece \(group \(none\)\)/)
   })
 
-  it('never reads foc/v from labels, except to refuse a keysmith 0.1.0 piece', async () => {
+  it('accepts foc/v absent, 2 or "2", and refuses 0.1.0 labels and any other foc/v', async () => {
     const { chain } = await root('group:team', 0)
     const bytes = encodePresentation(chain, await signRequest(a, chain, { pieceCid: PIECE, expires: now + 100, now }))
     const check = (piece: unknown) =>
       verifyPresentation(bytes, { pieceCid: PIECE, piece: piece as PieceLabels, chainId, now })
-    // A provider may pass it as a string (from Go or JSON), or wrongly, or not at all
-    for (const v of ['2', 2, 7, null, undefined]) {
+    // A provider may pass it as a string (from Go or JSON), or not at all
+    for (const v of ['2', 2, undefined]) {
       assert.equal((await check({ ...labels('team/x'), 'foc/v': v })).node, 'group:team', `foc/v ${v}`)
+    }
+    for (const v of [3, '3', 0, 'x', null, 2.5]) {
+      const bad = { ...labels('team/x'), 'foc/v': v }
+      const unsupported = new RegExp(`Unsupported piece label format: foc/v ${JSON.stringify(v)}`)
+      await assert.rejects(check(bad), unsupported)
     }
     const old = /keysmith 0\.1\.0 \(format 1\) data is not supported/
     const held = [
@@ -571,8 +576,14 @@ describe('claims', () => {
       ['null owner', { 'foc/own': null }, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
       ['owner not an address', { 'foc/own': 'nope' }, ['true', 'true', 'true', T, T, T, T]],
       ['owner a number', { 'foc/own': 1 }, ['true', 'true', 'true', T, T, T, T]],
+      ['foc/v 1', { 'foc/v': 1 }, ['true', 'true', 'true', T, T, T, T]],
       ['foc/v 1 as a string', { 'foc/v': '1' }, ['true', 'true', 'true', T, T, T, T]],
+      ['foc/v absent', { 'foc/v': undefined }, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
+      ['foc/v 2', { 'foc/v': 2 }, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
       ['foc/v 2 as a string', { 'foc/v': '2' }, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
+      ['foc/v 3', { 'foc/v': 3 }, ['true', 'true', 'true', T, T, T, T]],
+      ['foc/v 3 as a string', { 'foc/v': '3' }, ['true', 'true', 'true', T, T, T, T]],
+      ['foc/v null', { 'foc/v': null }, ['true', 'true', 'true', T, T, T, T]],
     ]
     for (const [name, change, want] of rows) {
       const piece = { ...base, ...change } as PieceLabels

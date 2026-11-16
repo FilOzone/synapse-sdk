@@ -116,8 +116,8 @@ export interface ReadRequest {
 }
 
 /**
- * The labels a provider read from a piece's FEE envelope. `foc/v` is read only to refuse
- * keysmith 0.1.0 labels (`foc/v` 1, as a number or string, or `foc/ks`).
+ * The labels a provider read from a piece's FEE envelope. `foc/v` may be absent, 2 or "2";
+ * keysmith 0.1.0 labels (`foc/v` 1, as a number or string, or `foc/ks`) and any other value are refused.
  * Hand-written: fields are plain strings (not `Address`/`Hex`) and `foc/own` is optional.
  */
 export type PieceLabels = {

@@ -755,7 +755,10 @@ async function claimVectors() {
     { ...L3, 'foc/salt': P3.salt.toUpperCase().replace('0X', '0x') },
     'served'
   )
-  add('Labels: foc/v as the string "2" is ignored', e1Bytes, P1, { ...L1, 'foc/v': '2' }, 'served')
+  add('Labels: foc/v as the string "2" is accepted', e1Bytes, P1, { ...L1, 'foc/v': '2' }, 'served')
+  const UNSUPPORTED = /Unsupported piece label format: foc\/v/
+  add('Labels: foc/v 3 is refused', e1Bytes, P1, { ...L1, 'foc/v': 3 }, 'piece', UNSUPPORTED)
+  add('Labels: foc/v as the string "3" is refused', e1Bytes, P1, { ...L1, 'foc/v': '3' }, 'piece', UNSUPPORTED)
   const withKey = parts(e1Bytes)
   withKey.links[1]?.set(9, hexToBytes(P1.cid))
   add('A pieceCid locator (key 9) on a group link is ignored', cbor(withKey), P1, L1, 'served')

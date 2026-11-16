@@ -29,7 +29,7 @@ import {
   readPieceMetadata,
   writeTarget,
 } from '../src/derive.ts'
-import type { GroupKeyRef, TypedDataSigner } from '../src/types.ts'
+import type { GrantDescriptor, GroupKeyRef, TypedDataSigner } from '../src/types.ts'
 
 const account = privateKeyToAccount(generatePrivateKey())
 const ref: GroupKeyRef = { owner: account.address, groupKeyId: '0x00112233445566778899aabbccddeeff' }
@@ -322,6 +322,38 @@ describe('holdingOf', () => {
     assert.throws(() => holdingOf({ node: 'dataset' }), /Unrecognised grant node/)
     assert.throws(() => holdingOf({ node: 'scope:invoices' }), /Unrecognised grant node/)
     assert.throws(() => holdingOf({ node: 'keyspace' }), /Unrecognised grant node/)
+  })
+
+  it('enforces v when present, and allows node-only input', () => {
+    const named = /keysmith 0\.1\.0 \(format 1\) data is not supported/
+    assert.equal(holdingOf({ node: 'groupKey' }), 'groupKey')
+    assert.equal(holdingOf({ v: 2, node: 'groupKey' }), 'groupKey')
+    for (const v of [1, '1']) assert.throws(() => holdingOf({ v, node: 'groupKey' }), named)
+    for (const v of [3, '2', 2.5, null]) {
+      const unsupported = new RegExp(`Unsupported grant version: ${JSON.stringify(v)}`)
+      assert.throws(() => holdingOf({ v, node: 'groupKey' }), unsupported)
+    }
+  })
+
+  it('writeTarget and keyForEnvelope require the descriptor v to be exactly 2', async () => {
+    const named = /keysmith 0\.1\.0 \(format 1\) data is not supported/
+    const descriptor = grantDescriptor(ref, 'groupKey')
+    const groupKey = await groupKeyOf(account, ref)
+    const metadata = pieceMetadata(ref, { salt: newSalt() })
+    const run = {
+      writeTarget: (d: GrantDescriptor) => writeTarget(d, new Uint8Array(32)),
+      keyForEnvelope: (d: GrantDescriptor) => keyForEnvelope(groupKey, metadata, d),
+    }
+    for (const [name, f] of Object.entries(run)) {
+      assert.doesNotThrow(() => f(descriptor), `${name} v 2`)
+      for (const v of [1, '1']) assert.throws(() => f({ ...descriptor, v } as never), named, `${name} v ${v}`)
+      for (const v of [3, '2', undefined]) {
+        const unsupported = new RegExp(
+          `Unsupported grant version: ${v === undefined ? 'undefined' : JSON.stringify(v)}`
+        )
+        assert.throws(() => f({ ...descriptor, v } as never), unsupported, `${name} v ${v}`)
+      }
+    }
   })
 
   it('refuses a keysmith 0.1.0 grant by name, before reading its node', async () => {

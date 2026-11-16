@@ -21,7 +21,7 @@ import { utf8ToBytes } from '@noble/hashes/utils.js'
 import { decode, encode } from 'cborg'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes, isAddress } from 'viem'
-import { canonicalNode, format1Error, groupKeyId, text } from './derive.ts'
+import { assertGrantVersion, canonicalNode, groupKeyId, text } from './derive.ts'
 import type { Grant, GrantDescriptor } from './types.ts'
 
 /**
@@ -211,7 +211,7 @@ export function decodeGrant(bytes: Uint8Array): DecodedGrant {
       throw new Error(`Not a grant this version understands: unknown field ${String(key)}`)
     }
   }
-  assertVersion(map.get(FIELD.v))
+  assertGrantVersion(map.get(FIELD.v), { required: true })
   const field = (key: number, name: string, length: number): Hex => {
     const value = map.get(key)
     if (!(value instanceof Uint8Array) || value.length !== length) {
@@ -254,19 +254,13 @@ function wrapKek(shared: Uint8Array, epk: Uint8Array, pkR: Uint8Array): Uint8Arr
   return hkdf(sha256, ikm, undefined, WRAP_INFO, 32)
 }
 
-/** @throws If the version is not 2; a version 1 grant is keysmith 0.1.0's. */
-function assertVersion(v: unknown): void {
-  if (v === 1) throw format1Error('a grant with v 1')
-  if (v !== 2) throw new Error(`Unsupported grant version: ${String(v)}`)
-}
-
 /**
  * Canonicalize a grant descriptor to ensure it authenticates on the other end.
  *
  * @throws If it is not a version this code understands, or a field is malformed.
  */
 function canonical(d: GrantDescriptor): GrantDescriptor {
-  assertVersion(d.v)
+  assertGrantVersion(d.v, { required: true })
   const owner = text(d.owner, "A grant's owner").toLowerCase()
   if (!isAddress(owner, { strict: false })) {
     throw new Error(`A grant's owner must be an address, got ${JSON.stringify(d.owner)}`)
