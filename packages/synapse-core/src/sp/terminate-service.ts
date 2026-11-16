@@ -168,7 +168,7 @@ export async function terminateServiceApiRequest(
         case 503:
           throw new TerminateServiceNotSupportedError(await result.error.response.text())
         default:
-          throw new TerminateServiceError(await result.error.response.text())
+          throw await TerminateServiceError.fromHttpError(result.error)
       }
     }
     throw result.error
@@ -355,7 +355,7 @@ export async function waitForTerminateService(
       if (response.error.code === 404 && hash !== undefined) {
         throw new WaitForTerminateServiceRejectedError(hash)
       }
-      throw new WaitForTerminateServiceError(await response.error.response.text())
+      throw await WaitForTerminateServiceError.fromHttpError(response.error)
     }
     throw response.error
   }

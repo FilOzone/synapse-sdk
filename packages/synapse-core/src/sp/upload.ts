@@ -64,7 +64,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
 
   if (response.error) {
     if (HttpError.is(response.error)) {
-      throw new PostPieceError(await response.error.response.text())
+      throw await PostPieceError.fromHttpError(response.error)
     }
     throw response.error
   }
@@ -97,7 +97,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
 
   if (uploadResponse.error) {
     if (HttpError.is(uploadResponse.error)) {
-      throw new UploadPieceError(await uploadResponse.error.response.text())
+      throw await UploadPieceError.fromHttpError(uploadResponse.error)
     }
     throw uploadResponse.error
   }

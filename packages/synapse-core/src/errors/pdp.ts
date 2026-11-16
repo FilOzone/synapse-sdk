@@ -4,6 +4,7 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { decodePDPError } from '../utils/decode-pdp-errors.ts'
 import type { MetadataObject } from '../utils/metadata.ts'
 import { isSynapseError, SynapseError } from './base.ts'
+import { ProviderError, type ProviderErrorOptions } from './provider.ts'
 
 export class LocationHeaderError extends SynapseError {
   override name: 'LocationHeaderError' = 'LocationHeaderError'
@@ -17,14 +18,11 @@ export class LocationHeaderError extends SynapseError {
   }
 }
 
-export class CreateDataSetError extends SynapseError {
+export class CreateDataSetError extends ProviderError {
   override name: 'CreateDataSetError' = 'CreateDataSetError'
 
-  constructor(error: string) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to create data set.`, {
-      details: decodedError,
-    })
+  constructor(error: string, options?: ProviderErrorOptions) {
+    super(`Failed to create data set.`, error, options)
   }
 
   static override is(value: unknown): value is CreateDataSetError {
@@ -32,13 +30,13 @@ export class CreateDataSetError extends SynapseError {
   }
 }
 
-export class GetDataSetError extends SynapseError {
+export class GetDataSetError extends ProviderError {
   override name: 'GetDataSetError' = 'GetDataSetError'
 
-  constructor(error: string) {
-    super(error ? 'Failed to get data set.' : 'Data set not found.', {
-      details: error ? decodePDPError(error) : undefined,
-    })
+  constructor(error: string, options: ProviderErrorOptions = {}) {
+    // Without a status, an empty body is the legacy signal for "not found".
+    const notFound = options.status === 404 || (options.status === undefined && !error)
+    super(notFound ? 'Data set not found.' : 'Failed to get data set.', error, options)
   }
 
   static override is(value: unknown): value is GetDataSetError {
@@ -46,14 +44,11 @@ export class GetDataSetError extends SynapseError {
   }
 }
 
-export class PostPieceError extends SynapseError {
+export class PostPieceError extends ProviderError {
   override name: 'PostPieceError' = 'PostPieceError'
 
-  constructor(error: string) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to create upload session.`, {
-      details: decodedError,
-    })
+  constructor(error: string, options?: ProviderErrorOptions) {
+    super(`Failed to create upload session.`, error, options)
   }
 
   static override is(value: unknown): value is PostPieceError {
@@ -61,14 +56,11 @@ export class PostPieceError extends SynapseError {
   }
 }
 
-export class UploadPieceError extends SynapseError {
+export class UploadPieceError extends ProviderError {
   override name: 'UploadPieceError' = 'UploadPieceError'
 
-  constructor(error: string) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to upload piece.`, {
-      details: decodedError,
-    })
+  constructor(error: string, options?: ProviderErrorOptions) {
+    super(`Failed to upload piece.`, error, options)
   }
 
   static override is(value: unknown): value is UploadPieceError {
@@ -90,28 +82,22 @@ export class UploadRedirectError extends SynapseError {
   }
 }
 
-export interface FindPieceErrorOptions {
-  /** The underlying request error, such as an `HttpError` or `TimeoutError`. */
-  cause?: Error
-  /** Whether the provider answered that it does not have the piece, or not yet. */
+export interface FindPieceErrorOptions extends ProviderErrorOptions {
+  /** Whether the provider answered that it does not have the piece, or not yet. Defaults to `status === 404`. */
   notFound?: boolean
 }
 
-export class FindPieceError extends SynapseError {
+export class FindPieceError extends ProviderError {
   override name: 'FindPieceError' = 'FindPieceError'
   /**
    * `true` when the provider answered that it does not have the piece (404) or is still
    * processing it (202). `false` for other failures, such as a 5xx response or a timeout.
    */
-  notFound: boolean
+  declare notFound: boolean
 
   constructor(error: string, options: FindPieceErrorOptions = {}) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to find piece.`, {
-      details: decodedError,
-      cause: options.cause,
-    })
-    this.notFound = options.notFound ?? false
+    super(`Failed to find piece.`, error, options)
+    this.notFound = options.notFound ?? options.status === 404
   }
 
   static override is(value: unknown): value is FindPieceError {
@@ -119,14 +105,11 @@ export class FindPieceError extends SynapseError {
   }
 }
 
-export class AddPiecesError extends SynapseError {
+export class AddPiecesError extends ProviderError {
   override name: 'AddPiecesError' = 'AddPiecesError'
 
-  constructor(error: string) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to add pieces.`, {
-      details: decodedError,
-    })
+  constructor(error: string, options?: ProviderErrorOptions) {
+    super(`Failed to add pieces.`, error, options)
   }
 
   static override is(value: unknown): value is AddPiecesError {
@@ -198,14 +181,11 @@ export class TransactionNotAppliedError extends SynapseError {
   }
 }
 
-export class DeletePieceError extends SynapseError {
+export class DeletePieceError extends ProviderError {
   override name: 'DeletePieceError' = 'DeletePieceError'
 
-  constructor(error: string) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to delete piece.`, {
-      details: decodedError,
-    })
+  constructor(error: string, options?: ProviderErrorOptions) {
+    super(`Failed to delete piece.`, error, options)
   }
 
   static override is(value: unknown): value is DeletePieceError {
@@ -213,14 +193,11 @@ export class DeletePieceError extends SynapseError {
   }
 }
 
-export class TerminateServiceError extends SynapseError {
+export class TerminateServiceError extends ProviderError {
   override name: 'TerminateServiceError' = 'TerminateServiceError'
 
-  constructor(error: string) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to request data set termination.`, {
-      details: decodedError,
-    })
+  constructor(error: string, options?: ProviderErrorOptions) {
+    super(`Failed to request data set termination.`, error, options)
   }
 
   static override is(value: unknown): value is TerminateServiceError {
@@ -274,14 +251,11 @@ export class TerminateServiceNotSupportedError extends SynapseError {
   }
 }
 
-export class WaitForTerminateServiceError extends SynapseError {
+export class WaitForTerminateServiceError extends ProviderError {
   override name: 'WaitForTerminateServiceError' = 'WaitForTerminateServiceError'
 
-  constructor(error: string) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to wait for data set termination.`, {
-      details: decodedError,
-    })
+  constructor(error: string, options?: ProviderErrorOptions) {
+    super(`Failed to wait for data set termination.`, error, options)
   }
 
   static override is(value: unknown): value is WaitForTerminateServiceError {

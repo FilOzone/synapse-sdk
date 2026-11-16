@@ -207,7 +207,7 @@ export async function uploadPieceStreaming(
 
   if (uploadResponse.error) {
     if (HttpError.is(uploadResponse.error)) {
-      throw new UploadPieceError(`Failed to upload piece: ${await uploadResponse.error.response.text()}`)
+      throw await UploadPieceError.fromHttpError(uploadResponse.error)
     }
     // undici reports redirect: 'error' as a network error caused by 'unexpected redirect'
     // (pinned by the redirect tests in upload-streaming.node.ts). Browsers raise a generic
@@ -244,7 +244,7 @@ export async function uploadPieceStreaming(
 
   if (finalizeResponse.error) {
     if (HttpError.is(finalizeResponse.error)) {
-      throw new PostPieceError(`Failed to finalize upload: ${await finalizeResponse.error.response.text()}`)
+      throw await PostPieceError.fromHttpError(finalizeResponse.error)
     }
     throw finalizeResponse.error
   }
@@ -283,7 +283,7 @@ async function createUploadSession(options: uploadPieceStreaming.OptionsType): P
 
   if (createResponse.error) {
     if (HttpError.is(createResponse.error)) {
-      throw new PostPieceError(`Failed to create upload session: ${await createResponse.error.response.text()}`)
+      throw await PostPieceError.fromHttpError(createResponse.error)
     }
     throw createResponse.error
   }

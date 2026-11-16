@@ -115,14 +115,14 @@ function buildPullRequestBody(options: pullPiecesApiRequest.OptionsType): pullPi
 
 /**
  * Turn a pull endpoint response into its JSON body, or throw: an HTTP error becomes a {@link PullError} with the SP's
- * response text.
+ * response text, HTTP `status` and the `HttpError` as `cause`.
  */
 async function parsePullResponse(
   response: MaybeResult<Response, RequestErrors>
 ): Promise<pullPiecesApiRequest.ReturnType> {
   if (response.error) {
     if (HttpError.is(response.error)) {
-      throw new PullError(await response.error.response.text())
+      throw await PullError.fromHttpError(response.error)
     }
     throw response.error
   }

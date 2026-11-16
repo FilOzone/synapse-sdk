@@ -16,6 +16,7 @@ import {
   PostPieceError,
   UploadPieceError,
 } from '../src/errors/pdp.ts'
+import { ProviderError } from '../src/errors/provider.ts'
 import { AtLeastOnePieceRequiredError } from '../src/errors/warm-storage.ts'
 import { ADDRESSES, PRIVATE_KEYS } from '../src/mocks/index.ts'
 import {
@@ -302,6 +303,30 @@ describe('SP', () => {
 Details: 
 invariant failure: insufficient funds to cover lockup after function execution`
         )
+        assert.equal(error.status, 500)
+        assert.isTrue(HttpError.is(error.cause))
+      }
+    })
+
+    it('should keep the 5xx status on CreateDataSetError', async () => {
+      server.use(http.post('http://pdp.local/pdp/data-sets', () => new HttpResponse(null, { status: 503 })))
+      try {
+        await createDataSetApiRequest({
+          serviceURL: 'http://pdp.local',
+          recordKeeper: ADDRESSES.calibration.warmStorage,
+          extraData: await TypedData.signCreateDataSet(client, {
+            clientDataSetId: 0n,
+            payee: ADDRESSES.client1,
+          }),
+          retryCount: 0,
+        })
+        assert.fail('Should have thrown CreateDataSetError')
+      } catch (error) {
+        assert.instanceOf(error, CreateDataSetError)
+        assert.equal(error.status, 503)
+        assert.include(error.details, 'HTTP 503')
+        assert.isFalse(error.notFound)
+        assert.isTrue(HttpError.is(error.cause))
       }
     })
 
@@ -1231,6 +1256,7 @@ InvalidSignature(address expected, address actual)
       } catch (error) {
         assert.instanceOf(error, FindPieceError)
         assert.isFalse(error.notFound)
+        assert.equal(error.status, 500)
         assert.instanceOf(error.cause, HttpError)
         assert.equal((error.cause as HttpError).code, 500)
       }
@@ -1253,6 +1279,9 @@ InvalidSignature(address expected, address actual)
       } catch (error) {
         assert.instanceOf(error, FindPieceError)
         assert.isTrue(error.notFound)
+        assert.equal(error.status, 404)
+        assert.include(error.details, 'HTTP 404')
+        assert.instanceOf(error.cause, HttpError)
       }
       assert.equal(attempts, 1)
     })
@@ -1271,6 +1300,7 @@ InvalidSignature(address expected, address actual)
       } catch (error) {
         assert.instanceOf(error, FindPieceError)
         assert.isTrue(error.notFound)
+        assert.equal(error.status, 202)
       }
     })
 
@@ -1284,6 +1314,7 @@ InvalidSignature(address expected, address actual)
       } catch (error) {
         assert.instanceOf(error, FindPieceError)
         assert.isFalse(error.notFound)
+        assert.isUndefined(error.status)
         assert.instanceOf(error.cause, TimeoutError)
       }
     })
@@ -1460,6 +1491,9 @@ InvalidSignature(address expected, address actual)
       } catch (error) {
         assert.instanceOf(error, PostPieceError)
         assert.include(error.message, 'Failed to create upload session')
+        assert.include(error.details, 'Server error')
+        assert.equal(error.status, 500)
+        assert.isTrue(HttpError.is(error.cause))
       }
     })
 
@@ -1485,6 +1519,9 @@ InvalidSignature(address expected, address actual)
       } catch (error) {
         assert.instanceOf(error, UploadPieceError)
         assert.include(error.message, 'Failed to upload piece')
+        assert.include(error.details, 'Upload failed')
+        assert.equal(error.status, 500)
+        assert.isTrue(HttpError.is(error.cause))
       }
     })
 
@@ -1830,6 +1867,10 @@ InvalidSignature(address expected, address actual)
       } catch (error) {
         assert.instanceOf(error, PostPieceError)
         assert.include(error.message, 'Failed to create upload session')
+        assert.include(error.details, 'Server error')
+        assert.notInclude(error.details, 'Failed to')
+        assert.equal(error.status, 500)
+        assert.isTrue(HttpError.is(error.cause))
       }
     })
 
@@ -1926,6 +1967,10 @@ InvalidSignature(address expected, address actual)
       } catch (error) {
         assert.instanceOf(error, UploadPieceError)
         assert.include(error.message, 'Failed to upload piece')
+        assert.include(error.details, 'Upload failed')
+        assert.notInclude(error.details, 'Failed to')
+        assert.equal(error.status, 500)
+        assert.isTrue(HttpError.is(error.cause))
       }
     })
 
@@ -1975,7 +2020,10 @@ InvalidSignature(address expected, address actual)
         assert.fail('Should have thrown error for finalize failure')
       } catch (error) {
         assert.instanceOf(error, PostPieceError)
-        assert.include(error.message, 'Failed to finalize upload')
+        assert.include(error.details, 'Finalize failed')
+        assert.notInclude(error.details, 'Failed to')
+        assert.equal(error.status, 500)
+        assert.isTrue(HttpError.is(error.cause))
       }
     })
 
@@ -2002,6 +2050,40 @@ InvalidSignature(address expected, address actual)
         assert.instanceOf(error, PostPieceError)
         assert.include(error.message, 'Expected 200 OK for finalization')
       }
+    })
+  })
+
+  describe('ProviderError subclasses', () => {
+    it('keep the one-argument constructors working', () => {
+      for (const ErrorClass of [
+        CreateDataSetError,
+        PostPieceError,
+        UploadPieceError,
+        AddPiecesError,
+        DeletePieceError,
+      ]) {
+        const error = new ErrorClass('boom')
+        assert.include(error.details, 'boom')
+        assert.isUndefined(error.status)
+        assert.isFalse(error.notFound)
+        assert.isUndefined(error.cause)
+        assert.isTrue(ErrorClass.is(error))
+        assert.isTrue(ProviderError.is(error))
+      }
+      assert.isFalse(ProviderError.is(new LocationHeaderError('x')))
+    })
+
+    it('keep the legacy GetDataSetError not-found message for an empty body', () => {
+      assert.equal(new GetDataSetError('').shortMessage, 'Data set not found.')
+      assert.equal(new GetDataSetError('boom').shortMessage, 'Failed to get data set.')
+      assert.equal(new GetDataSetError('boom', { status: 404 }).shortMessage, 'Data set not found.')
+      assert.equal(new GetDataSetError('', { status: 500 }).shortMessage, 'Failed to get data set.')
+    })
+
+    it('default FindPieceError notFound to a 404 status', () => {
+      assert.isTrue(new FindPieceError('x', { status: 404 }).notFound)
+      assert.isFalse(new FindPieceError('x', { status: 500 }).notFound)
+      assert.isTrue(new FindPieceError('x', { status: 202, notFound: true }).notFound)
     })
   })
 
@@ -2064,6 +2146,10 @@ InvalidSignature(address expected, address actual)
       } catch (error) {
         assert.instanceOf(error, GetDataSetError)
         assert.equal(error.shortMessage, 'Data set not found.')
+        assert.equal(error.status, 404)
+        assert.isTrue(error.notFound)
+        assert.include(error.details, 'HTTP 404')
+        assert.isTrue(HttpError.is(error.cause))
       }
     })
 
@@ -2087,6 +2173,8 @@ InvalidSignature(address expected, address actual)
         assert.instanceOf(error, GetDataSetError)
         assert.equal(error.shortMessage, 'Failed to get data set.')
         assert.include(error.message, 'Database error')
+        assert.equal(error.status, 500)
+        assert.isFalse(error.notFound)
       }
     })
 
