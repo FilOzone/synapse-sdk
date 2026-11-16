@@ -4,7 +4,7 @@
     "outDir": "./dist",
     "types": ["mocha", "node"]
   },
-  "include": ["src", "test", "test/**/*.json"],
+  "include": ["src", "test", "test/**/*.json", "scripts"],
   "exclude": ["node_modules", "dist"],
   "references": [
     {

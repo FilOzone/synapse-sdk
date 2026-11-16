@@ -13,17 +13,17 @@ export interface GroupKeyRef {
   groupKeyId: Hex // 16 random bytes; names the key namespace, independent of any dataset
 }
 
-/** The message an owner signs to start the derivation tree. Its `keyspace` field is the EIP-712 wire name for the group key id. */
+/** The message an owner signs to start the derivation tree. */
 export type GroupKeyMessage = {
   owner: Address // The wallet that roots this group key
-  keyspace: Hex // bytes16, canonical lowercase hex
+  groupKeyId: Hex // bytes16, canonical lowercase hex
 } & Record<string, unknown>
 
 /** What `deriveGroupKey()` hands back. The signature it came from is never exposed. */
 export interface DerivedGroupKey {
-  kk: Uint8Array // The group key: the secret root every group's key and piece key derives from.
-  commitment: string // Non-secret check value for FWSS metadata, under `COMMITMENT_KEY`: `v1.<hex>`.
-  descriptor: GrantDescriptor // What was signed, as a group key grant descriptor: `writeTarget(descriptor, kk, group)`.
+  groupKey: Uint8Array // The group key: the secret root every group's key and piece key derives from.
+  commitment: string // Non-secret check value for FWSS metadata, under `COMMITMENT_KEY`: `v2.<hex>`.
+  descriptor: GrantDescriptor // What was signed, as a group key grant descriptor: `writeTarget(descriptor, groupKey, group)`.
 }
 
 export interface DeriveGroupKeyOptions {
@@ -44,8 +44,8 @@ export interface DeriveGroupKeyOptions {
   verifySigner?: boolean
   /**
    * An optional password mixed into the group key (via Argon2id), so that
-   * a phished signature alone does not reveal it. Without one, the key is
-   * exactly what it always was. With one, the same password is needed every
+   * a phished signature alone does not reveal it. Without one, the key comes from
+   * the signature alone. With one, the same password is needed every
    * time: a wrong one fails against `commitment`, and a forgotten one loses
    * the group key for good.
    */
@@ -60,44 +60,30 @@ export interface TypedDataSigner {
   signTypedData: (args: {
     domain: { readonly name: string; readonly version: string }
     types: Record<string, readonly { readonly name: string; readonly type: string }[]>
-    primaryType: 'KeyspaceKey' // EIP-712 wire name
+    primaryType: 'GroupKey'
     message: GroupKeyMessage
   }) => Promise<Hex>
 }
 
 /**
- * FEE envelope entries to enable key derivation/recovery, format 2. Readers accept it; this release
- * does not write it yet. Format 2 is `foc/v` 2 with `foc/group` in place of `foc/scope`.
+ * FEE envelope entries to enable key derivation/recovery.
  *
- * Both formats are types, not interfaces, so either can be passed as FEE's `appMetadata`
- * (a string-keyed record) as it is.
+ * A type, not an interface, so it can be passed as FEE's `appMetadata` (a string-keyed record) as it is.
+ * A future format adds `PieceMetadataV3` and repoints {@link PieceMetadata} at it.
  */
 export type PieceMetadataV2 = {
   'foc/v': 2 // The version of this metadata format
   'foc/own': Address // The group key owner, lowercased.
-  'foc/ks': Hex // Key set: the group key id, naming the set of keys derived from one group key
+  'foc/gkid': Hex // The group key id
   'foc/group'?: string // The group path this piece is in, eg `top-secret/secret`
   'foc/salt': Hex // The piece's unique salt
 }
 
-/** FEE envelope entries to enable key derivation/recovery, format 1: what this release writes. */
-export type PieceMetadataV1 = {
-  'foc/v': 1 // The version of this metadata format
-  'foc/own': Address // The group key owner, lowercased.
-  'foc/ks': Hex // Key set: the group key id, naming the set of keys derived from one group key
-  'foc/scope'?: string // The group path this piece is in, eg `top-secret/secret`
-  'foc/salt': Hex // The piece's unique salt
-}
+/** The format `pieceMetadata()` writes and `readPieceMetadata()` reads. */
+export type PieceMetadata = PieceMetadataV2
 
-/**
- * The format `pieceMetadata()` writes today: {@link PieceMetadataV1}. A later release switches the
- * writers to format 2 (once the Go and Curio readers ship): add a `PieceMetadataVn`, repoint this alias.
- */
-export type PieceMetadata = PieceMetadataV1
-
-/** A piece's labels from either format, as `readPieceMetadata()` returns them: canonical, validated. */
+/** A piece's labels as `readPieceMetadata()` returns them: canonical, validated. */
 export interface PieceMetadataView {
-  version: 1 | 2
   owner?: Address // As the envelope spells it; absent for a piece that is not gated
   groupKeyId: Hex
   group?: string // Canonical group path
@@ -106,10 +92,9 @@ export interface PieceMetadataView {
 
 /**
  * What a grant may unlock: the whole group key, one group within it, or one piece, named by its salt.
- * The strings are wire values, signed into claims. This release writes `'keyspace'` and `'scope:<path>'`;
- * `'groupKey'` and `'group:<path>'` are read too, and a later release writes them.
+ * The strings are wire values, signed into claims.
  */
-export type GrantNode = 'groupKey' | `group:${string}` | `piece:${string}` | 'keyspace' | `scope:${string}`
+export type GrantNode = 'groupKey' | `group:${string}` | `piece:${string}`
 
 /**
  * Encryption grant metadata. Exactly these fields are authenticated, so a
@@ -117,10 +102,10 @@ export type GrantNode = 'groupKey' | `group:${string}` | `piece:${string}` | 'ke
  * informational and unauthenticated.
  */
 export interface GrantDescriptor {
-  v: 1
-  node: string // A GrantNode, spelled exactly as wrapped; compare with nodeKind()
+  v: 2
+  node: string // A GrantNode
   owner: Address // The wallet that roots the group key, lowercased
-  groupKeyId: Hex // Spelled as in `foc/ks` (key set)
+  groupKeyId: Hex // Spelled as in `foc/gkid`
 }
 
 /** A node key wrapped to one recipient. Safe to store or send anywhere. */
@@ -133,8 +118,7 @@ export interface Grant extends GrantDescriptor {
 
 /**
  * Which node the caller holds when deriving a piece key: the whole group key, a group by its path, or one
- * piece by its salt. These are API names, not wire strings: `holdingOf()` maps a grant's {@link GrantNode},
- * in either spelling, to one of them.
+ * piece by its salt. These are API names, not wire strings: `holdingOf()` maps a grant's {@link GrantNode} to one of them.
  */
 export type Holding = 'groupKey' | { group: string } | { piece: Hex }
 

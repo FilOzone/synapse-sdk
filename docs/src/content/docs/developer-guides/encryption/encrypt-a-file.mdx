@@ -98,7 +98,7 @@ const original = new Uint8Array(await readFile('sample.txt'))
 // 1. Derive the encryption key and public envelope metadata.
 const ref = { owner: account.address, groupKeyId: Keysmith.newGroupKeyId() }
 // Optionally add { password } so a phished signature alone cannot derive the key.
-const { kk: groupKey, commitment, descriptor } = await Keysmith.deriveGroupKey(account, ref)
+const { groupKey, commitment, descriptor } = await Keysmith.deriveGroupKey(account, ref)
 const target = Keysmith.writeTarget(descriptor, groupKey, 'documents')
 const salt = Keysmith.newSalt()
 const key = Keysmith.pieceKey(target.key, salt)
@@ -110,10 +110,7 @@ const encrypted = await through(original, fee.encrypt({
   appMetadata,
   contentLength: original.byteLength,
 }))
-const metadata = {
-  [Keysmith.GROUP_KEY_ID_KEY]: ref.groupKeyId,
-  [Keysmith.COMMITMENT_KEY]: commitment,
-}
+const metadata = Keysmith.dataSetMetadata(ref, commitment)
 const contexts = await synapse.storage.createContexts({ metadata })
 const preparation = await synapse.storage.prepare({
   context: contexts,

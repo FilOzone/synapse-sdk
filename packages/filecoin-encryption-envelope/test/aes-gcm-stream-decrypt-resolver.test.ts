@@ -40,7 +40,7 @@ async function deriveKeyFromMetadata(appMetadata: Record<string, unknown> | unde
 }
 
 describe('aesGcmStream.decrypt with a KeyResolver', () => {
-  it('derives the key from appMetadata and round-trips (keysmith flow)', async () => {
+  it('derives the key from appMetadata and round-trips (key-service flow)', async () => {
     const appMetadata = { salt: Uint8Array.from({ length: 16 }, (_, i) => i + 1), scope: 'tenant-42' }
     const cek = await deriveKeyFromMetadata(appMetadata)
     const plaintext = deterministicPlaintext(CHUNK_SIZE + 100)
