@@ -1,11 +1,24 @@
 import { rejects } from 'assert'
 import { assert } from 'chai'
+import { HttpError } from 'iso-web/http'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { DownloadPieceError } from '../src/errors/pdp.ts'
 import { downloadAndValidate, downloadStream } from '../src/piece/download.ts'
 import * as Piece from '../src/piece/index.ts'
 import { readAllBytes } from '../src/utils/streams.ts'
+
+describe('DownloadPieceError', () => {
+  it('keeps the one-argument constructor working', () => {
+    const error = new DownloadPieceError('boom')
+    assert.equal(error.details, 'boom')
+    assert.isUndefined(error.reason)
+    assert.isUndefined(error.status)
+    assert.isFalse(error.notFound)
+    assert.isFalse(error.verificationFailed)
+    assert.isTrue(DownloadPieceError.is(error))
+  })
+})
 
 describe('Piece download and validation', () => {
   const server = setup()
@@ -61,6 +74,12 @@ describe('Piece download and validation', () => {
       } catch (error) {
         assert.instanceOf(error, DownloadPieceError)
         assert.include(error.message, 'Failed to download piece')
+        assert.equal(error.reason, 'http')
+        assert.equal(error.status, 404)
+        assert.isTrue(error.notFound)
+        assert.isFalse(error.verificationFailed)
+        assert.equal(error.details, 'Not Found')
+        assert.isTrue(HttpError.is(error.cause))
       }
     })
 
@@ -85,7 +104,30 @@ describe('Piece download and validation', () => {
       } catch (error) {
         assert.instanceOf(error, DownloadPieceError)
         assert.include(error.message, 'Failed to download piece')
+        assert.equal(error.reason, 'http')
+        assert.equal(error.status, 500)
+        assert.isFalse(error.notFound)
+        assert.isFalse(error.verificationFailed)
+        assert.isTrue(HttpError.is(error.cause))
       }
+    })
+
+    it('should fall back to the status when an HTTP error has no body', async () => {
+      const pieceCid = await Piece.calculate(new Uint8Array([1, 2, 3, 4]))
+      server.use(http.get('http://pdp.local/piece/:pieceCid', () => new HttpResponse(null, { status: 503 })))
+
+      await rejects(
+        downloadAndValidate({
+          url: `http://pdp.local/piece/${pieceCid.toString()}`,
+          expectedPieceCid: pieceCid,
+          retryCount: 0,
+        }),
+        (error) =>
+          error instanceof DownloadPieceError &&
+          error.reason === 'http' &&
+          error.status === 503 &&
+          error.details === 'HTTP 503'
+      )
     })
 
     it('should throw on PieceCID verification failure', async () => {
@@ -108,6 +150,10 @@ describe('Piece download and validation', () => {
       } catch (error) {
         assert.instanceOf(error, DownloadPieceError)
         assert.include(error.message, 'PieceCID verification failed')
+        assert.equal(error.reason, 'mismatch')
+        assert.isUndefined(error.status)
+        assert.isFalse(error.notFound)
+        assert.isTrue(error.verificationFailed)
       }
     })
 
@@ -131,6 +177,8 @@ describe('Piece download and validation', () => {
         assert.instanceOf(error, DownloadPieceError)
         // Accept either error message as HttpResponse() behaves differently in Node vs browser
         assert.match(error.message, /Response body is (null|empty)/)
+        assert.equal(error.reason, 'empty')
+        assert.isTrue(error.verificationFailed)
       }
     })
 
@@ -269,7 +317,9 @@ describe('Piece download and validation', () => {
           received += chunk.length
         }),
         (error) =>
-          error instanceof DownloadPieceError && error.details?.includes('PieceCID verification failed') === true
+          error instanceof DownloadPieceError &&
+          error.reason === 'mismatch' &&
+          error.details?.includes('PieceCID verification failed') === true
       )
       assert.equal(received, wrongData.length)
     })
@@ -297,7 +347,8 @@ describe('Piece download and validation', () => {
       })
       await rejects(
         readAll(stream),
-        (error) => error instanceof DownloadPieceError && error.details === 'Response body is empty'
+        (error) =>
+          error instanceof DownloadPieceError && error.reason === 'empty' && error.details === 'Response body is empty'
       )
     })
 
@@ -330,7 +381,10 @@ describe('Piece download and validation', () => {
         readAll(stream, (c) => {
           received += c.length
         }),
-        (error) => error instanceof DownloadPieceError && error.details?.includes('larger than the 1024 bytes') === true
+        (error) =>
+          error instanceof DownloadPieceError &&
+          error.reason === 'size' &&
+          error.details?.includes('larger than the 1024 bytes') === true
       )
       assert.equal(received, 0)
       assert.isBelow(pulled, 10)
@@ -363,7 +417,7 @@ describe('Piece download and validation', () => {
 
       await rejects(
         downloadStream({ url: `http://pdp.local/piece/${pieceCid.toString()}`, expectedPieceCid: pieceCid }),
-        DownloadPieceError
+        (error) => error instanceof DownloadPieceError && error.reason === 'http' && error.notFound
       )
     })
 
