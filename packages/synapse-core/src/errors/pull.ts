@@ -1,3 +1,4 @@
+import { decodePDPError } from '../utils/decode-pdp-errors.ts'
 import { isSynapseError } from './base.ts'
 import { ProviderError, type ProviderErrorOptions } from './provider.ts'
 
@@ -12,7 +13,7 @@ export class PullError extends ProviderError {
   override name: 'PullError' = 'PullError'
 
   constructor(error: string, options?: ProviderErrorOptions) {
-    super(`Failed to pull pieces from storage provider.`, error, options)
+    super(`Failed to pull pieces from storage provider.`, decodePDPError(error), options)
   }
 
   static override is(value: unknown): value is PullError {
