@@ -32,13 +32,7 @@ async function fetchPiece(options: RequestOptions): Promise<Response> {
   })
   if (response.error) {
     if (HttpError.is(response.error)) {
-      const { status } = response.error.response
-      const body = await response.error.response.text()
-      throw new DownloadPieceError(body || `HTTP ${status}`, {
-        cause: response.error,
-        reason: 'http',
-        status,
-      })
+      throw await DownloadPieceError.fromHttpError(response.error)
     }
     throw response.error
   }

@@ -4,6 +4,7 @@ import { HttpError } from 'iso-web/http'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { DownloadPieceError } from '../src/errors/pdp.ts'
+import { ProviderError } from '../src/errors/provider.ts'
 import { downloadAndValidate, downloadStream } from '../src/piece/download.ts'
 import * as Piece from '../src/piece/index.ts'
 import { readAllBytes } from '../src/utils/streams.ts'
@@ -17,6 +18,14 @@ describe('DownloadPieceError', () => {
     assert.isFalse(error.notFound)
     assert.isFalse(error.verificationFailed)
     assert.isTrue(DownloadPieceError.is(error))
+  })
+
+  it('is a ProviderError and defaults the reason to http when a status is given', () => {
+    const error = new DownloadPieceError('boom', { status: 503 })
+    assert.isTrue(ProviderError.is(error))
+    assert.equal(error.reason, 'http')
+    assert.equal(error.toJSON().status, 503)
+    assert.equal(new DownloadPieceError('boom', { status: 404, reason: 'empty' }).reason, 'empty')
   })
 })
 
