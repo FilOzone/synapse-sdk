@@ -120,6 +120,8 @@ type Scenario = {
   replacementBlock?: bigint
   /** The head block number, per request. */
   head?: () => bigint
+  /** Whether the landed transaction has a receipt yet, per request. Always when unset. */
+  landed?: () => boolean
 }
 
 /**
@@ -137,7 +139,7 @@ function mockChain(scenario: Scenario) {
       return null
     },
     eth_getTransactionReceipt: ([hash]: [Hex]) => {
-      if (hash !== landedHash || scenario.originalKnown === false) {
+      if (hash !== landedHash || scenario.originalKnown === false || scenario.landed?.() === false) {
         return null
       }
       return receipt(hash, scenario.logs ?? [], scenario.reverted === true ? '0x0' : '0x1')
@@ -454,6 +456,50 @@ describe('chain-only submission results', () => {
       } catch (error) {
         assert.strictEqual((error as Error).name, 'AbortError')
       }
+    })
+
+    // viem shares receipt polling per client and hash; an earlier wait must not stop it for a retry
+    const addLogs = [pieceAddedLog(originalTxHash, 3n, 10n, 0), pieceAddedLog(originalTxHash, 3n, 11n, 1)]
+    const added = { txHash: originalTxHash, confirmedTxHash: originalTxHash, dataSetId: 3n, pieceIds: [10n, 11n] }
+
+    it('resolves a retry on the same client and hash after an earlier wait was aborted', async () => {
+      let landed = false
+      let height = 100n
+      server.use(mockChain({ logs: addLogs, landed: () => landed, head: () => height++ }))
+      const controller = new AbortController()
+      const aborted = waitForAddPieces({ ...options, timeout: 200, signal: controller.signal })
+      controller.abort()
+      await aborted.catch(() => undefined)
+
+      const start = Date.now()
+      const retry = waitForAddPieces({ ...options, timeout: 3000 })
+      setTimeout(() => {
+        landed = true
+      }, 400)
+
+      assert.deepStrictEqual(await retry, added)
+      assert.isBelow(Date.now() - start, 1500)
+    })
+
+    it('resolves a concurrent wait on the same client and hash after another one timed out', async () => {
+      let landed = false
+      let height = 100n
+      server.use(mockChain({ logs: addLogs, landed: () => landed, head: () => height++ }))
+      const start = Date.now()
+      const short = waitForAddPieces({ ...options, timeout: 200 })
+      const long = waitForAddPieces({ ...options, timeout: 3000 })
+      setTimeout(() => {
+        landed = true
+      }, 400)
+
+      try {
+        await short
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.instanceOf(error, WaitForTransactionReceiptTimeoutError)
+      }
+      assert.deepStrictEqual(await long, added)
+      assert.isBelow(Date.now() - start, 1500)
     })
   })
 

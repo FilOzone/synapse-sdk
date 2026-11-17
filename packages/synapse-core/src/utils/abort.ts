@@ -18,8 +18,8 @@ export function throwIfAborted(signal: AbortSignal | undefined): void {
  * Reject with iso-web's AbortError when the signal aborts, otherwise settle like the promise.
  *
  * The underlying work is not cancelled, only the wait for it. Use it to cancel waits that take no
- * signal, such as viem's `waitForTransactionReceipt`, and to get a plain AbortError from contract
- * reads on a {@link withSignal} client, which viem wraps in `ContractFunctionExecutionError`.
+ * signal, and to get a plain AbortError from contract reads on a {@link withSignal} client, which
+ * viem wraps in `ContractFunctionExecutionError`.
  *
  * @example
  * ```ts
@@ -60,7 +60,7 @@ export function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefine
  * - The transport's retries for a request in flight keep sending after the abort; the caller only
  *   stops waiting for them.
  * - viem's `waitForTransactionReceipt` swallows polling errors, so on a `withSignal` client it runs
- *   until its timeout. Wrap receipt waits in {@link abortable} instead.
+ *   until its timeout. Pass the signal to its `signal` option instead.
  *
  * @example
  * ```ts

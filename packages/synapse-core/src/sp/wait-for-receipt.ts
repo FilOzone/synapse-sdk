@@ -66,9 +66,12 @@ async function waitForSubmission<T extends object>(
   let replacement: ReplacementReason | undefined
   let receipt: TransactionReceipt
   try {
+    // The signal stops viem's polling, so an aborted wait can't outlive the caller. `abortable` keeps
+    // the rejection an iso-web AbortError.
     receipt = await abortable(
       waitForTransactionReceipt(options.client, {
         hash: options.txHash,
+        signal: options.signal,
         timeout: options.timeout ?? RETRY_CONSTANTS.TIMEOUT,
         onReplaced: (response) => {
           replacement = response.reason
