@@ -27,6 +27,14 @@ describe('DownloadPieceError', () => {
     assert.equal(error.toJSON().status, 503)
     assert.equal(new DownloadPieceError('boom', { status: 404, reason: 'empty' }).reason, 'empty')
   })
+
+  it('serializes the reason and notFound', () => {
+    const json = new DownloadPieceError('PieceCID verification failed', { reason: 'mismatch' }).toJSON()
+    assert.equal(json.reason, 'mismatch')
+    assert.equal(json.notFound, false)
+    assert.isTrue(new DownloadPieceError('Not Found', { status: 404 }).toJSON().notFound)
+    assert.notProperty(new DownloadPieceError('boom').toJSON(), 'reason')
+  })
 })
 
 describe('Piece download and validation', () => {

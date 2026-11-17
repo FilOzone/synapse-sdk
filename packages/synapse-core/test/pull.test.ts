@@ -682,6 +682,8 @@ describe('Pull', () => {
       const error = new PullError('too many pieces', { status: 400 })
       assert.strictEqual(error.toJSON().status, 400)
       assert.strictEqual(new PullError('test error').toJSON().status, undefined)
+      assert.strictEqual(error.toJSON().notFound, false)
+      assert.strictEqual(new PullError('missing', { status: 404 }).toJSON().notFound, true)
     })
   })
 })

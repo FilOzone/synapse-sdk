@@ -44,6 +44,7 @@ export class ProviderError extends SynapseError {
     return {
       ...super.toJSON(),
       ...(this.status === undefined ? {} : { status: this.status }),
+      notFound: this.notFound,
     }
   }
 
