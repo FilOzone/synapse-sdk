@@ -21,7 +21,7 @@ import { utf8ToBytes } from '@noble/hashes/utils.js'
 import { decode, encode } from 'cborg'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes, isAddress } from 'viem'
-import { assertGrantVersion, canonicalNode, groupKeyId, text } from './derive.ts'
+import { assertFormatVersion, canonicalNode, groupKeyId, text } from './derive.ts'
 import type { Grant, GrantDescriptor } from './types.ts'
 
 /**
@@ -216,7 +216,7 @@ export function decodeGrant(bytes: Uint8Array): DecodedGrant {
       throw new Error(`Not a grant this version understands: unknown field ${String(key)}`)
     }
   }
-  assertGrantVersion(map.get(FIELD.v), { required: true })
+  assertFormatVersion(map.get(FIELD.v), 'grant')
   const field = (key: number, name: string, length: number): Hex => {
     const value = map.get(key)
     if (!(value instanceof Uint8Array) || value.length !== length) {
@@ -265,7 +265,7 @@ function wrapKek(shared: Uint8Array, epk: Uint8Array, pkR: Uint8Array): Uint8Arr
  * @throws If it is not a version this code understands, or a field is malformed.
  */
 function canonical(d: GrantDescriptor): GrantDescriptor {
-  assertGrantVersion(d.v, { required: true })
+  assertFormatVersion(d.v, 'grant')
   const owner = text(d.owner, "A grant's owner").toLowerCase()
   if (!isAddress(owner, { strict: false })) {
     throw new Error(`A grant's owner must be an address, got ${JSON.stringify(d.owner)}`)

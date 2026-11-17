@@ -239,7 +239,7 @@ describe('location independence', () => {
   it('refuses an envelope in a future format, clearly', async () => {
     const groupKey = await groupKeyOf(account, ref)
     const future = { ...pieceMetadata(ref, { salt: newSalt() }), 'foc/v': 3 } as never
-    assert.throws(() => keyForEnvelope(groupKey, future), /not format 2/)
+    assert.throws(() => keyForEnvelope(groupKey, future), /Unsupported piece label version: 3/)
   })
 
   it('refuses malformed envelope metadata clearly, rather than deriving from it', () => {
@@ -326,36 +326,26 @@ describe('holdingOf', () => {
     assert.throws(() => holdingOf({ node: 'keyspace' }), /Unrecognised grant node/)
   })
 
-  it('enforces v when present, and allows node-only input', () => {
-    const named = /keysmith 0\.1\.0 \(format 1\) data is not supported/
-    assert.equal(holdingOf({ node: 'groupKey' }), 'groupKey')
-    assert.equal(holdingOf({ v: 2, node: 'groupKey' }), 'groupKey')
-    for (const v of [1, '1']) assert.throws(() => holdingOf({ v, node: 'groupKey' }), named)
-    for (const v of [3, '2', 2.5, null]) {
-      const unsupported = new RegExp(`Unsupported grant version: ${JSON.stringify(v)}`)
-      assert.throws(() => holdingOf({ v, node: 'groupKey' }), unsupported)
-    }
-  })
-
-  it('writeTarget and keyForEnvelope require the descriptor v to be exactly 2', async () => {
-    const named = /keysmith 0\.1\.0 \(format 1\) data is not supported/
-    const descriptor = grantDescriptor(ref, 'groupKey')
+  it('holdingOf, writeTarget and keyForEnvelope take an in-memory descriptor with v absent or exactly 2', async () => {
+    const named = /keysmith 0\.1\.0 \(format 1\) data is not supported: a grant with v 1/
+    const { v: _v, ...noV } = grantDescriptor(ref, 'groupKey')
     const groupKey = await groupKeyOf(account, ref)
     const metadata = pieceMetadata(ref, { salt: newSalt() })
     const run = {
-      writeTarget: (d: GrantDescriptor) => writeTarget(d, new Uint8Array(32)),
-      keyForEnvelope: (d: GrantDescriptor) => keyForEnvelope(groupKey, metadata, d),
+      holdingOf: (d: object) => holdingOf(d as GrantDescriptor),
+      writeTarget: (d: object) => writeTarget(d as GrantDescriptor, new Uint8Array(32)),
+      keyForEnvelope: (d: object) => keyForEnvelope(groupKey, metadata, d as GrantDescriptor),
     }
     for (const [name, f] of Object.entries(run)) {
-      assert.doesNotThrow(() => f(descriptor), `${name} v 2`)
-      for (const v of [1, '1']) assert.throws(() => f({ ...descriptor, v } as never), named, `${name} v ${v}`)
-      for (const v of [3, '2', undefined]) {
-        const unsupported = new RegExp(
-          `Unsupported grant version: ${v === undefined ? 'undefined' : JSON.stringify(v)}`
-        )
-        assert.throws(() => f({ ...descriptor, v } as never), unsupported, `${name} v ${v}`)
+      assert.doesNotThrow(() => f(noV), `${name} without v`)
+      assert.doesNotThrow(() => f({ ...noV, v: 2 }), `${name} v 2`)
+      for (const v of [1, '1']) assert.throws(() => f({ ...noV, v }), named, `${name} v ${JSON.stringify(v)}`)
+      for (const v of [3, '2', 2.5, null]) {
+        const unsupported = new RegExp(`Unsupported grant version: ${JSON.stringify(v)}`)
+        assert.throws(() => f({ ...noV, v }), unsupported, `${name} v ${JSON.stringify(v)}`)
       }
     }
+    assert.equal(holdingOf({ node: 'groupKey' }), 'groupKey', 'node-only input')
   })
 
   it('refuses a keysmith 0.1.0 grant by name, before reading its node', async () => {
@@ -605,13 +595,17 @@ describe('readPieceMetadata', () => {
   })
 
   it('is strict about the version and the group key id', () => {
-    assert.throws(() => readPieceMetadata({ ...written, 'foc/v': 3 }), /not format 2/)
-    assert.throws(() => readPieceMetadata({ ...written, 'foc/v': undefined }), /not format 2/)
-    assert.throws(() => readPieceMetadata({ ...written, 'foc/v': '2' }), /foc\/v "2"/, 'a string is shown as a string')
+    assert.throws(() => readPieceMetadata({ ...written, 'foc/v': 3 }), /Unsupported piece label version: 3/)
     assert.throws(
-      () => readPieceMetadata({ ...written, 'foc/gkid': undefined }),
-      /not format 2 with a group key.*foc\/gkid/
+      () => readPieceMetadata({ ...written, 'foc/v': undefined }),
+      /Unsupported piece label version: undefined/
     )
+    assert.throws(
+      () => readPieceMetadata({ ...written, 'foc/v': '2' }),
+      /version: "2"/,
+      'a string is shown as a string'
+    )
+    assert.throws(() => readPieceMetadata({ ...written, 'foc/gkid': undefined }), /group key id must be a string/)
     assert.throws(() => readPieceMetadata(undefined), /must be an object/)
   })
 
@@ -631,7 +625,7 @@ describe('readPieceMetadata', () => {
       () => readPieceMetadata({ ...written, 'foc/v': '1' }),
       /keysmith 0\.1\.0 \(format 1\) data is not supported/
     )
-    assert.throws(() => readPieceMetadata({ ...written, 'foc/v': '2' }), /not format 2/)
+    assert.throws(() => readPieceMetadata({ ...written, 'foc/v': '2' }), /Unsupported piece label version: "2"/)
   })
 
   it('canonicalises nodes, and refuses malformed ones', () => {
@@ -724,9 +718,9 @@ describe('labels are own properties', () => {
     // A label that is only inherited is missing
     const { 'foc/gkid': _id, ...noGkid } = ungated
     const noId = Object.assign(Object.create({ 'foc/gkid': ref.groupKeyId }), noGkid)
-    assert.throws(() => readPieceMetadata(noId), /not format 2 with a group key/)
+    assert.throws(() => readPieceMetadata(noId), /group key id must be a string/)
     const onlyInherited = Object.create(written) as Record<string, unknown>
-    assert.throws(() => readPieceMetadata(onlyInherited), /not format 2/)
+    assert.throws(() => readPieceMetadata(onlyInherited), /Unsupported piece label version: undefined/)
     assert.equal(groupKeyIdOf(Object.create({ 'foc/gkid': ref.groupKeyId })), undefined)
     assert.throws(() => pieceNode(Object.create(written)), /piece salt/)
   })
@@ -745,7 +739,7 @@ describe('labels are own properties', () => {
       assert.deepStrictEqual(keyForEnvelope(new Uint8Array(32), ungated), keyForEnvelope(new Uint8Array(32), ungated))
       assert.equal(groupKeyIdOf({}), undefined)
       assert.equal(groupLabelOf(ungated), undefined)
-      assert.equal(labelsGroupKeyId(ungated), ref.groupKeyId)
+      assert.equal(labelsGroupKeyId(ungated, { lenient: false }), ref.groupKeyId)
     } finally {
       delete polluted['foc/group']
       delete polluted['foc/own']

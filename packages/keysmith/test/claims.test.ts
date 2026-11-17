@@ -294,11 +294,11 @@ describe('claims', () => {
     assert.throws(() => decodeDelivery(redo(l0, new Map(l1).set(12, 1))), /unknown field/)
     assert.throws(() => decodeDelivery(redo(without(l0, 8), l1)), /signature must be 65 bytes/)
     assert.throws(() => decodeDelivery(redo(without(l0, 11), l1)), /root expiry/)
-    assert.throws(() => decodeDelivery(encode([3, links, grantBytes])), /Not a version 2 delivery/)
+    assert.throws(() => decodeDelivery(encode([3, links, grantBytes])), /Unsupported delivery version: 3/)
     const old = /keysmith 0\.1\.0 \(format 1\) data is not supported/
     assert.throws(() => decodeDelivery(encode([1, links, grantBytes])), old, 'a version 1 delivery')
     assert.throws(() => decodeDelivery(redo(new Map(l0).set(0, 1), l1)), old, 'a version 1 link')
-    assert.throws(() => decodeDelivery(redo(l0, new Map(l1).set(0, 3))), /Link 1 has an unsupported version/)
+    assert.throws(() => decodeDelivery(redo(l0, new Map(l1).set(0, 3))), /Unsupported claim link 1 version: 3/)
     assert.throws(
       () => decodePresentation(encode([1, [l0, l1], new Map([[0, PIECE]])])),
       old,
@@ -306,7 +306,7 @@ describe('claims', () => {
     )
     assert.throws(
       () => decodePresentation(encode([3, [l0, l1], new Map([[0, PIECE]])])),
-      /Not a version 2 presentation/
+      /Unsupported presentation version: 3/
     )
   })
 
@@ -397,6 +397,21 @@ describe('claims', () => {
     }
   })
 
+  it('skips a held grant whose node does not parse, rather than throwing', () => {
+    const held = (node: string) => ({
+      claim: { owner: owner.address, groupKeyId: keyId, chainId, expires, node, bearer: a.address } as VerifiedClaim,
+    })
+    const team = held('group:team')
+    for (const bad of ['keyspace', 'scope:team', 'piece:0xab', '']) {
+      const stale = held(bad)
+      for (const target of [{ piece: labels('team/x') }, { ...ref, group: 'team/x' }]) {
+        assert.equal(pickGrant([stale, team], target, { chainId, now }), team, `${bad} before`)
+        assert.equal(pickGrant([team, stale], target, { chainId, now }), team, `${bad} after`)
+        assert.equal(pickGrant([stale], target, { chainId, now }), undefined, `${bad} alone`)
+      }
+    }
+  })
+
   it('normalizes a signer that returns v = 0/1 or a high s to the one accepted form', async () => {
     const n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
     const loose = {
@@ -483,7 +498,7 @@ describe('claims', () => {
     }
     for (const v of [3, '3', 0, 'x', null, 2.5]) {
       const bad = { ...labels('team/x'), 'foc/v': v }
-      const unsupported = new RegExp(`Unsupported piece label format: foc/v ${JSON.stringify(v)}`)
+      const unsupported = new RegExp(`Unsupported piece label version: ${JSON.stringify(v)}`)
       await assert.rejects(check(bad), unsupported)
     }
     const old = /keysmith 0\.1\.0 \(format 1\) data is not supported/
@@ -498,6 +513,26 @@ describe('claims', () => {
       await assert.rejects(check(piece), old)
       assert.throws(() => pickGrant(held, { piece: piece as PieceLabels }, { chainId, now }), old)
     }
+  })
+
+  it('claim-side labels accept foc/v absent or "2" where the envelope side is strict, on purpose: providers may parse labels from Go/JSON', async () => {
+    const { chain } = await root('group:team', 0)
+    const bytes = encodePresentation(chain, await signRequest(a, chain, { pieceCid: PIECE, expires: now + 100, now }))
+    for (const v of [undefined, '2']) {
+      const piece = { ...labels('team/x'), 'foc/v': v } as PieceLabels
+      assert.equal((await verifyPresentation(bytes, { pieceCid: PIECE, piece, chainId, now })).node, 'group:team')
+      assert.throws(() => readPieceMetadata(piece as never), /Unsupported piece label version/, `envelope foc/v ${v}`)
+    }
+  })
+
+  it('names keysmith 0.1.0 for foc/ks labels without foc/v or foc/gkid, on both sides', async () => {
+    const { chain } = await root('group:team', 0)
+    const bytes = encodePresentation(chain, await signRequest(a, chain, { pieceCid: PIECE, expires: now + 100, now }))
+    const old = /keysmith 0\.1\.0 \(format 1\) data is not supported: a piece with foc\/ks labels/
+    const ks = { 'foc/own': owner.address.toLowerCase(), 'foc/ks': keyId, 'foc/salt': newSalt() } // gated, or the labels are not read
+    assert.throws(() => readPieceMetadata(ks), old)
+    assert.throws(() => keyForEnvelope(new Uint8Array(32), ks), old)
+    await assert.rejects(verifyPresentation(bytes, { pieceCid: PIECE, piece: ks as never, chainId, now }), old)
   })
 
   it('reads the group key id from foc/gkid', async () => {

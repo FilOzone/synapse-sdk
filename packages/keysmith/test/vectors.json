@@ -66,7 +66,7 @@
         "foc/scope": "admin/finance/clerks",
         "foc/salt": "0x000102030405060708090a0b0c0d0e0f"
       },
-      "reason": "keysmith 0.1.0 (format 1) data is not supported: this piece is labelled foc/v 1"
+      "reason": "keysmith 0.1.0 (format 1) data is not supported: a piece with foc/ks labels"
     },
     {
       "what": "A grant from keysmith 0.1.0 (v 1)",

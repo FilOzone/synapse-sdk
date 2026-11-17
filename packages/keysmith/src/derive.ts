@@ -78,15 +78,21 @@ export const format1Error = (what: string): Error =>
   new Error(`keysmith 0.1.0 (format 1) data is not supported: ${what}`)
 
 /**
- * Check a grant descriptor's `v`: it must be exactly the number 2. `v` 1 or `"1"` is keysmith 0.1.0's.
- * With `required: false` an absent `v` passes (node-only input), but a present one is still checked.
+ * The one check for a format version field (grant `v`, link and presentation versions, `foc/v`):
+ * exactly the number 2. `1` or `"1"` is keysmith 0.1.0's and gets {@link format1Error}; anything else is unsupported.
+ * `absent` also passes `undefined`, `string` also passes `"2"`: for input that is not typed CBOR we wrote.
  *
- * @throws If `v` is not 2.
+ * @param what The noun for the message, e.g. `grant`: "a grant with v 1", "Unsupported grant version: 3".
+ * @throws If `v` is not accepted.
  */
-export function assertGrantVersion(v: unknown, { required }: { required: boolean }): void {
-  if (v === undefined && !required) return
-  if (v === 1 || v === '1') throw format1Error('a grant with v 1')
-  if (v !== 2) throw new Error(`Unsupported grant version: ${JSON.stringify(v)}`)
+export function assertFormatVersion(
+  v: unknown,
+  what: string,
+  { absent = false, string = false }: { absent?: boolean; string?: boolean } = {}
+): void {
+  if (v === 1 || v === '1') throw format1Error(`a ${what} with v 1`)
+  if (v === 2 || (absent && v === undefined) || (string && v === '2')) return
+  throw new Error(`Unsupported ${what} version: ${JSON.stringify(v)}`)
 }
 
 /** The FWSS data-set metadata key the commitment is written to. */
@@ -257,6 +263,7 @@ export const commitment = (groupKey: Uint8Array): string =>
   `v2.${bytesToHex(derive(groupKey, INFO.commitment, 16)).slice(2)}`
 
 function commitmentFormat(recorded: string): string {
+  // Not a version field but a `v<n>.` prefix, so it keeps its own check
   if (/^v1\./.test(recorded)) throw format1Error('a v1 commitment')
   if (!/^v2\.[0-9a-f]{32}$/.test(recorded)) {
     throw new Error(`Not a group key commitment in format v2: ${JSON.stringify(recorded)}`)
@@ -320,9 +327,7 @@ const walk = (key: Uint8Array, names: string[]): Uint8Array =>
  *
  * @throws If the name is empty, padded with whitespace, contains `/`, or is not well-formed Unicode.
  */
-export const groupName = (name: string): string => checkName(name)
-
-function checkName(name: string): string {
+export function groupName(name: string): string {
   // Lone surrogates risk two different names deriving the same key, so refuse them.
   if (/\p{Cs}/u.test(name)) {
     throw new Error(`A group name must be well-formed Unicode (no lone surrogates), got ${JSON.stringify(name)}`)
@@ -337,7 +342,7 @@ function checkName(name: string): string {
 }
 
 /** Canonicalize group path: canonical names joined by `/`, top group first. */
-export const groupPath = (path: string): string => text(path, 'A group path').split('/').map(checkName).join('/')
+export const groupPath = (path: string): string => text(path, 'A group path').split('/').map(groupName).join('/')
 
 /** What a grant node means. Path and salt are canonical. */
 export type NodeKind = { kind: 'groupKey' } | { kind: 'group'; path: string } | { kind: 'piece'; salt: Hex }
@@ -415,12 +420,12 @@ export const pieceNode = (metadata: Pick<PieceMetadata, 'foc/salt'>): GrantNode 
  *
  * @throws If `foc/own` is truthy but not an address: refused rather than read as not gated.
  */
-export function gatedOwner(own: unknown): Address | undefined {
-  if (!own) return undefined
-  if (typeof own !== 'string' || !isAddress(own, { strict: false })) {
-    throw new Error(`foc/own must be an address, got ${JSON.stringify(own)}`)
+export function gatedOwner(value: unknown): Address | undefined {
+  if (!value) return undefined
+  if (typeof value !== 'string' || !isAddress(value, { strict: false })) {
+    throw new Error(`foc/own must be an address, got ${JSON.stringify(value)}`)
   }
-  return own
+  return value
 }
 
 /**
@@ -435,20 +440,20 @@ export function groupLabelOf(m: Readonly<Record<string, unknown>>): string | und
 }
 
 /**
- * The group key id a piece's labels name under `foc/gkid`, canonical.
+ * The format check for a piece's labels, and the group key id they name under `foc/gkid`, canonical.
+ * Both readers go through here: {@link readPieceMetadata} (envelope) and the claim side.
  *
- * @throws If the labels are from keysmith 0.1.0, `foc/v` is not absent, 2 or "2", or the id is malformed.
+ * `lenient` is the one deliberate difference. Envelope labels are typed CBOR that keysmith wrote, so `foc/v` is
+ * exactly 2. A provider on the claim side may pass labels parsed from Go or JSON, so `foc/v` may also be absent or "2".
+ *
+ * @throws If the labels are from keysmith 0.1.0 (`foc/v` 1, or `foc/ks` without `foc/gkid`), `foc/v` is not
+ * accepted, or the id is malformed.
  */
-export function labelsGroupKeyId(m: Readonly<Record<string, unknown>>): Hex {
-  const v = own(m, 'foc/v')
-  if (v === 1 || v === '1' || (own(m, 'foc/gkid') === undefined && own(m, 'foc/ks') !== undefined)) {
-    throw format1Error('this piece carries foc/v 1 or foc/ks labels')
-  }
-  // Absent, 2 or "2" only: a provider may pass a string, but a later format is not read as format 2
-  if (v !== undefined && v !== 2 && v !== '2') {
-    throw new Error(`Unsupported piece label format: foc/v ${JSON.stringify(v)}`)
-  }
-  return groupKeyId(own(m, 'foc/gkid') as string)
+export function labelsGroupKeyId(m: Readonly<Record<string, unknown>>, { lenient }: { lenient: boolean }): Hex {
+  const gkid = own(m, 'foc/gkid')
+  if (gkid === undefined && own(m, 'foc/ks') !== undefined) throw format1Error('a piece with foc/ks labels')
+  assertFormatVersion(own(m, 'foc/v'), 'piece label', lenient ? { absent: true, string: true } : {})
+  return groupKeyId(gkid as string)
 }
 
 /**
@@ -456,7 +461,7 @@ export function labelsGroupKeyId(m: Readonly<Record<string, unknown>>): Hex {
  *
  * Takes the metadata as FEE returns it (`info.appMetadata`), unvalidated.
  *
- * @throws If `foc/v` is not 2 (an envelope from keysmith 0.1.0 is `foc/v` 1), or a field is malformed.
+ * @throws If `foc/v` is not 2 (an envelope from keysmith 0.1.0 is `foc/v` 1, or `foc/ks`), or a field is malformed.
  */
 export function readPieceMetadata(
   envelopeMetadata: PieceMetadataV2 | Readonly<Record<string, unknown>> | undefined
@@ -467,21 +472,13 @@ export function readPieceMetadata(
     )
   }
   const m = envelopeMetadata as Readonly<Record<string, unknown>>
-  const version = own(m, 'foc/v')
   // Format changes break key derivation, so guard first
-  if (String(version) === '1') throw format1Error('this piece is labelled foc/v 1')
-  const gkid = own(m, 'foc/gkid')
-  if (version !== 2 || typeof gkid !== 'string') {
-    throw new Error(
-      `This piece's envelope is not format 2 with a group key (foc/v ${JSON.stringify(version)}, ` +
-        `foc/gkid ${String(gkid)}).`
-    )
-  }
+  const id = labelsGroupKeyId(m, { lenient: false })
   const group = groupLabelOf(m)
   const owner = gatedOwner(own(m, 'foc/own'))
   return {
     ...(owner === undefined ? {} : { owner }),
-    groupKeyId: labelsGroupKeyId(m),
+    groupKeyId: id,
     ...(group === undefined ? {} : { group }),
     salt: pieceSalt(own(m, 'foc/salt')),
   }
@@ -582,7 +579,8 @@ export function grantDescriptor(ref: GroupKeyRef, node: GrantNode): GrantDescrip
  *
  * Pass the grant that delivered the key as `holding` where you have it: then the
  * piece's owner and group key are checked against the grant too, so a key from the
- * wrong group key fails here with a clear reason rather than later inside FEE.
+ * wrong group key fails here with a clear reason rather than later inside FEE. A descriptor's `v` follows
+ * {@link holdingOf}: absent, or exactly 2.
  *
  * @throws If the piece is not format 2, belongs to another owner or group key
  * than the grant, the held group does not contain the piece's group, or the held
@@ -599,7 +597,6 @@ export function keyForEnvelope(
   // Given the grant itself, check the piece is in the grant's group key before deriving anything
   let holding: Holding
   if (typeof holder === 'object' && 'node' in holder) {
-    assertGrantVersion(holder.v, { required: true })
     holding = holdingOf(holder)
     if (groupKeyId(holder.groupKeyId) !== piece.groupKeyId) {
       throw new Error(`This key is for group key ${holder.groupKeyId}; the piece is in group key ${piece.groupKeyId}.`)
@@ -656,12 +653,13 @@ export const keyResolver =
  * nothing distinguishes them once unwrapped — but the grant that delivered the
  * key does, so keep the whole grant, not just the key.
  *
- * Takes a full grant or just `{ node }`: `v` is checked only when present.
+ * Takes a full grant or just `{ node }`. For an in-memory descriptor, `v` may be absent but, if present, must be
+ * exactly 2 (see {@link assertFormatVersion}). Only decoded bytes (`decodeGrant`, `unwrapWith`) require `v: 2`.
  *
  * @throws If `v` is present and not 2 (`v` 1 is keysmith 0.1.0's), or the node is not one this version understands.
  */
 export function holdingOf(grant: Pick<GrantDescriptor, 'node'> & { v?: unknown }): Holding {
-  assertGrantVersion(grant.v, { required: false })
+  assertFormatVersion(grant.v, 'grant', { absent: true })
   const k = nodeKind(grant.node)
   if (k.kind === 'groupKey') return 'groupKey'
   return k.kind === 'piece' ? { piece: k.salt } : { group: k.path }
@@ -679,13 +677,12 @@ export function holdingOf(grant: Pick<GrantDescriptor, 'node'> & { v?: unknown }
  * else is refused here, before a piece is encrypted under a key its intended
  * readers could never derive.
  *
- * @throws If the grant's `v` is not 2, the grant is a piece grant, the group lies outside the grant's subtree, or the key is not 32 bytes.
+ * @throws If the grant's `v` is present and not 2 (as {@link holdingOf}), the grant is a piece grant, the group lies outside the grant's subtree, or the key is not 32 bytes.
  */
 export function writeTarget(grant: GrantDescriptor, nodeKey: Uint8Array, group?: string): WriteTarget {
   if (nodeKey.length !== 32) {
     throw new Error(`Expected a 32-byte node key, got ${nodeKey.length} bytes`)
   }
-  assertGrantVersion(grant.v, { required: true })
   const holding = holdingOf(grant)
   if (holding !== 'groupKey' && 'piece' in holding) {
     throw new Error('A piece grant opens one existing piece and cannot write: FEE needs a fresh key for every object.')

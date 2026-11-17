@@ -165,6 +165,7 @@ describe('wrapTo / unwrapWith', () => {
       [encode([1, 2]), /expected a CBOR map/],
       [reencoded((m) => m.set(7, 1)), /unknown field 7/],
       [reencoded((m) => m.set(0, 3)), /Unsupported grant version: 3/],
+      [reencoded((m) => m.delete(0)), /Unsupported grant version: undefined/], // decoded bytes require v 2
       [reencoded((m) => m.set(0, 1)), /keysmith 0\.1\.0 \(format 1\) data is not supported/],
       [reencoded((m) => m.set(2, account.address)), /owner must be 20 bytes/],
       [reencoded((m) => m.set(6, (m.get(6) as Uint8Array).slice(1))), /ct must be 48 bytes/],

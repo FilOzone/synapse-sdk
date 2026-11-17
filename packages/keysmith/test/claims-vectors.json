@@ -761,7 +761,7 @@
       "expect": {
         "result": "refused",
         "step": "decode",
-        "reason": "keysmith 0.1.0 (format 1) data is not supported: a version 1 presentation"
+        "reason": "keysmith 0.1.0 (format 1) data is not supported: a presentation with v 1"
       }
     },
     {
@@ -779,7 +779,7 @@
       "expect": {
         "result": "refused",
         "step": "decode",
-        "reason": "Not a version 2 presentation"
+        "reason": "Unsupported presentation version: 3"
       }
     },
     {
@@ -797,7 +797,7 @@
       "expect": {
         "result": "refused",
         "step": "decode",
-        "reason": "keysmith 0.1.0 (format 1) data is not supported: link 0 has v 1"
+        "reason": "keysmith 0.1.0 (format 1) data is not supported: a claim link 0 with v 1"
       }
     },
     {
@@ -815,7 +815,7 @@
       "expect": {
         "result": "refused",
         "step": "decode",
-        "reason": "Link 0 has an unsupported version"
+        "reason": "Unsupported claim link 0 version: 3"
       }
     },
     {
@@ -1069,7 +1069,7 @@
       "expect": {
         "result": "refused",
         "step": "piece",
-        "reason": "Unsupported piece label format: foc/v 3"
+        "reason": "Unsupported piece label version: 3"
       }
     },
     {
@@ -1088,7 +1088,7 @@
       "expect": {
         "result": "refused",
         "step": "piece",
-        "reason": "Unsupported piece label format: foc/v \"3\""
+        "reason": "Unsupported piece label version: \"3\""
       }
     },
     {
@@ -1142,7 +1142,7 @@
       "expect": {
         "result": "refused",
         "step": "piece",
-        "reason": "keysmith 0.1.0 (format 1) data is not supported: this piece carries foc/v 1 or foc/ks labels"
+        "reason": "keysmith 0.1.0 (format 1) data is not supported: a piece with foc/ks labels"
       }
     },
     {
@@ -1160,7 +1160,7 @@
       "expect": {
         "result": "refused",
         "step": "piece",
-        "reason": "keysmith 0.1.0 (format 1) data is not supported: this piece carries foc/v 1 or foc/ks labels"
+        "reason": "keysmith 0.1.0 (format 1) data is not supported: a piece with foc/ks labels"
       }
     }
   ]

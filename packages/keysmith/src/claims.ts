@@ -20,10 +20,10 @@ import { decode, encode } from 'cborg'
 import { type Address, bytesToHex, getAddress, type Hex, hexToBytes, isAddress, recoverTypedDataAddress } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
+  assertFormatVersion,
   canonicalNode,
   commitment,
   DOMAIN,
-  format1Error,
   gatedOwner,
   grantDescriptor,
   groupKeyId,
@@ -32,6 +32,7 @@ import {
   holdingOf,
   keyForEnvelope,
   labelsGroupKeyId,
+  type NodeKind,
   nodeKind,
   own,
   pieceSalt,
@@ -131,8 +132,8 @@ export type PieceLabels = {
 
 const rawLabels = (piece: PieceLabels) => piece as Readonly<Record<string, unknown>>
 
-/** The canonical group key id the labels name. */
-const idOf = (piece: PieceLabels) => labelsGroupKeyId(rawLabels(piece))
+/** The canonical group key id the labels name. Lenient on `foc/v`: a provider may pass labels parsed from JSON. */
+const idOf = (piece: PieceLabels) => labelsGroupKeyId(rawLabels(piece), { lenient: true })
 
 /** Labels as envelope metadata. */
 const asMetadata = (piece: PieceLabels) => ({ ...piece, 'foc/v': 2 })
@@ -376,13 +377,19 @@ const within = (parent: string, child: string) => child === parent || child.star
  */
 const pieceNodeOf = (piece: PieceLabels) => `piece:${pieceSalt(own(rawLabels(piece), 'foc/salt'))}`
 
+/** Whether a parsed node reaches a piece with this piece node and group: the one rule behind `reaches` and `pickGrant`. */
+function reachesKind(held: NodeKind, pieceNode: string | undefined, group: string | undefined): boolean {
+  if (held.kind === 'groupKey') return true
+  if (held.kind === 'piece') return `piece:${held.salt}` === pieceNode
+  return group != null && within(held.path, group)
+}
+
 /** Whether `node` reaches the piece these labels describe. Reads only the label the node's kind needs. */
 export function reaches(node: string, piece: PieceLabels): boolean {
-  const held = nodeKind(node)
-  if (held.kind === 'groupKey') return true
-  if (held.kind === 'piece') return `piece:${held.salt}` === pieceNodeOf(piece)
-  const group = groupOf(piece)
-  return group != null && within(held.path, group)
+  const k = nodeKind(node)
+  const pieceNode = k.kind === 'piece' ? pieceNodeOf(piece) : undefined
+  const group = k.kind === 'group' ? groupOf(piece) : undefined
+  return reachesKind(k, pieceNode, group)
 }
 
 /** What a grant is picked for: reading one piece, or writing (or reading) under a group of a group key. */
@@ -391,7 +398,7 @@ export type GrantTarget = { piece: PieceLabels } | (GroupKeyRef & { group: strin
 /**
  * The narrowest held grant that reaches `target`: a piece grant before a group grant, a deeper group before a
  * shallower one, the group key last; on a tie, the one that expires last. Grants for another network or group key,
- * or expired ones, are skipped. Undefined when none reaches it: ask for a grant to that group or piece.
+ * or expired ones, or whose node does not parse, are skipped. Undefined when none reaches it: ask for a grant to that group or piece.
  *
  * Takes anything carrying a verified `claim`, such as what `openDelivery` returns.
  *
@@ -414,28 +421,24 @@ export function pickGrant<T extends { claim: VerifiedClaim }>(
   const owner = expectedOwner(target, options.owner)
   const id = 'piece' in target ? idOf(target.piece) : groupKeyId(target.groupKeyId)
   let group: string | undefined
+  let pieceNode: string | undefined
   if ('piece' in target) {
-    pieceNodeOf(target.piece) // Refuses a malformed salt, though only a piece grant would read it
+    pieceNode = pieceNodeOf(target.piece) // Refuses a malformed salt, though only a piece grant would read it
     group = groupOf(target.piece)
   } else if (target.group != null) group = groupPath(target.group)
-  const covers =
-    'piece' in target
-      ? (node: string) => reaches(node, target.piece)
-      : (node: string) => {
-          const held = nodeKind(node)
-          return held.kind === 'groupKey' || (held.kind === 'group' && group != null && within(held.path, group))
-        }
   let best: T | undefined
+  let bestRank = 0
   for (const held of grants) {
     const { claim } = held
     if (claim.chainId !== options.chainId || claim.expires <= now || claim.groupKeyId !== id) continue
-    if (owner !== claim.owner || !covers(claim.node)) continue
-    if (
-      !best ||
-      narrowness(claim) > narrowness(best.claim) ||
-      (narrowness(claim) === narrowness(best.claim) && claim.expires > best.claim.expires)
-    ) {
+    if (owner !== claim.owner) continue
+    // A node that does not parse (a stored 0.1.0 claim, say) reaches nothing: skip it
+    const kind = tryNodeKind(claim.node)
+    if (kind === undefined || !reachesKind(kind, pieceNode, group)) continue
+    const rank = narrowness(kind)
+    if (!best || rank > bestRank || (rank === bestRank && claim.expires > best.claim.expires)) {
       best = held
+      bestRank = rank
     }
   }
   return best
@@ -463,9 +466,16 @@ const asOwner = (value: unknown, what: string): Address => {
   return getAddress(value)
 }
 
+function tryNodeKind(node: string): NodeKind | undefined {
+  try {
+    return nodeKind(node)
+  } catch {
+    return undefined
+  }
+}
+
 // the group key 0, 'group:a/b' 2, any piece above every group
-const narrowness = ({ node }: { node: string }) => {
-  const k = nodeKind(node)
+const narrowness = (k: NodeKind) => {
   if (k.kind === 'groupKey') return 0
   if (k.kind === 'piece') return Number.POSITIVE_INFINITY
   return k.path.split('/').length
@@ -722,8 +732,7 @@ function decodeChainLinks(value: unknown): ClaimChain {
         throw new Error(`Link ${i} has an unknown field ${String(key)}`)
       if (i > 0 && ROOT_ONLY.includes(key)) throw new Error(`Link ${i} repeats a root-only field`)
     }
-    if (link.get(0) === 1) throw format1Error(`link ${i} has v 1`)
-    if (link.get(0) !== 2) throw new Error(`Link ${i} has an unsupported version`)
+    assertFormatVersion(link.get(0), `claim link ${i}`)
     return link as Map<number, unknown>
   })
   const root = maps[0] as Map<number, unknown>
@@ -764,8 +773,8 @@ function decodeArray(bytes: Uint8Array, what: string): unknown[] {
   if (bytesToHex(encode(value)) !== bytesToHex(bytes)) {
     throw new Error(`Not a ${what}: the bytes are not canonical CBOR`)
   }
-  if (Array.isArray(value) && value.length === 3 && value[0] === 1) throw format1Error(`a version 1 ${what}`)
-  if (!Array.isArray(value) || value.length !== 3 || value[0] !== 2) throw new Error(`Not a version 2 ${what}`)
+  if (!Array.isArray(value) || value.length !== 3) throw new Error(`Not a version 2 ${what}`)
+  assertFormatVersion(value[0], what)
   return value
 }
 

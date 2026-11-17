@@ -184,7 +184,7 @@ async function derivationVectors() {
         metadata: format1Metadata,
         reason: refusal(
           () => readPieceMetadata(format1Metadata),
-          /format 1\) data is not supported: this piece is labelled foc\/v 1/
+          /format 1\) data is not supported: a piece with foc\/ks labels/
         ),
       },
       {
@@ -681,22 +681,22 @@ async function claimVectors() {
   refuse(
     'Format version 1 (keysmith 0.1.0)',
     withParts((p) => (p.version = 1)),
-    /keysmith 0\.1\.0 \(format 1\) data is not supported: a version 1 presentation/
+    /keysmith 0\.1\.0 \(format 1\) data is not supported: a presentation with v 1/
   )
   refuse(
     'Format version 3',
     withParts((p) => (p.version = 3)),
-    /Not a version 2 presentation/
+    /Unsupported presentation version: 3/
   )
   refuse(
     'A link with v = 1 (keysmith 0.1.0)',
     withParts((p) => p.links[0]?.set(0, 1)),
-    /keysmith 0\.1\.0 \(format 1\) data is not supported: link 0 has v 1/
+    /keysmith 0\.1\.0 \(format 1\) data is not supported: a claim link 0 with v 1/
   )
   refuse(
     'A link with v = 3',
     withParts((p) => p.links[0]?.set(0, 3)),
-    /Link 0 has an unsupported version/
+    /Unsupported claim link 0 version: 3/
   )
   refuse(
     'chainId of 2^53, beyond the integer range',
@@ -789,7 +789,7 @@ async function claimVectors() {
     'piece',
     /A piece salt is 16 random bytes, from newSalt\(\); got 1/
   )
-  const UNSUPPORTED = /Unsupported piece label format: foc\/v/
+  const UNSUPPORTED = /Unsupported piece label version: /
   add('Labels: foc/v 3 is refused', e1Bytes, P1, { ...L1, 'foc/v': 3 }, 'piece', UNSUPPORTED)
   add('Labels: foc/v as the string "3" is refused', e1Bytes, P1, { ...L1, 'foc/v': '3' }, 'piece', UNSUPPORTED)
   const withKey = parts(e1Bytes)
