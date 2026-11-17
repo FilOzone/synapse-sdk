@@ -1,7 +1,7 @@
 import { base58btc } from 'multiformats/bases/base58'
 import type { Hex } from 'viem'
 import { bytesToHex, fromHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
-import { z } from 'zod'
+import * as z from 'zod'
 import { ValidationError, ZodValidationError } from '../errors/base.ts'
 import type { PDPOffering, ProviderWithProduct } from '../sp-registry/types.ts'
 import { capabilitiesListToObject, decodeAddressCapability } from './capabilities.ts'

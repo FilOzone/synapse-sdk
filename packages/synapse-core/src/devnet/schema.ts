@@ -9,7 +9,7 @@
  * the library to validate the exported devnet-info.json file.
  */
 
-import { z } from 'zod'
+import * as z from 'zod'
 
 const YugabyteInfo = z.object({
   web_ui_url: z.string().url(),

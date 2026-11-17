@@ -78,6 +78,17 @@
         "noNegationElse": "error",
         "noNonNullAssertion": "error",
         "noParameterAssign": "off",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "zod": {
+                "importNames": ["z"],
+                "message": "Use `import * as z from 'zod'`. A named `z` import makes bundlers keep all of zod, including its locales."
+              }
+            }
+          }
+        },
         "useCollapsedElseIf": "error",
         "useFilenamingConvention": {
           "level": "error",
