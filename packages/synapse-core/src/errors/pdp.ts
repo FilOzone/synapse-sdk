@@ -41,6 +41,7 @@ export class GetDataSetError extends ProviderError {
       error ? decodePDPError(error) : undefined,
       options
     )
+    this.notFound = notFound
   }
 
   static override is(value: unknown): value is GetDataSetError {
@@ -49,14 +50,33 @@ export class GetDataSetError extends ProviderError {
 }
 
 export class PostPieceError extends ProviderError {
-  override name: 'PostPieceError' = 'PostPieceError'
+  override name: 'PostPieceError' | 'FinalizeUploadError' = 'PostPieceError'
+  /** The short message, overridden by subclasses for the step that failed. */
+  protected static summary = 'Failed to create upload session.'
 
   constructor(error: string, options?: ProviderErrorOptions) {
-    super(`Failed to create upload session.`, decodePDPError(error), options)
+    super(new.target.summary, decodePDPError(error), options)
   }
 
+  /** Check if a value is a {@link PostPieceError}, including a {@link FinalizeUploadError}. */
   static override is(value: unknown): value is PostPieceError {
-    return isSynapseError(value) && value.name === 'PostPieceError'
+    return isSynapseError(value) && (value.name === 'PostPieceError' || value.name === 'FinalizeUploadError')
+  }
+}
+
+/**
+ * Finalizing a streaming upload (`POST /pdp/piece/uploads/{uuid}`) failed.
+ *
+ * Unlike a failure to create the upload session, the bytes were already sent to the provider, so
+ * the problem is the PieceCID or how the provider processed the upload. Extends {@link PostPieceError},
+ * which streaming uploads threw for this step before.
+ */
+export class FinalizeUploadError extends PostPieceError {
+  override name: 'FinalizeUploadError' = 'FinalizeUploadError'
+  protected static override summary = 'Failed to finalize upload.'
+
+  static override is(value: unknown): value is FinalizeUploadError {
+    return isSynapseError(value) && value.name === 'FinalizeUploadError'
   }
 }
 
@@ -342,6 +362,13 @@ export class DownloadPieceError extends ProviderError {
   /** `true` when the provider served bytes that do not match the expected PieceCID (`empty`, `size` or `mismatch`). */
   get verificationFailed(): boolean {
     return this.reason === 'empty' || this.reason === 'size' || this.reason === 'mismatch'
+  }
+
+  override toJSON(): Record<string, unknown> {
+    return {
+      ...super.toJSON(),
+      ...(this.reason === undefined ? {} : { reason: this.reason }),
+    }
   }
 
   static override is(value: unknown): value is DownloadPieceError {

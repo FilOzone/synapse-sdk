@@ -9,6 +9,7 @@ import {
   AddPiecesError,
   CreateDataSetError,
   DeletePieceError,
+  FinalizeUploadError,
   FindPieceError,
   GetDataSetError,
   InvalidUploadSizeError,
@@ -2019,7 +2020,11 @@ InvalidSignature(address expected, address actual)
         })
         assert.fail('Should have thrown error for finalize failure')
       } catch (error) {
+        assert.instanceOf(error, FinalizeUploadError)
         assert.instanceOf(error, PostPieceError)
+        assert.isTrue(FinalizeUploadError.is(error))
+        assert.isTrue(PostPieceError.is(error))
+        assert.equal(error.shortMessage, 'Failed to finalize upload.')
         assert.include(error.details, 'Finalize failed')
         assert.notInclude(error.details, 'Failed to')
         assert.equal(error.status, 500)
@@ -2047,7 +2052,7 @@ InvalidSignature(address expected, address actual)
         })
         assert.fail('Should have thrown error for wrong finalize status')
       } catch (error) {
-        assert.instanceOf(error, PostPieceError)
+        assert.instanceOf(error, FinalizeUploadError)
         assert.include(error.message, 'Expected 200 OK for finalization')
       }
     })
@@ -2078,6 +2083,20 @@ InvalidSignature(address expected, address actual)
       assert.equal(new GetDataSetError('boom').shortMessage, 'Failed to get data set.')
       assert.equal(new GetDataSetError('boom', { status: 404 }).shortMessage, 'Data set not found.')
       assert.equal(new GetDataSetError('', { status: 500 }).shortMessage, 'Failed to get data set.')
+      assert.isTrue(new GetDataSetError('').notFound)
+      assert.isFalse(new GetDataSetError('boom').notFound)
+      assert.isFalse(new GetDataSetError('', { status: 500 }).notFound)
+    })
+
+    it('keep PostPieceError and FinalizeUploadError apart', () => {
+      const create = new PostPieceError('boom')
+      const finalize = new FinalizeUploadError('boom', { status: 500 })
+      assert.equal(create.shortMessage, 'Failed to create upload session.')
+      assert.equal(finalize.shortMessage, 'Failed to finalize upload.')
+      assert.equal(finalize.name, 'FinalizeUploadError')
+      assert.equal(finalize.status, 500)
+      assert.isTrue(PostPieceError.is(finalize))
+      assert.isFalse(FinalizeUploadError.is(create))
     })
 
     it('default FindPieceError notFound to a 404 status', () => {

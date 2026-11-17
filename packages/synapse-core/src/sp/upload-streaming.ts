@@ -1,5 +1,6 @@
 import { HttpError, NetworkError, request } from 'iso-web/http'
 import {
+  FinalizeUploadError,
   InvalidUploadSizeError,
   LocationHeaderError,
   PostPieceError,
@@ -64,6 +65,7 @@ export namespace uploadPieceStreaming {
   export type ErrorType =
     | InvalidUploadSizeError
     | PostPieceError
+    | FinalizeUploadError
     | LocationHeaderError
     | UploadRedirectError
     | UploadPieceError
@@ -244,13 +246,13 @@ export async function uploadPieceStreaming(
 
   if (finalizeResponse.error) {
     if (HttpError.is(finalizeResponse.error)) {
-      throw await PostPieceError.fromHttpError(finalizeResponse.error)
+      throw await FinalizeUploadError.fromHttpError(finalizeResponse.error)
     }
     throw finalizeResponse.error
   }
 
   if (finalizeResponse.result.status !== 200) {
-    throw new PostPieceError(`Expected 200 OK for finalization, got ${finalizeResponse.result.status}`)
+    throw new FinalizeUploadError(`Expected 200 OK for finalization, got ${finalizeResponse.result.status}`)
   }
 
   if (options.waitForParked) {
