@@ -220,6 +220,6 @@
     ]
   },
   "peerDependencies": {
-    "viem": "2.x"
+    "viem": "^2.58.0"
   }
 }
