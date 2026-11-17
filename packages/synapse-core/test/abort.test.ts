@@ -179,4 +179,42 @@ describe('abort helpers', () => {
       )
     })
   })
+
+  describe('contract reads on a scoped client', () => {
+    const server = setup()
+
+    before(async () => {
+      await server.start()
+    })
+
+    after(() => {
+      server.stop()
+    })
+
+    beforeEach(() => {
+      server.use(JSONRPC(presets.basic))
+    })
+
+    function scopedClient(signal: AbortSignal) {
+      return createPublicClient({ chain: calibration, transport: getTransport(calibration) }).scope({ signal })
+    }
+
+    it('rejects with the abort reason in the cause chain', async () => {
+      const signal = AbortSignal.abort()
+      await assert.rejects(getPdpDataSet(scopedClient(signal), { dataSetId: 1n }), (err: unknown) => {
+        let cause: unknown = err
+        while (cause instanceof Error && cause !== signal.reason) {
+          cause = cause.cause
+        }
+        return cause === signal.reason
+      })
+    })
+
+    it('rejects with AbortError itself when wrapped in abortable', async () => {
+      const controller = new AbortController()
+      const pending = abortable(getPdpDataSet(scopedClient(controller.signal), { dataSetId: 1n }), controller.signal)
+      controller.abort()
+      await assert.rejects(pending, (err: unknown) => err instanceof AbortError)
+    })
+  })
 })
