@@ -76,7 +76,7 @@
   "peerDependencies": {
     "@tanstack/react-query": "5.x",
     "@wagmi/core": "3.x",
-    "viem": "2.x",
+    "viem": "^2.58.0",
     "wagmi": "3.x"
   }
 }
