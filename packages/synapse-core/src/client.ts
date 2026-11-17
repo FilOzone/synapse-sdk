@@ -39,7 +39,11 @@ export const devnetTransport = http(devnet.rpcUrls.default.http[0])
 
 export namespace getTransport {
   export type OptionsType = {
-    /** Reject requests once the signal aborts, keeping the transport's own request timeout. See `withSignal`. */
+    /**
+     * Reject requests once the signal aborts, keeping the transport's own request timeout. See `withSignal`.
+     *
+     * @deprecated Use viem's `client.scope({ signal })` on a client created with `getTransport(chain)`.
+     */
     signal?: AbortSignal
   }
   export type ErrorType = UnsupportedChainError

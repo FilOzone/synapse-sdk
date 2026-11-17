@@ -18,15 +18,16 @@ export function throwIfAborted(signal: AbortSignal | undefined): void {
  * Reject with iso-web's AbortError when the signal aborts, otherwise settle like the promise.
  *
  * The underlying work is not cancelled, only the wait for it. Use it to cancel waits that take no
- * signal, and to get a plain AbortError from contract reads on a {@link withSignal} client, which
- * viem wraps in `ContractFunctionExecutionError`.
+ * signal, and to get a plain AbortError from calls on a client scoped with viem's
+ * `client.scope({ signal })`. Those reject with the signal's reason, and contract reads wrap it in
+ * `ContractFunctionExecutionError`.
  *
  * @example
  * ```ts
  * import { abortable } from '@filoz/synapse-core/utils'
  * import { getPdpDataSet } from '@filoz/synapse-core/warm-storage'
  *
- * const dataSet = await abortable(getPdpDataSet(client, { dataSetId: 1n }), signal)
+ * const dataSet = await abortable(getPdpDataSet(client.scope({ signal }), { dataSetId: 1n }), signal)
  * ```
  */
 export function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
@@ -48,6 +49,10 @@ export function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefine
 
 /**
  * Wrap a viem transport so its requests reject with iso-web's AbortError once the signal aborts.
+ *
+ * @deprecated Use viem's `client.scope({ signal })`, which aborts requests in flight, stops the
+ * transport's retries and keeps its request timeout. Wrap calls in {@link abortable} for an
+ * iso-web AbortError.
  *
  * Unlike passing `fetchOptions.signal` to viem's `http` transport, this keeps the transport's own
  * request timeout and retries. For the default Filecoin transports, `getTransport(chain, { signal })`
