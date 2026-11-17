@@ -200,6 +200,11 @@ export function decodeGrant(bytes: Uint8Array): DecodedGrant {
   } catch (cause) {
     throw new Error('Not a grant: the bytes are not canonical CBOR', { cause })
   }
+  // Exactly what encodeGrant writes: the decoded map must encode back to the same bytes. This refuses a
+  // float `v` or reordered keys, which would otherwise decode, as `decodeArray` does for presentations.
+  if (bytesToHex(encode(map)) !== bytesToHex(bytes)) {
+    throw new Error('Not a grant: the bytes are not canonical CBOR')
+  }
   if (!(map instanceof Map)) {
     throw new Error('Not a grant: expected a CBOR map')
   }

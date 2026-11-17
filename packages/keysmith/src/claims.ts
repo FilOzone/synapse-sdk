@@ -33,6 +33,8 @@ import {
   keyForEnvelope,
   labelsGroupKeyId,
   nodeKind,
+  own,
+  pieceSalt,
   writeTarget,
 } from './derive.ts'
 import type { Grant, GrantNode, GroupKeyRef } from './types.ts'
@@ -372,7 +374,7 @@ const within = (parent: string, child: string) => child === parent || child.star
  * The piece node naming these labels' piece, in canonical form: labels are compared canonically, never as raw text.
  * Reads only `foc/salt`.
  */
-const pieceNodeOf = (piece: PieceLabels) => canonicalNode(`piece:${piece['foc/salt']}`)
+const pieceNodeOf = (piece: PieceLabels) => `piece:${pieceSalt(own(rawLabels(piece), 'foc/salt'))}`
 
 /** Whether `node` reaches the piece these labels describe. Reads only the label the node's kind needs. */
 export function reaches(node: string, piece: PieceLabels): boolean {
@@ -392,22 +394,30 @@ export type GrantTarget = { piece: PieceLabels } | (GroupKeyRef & { group: strin
  * or expired ones, are skipped. Undefined when none reaches it: ask for a grant to that group or piece.
  *
  * Takes anything carrying a verified `claim`, such as what `openDelivery` returns.
+ *
+ * Grants are matched to one owner, never to any owner: a grant's owner and group key id are public, so
+ * anyone can root a grant under another wallet's group key id. A group target names its owner. A piece
+ * target takes it from the piece's `foc/own`; a piece without one (not gated) needs `options.owner`. When
+ * both are present they must match.
+ *
+ * @throws If no owner can be fixed, `options.owner` contradicts the piece's `foc/own`, or a label is malformed.
  */
 export function pickGrant<T extends { claim: VerifiedClaim }>(
   grants: readonly T[],
   target: GrantTarget,
-  options: { chainId: bigint; now?: number }
+  options: { chainId: bigint; now?: number; owner?: Address }
 ): T | undefined {
   // A stale `scope` would read as "no group", and could pick a grant that is too broad.
   if ('scope' in target) throw new Error('pickGrant takes `group`, not `scope`')
   const now = options.now ?? Math.floor(Date.now() / 1000)
   // Validate the target once, so bad input fails the same way whatever grants are held
-  const own = gatedOwner('piece' in target ? target.piece['foc/own'] : target.owner)
-  const owner = own === undefined ? undefined : getAddress(own)
+  const owner = expectedOwner(target, options.owner)
   const id = 'piece' in target ? idOf(target.piece) : groupKeyId(target.groupKeyId)
   let group: string | undefined
-  if ('piece' in target) group = groupOf(target.piece)
-  else if (target.group != null) group = groupPath(target.group)
+  if ('piece' in target) {
+    pieceNodeOf(target.piece) // Refuses a malformed salt, though only a piece grant would read it
+    group = groupOf(target.piece)
+  } else if (target.group != null) group = groupPath(target.group)
   const covers =
     'piece' in target
       ? (node: string) => reaches(node, target.piece)
@@ -419,7 +429,7 @@ export function pickGrant<T extends { claim: VerifiedClaim }>(
   for (const held of grants) {
     const { claim } = held
     if (claim.chainId !== options.chainId || claim.expires <= now || claim.groupKeyId !== id) continue
-    if ((owner && owner !== claim.owner) || !covers(claim.node)) continue
+    if (owner !== claim.owner || !covers(claim.node)) continue
     if (
       !best ||
       narrowness(claim) > narrowness(best.claim) ||
@@ -429,6 +439,28 @@ export function pickGrant<T extends { claim: VerifiedClaim }>(
     }
   }
   return best
+}
+
+/** The one owner whose grants `pickGrant` may pick: the target's own, checked against `pinned` when both exist. */
+function expectedOwner(target: GrantTarget, pinned: unknown): Address {
+  const named =
+    'piece' in target
+      ? gatedOwner(own(rawLabels(target.piece), 'foc/own'))
+      : asOwner(target.owner, 'pickGrant needs the group key owner')
+  const fixed = pinned == null ? undefined : asOwner(pinned, 'pickGrant options.owner must be an address')
+  const owner = named ?? fixed
+  if (owner === undefined) throw new Error('pickGrant needs the expected owner for a piece without foc/own')
+  if (fixed !== undefined && getAddress(owner) !== fixed) {
+    throw new Error(`pickGrant options.owner ${fixed} does not match the owner ${getAddress(owner)}`)
+  }
+  return getAddress(owner)
+}
+
+const asOwner = (value: unknown, what: string): Address => {
+  if (typeof value !== 'string' || !isAddress(value, { strict: false })) {
+    throw new Error(`${what}, got ${JSON.stringify(value)}`)
+  }
+  return getAddress(value)
 }
 
 // the group key 0, 'group:a/b' 2, any piece above every group
@@ -579,13 +611,14 @@ export async function verifyPresentation(
   })
   if (signer !== claim.bearer) throw new Error('The request is not signed by the final bearer')
   const { piece } = options
-  const owner = gatedOwner(piece['foc/own']) // Throws on a truthy `foc/own` that is not an address
+  const owner = gatedOwner(own(rawLabels(piece), 'foc/own')) // Throws on a truthy `foc/own` that is not an address
   if (owner === undefined) return claim // Not gated; other labels are not read
   if (owner.toLowerCase() !== claim.owner.toLowerCase() || idOf(piece) !== claim.groupKeyId) {
     throw new Error('The piece belongs to another owner or group key')
   }
+  pieceSalt(own(rawLabels(piece), 'foc/salt')) // No key opens a gated piece without a valid salt
   if (!reaches(claim.node, piece)) {
-    throw new Error(`${claim.node} does not reach this piece (group ${rawLabels(piece)['foc/group'] ?? '(none)'})`)
+    throw new Error(`${claim.node} does not reach this piece (group ${own(rawLabels(piece), 'foc/group') ?? '(none)'})`)
   }
   return claim
 }

@@ -176,6 +176,26 @@ describe('wrapTo / unwrapWith', () => {
     }
   })
 
+  it('refuses a grant that decodes but is not what encodeGrant writes: a float v, or keys out of order', async () => {
+    const recipient = generatePrivateKey()
+    const bytes = encodeGrant(await wrapTo(publicKeyOf(recipient), await groupKeyOf(), descriptor))
+    const fields = [...(decode(bytes, { useMaps: true }) as Map<number | string, unknown>)]
+    // Seven pairs, then key 0 and `v` 2 as one byte
+    assert.deepStrictEqual([...bytes.subarray(0, 3)], [0xa7, 0x00, 0x02])
+    const withV = (v: number[]) => new Uint8Array([0xa7, 0x00, ...v, ...bytes.subarray(3)])
+    const reordered = new Uint8Array([0xa7, ...fields.reverse().flatMap(([k, v]) => [...encode(k), ...encode(v)])])
+    const refused = [
+      ['half float v', withV([0xf9, 0x40, 0x00])],
+      ['double v', withV([0xfb, 0x40, 0, 0, 0, 0, 0, 0, 0])],
+      ['keys reordered', reordered],
+    ] as const
+    for (const [name, input] of refused) {
+      assert.throws(() => decodeGrant(input), /Not a grant: the bytes are not canonical CBOR/, name)
+      await assert.rejects(unwrapWith(recipient, input), /Not a grant: the bytes are not canonical CBOR/, name)
+    }
+    assert.deepStrictEqual(await unwrapWith(recipient, bytes), await groupKeyOf(), 'the canonical bytes still open')
+  })
+
   it('says plainly when a well-formed grant does not open', async () => {
     const recipient = generatePrivateKey()
     const grant = await wrapTo(publicKeyOf(recipient), await groupKeyOf(), descriptor)

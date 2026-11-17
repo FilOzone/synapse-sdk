@@ -30,7 +30,7 @@ import {
   newSalt,
   readPieceMetadata,
 } from '../src/derive.ts'
-import { encodeGrant, publicKeyOf, wrapTo } from '../src/wrap.ts'
+import { decodeGrant, encodeGrant, publicKeyOf, wrapTo } from '../src/wrap.ts'
 
 const owner = privateKeyToAccount(generatePrivateKey())
 const aKey = generatePrivateKey()
@@ -51,6 +51,8 @@ const labels = (group?: string, salt: Hex = newSalt()): PieceLabels => ({
   ...(group ? { 'foc/group': group } : {}),
   'foc/salt': salt,
 })
+const without = (o: Record<string, unknown>, key: string) =>
+  Object.fromEntries(Object.entries(o).filter(([k]) => k !== key)) as PieceLabels
 const PIECE = hexToBytes('0x0155912024a8a2a4d3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3a4a3')
 
 /** The root for `a`, signed by the owner. */
@@ -166,6 +168,22 @@ describe('claims', () => {
     const [, links] = decode(delivery, { useMaps: true }) as [number, unknown]
     await assert.rejects(openDelivery(aKey, encode([2, links, encodeGrant(otherNode)]), { now }), /another node/)
     assert.equal(opened.expired, false)
+  })
+
+  it('refuses a delivery whose inner grant is not canonical CBOR', async () => {
+    const { chain, key } = await root('group:team', 0)
+    const grant = encodeGrant(await wrapTo(publicKeyOf(aKey), key, grantDescriptor(ref, 'group:team')))
+    const [, links] = decode(encodeDelivery(chain, decodeGrant(grant)), { useMaps: true }) as [number, unknown]
+    const wrap = (inner: Uint8Array) => encode([2, links, inner])
+    // `v` 2 as a double: the outer delivery is canonical, only the grant inside is not
+    const double = new Uint8Array([0xa7, 0x00, 0xfb, 0x40, 0, 0, 0, 0, 0, 0, 0, ...grant.subarray(3)])
+    assert.deepStrictEqual([...grant.subarray(0, 3)], [0xa7, 0x00, 0x02])
+    assert.throws(() => decodeDelivery(wrap(double)), /Not a grant: the bytes are not canonical CBOR/)
+    await assert.rejects(openDelivery(aKey, wrap(double), { now }), /Not a grant: the bytes are not canonical CBOR/)
+    const fields = [...(decode(grant, { useMaps: true }) as Map<number, unknown>)].reverse()
+    const reordered = new Uint8Array([0xa7, ...fields.flatMap(([k, v]) => [...encode(k), ...encode(v)])])
+    assert.throws(() => decodeDelivery(wrap(reordered)), /Not a grant: the bytes are not canonical CBOR/)
+    assert.equal((await openDelivery(aKey, wrap(grant), { now })).claim.node, 'group:team')
   })
 
   it('opens an expired delivery for its key, but refuses to use its claim', async () => {
@@ -567,8 +585,8 @@ describe('claims', () => {
       ['good', {}, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
       ['no foc/gkid', { 'foc/gkid': undefined }, ['true', 'true', 'true', T, T, T, T]],
       ['bad foc/gkid', { 'foc/gkid': '0xzz' }, ['true', 'true', 'true', T, T, T, T]],
-      ['bad salt', { 'foc/salt': 'zz' }, ['true', 'true', T, 'served', 'served', 'found', T]],
-      ['no salt', { 'foc/salt': undefined }, ['true', 'true', T, 'served', 'served', 'found', T]],
+      ['bad salt', { 'foc/salt': 'zz' }, ['true', 'true', T, T, T, T, T]],
+      ['no salt', { 'foc/salt': undefined }, ['true', 'true', T, T, T, T, T]],
       ['bad group', { 'foc/group': ' x' }, ['true', T, 'true', 'served', T, T, T]],
       ['group not a string', { 'foc/group': 1 }, ['true', T, 'true', 'served', T, T, T]],
       ['no owner', { 'foc/own': undefined }, ['true', 'true', 'true', 'served', 'served', 'found', 'found']],
@@ -590,7 +608,7 @@ describe('claims', () => {
       const present1 = (bytes: Uint8Array) => async () =>
         (await verifyPresentation(bytes, { pieceCid: PIECE, piece, chainId, now })) && 'served'
       const pick = (node: string) => async () =>
-        pickGrant(grant(node), { piece }, { chainId, now }) ? 'found' : 'undefined'
+        pickGrant(grant(node), { piece }, { chainId, now, owner: owner.address }) ? 'found' : 'undefined'
       const got = [
         await outcome(() => reaches('groupKey', piece)),
         await outcome(() => reaches('group:team', piece)),
@@ -608,5 +626,111 @@ describe('claims', () => {
     const base = { 'foc/v': 2, 'foc/own': owner.address, 'foc/gkid': keyId, 'foc/salt': newSalt() }
     assert.throws(() => readPieceMetadata({ ...base, 'foc/group': ' x' }), /A group name/)
     assert.throws(() => readPieceMetadata({ ...base, 'foc/group': 1 }), /A group path must be a string/)
+  })
+
+  it('picks only the expected owner: a grant rooted by another wallet under the same group key id is never picked', () => {
+    const salt = newSalt()
+    const held = (node: string, who: Address) => ({
+      claim: { owner: who, groupKeyId: keyId, chainId, expires, node, bearer: a.address } as VerifiedClaim,
+    })
+    const mine = held('group:team', owner.address)
+    // The attacker's grant is public-id compatible and narrower, so it wins unless the owner is pinned
+    const theirs = held(`piece:${salt}`, stranger.address)
+    const pick = (target: Parameters<typeof pickGrant>[1], options: { owner?: Address } = {}) =>
+      pickGrant([theirs, mine], target, { chainId, now, ...options })
+    const ungated = { ...labels('team', salt), 'foc/own': '' }
+
+    assert.equal(pick({ piece: ungated }, { owner: owner.address }), mine)
+    assert.equal(pick({ piece: ungated }, { owner: owner.address.toLowerCase() as Address }), mine)
+    assert.equal(pick({ piece: ungated }, { owner: stranger.address }), theirs, 'the caller decides who it trusts')
+    assert.throws(() => pick({ piece: ungated }), /needs the expected owner for a piece without foc\/own/)
+    assert.throws(() => pick({ piece: without(ungated, 'foc/own') }), /needs the expected owner/)
+    assert.throws(() => pick({ piece: ungated }, { owner: '' as Address }), /options\.owner must be an address/)
+    assert.throws(() => pick({ piece: ungated }, { owner: '0xnope' as Address }), /options\.owner must be an address/)
+
+    // A gated piece names its owner, so no option is needed, and a contradicting one is refused
+    assert.equal(pick({ piece: labels('team', salt) }), mine)
+    assert.equal(pick({ piece: labels('team', salt) }, { owner: owner.address }), mine)
+    assert.throws(() => pick({ piece: labels('team', salt) }, { owner: stranger.address }), /does not match the owner/)
+
+    // A group target must name a real owner: '' or nothing would match any owner's grants
+    for (const bad of ['', undefined, null, '0xnope']) {
+      assert.throws(() => pick({ ...ref, owner: bad as never, group: 'team' }), /pickGrant needs the group key owner/)
+    }
+    assert.equal(pick({ ...ref, group: 'team' }), mine)
+    assert.throws(() => pick({ ...ref, group: 'team' }, { owner: stranger.address }), /does not match the owner/)
+  })
+
+  it('reads a piece salt as exactly 16 bytes of hex, wherever claims read one', async () => {
+    const { chain } = await root('group:team', 0)
+    const bytes = encodePresentation(chain, await signRequest(a, chain, { pieceCid: PIECE, expires: now + 100, now }))
+    const good = labels('team/x')
+    const check = (piece: unknown) =>
+      verifyPresentation(bytes, { pieceCid: PIECE, piece: piece as PieceLabels, chainId, now })
+    assert.equal((await check(good)).node, 'group:team')
+    for (const salt of ['0xab', `0x${'ab'.repeat(17)}`, 5, undefined]) {
+      const piece = { ...good, 'foc/salt': salt } as PieceLabels
+      await assert.rejects(check(piece), /piece salt/, `verifyPresentation ${salt}`)
+      assert.throws(() => reaches(`piece:${newSalt()}`, piece), /piece salt/, `reaches ${salt}`)
+      assert.throws(() => pickGrant([], { piece }, { chainId, now }), /piece salt/, `pickGrant ${salt}`)
+      const { groupKey } = await keys()
+      await assert.rejects(
+        rootClaim(owner, {
+          ...ref,
+          chainId,
+          groupKey,
+          node: `piece:${newSalt()}`,
+          bearer: a.address,
+          maxDepth: 0,
+          expires,
+          piece,
+        }),
+        /piece salt/,
+        `rootClaim ${salt}`
+      )
+    }
+    // An ungated piece is not checked: nothing is gated, so nothing is read
+    assert.equal((await check({ ...good, 'foc/own': '', 'foc/salt': '0xab' })).node, 'group:team')
+  })
+
+  it('reads labels as own properties only: an inherited label is not a label', async () => {
+    const { chain } = await root('group:team', 0)
+    const bytes = encodePresentation(chain, await signRequest(a, chain, { pieceCid: PIECE, expires: now + 100, now }))
+    const check = (piece: unknown) =>
+      verifyPresentation(bytes, { pieceCid: PIECE, piece: piece as PieceLabels, chainId, now })
+    const noGroup = labels()
+    const inheriting = (inherited: Record<string, unknown>, own: Record<string, unknown>) =>
+      Object.assign(Object.create(inherited), own) as PieceLabels
+
+    // An inherited group is ignored: the piece has no group, so a group grant does not reach it
+    const viaProto = inheriting({ 'foc/group': 'team/x' }, noGroup)
+    assert.equal(reaches('group:team', viaProto), false)
+    await assert.rejects(check(viaProto), /does not reach this piece \(group \(none\)\)/)
+    // An inherited foc/gkid is no foc/gkid: refused
+    const { 'foc/gkid': _gkid, ...rest } = labels('team/x')
+    await assert.rejects(check(inheriting({ 'foc/gkid': keyId }, rest)), /group key id/)
+    // An inherited foc/own does not gate, or ungate
+    assert.equal(
+      (await check(inheriting({ 'foc/own': stranger.address }, without(noGroup, 'foc/own')))).node,
+      'group:team'
+    )
+
+    // The same through a polluted Object.prototype, cleaned up even if an assertion fails
+    const polluted = Object.prototype as Record<string, unknown>
+    try {
+      polluted['foc/group'] = 'team/x'
+      polluted['foc/own'] = stranger.address
+      assert.equal(reaches('group:team', noGroup), false)
+      await assert.rejects(check(noGroup), /does not reach this piece \(group \(none\)\)/)
+      assert.equal((await check({ ...without(noGroup, 'foc/own') })).node, 'group:team')
+    } finally {
+      delete polluted['foc/group']
+      delete polluted['foc/own']
+    }
+
+    // A null-prototype object, as FEE returns, still works
+    const bare = Object.assign(Object.create(null), labels('team/x')) as PieceLabels
+    assert.equal(reaches('group:team', bare), true)
+    assert.equal((await check(bare)).node, 'group:team')
   })
 })

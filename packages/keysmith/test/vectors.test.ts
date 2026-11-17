@@ -82,10 +82,13 @@ describe('test vectors', () => {
   })
 
   describe('refuses what keysmith 0.1.0 wrote, by name', () => {
-    const [envelope, grant, commitmentCase] = vectors.refused as unknown as [
+    const [envelope, grant, commitmentCase, floatGrant, reorderedGrant, shortSalt] = vectors.refused as unknown as [
       { metadata: Record<string, unknown>; reason: string },
       { cbor: string; reason: string },
       { commitment: string; reason: string },
+      { cbor: string; reason: string },
+      { cbor: string; reason: string },
+      { metadata: Record<string, unknown>; reason: string },
     ]
 
     it('an envelope with foc/v 1', () => {
@@ -108,6 +111,31 @@ describe('test vectors', () => {
       await assert.rejects(
         unwrapWith(vectors.recipient.privateKey as Hex, bytes),
         (err: Error) => err.message === grant.reason
+      )
+    })
+
+    it('a grant that is not canonical CBOR: a float v, or keys out of order', async () => {
+      for (const { cbor, reason } of [floatGrant, reorderedGrant]) {
+        const bytes = hexToBytes(cbor as Hex)
+        assert.throws(
+          () => decodeGrant(bytes),
+          (err: Error) => err.message === reason
+        )
+        await assert.rejects(
+          unwrapWith(vectors.recipient.privateKey as Hex, bytes),
+          (err: Error) => err.message === reason
+        )
+      }
+    })
+
+    it('an envelope whose foc/salt is not 16 bytes', () => {
+      assert.throws(
+        () => readPieceMetadata(shortSalt.metadata),
+        (err: Error) => err.message === shortSalt.reason
+      )
+      assert.throws(
+        () => keyForEnvelope(new Uint8Array(32), shortSalt.metadata),
+        (err: Error) => err.message === shortSalt.reason
       )
     })
 

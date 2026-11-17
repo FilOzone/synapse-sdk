@@ -395,8 +395,8 @@ export function groupKeyIdOf(metadata: Readonly<Record<string, string>>): Hex | 
   if (metadata == null || typeof metadata !== 'object') {
     throw new Error(`Data set metadata must be an object, got ${metadata === null ? 'null' : typeof metadata}`)
   }
-  const id = metadata['foc/gkid']
-  return id === undefined ? undefined : groupKeyId(id)
+  const id = own(metadata, 'foc/gkid')
+  return id === undefined ? undefined : groupKeyId(id as string)
 }
 
 /**
@@ -408,7 +408,7 @@ export function groupKeyIdOf(metadata: Readonly<Record<string, string>>): Hex | 
  * tell the recipient where to fetch it.
  */
 export const pieceNode = (metadata: Pick<PieceMetadata, 'foc/salt'>): GrantNode =>
-  `piece:${saltOf(metadata['foc/salt'])}`
+  `piece:${pieceSalt(own(metadata, 'foc/salt'))}`
 
 /**
  * The wallet a piece is gated to, as the labels spell it. Absent or falsy means not gated.
@@ -429,7 +429,7 @@ export function gatedOwner(own: unknown): Address | undefined {
  * @throws If the path is malformed.
  */
 export function groupLabelOf(m: Readonly<Record<string, unknown>>): string | undefined {
-  const group = m['foc/group']
+  const group = own(m, 'foc/group')
   if (group == null) return undefined
   return groupPath(group as string)
 }
@@ -440,15 +440,15 @@ export function groupLabelOf(m: Readonly<Record<string, unknown>>): string | und
  * @throws If the labels are from keysmith 0.1.0, `foc/v` is not absent, 2 or "2", or the id is malformed.
  */
 export function labelsGroupKeyId(m: Readonly<Record<string, unknown>>): Hex {
-  const v = m['foc/v']
-  if (v === 1 || v === '1' || (m['foc/gkid'] === undefined && m['foc/ks'] !== undefined)) {
+  const v = own(m, 'foc/v')
+  if (v === 1 || v === '1' || (own(m, 'foc/gkid') === undefined && own(m, 'foc/ks') !== undefined)) {
     throw format1Error('this piece carries foc/v 1 or foc/ks labels')
   }
   // Absent, 2 or "2" only: a provider may pass a string, but a later format is not read as format 2
   if (v !== undefined && v !== 2 && v !== '2') {
     throw new Error(`Unsupported piece label format: foc/v ${JSON.stringify(v)}`)
   }
-  return groupKeyId(m['foc/gkid'] as string)
+  return groupKeyId(own(m, 'foc/gkid') as string)
 }
 
 /**
@@ -467,32 +467,53 @@ export function readPieceMetadata(
     )
   }
   const m = envelopeMetadata as Readonly<Record<string, unknown>>
-  const version = m['foc/v']
+  const version = own(m, 'foc/v')
   // Format changes break key derivation, so guard first
   if (String(version) === '1') throw format1Error('this piece is labelled foc/v 1')
-  if (version !== 2 || typeof m['foc/gkid'] !== 'string') {
+  const gkid = own(m, 'foc/gkid')
+  if (version !== 2 || typeof gkid !== 'string') {
     throw new Error(
       `This piece's envelope is not format 2 with a group key (foc/v ${JSON.stringify(version)}, ` +
-        `foc/gkid ${String(m['foc/gkid'])}).`
+        `foc/gkid ${String(gkid)}).`
     )
   }
   const group = groupLabelOf(m)
-  const owner = gatedOwner(m['foc/own'])
+  const owner = gatedOwner(own(m, 'foc/own'))
   return {
     ...(owner === undefined ? {} : { owner }),
     groupKeyId: labelsGroupKeyId(m),
     ...(group === undefined ? {} : { group }),
-    salt: saltOf(m['foc/salt'] as string),
+    salt: pieceSalt(own(m, 'foc/salt')),
   }
 }
 
+/**
+ * A label read as an own property only: an inherited one, from a prototype or a polluted
+ * `Object.prototype`, is not a label.
+ */
+export const own = (m: object, key: string): unknown => (Object.hasOwn(m, key) ? Reflect.get(m, key) : undefined)
+
 /** A salt in the form it is derived from and compared in: hex bytes, lowercase. */
-function saltOf(salt: string): Hex {
+function saltOf(salt: unknown): Hex {
   const lower = text(salt, 'A piece salt').toLowerCase()
   if (!/^0x([0-9a-f]{2})+$/.test(lower)) {
     throw new Error(`A piece salt is hex bytes, got ${JSON.stringify(salt)}`)
   }
   return lower as Hex
+}
+
+/**
+ * A piece's salt as every reader takes it, envelope and claims alike: exactly 16 bytes of hex,
+ * canonical. Anything else is refused.
+ *
+ * @throws If it is not a string of 16 bytes of hex.
+ */
+export function pieceSalt(salt: unknown): Hex {
+  const canonical = saltOf(salt)
+  if (canonical.length !== 2 + 2 * 16) {
+    throw new Error(`A piece salt is 16 random bytes, from newSalt(); got ${(canonical.length - 2) / 2}`)
+  }
+  return canonical
 }
 
 /** The key for one piece. Never reused: FEE requires a fresh key per object. */
@@ -512,16 +533,16 @@ export function text(value: unknown, what: string): string {
 /**
  * Piece FEE envelope metadata entries. Read them back with {@link readPieceMetadata}.
  *
+ * A piece grant covers whatever piece carries its salt, so a salt must be unique to one piece:
+ * always take it from {@link newSalt}, and never reuse one.
+ *
  * Everything a reader needs travels with the piece, so a copy opens wherever
  * replication or repair puts it.
  */
 export function pieceMetadata(ref: GroupKeyRef, options: { salt: Hex; group?: string }): PieceMetadata {
   // A stale `scope` would be dropped silently, leaving a piece nobody can open.
   if ('scope' in options) throw new Error('pieceMetadata takes `group`, not `scope`')
-  const salt = saltOf(options.salt)
-  if (salt.length !== 2 + 2 * 16) {
-    throw new Error(`A piece salt is 16 random bytes, from newSalt(); got ${(salt.length - 2) / 2}`)
-  }
+  const salt = pieceSalt(options.salt)
   return {
     'foc/v': 2,
     'foc/own': ref.owner.toLowerCase() as Address,

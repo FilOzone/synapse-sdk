@@ -134,6 +134,13 @@ async function derivationVectors() {
   }
   const grantFields = decode(grant, { useMaps: true }) as Map<number | string, unknown>
   const format1Grant = encode(new Map(grantFields).set(0, 1).set(1, `scope:${group}`))
+  // Decodes, but is not what encodeGrant writes: `v` 2 as a half float, and the keys in reverse order
+  const halfFloatGrant = new Uint8Array([grant[0] as number, 0x00, 0xf9, 0x40, 0x00, ...grant.subarray(3)])
+  const reversedGrant = new Uint8Array([
+    grant[0] as number,
+    ...[...grantFields].reverse().flatMap(([k, v]) => [...encode(k), ...encode(v)]),
+  ])
+  const shortSaltMetadata = { ...metadata, 'foc/salt': '0xab' }
   const format1Commitment = `v1.${commitment.slice('v2.'.length)}`
   const format1DataSet = { 'foc/ks': GROUP_KEY_ID, 'foc/kc': format1Commitment }
 
@@ -191,6 +198,24 @@ async function derivationVectors() {
         reason: refusal(
           () => matchesCommitment(groupKey, format1Commitment),
           /format 1\) data is not supported: a v1 commitment/
+        ),
+      },
+      {
+        what: 'A grant whose v is the float 2.0, not the integer 2',
+        cbor: bytesToHex(halfFloatGrant),
+        reason: refusal(() => decodeGrant(halfFloatGrant), /Not a grant: the bytes are not canonical CBOR/),
+      },
+      {
+        what: 'A grant whose map keys are not in the deterministic order',
+        cbor: bytesToHex(reversedGrant),
+        reason: refusal(() => decodeGrant(reversedGrant), /Not a grant: the bytes are not canonical CBOR/),
+      },
+      {
+        what: 'An envelope whose foc/salt is not 16 bytes',
+        metadata: shortSaltMetadata,
+        reason: refusal(
+          () => readPieceMetadata(shortSaltMetadata),
+          /A piece salt is 16 random bytes, from newSalt\(\); got 1/
         ),
       },
     ],
@@ -756,6 +781,14 @@ async function claimVectors() {
     'served'
   )
   add('Labels: foc/v as the string "2" is accepted', e1Bytes, P1, { ...L1, 'foc/v': '2' }, 'served')
+  add(
+    'Labels: a gated piece with a foc/salt shorter than 16 bytes is refused, even for a group link',
+    e1Bytes,
+    P1,
+    { ...L1, 'foc/salt': '0xab' },
+    'piece',
+    /A piece salt is 16 random bytes, from newSalt\(\); got 1/
+  )
   const UNSUPPORTED = /Unsupported piece label format: foc\/v/
   add('Labels: foc/v 3 is refused', e1Bytes, P1, { ...L1, 'foc/v': 3 }, 'piece', UNSUPPORTED)
   add('Labels: foc/v as the string "3" is refused', e1Bytes, P1, { ...L1, 'foc/v': '3' }, 'piece', UNSUPPORTED)

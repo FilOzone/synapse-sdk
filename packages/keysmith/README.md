@@ -338,7 +338,9 @@ grant = {                 ; a CBOR map
 The authenticated data is `[v, node, owner, groupKeyId]` as deterministic CBOR
 (RFC 8949 §4.2.1), with the owner and group key id as bytes, so every implementation
 builds the same bytes. `decodeGrant` accepts only canonical CBOR: no indefinite
-lengths, duplicate keys, tags, trailing bytes or unknown numbered fields.
+lengths, duplicate keys, tags, trailing bytes or unknown numbered fields. It re-encodes
+what it decoded, so a float `v` or map keys out of order are refused too, including a
+grant inside a delivery.
 
 When sending a grant to a recipient over a text channel, use a safe
 deterministic encoding such as Base64.
@@ -408,6 +410,11 @@ upload, and `keyForEnvelope` checks it against the envelope at no cost. The CID 
 protection: if it is wrong, the recipient fetches a piece with a different salt, and
 `keyForEnvelope` refuses it. The recipient reads that one piece and nothing else. A piece grant is read-only, and `writeTarget` refuses it: FEE needs
 a fresh key for every object, so a piece key must never encrypt anything else.
+
+Because a piece grant is bound to the salt alone, it covers whatever piece carries that
+salt, so a salt must be unique to one piece: always take it from `newSalt()` (16 random
+bytes), and never reuse one. A reused salt serves the second piece's ciphertext to the
+holder, though the key it derives from its own group still differs.
 
 A delegate writing pieces should start from its grant rather than assembling the pieces by
 hand. `writeTarget` takes the group key id from the grant, checks the group against what
@@ -539,6 +546,16 @@ const forWrite = Keysmith.pickGrant(held, { owner, groupKeyId, group: 'users/fin
 // undefined: no grant reaches it; ask for one
 ```
 
+A grant's owner and group key id are public, so anyone can root a grant under another wallet's
+group key id. `pickGrant` therefore matches one owner, never any owner. A group target names it
+(`owner` is required, and a missing or invalid one throws). A piece target takes it from the piece's
+`foc/own`; for a piece without one (not gated) pass the expected owner as `options.owner`, or it throws.
+When both are present they must match.
+
+```ts
+const ungated = Keysmith.pickGrant(held, { piece: labels }, { chainId, owner: expectedOwner })
+```
+
 #### Verifying, as a relying party
 
 For a provider implementing gated retrieval, `verifyPresentation` defines the
@@ -622,10 +639,13 @@ whatever their signer returns to low s and v = 27 or 28.
 The piece labels are compared in canonical form, never as raw text: `foc/own` as an address,
 `foc/gkid` and `foc/salt` as lowercase hex, `foc/group` after `groupPath()`.
 `foc/own` absent or falsy means the piece is not gated; a truthy value that is not a
-string address is refused. The claim-side functions (`verifyPresentation`, `reaches`, `pickGrant`,
+string address is refused. `foc/salt` is exactly 16 bytes of hex, on the envelope side and the claim side alike.
+Labels are read as own properties only, so a label inherited from a prototype, or from a polluted
+`Object.prototype`, is not a label. The claim-side functions (`verifyPresentation`, `reaches`, `pickGrant`,
 `openDelivery`) accept `foc/v` absent, `2` or `"2"`, so a provider may pass it as a string or leave it out.
 They refuse 0.1.0 labels (`foc/v` 1 or `"1"`, or `foc/ks`) and any other `foc/v`. They read only the labels a
-decision needs, so a bad `foc/salt` or `foc/group` is not an error unless the node asks for it.
+decision needs, so a bad `foc/group` is not an error unless the node asks for it. A bad `foc/salt` is
+refused when a piece link reads it, when `pickGrant` is given the piece, and by `verifyPresentation` for any gated piece.
 
 Every link's signature covers the fields it inherits from the root, so a link cannot be moved
 under a root that differs in any of them, and nobody below the owner can change the root's
@@ -740,7 +760,7 @@ a new dataset's metadata too.
 | `encodeGrant(grant)` / `decodeGrant(bytes)` | A grant to and from its CBOR bytes, for delivery or storage |
 | `unwrapWith(privateKey, grant)` | Open a grant, as bytes or decoded |
 | `publicKeyOf(privateKey)` | The key-agreement key to publish, derived from a private key |
-| `newSalt()` | A fresh per-piece salt |
+| `newSalt()` | A fresh per-piece salt: 16 random bytes. Always use it; a piece grant covers any piece carrying the salt |
 | `rootClaim(wallet, { owner, groupKeyId, chainId, groupKey, node, bearer, maxDepth, expires, piece?, pieceCid?, now? })` | The owner-signed root of a claim chain → `{ chain, nodeKey }`; refuses an `expires` already past |
 | `delegateClaim(signer, chain, { parentKey, node, bearer, maxDepth, piece?, pieceCid?, now? })` | A narrower link, signed by the chain's final bearer, with its key derived from `parentKey` → `{ chain, nodeKey }`; refuses an expired chain |
 | `encodeDelivery(chain, grant)` / `decodeDelivery(bytes)` | A claim chain and its grant, as one blob for the new bearer |
@@ -751,7 +771,7 @@ a new dataset's metadata too.
 | `verifyChain(chain, { now?, piece? })` | Check a chain on its own: signatures, expiry, narrowing |
 | `verifyPresentation(bytes, { pieceCid, piece, chainId, now? })` | What a gating provider checks; the reference verifier |
 | `reaches(node, labels)` | Whether a node covers a piece, from its envelope labels |
-| `pickGrant(grants, target, { chainId, now? })` | The narrowest live grant (anything with a `claim`, such as `openDelivery`'s result) reaching a piece or a group |
+| `pickGrant(grants, target, { chainId, now?, owner? })` | The narrowest live grant (anything with a `claim`, such as `openDelivery`'s result) reaching a piece or a group, for one owner. `owner` is required for a piece without `foc/own`: grant owners are public, so pin it |
 | `keyCommitmentOf(key)` | The 16-byte key commitment a link carries |
 
 ## Be aware

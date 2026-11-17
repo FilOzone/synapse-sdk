@@ -77,6 +77,27 @@
       "what": "A group key commitment from keysmith 0.1.0 (v1.)",
       "commitment": "v1.577089220f63dc662b4fc4a60abe1b48",
       "reason": "keysmith 0.1.0 (format 1) data is not supported: a v1 commitment"
+    },
+    {
+      "what": "A grant whose v is the float 2.0, not the integer 2",
+      "cbor": "0xa700f94000017367726f75703a61646d696e2f66696e616e63650254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff0458410464bf2db234165a85d21db91a4c827053c1f0437686b6b67d54d6c071608360825dbfd134da8b40475c6482c19a076ab1e16d9bfb2f9f868605de5793cd3c2c9e054c9e94df585f5e7d9ee5e177c80658305ee93683ef187314f52e6b80a0ba460c59275cbb5ddc7973d8be5ff4697c0ee8ca701be610a65f40aef3d38ebe053db1",
+      "reason": "Not a grant: the bytes are not canonical CBOR"
+    },
+    {
+      "what": "A grant whose map keys are not in the deterministic order",
+      "cbor": "0xa70658305ee93683ef187314f52e6b80a0ba460c59275cbb5ddc7973d8be5ff4697c0ee8ca701be610a65f40aef3d38ebe053db1054c9e94df585f5e7d9ee5e177c80458410464bf2db234165a85d21db91a4c827053c1f0437686b6b67d54d6c071608360825dbfd134da8b40475c6482c19a076ab1e16d9bfb2f9f868605de5793cd3c2c9e035000112233445566778899aabbccddeeff0254f39fd6e51aad88f6f4ce6ab8827279cfffb92266017367726f75703a61646d696e2f66696e616e63650002",
+      "reason": "Not a grant: the bytes are not canonical CBOR"
+    },
+    {
+      "what": "An envelope whose foc/salt is not 16 bytes",
+      "metadata": {
+        "foc/v": 2,
+        "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/group": "admin/finance/clerks",
+        "foc/salt": "0xab"
+      },
+      "reason": "A piece salt is 16 random bytes, from newSalt(); got 1"
     }
   ]
 }

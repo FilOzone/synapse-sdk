@@ -13,11 +13,13 @@ import {
   groupKeyId,
   groupKeyIdOf,
   groupKeyMessage,
+  groupLabelOf,
   groupName,
   groupPath,
   holdingOf,
   keyForEnvelope,
   keyForGroup,
+  labelsGroupKeyId,
   lowSrs,
   matchesCommitment,
   newGroupKeyId,
@@ -686,5 +688,75 @@ describe('data set metadata', () => {
   it('round-trips', () => {
     const upper = { owner: ref.owner, groupKeyId: id.toUpperCase().replace('0X', '0x') as Hex }
     assert.equal(groupKeyIdOf(dataSetMetadata(upper, kc)), groupKeyId(upper.groupKeyId))
+  })
+})
+
+describe('piece salt labels', () => {
+  const written = pieceMetadata(ref, { salt: newSalt(), group: 'team' })
+  const groupKey = new Uint8Array(32).fill(7)
+
+  it('are exactly 16 bytes of hex, on read as on write', () => {
+    for (const salt of ['0xab', `0x${'ab'.repeat(17)}`, 5, undefined]) {
+      const bent = { ...written, 'foc/salt': salt } as never
+      assert.throws(() => readPieceMetadata(bent), /piece salt/, `readPieceMetadata ${salt}`)
+      assert.throws(() => keyForEnvelope(groupKey, bent), /piece salt/, `keyForEnvelope ${salt}`)
+      assert.throws(() => pieceNode(bent), /piece salt/, `pieceNode ${salt}`)
+    }
+    assert.throws(
+      () => readPieceMetadata({ ...written, 'foc/salt': '0xab' }),
+      /16 random bytes, from newSalt\(\); got 1/
+    )
+    assert.equal(
+      readPieceMetadata({ ...written, 'foc/salt': written['foc/salt'].toUpperCase().replace('0X', '0x') }).salt,
+      written['foc/salt']
+    )
+  })
+})
+
+describe('labels are own properties', () => {
+  const written = pieceMetadata(ref, { salt: newSalt() })
+  const { 'foc/own': _own, ...ungated } = written
+
+  it('ignore what an object only inherits', () => {
+    const inherited = Object.create({ 'foc/group': 'a' }) as Record<string, unknown>
+    Object.assign(inherited, ungated)
+    assert.equal(readPieceMetadata(inherited).group, undefined)
+    // A label that is only inherited is missing
+    const { 'foc/gkid': _id, ...noGkid } = ungated
+    const noId = Object.assign(Object.create({ 'foc/gkid': ref.groupKeyId }), noGkid)
+    assert.throws(() => readPieceMetadata(noId), /not format 2 with a group key/)
+    const onlyInherited = Object.create(written) as Record<string, unknown>
+    assert.throws(() => readPieceMetadata(onlyInherited), /not format 2/)
+    assert.equal(groupKeyIdOf(Object.create({ 'foc/gkid': ref.groupKeyId })), undefined)
+    assert.throws(() => pieceNode(Object.create(written)), /piece salt/)
+  })
+
+  it('are not changed by a polluted Object.prototype', () => {
+    const polluted = Object.prototype as Record<string, unknown>
+    try {
+      polluted['foc/group'] = 'admin'
+      polluted['foc/own'] = '0x00000000000000000000000000000000000000ff'
+      polluted['foc/gkid'] = '0xffeeddccbbaa99887766554433221100'
+      polluted['foc/v'] = 3
+      const view = readPieceMetadata(ungated)
+      assert.equal(view.group, undefined)
+      assert.equal(view.owner, undefined)
+      assert.equal(view.groupKeyId, ref.groupKeyId)
+      assert.deepStrictEqual(keyForEnvelope(new Uint8Array(32), ungated), keyForEnvelope(new Uint8Array(32), ungated))
+      assert.equal(groupKeyIdOf({}), undefined)
+      assert.equal(groupLabelOf(ungated), undefined)
+      assert.equal(labelsGroupKeyId(ungated), ref.groupKeyId)
+    } finally {
+      delete polluted['foc/group']
+      delete polluted['foc/own']
+      delete polluted['foc/gkid']
+      delete polluted['foc/v']
+    }
+  })
+
+  it('still read a null-prototype object, as FEE returns', () => {
+    const bare = Object.assign(Object.create(null), written)
+    assert.deepStrictEqual(readPieceMetadata(bare), readPieceMetadata(written))
+    assert.equal(keyForEnvelope(new Uint8Array(32), bare).length, 32)
   })
 })
