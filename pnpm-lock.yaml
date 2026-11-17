@@ -204,7 +204,7 @@ catalogs:
       specifier: 3.7.9
       version: 3.7.9
     zod:
-      specifier: 4.6.6
+      specifier: ^4.6.6
       version: 4.6.6
 
 importers:
