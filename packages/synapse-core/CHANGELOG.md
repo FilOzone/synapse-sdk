@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.11.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.11.0...synapse-core-v0.11.1) (2026-11-17)
+
+
+### Features
+
+* **core:** deprecate withSignal in favor of viem's client.scope ([7965d96](https://github.com/FilOzone/synapse-sdk/commit/7965d96f822635dabc35c348485885d1c682725c))
+* **core:** keep HTTP status and HttpError on SP action errors ([0b89200](https://github.com/FilOzone/synapse-sdk/commit/0b89200a2d27a9205cc3833422f0b0eedb6d32b5))
+* **core:** say why a piece download failed in DownloadPieceError ([e60f879](https://github.com/FilOzone/synapse-sdk/commit/e60f87906656d637ced647b773e83dfe357971b6)), closes [#1141](https://github.com/FilOzone/synapse-sdk/issues/1141)
+
+
+### Bug Fixes
+
+* **core:** accept FWSS dispatcher deployment addresses ([#1135](https://github.com/FilOzone/synapse-sdk/issues/1135)) ([f57ff11](https://github.com/FilOzone/synapse-sdk/commit/f57ff119966b483205263b513b1220dd869415b6))
+* **core:** import zod as a namespace so bundlers can drop its locales ([#1147](https://github.com/FilOzone/synapse-sdk/issues/1147)) ([348d488](https://github.com/FilOzone/synapse-sdk/commit/348d488cfe83453a50f5ef1adc6ff7882a5db83e))
+* **core:** report finalize failures and serialize error reasons ([838577e](https://github.com/FilOzone/synapse-sdk/commit/838577e682e2428a073295cfc7c155052051768f))
+* **core:** require viem ^2.58.0 as a peer dependency ([5994d02](https://github.com/FilOzone/synapse-sdk/commit/5994d02aa0410ad57c8e7479a8e98ede70b0e3bb))
+* **core:** stop receipt polling when a submission wait is aborted ([46d5f99](https://github.com/FilOzone/synapse-sdk/commit/46d5f9942b95e821428e5d8b9b8f6b21c998085f)), closes [#1114](https://github.com/FilOzone/synapse-sdk/issues/1114)
+
+
+### Chores
+
+* **synapse-core:** update filecoin-services ref to v1.5.0 ([#1144](https://github.com/FilOzone/synapse-sdk/issues/1144)) ([1af52e4](https://github.com/FilOzone/synapse-sdk/commit/1af52e4e1571f97fff874d093e586b2ba01acf2a))
+
 ## [0.11.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.10.3...synapse-core-v0.11.0) (2026-11-13)
 
 
