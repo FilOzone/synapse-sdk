@@ -6,6 +6,7 @@ import vectors from './claims-vectors.json' with { type: 'json' }
 
 // Pins what a gating provider must serve or refuse, byte for byte, so other
 // implementations (Curio's, in Go) can check themselves against the same file.
+// Regenerate with scripts/generate-vectors.ts.
 describe('claim chain vectors', () => {
   it('pins the EIP-712 domain, types and digests', async () => {
     assert.deepStrictEqual(vectors.domain, DOMAIN)

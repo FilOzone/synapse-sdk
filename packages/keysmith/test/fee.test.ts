@@ -1,11 +1,19 @@
 import assert from 'assert'
 import * as fee from 'filecoin-encryption-envelope'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { keyForEnvelope, keyResolver, keyspaceKeys, newSalt, pieceKey, pieceMetadata, scopeKey } from '../src/derive.ts'
-import type { KeyspaceRef } from '../src/types.ts'
+import {
+  deriveGroupKey,
+  keyForEnvelope,
+  keyForGroup,
+  keyResolver,
+  newSalt,
+  pieceKey,
+  pieceMetadata,
+} from '../src/derive.ts'
+import type { GroupKeyRef } from '../src/types.ts'
 
 const account = privateKeyToAccount(generatePrivateKey())
-const ref: KeyspaceRef = { owner: account.address, keyspace: '0x00112233445566778899aabbccddeeff' }
+const ref: GroupKeyRef = { owner: account.address, groupKeyId: '0x00112233445566778899aabbccddeeff' }
 
 /**
  * Run bytes through a FEE stream and collect the output. Read directly: a
@@ -32,11 +40,11 @@ const source = (bytes: Uint8Array): fee.RandomAccessSource => ({
 
 describe('with the real FEE', () => {
   it('writes a piece under Keysmith keys and labels, and reads it back by resolving the key from the envelope', async () => {
-    const { kk } = await keyspaceKeys(account, ref)
+    const { groupKey } = await deriveGroupKey(account, ref)
     const salt = newSalt()
-    const metadata = pieceMetadata(ref, { salt, scope: 'agent-memory' })
+    const metadata = pieceMetadata(ref, { salt, group: 'agent-memory' })
     const plaintext = new TextEncoder().encode('agent-memory: notes')
-    const cek = keyForEnvelope(kk, metadata)
+    const cek = keyForEnvelope(groupKey, metadata)
     const encrypted = await through(
       plaintext,
       fee.encrypt({ cek, appMetadata: metadata, contentLength: plaintext.length })
@@ -45,21 +53,25 @@ describe('with the real FEE', () => {
     const info = await fee.parse(source(encrypted))
     // FEE hands back a null-prototype object, so compare the contents
     assert.deepStrictEqual({ ...info.appMetadata }, metadata, 'the labels travel in the envelope unchanged')
-    assert.deepStrictEqual(await through(encrypted, fee.decrypt(keyResolver(kk))), plaintext, 'the keyspace holder')
-    const scoped = keyResolver(scopeKey(kk, 'agent-memory'), { scope: 'agent-memory' })
-    assert.deepStrictEqual(await through(encrypted, fee.decrypt(scoped)), plaintext, 'a scope holder')
+    assert.deepStrictEqual(
+      await through(encrypted, fee.decrypt(keyResolver(groupKey))),
+      plaintext,
+      'the group key holder'
+    )
+    const inGroup = keyResolver(keyForGroup(groupKey, 'agent-memory'), { group: 'agent-memory' })
+    assert.deepStrictEqual(await through(encrypted, fee.decrypt(inGroup)), plaintext, 'a group holder')
     assert.deepStrictEqual(
       await through(encrypted, fee.decrypt(keyResolver(cek, { piece: salt }))),
       plaintext,
       'a piece holder'
     )
-    assert.deepStrictEqual(pieceKey(scopeKey(kk, 'agent-memory'), salt), cek)
+    assert.deepStrictEqual(pieceKey(keyForGroup(groupKey, 'agent-memory'), salt), cek)
 
     // A range read: derive the key from FEE's own parse of the envelope, as the README shows.
     if (info.scheme !== 'chunked') throw new Error('expected a chunked object')
     const ranged = await fee.decryptRange(
       source(encrypted),
-      keyForEnvelope(kk, info.appMetadata),
+      keyForEnvelope(groupKey, info.appMetadata),
       { offset: 0, length: 12 },
       { params: info.params }
     )
@@ -68,30 +80,30 @@ describe('with the real FEE', () => {
   })
 
   it('refuses a key the node does not reach, before decrypting anything', async () => {
-    const { kk } = await keyspaceKeys(account, ref)
-    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'super-secret' })
+    const { groupKey } = await deriveGroupKey(account, ref)
+    const metadata = pieceMetadata(ref, { salt: newSalt(), group: 'super-secret' })
     const encrypted = await through(
       new Uint8Array([1, 2, 3]),
-      fee.encrypt({ cek: keyForEnvelope(kk, metadata), appMetadata: metadata })
+      fee.encrypt({ cek: keyForEnvelope(groupKey, metadata), appMetadata: metadata })
     )
-    const sibling = keyResolver(scopeKey(kk, 'agent-memory'), { scope: 'agent-memory' })
+    const sibling = keyResolver(keyForGroup(groupKey, 'agent-memory'), { group: 'agent-memory' })
     await assert.rejects(through(encrypted, fee.decrypt(sibling)), (err: Error) =>
       [err.message, String((err as { cause?: Error }).cause?.message)].some((m) => /does not contain/.test(m))
     )
   })
 
   it('fails on a tampered label: the labels are authenticated', async () => {
-    const { kk } = await keyspaceKeys(account, ref)
-    const metadata = pieceMetadata(ref, { salt: newSalt(), scope: 'agent-memory' })
+    const { groupKey } = await deriveGroupKey(account, ref)
+    const metadata = pieceMetadata(ref, { salt: newSalt(), group: 'agent-memory' })
     const encrypted = await through(
       new TextEncoder().encode('secret'),
-      fee.encrypt({ cek: keyForEnvelope(kk, metadata), appMetadata: metadata })
+      fee.encrypt({ cek: keyForEnvelope(groupKey, metadata), appMetadata: metadata })
     )
     const label = new TextEncoder().encode('agent-memory')
     const at = encrypted.findIndex((_, i) => label.every((byte, j) => encrypted[i + j] === byte))
     assert.ok(at > 0)
     const tampered = encrypted.slice()
-    tampered[at] ^= 0x01 // "agent-memory" → "`gent-memory": a scope the keyspace holder can still derive a key for
-    await assert.rejects(through(tampered, fee.decrypt(keyResolver(kk))))
+    tampered[at] ^= 0x01 // "agent-memory" → "`gent-memory": a group the group key holder can still derive a key for
+    await assert.rejects(through(tampered, fee.decrypt(keyResolver(groupKey))))
   })
 })

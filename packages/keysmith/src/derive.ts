@@ -1,13 +1,15 @@
 /**
- * Derivation: one wallet signature per keyspace, then HKDF all the way down.
+ * Derivation: one wallet signature per group key, then HKDF all the way down.
  *
  * ```text
- * sig = signTypedData(KeyspaceKey{owner, keyspace})
- * KK  = HKDF(r‖s, "foc/acl/keyspace/v1")      the whole keyspace
- *       (salt = Argon2id(password, hash(sig message)) if a password is given)
- * RK  = HKDF(KK,  "foc/acl/role/v1"‖scope)     one access scope within it
- * PK  = HKDF(node,"foc/acl/piece/v1"‖salt)    one piece
+ * sig         = signTypedData(GroupKey{owner, groupKeyId})    owner signs for the group key id
+ * groupKey    = HKDF(r‖s, "foc/acl/group-key/v2")            the root
+ *               (salt = Argon2id(password, hash(sig message)) if a password is given)
+ * keyForGroup = HKDF(groupKey, "foc/acl/group/v2"‖group)     a group's key, one step per path segment
+ * pieceKey    = HKDF(node, "foc/acl/piece/v2"‖salt)          node: whichever key above the piece is held
  * ```
+ *
+ * The quoted strings are wire values: they are signed or hashed, so changing one changes every key.
  *
  * @module
  */
@@ -16,16 +18,18 @@ import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Address, Hex } from 'viem'
-import { bytesToHex, hashTypedData, hexToBytes, recoverAddress } from 'viem'
+import { bytesToHex, hashTypedData, hexToBytes, isAddress, recoverAddress } from 'viem'
 import type {
+  DerivedGroupKey,
+  DeriveGroupKeyOptions,
   GrantDescriptor,
   GrantNode,
+  GroupKeyMessage,
+  GroupKeyRef,
   Holding,
-  KeyspaceKeyMessage,
-  KeyspaceKeys,
-  KeyspaceKeysOptions,
-  KeyspaceRef,
   PieceMetadata,
+  PieceMetadataV2,
+  PieceMetadataView,
   TypedDataSigner,
   WriteTarget,
 } from './types.ts'
@@ -46,41 +50,65 @@ const HALF_N = N / 2n
  * domains, different signatures, and different keys. Any change orphans
  * every key ever derived, with no migration path.
  */
-export const DOMAIN = { name: 'FOC Encryption', version: '1' } as const
+export const DOMAIN = { name: 'Filecoin Encryption', version: '2' } as const
 
 /**
- * Parameters of the typed data signature that roots a keyspace
+ * Parameters of the typed data signature that roots a group key.
+ * `GroupKey` and `groupKeyId` are wire names: do not rename.
  */
-export const KEYSPACE_KEY_TYPES = {
-  KeyspaceKey: [
+export const GROUP_KEY_TYPES = {
+  GroupKey: [
     { name: 'owner', type: 'address' },
-    { name: 'keyspace', type: 'bytes16' },
+    { name: 'groupKeyId', type: 'bytes16' },
   ],
 } as const
 
 const INFO = {
-  keyspace: 'foc/acl/keyspace/v1',
-  scope: 'foc/acl/role/v1',
-  piece: 'foc/acl/piece/v1',
-  commitment: 'foc/kc/v1',
+  groupKey: 'foc/acl/group-key/v2',
+  group: 'foc/acl/group/v2',
+  piece: 'foc/acl/piece/v2',
+  commitment: 'foc/kc/v2',
 } as const
+
+/**
+ * The refusal for anything written by keysmith 0.1.0 (format 1): a different derivation, so it
+ * cannot be read, and refusing early beats a confusing failure further down.
+ */
+export const format1Error = (what: string): Error =>
+  new Error(`keysmith 0.1.0 (format 1) data is not supported: ${what}`)
+
+/**
+ * The one check for a format version field (grant `v`, link and presentation versions, `foc/v`):
+ * exactly the number 2. `1` or `"1"` is keysmith 0.1.0's and gets {@link format1Error}; anything else is unsupported.
+ * `absent` also passes `undefined`, `string` also passes `"2"`: for input that is not typed CBOR we wrote.
+ *
+ * @param what The noun for the message, e.g. `grant`: "a grant with v 1", "Unsupported grant version: 3".
+ * @throws If `v` is not accepted.
+ */
+export function assertFormatVersion(
+  v: unknown,
+  what: string,
+  { absent = false, string = false }: { absent?: boolean; string?: boolean } = {}
+): void {
+  if (v === 1 || v === '1') throw format1Error(`a ${what} with v 1`)
+  if (v === 2 || (absent && v === undefined) || (string && v === '2')) return
+  throw new Error(`Unsupported ${what} version: ${JSON.stringify(v)}`)
+}
 
 /** The FWSS data-set metadata key the commitment is written to. */
 export const COMMITMENT_KEY = 'foc/kc'
-/** The FWSS data-set metadata key naming the keyspace, so the chain alone can list them. */
-export const KEYSPACE_ID_KEY = 'foc/ks'
 
 const derive = (ikm: Uint8Array, info: string, length = 32, salt?: Uint8Array): Uint8Array =>
   hkdf(sha256, ikm, salt, utf8ToBytes(info), length)
 
 /**
- * Argon2id cost for a keyspace password: RFC 9106's second recommended
+ * Argon2id cost for a group key password: RFC 9106's second recommended
  * option (64 MiB, 3 passes), with one lane since JS runs single-threaded.
  * The commitment is public, so a phished signature lets an attacker test
  * guesses offline; this is what makes each one expensive.
  *
  * **Never change these**, the version included: any change orphans every
- * password-protected keyspace.
+ * password-protected group key.
  */
 const PASSWORD_KDF = { t: 3, m: 65536, p: 1, dkLen: 32, version: 0x13 } as const
 
@@ -98,9 +126,9 @@ function passwordBytes(password: unknown): Uint8Array {
 }
 
 /**
- * The HKDF salt for a password-protected keyspace: Argon2id over the
+ * The HKDF salt for a password-protected group key: Argon2id over the
  * password, salted with the signed message's hash, so it is unique to the
- * owner and keyspace and nothing can be precomputed across them.
+ * owner and group key id and nothing can be precomputed across them.
  */
 const passwordSalt = (password: Uint8Array, messageHash: Hex): Promise<Uint8Array> =>
   argon2idAsync(password, hexToBytes(messageHash), PASSWORD_KDF)
@@ -115,80 +143,80 @@ function randomHex(length: number): Hex {
 export const newSalt = (): Hex => randomHex(16)
 
 /**
- * A fresh keyspace identifier: 16 random bytes.
- * Must be unique to a wallet, so that a grant for one keyspace cannot be
+ * A fresh group key id: 16 random bytes. Public, not a key.
+ * Must be unique to a wallet, so that a grant for one group key cannot be
  * relabelled as another.
  */
-export const newKeyspace = (): Hex => randomHex(16)
+export const newGroupKeyId = (): Hex => randomHex(16)
 
 /**
- * Canonical form of a keyspace identifier: 16 bytes of hex, lowercase, prefixed with `0x`.
+ * Canonical form of a group key id: 16 bytes of hex, lowercase, prefixed with `0x`.
  *
  * @throws If it is not 16 bytes of hex.
  */
-export function keyspaceId(keyspace: string): Hex {
-  const lower = text(keyspace, 'A keyspace id').toLowerCase()
+export function groupKeyId(id: string): Hex {
+  const lower = text(id, 'A group key id').toLowerCase()
   if (!/^0x[0-9a-f]{32}$/.test(lower)) {
-    throw new Error(`A keyspace id is 16 bytes of hex, got ${JSON.stringify(keyspace)}`)
+    throw new Error(`A group key id is 16 bytes of hex, got ${JSON.stringify(id)}`)
   }
   return lower as Hex
 }
 
-export function keyspaceKeyMessage(ref: KeyspaceRef): KeyspaceKeyMessage {
-  return { owner: ref.owner, keyspace: keyspaceId(ref.keyspace) }
+export function groupKeyMessage(ref: GroupKeyRef): GroupKeyMessage {
+  return { owner: ref.owner, groupKeyId: groupKeyId(ref.groupKeyId) }
 }
 
 /**
- * Sign for one keyspace and derive its key.
+ * Sign for one group key and derive its key.
  *
  * The signature is the root secret, and it never leaves this function: the
- * caller gets the keyspace key and the public commitment, and has nothing
+ * caller gets the group key and the public commitment, and has nothing
  * else to guard.
  *
- * For a new keyspace this signs twice and compares, which catches a
+ * For a new group key this signs twice and compares, which catches a
  * non-deterministic signer before any data depends on it, at the cost of a second
  * wallet prompt. For an existing one, pass the commitment its dataset records
  * (`foc/kc`): it signs once, and the commitment catches the same faults. See
- * {@link KeyspaceKeysOptions}.
+ * {@link DeriveGroupKeyOptions}.
  *
  * With `options.password`, the key also depends on that password, so a
  * phished signature alone no longer yields it. Lose the password and the
- * keyspace is lost: nothing else can recover it. Only a recorded commitment
- * can tell a wrong password from a right one, so reopen a protected keyspace
+ * group key is lost: nothing else can recover it. Only a recorded commitment
+ * can tell a wrong password from a right one, so reopen a protected group key
  * with both `password` and `commitment`, and have the user confirm the
- * password when creating one: a typo there silently roots the keyspace under
+ * password when creating one: a typo there silently roots the group key under
  * the typo.
  *
  * Only the owner's own wallet can sign: a key signed by any other wallet,
  * a session key included, is not the key the owner's wallet derives, and
  * nothing downstream could tell. Delegates receive a grant instead.
  *
- * The result carries the keyspace descriptor, so an owner writes the same way
- * a delegate does — `writeTarget(descriptor, kk, scope)` — with the keyspace
+ * The result carries the group key descriptor, so an owner writes the same way
+ * a delegate does — `writeTarget(descriptor, groupKey, group)` — with the group key
  * taken from what was actually signed.
  *
  * @throws Before any signing, if `options.password` is empty or not well-formed
- * Unicode, or `options.commitment` is not a commitment in format v1. After signing,
+ * Unicode, or `options.commitment` is not a commitment in format v2. After signing,
  * if the signer is not deterministic, is not the owner, does not produce an ECDSA
  * signature, or derives a key that does not match `options.commitment` (with a
  * password, most often a wrong password).
  */
-export async function keyspaceKeys(
+export async function deriveGroupKey(
   signer: TypedDataSigner,
-  ref: KeyspaceRef,
-  options: KeyspaceKeysOptions = {}
-): Promise<KeyspaceKeys> {
-  const message = keyspaceKeyMessage(ref)
+  ref: GroupKeyRef,
+  options: DeriveGroupKeyOptions = {}
+): Promise<DerivedGroupKey> {
+  const message = groupKeyMessage(ref)
   // Refuse bad options before the wallet prompts, not after
   const password = options.password == null ? undefined : passwordBytes(options.password)
   if (options.commitment != null) commitmentFormat(options.commitment)
-  const args = { domain: DOMAIN, types: KEYSPACE_KEY_TYPES, primaryType: 'KeyspaceKey' as const, message }
+  const args = { domain: DOMAIN, types: GROUP_KEY_TYPES, primaryType: 'GroupKey' as const, message }
   const first = await signer.signTypedData(args)
   if (options.verifySigner ?? options.commitment == null) {
     const second = await signer.signTypedData(args)
     if (first !== second) {
       throw new Error(
-        'Signer is not deterministic (RFC 6979 expected), so it cannot root a keyspace. ' +
+        'Signer is not deterministic (RFC 6979 expected), so it cannot root a group key. ' +
           'Signing the same message twice produced different signatures.'
       )
     }
@@ -197,16 +225,16 @@ export async function keyspaceKeys(
   const hash = hashTypedData(args)
   await assertSignedBy(message.owner, hash, rs)
   const salt = password == null ? undefined : await passwordSalt(password, hash)
-  const kk = derive(rs, INFO.keyspace, 32, salt)
-  if (options.commitment != null && !matchesCommitment(kk, options.commitment)) {
+  const groupKey = derive(rs, INFO.groupKey, 32, salt)
+  if (options.commitment != null && !matchesCommitment(groupKey, options.commitment)) {
     const cause =
-      password == null ? 'the keyspace may need a password' : 'the password is wrong, or this keyspace has none'
+      password == null ? 'the group key may need a password' : 'the password is wrong, or this group key has none'
     throw new Error(
       `This key does not match the recorded commitment: ${cause}; ` +
-        'or the signer is not deterministic, or the commitment belongs to another keyspace.'
+        'or the signer is not deterministic, or the commitment belongs to another group key.'
     )
   }
-  return { kk, commitment: commitment(kk), descriptor: grantDescriptor(ref, 'keyspace') }
+  return { groupKey, commitment: commitment(groupKey), descriptor: grantDescriptor(ref, 'groupKey') }
 }
 
 /**
@@ -222,32 +250,35 @@ async function assertSignedBy(owner: Address, hash: Hex, rs: Uint8Array): Promis
     }
   }
   throw new Error(
-    `This signature is not from the keyspace owner ${owner}. Only the owner's wallet can sign for its keyspace; ` +
+    `This signature is not from the group key owner ${owner}. Only the owner's wallet can sign for its group key; ` +
       'a delegate, such as a session key, receives a grant instead.'
   )
 }
 
 /**
- * A non-secret commitment to the keyspace key, for FWSS data-set metadata:
- * `v1.<32 hex digits>`, where `v1` is the format of the value.
+ * A non-secret commitment to the group key, for FWSS data-set metadata:
+ * `v2.<32 hex digits>`, where `v2` is the format of the value.
  */
-export const commitment = (kk: Uint8Array): string => `v1.${bytesToHex(derive(kk, INFO.commitment, 16)).slice(2)}`
+export const commitment = (groupKey: Uint8Array): string =>
+  `v2.${bytesToHex(derive(groupKey, INFO.commitment, 16)).slice(2)}`
 
 function commitmentFormat(recorded: string): string {
-  if (!/^v1\.[0-9a-f]{32}$/.test(recorded)) {
-    throw new Error(`Not a keyspace commitment in format v1: ${JSON.stringify(recorded)}`)
+  // Not a version field but a `v<n>.` prefix, so it keeps its own check
+  if (/^v1\./.test(recorded)) throw format1Error('a v1 commitment')
+  if (!/^v2\.[0-9a-f]{32}$/.test(recorded)) {
+    throw new Error(`Not a group key commitment in format v2: ${JSON.stringify(recorded)}`)
   }
   return recorded
 }
 
 /**
- * Verifies that `kk` is the key you expect: the right root wallet and the right
- * keyspace. Check this before using any key received in a grant.
+ * Verifies that `groupKey` is the key you expect: the right root wallet and the right
+ * group key. Check this before using any key received in a grant.
  *
  * @throws If the recorded value is not a commitment in this format.
  */
-export function matchesCommitment(kk: Uint8Array, recorded: string): boolean {
-  return commitment(kk) === commitmentFormat(recorded)
+export function matchesCommitment(groupKey: Uint8Array, recorded: string): boolean {
+  return commitment(groupKey) === commitmentFormat(recorded)
 }
 
 /**
@@ -264,7 +295,7 @@ export function lowSrs(signature: Hex): Uint8Array {
   if (raw.length !== 64 && raw.length !== 65) {
     throw new Error(
       `Expected a 64- or 65-byte ECDSA signature, got ${raw.length} bytes. ` +
-        'Contract accounts and smart wallets return other encodings and cannot root a keyspace.'
+        'Contract accounts and smart wallets return other encodings and cannot root a group key.'
     )
   }
   const r = BigInt(bytesToHex(raw.subarray(0, 32)))
@@ -280,56 +311,97 @@ export function lowSrs(signature: Hex): Uint8Array {
 }
 
 /**
- * The key for an access scope. Scopes form a tree, and a scope's key is derived
- * from its parent's, so holding a scope also opens every scope beneath it.
- *
+ * The key for a group. Groups form a tree, and a group's key is derived
+ * from its parent's, so holding a group also opens every group beneath it.
  */
-export const scopeKey = (kk: Uint8Array, scope: string): Uint8Array => walk(kk, scopePath(scope).split('/'))
+export const keyForGroup = (groupKey: Uint8Array, group: string): Uint8Array =>
+  walk(groupKey, groupPath(group).split('/'))
 
 const walk = (key: Uint8Array, names: string[]): Uint8Array =>
-  names.reduce((parent, name) => derive(parent, `${INFO.scope}${name}`), key)
+  names.reduce((parent, name) => derive(parent, `${INFO.group}${name}`), key)
 
 /**
- * Canonicalize scope name in the form it is derived from: Unicode NFC,
+ * Canonicalize group name in the form it is derived from: Unicode NFC,
  * non-empty, no leading or trailing whitespace, and no `/` (which would
  * indicate a *path*). Case is significant.
  *
  * @throws If the name is empty, padded with whitespace, contains `/`, or is not well-formed Unicode.
  */
-export function scopeName(name: string): string {
+export function groupName(name: string): string {
   // Lone surrogates risk two different names deriving the same key, so refuse them.
   if (/\p{Cs}/u.test(name)) {
-    throw new Error(`A scope name must be well-formed Unicode (no lone surrogates), got ${JSON.stringify(name)}`)
+    throw new Error(`A group name must be well-formed Unicode (no lone surrogates), got ${JSON.stringify(name)}`)
   }
   const normalised = name.normalize('NFC')
   if (normalised.length === 0 || normalised.trim() !== normalised || normalised.includes('/')) {
     throw new Error(
-      `A scope name must be non-empty, with no leading or trailing whitespace and no "/", got ${JSON.stringify(name)}`
+      `A group name must be non-empty, with no leading or trailing whitespace and no "/", got ${JSON.stringify(name)}`
     )
   }
   return normalised
 }
 
-/** Canonicalize scope path: canonical names joined by `/`, top scope first. */
-export const scopePath = (path: string): string => text(path, 'A scope path').split('/').map(scopeName).join('/')
+/** Canonicalize group path: canonical names joined by `/`, top group first. */
+export const groupPath = (path: string): string => text(path, 'A group path').split('/').map(groupName).join('/')
+
+/** What a grant node means. Path and salt are canonical. */
+export type NodeKind = { kind: 'groupKey' } | { kind: 'group'; path: string } | { kind: 'piece'; salt: Hex }
 
 /**
- * A grant node in canonical form: `keyspace`, `scope:` plus a canonical scope
- * path, or `piece:` plus a piece's salt in lowercase hex.
+ * Parse a grant node: `'groupKey'`, `'group:<path>'` or `'piece:<salt>'`. Every decision about a node
+ * goes through this, never a string compare.
+ *
+ * @throws If the node is not one of those, or its path or salt is malformed.
  */
-export function canonicalNode(node: string): string {
-  if (text(node, 'A grant node') === 'keyspace') {
-    return 'keyspace'
-  }
-  if (node.startsWith('scope:')) {
-    return `scope:${scopePath(node.slice('scope:'.length))}`
-  }
+export function nodeKind(node: string): NodeKind {
+  if (text(node, 'A grant node') === 'groupKey') return { kind: 'groupKey' }
+  if (node.startsWith('group:')) return { kind: 'group', path: groupPath(node.slice('group:'.length)) }
   if (node.startsWith('piece:')) {
     const salt = saltOf(node.slice('piece:'.length))
     if (salt.length !== 2 + 2 * 16) throw new Error(`A piece node names a 16-byte salt, got ${JSON.stringify(node)}`)
-    return `piece:${salt}`
+    return { kind: 'piece', salt }
   }
   throw new Error(`Unrecognised grant node: ${node}`)
+}
+
+/**
+ * A grant node with path and salt canonical. The node is signed or bound into the wrap's AAD,
+ * so it is written only in this form.
+ */
+export function canonicalNode(node: string): GrantNode {
+  const k = nodeKind(node)
+  if (k.kind === 'groupKey') return 'groupKey'
+  if (k.kind === 'group') return `group:${k.path}`
+  return `piece:${k.salt}`
+}
+
+/**
+ * The metadata to record on a data set for this group key: its id under `foc/gkid` and the group key
+ * `commitment` (from {@link commitment}) under `foc/kc`, so the chain alone can list a wallet's group keys.
+ *
+ * Synapse reuses a data set only on an exact metadata match. To keep adding to an existing data set,
+ * pass that data set's metadata as it is, rather than rebuilding it here.
+ *
+ * @throws If the id is not 16 bytes of hex, or `groupKeyCommitment` is not a commitment in format v2.
+ */
+export function dataSetMetadata(ref: GroupKeyRef, groupKeyCommitment: string): Record<string, string> {
+  return { 'foc/gkid': groupKeyId(ref.groupKeyId), [COMMITMENT_KEY]: commitmentFormat(groupKeyCommitment) }
+}
+
+/**
+ * The group key id a data set's metadata records under `foc/gkid`, canonical, or `undefined` if it records none.
+ * A data set without `foc/gkid`, including one written by keysmith 0.1.0 (`foc/ks`), returns `undefined`, so a
+ * lookup across a wallet's data sets skips it. `undefined` does not mean "not encrypted": a data set recording
+ * `foc/ks`, or a `v1.` `foc/kc`, is a keysmith 0.1.0 encrypted data set, and an app should not add new data to it.
+ *
+ * @throws If the metadata is not an object, or `foc/gkid` is malformed or not a string.
+ */
+export function groupKeyIdOf(metadata: Readonly<Record<string, string>>): Hex | undefined {
+  if (metadata == null || typeof metadata !== 'object') {
+    throw new Error(`Data set metadata must be an object, got ${metadata === null ? 'null' : typeof metadata}`)
+  }
+  const id = own(metadata, 'foc/gkid')
+  return id === undefined ? undefined : groupKeyId(id as string)
 }
 
 /**
@@ -341,15 +413,104 @@ export function canonicalNode(node: string): string {
  * tell the recipient where to fetch it.
  */
 export const pieceNode = (metadata: Pick<PieceMetadata, 'foc/salt'>): GrantNode =>
-  `piece:${saltOf(metadata['foc/salt'])}`
+  `piece:${pieceSalt(own(metadata, 'foc/salt'))}`
+
+/**
+ * The wallet a piece is gated to, as the labels spell it. Absent or falsy means not gated.
+ *
+ * @throws If `foc/own` is truthy but not an address: refused rather than read as not gated.
+ */
+export function gatedOwner(value: unknown): Address | undefined {
+  if (!value) return undefined
+  if (typeof value !== 'string' || !isAddress(value, { strict: false })) {
+    throw new Error(`foc/own must be an address, got ${JSON.stringify(value)}`)
+  }
+  return value
+}
+
+/**
+ * The canonical group path a piece's labels name under `foc/group`, if any.
+ *
+ * @throws If the path is malformed.
+ */
+export function groupLabelOf(m: Readonly<Record<string, unknown>>): string | undefined {
+  const group = own(m, 'foc/group')
+  if (group == null) return undefined
+  return groupPath(group as string)
+}
+
+/**
+ * The format check for a piece's labels, and the group key id they name under `foc/gkid`, canonical.
+ * Both readers go through here: {@link readPieceMetadata} (envelope) and the claim side.
+ *
+ * `lenient` is the one deliberate difference. Envelope labels are typed CBOR that keysmith wrote, so `foc/v` is
+ * exactly 2. A provider on the claim side may pass labels parsed from Go or JSON, so `foc/v` may also be absent or "2".
+ *
+ * @throws If the labels are from keysmith 0.1.0 (`foc/v` 1, or `foc/ks` without `foc/gkid`), `foc/v` is not
+ * accepted, or the id is malformed.
+ */
+export function labelsGroupKeyId(m: Readonly<Record<string, unknown>>, { lenient }: { lenient: boolean }): Hex {
+  const gkid = own(m, 'foc/gkid')
+  if (gkid === undefined && own(m, 'foc/ks') !== undefined) throw format1Error('a piece with foc/ks labels')
+  assertFormatVersion(own(m, 'foc/v'), 'piece label', lenient ? { absent: true, string: true } : {})
+  return groupKeyId(gkid as string)
+}
+
+/**
+ * Read a piece's envelope metadata (`foc/v` 2: `foc/gkid`, `foc/group`) into one canonical shape.
+ *
+ * Takes the metadata as FEE returns it (`info.appMetadata`), unvalidated.
+ *
+ * @throws If `foc/v` is not 2 (an envelope from keysmith 0.1.0 is `foc/v` 1, or `foc/ks`), or a field is malformed.
+ */
+export function readPieceMetadata(
+  envelopeMetadata: PieceMetadataV2 | Readonly<Record<string, unknown>> | undefined
+): PieceMetadataView {
+  if (envelopeMetadata == null || typeof envelopeMetadata !== 'object') {
+    throw new Error(
+      `A piece's envelope metadata must be an object, got ${envelopeMetadata === null ? 'null' : typeof envelopeMetadata}`
+    )
+  }
+  const m = envelopeMetadata as Readonly<Record<string, unknown>>
+  // Format changes break key derivation, so guard first
+  const id = labelsGroupKeyId(m, { lenient: false })
+  const group = groupLabelOf(m)
+  const owner = gatedOwner(own(m, 'foc/own'))
+  return {
+    ...(owner === undefined ? {} : { owner }),
+    groupKeyId: id,
+    ...(group === undefined ? {} : { group }),
+    salt: pieceSalt(own(m, 'foc/salt')),
+  }
+}
+
+/**
+ * A label read as an own property only: an inherited one, from a prototype or a polluted
+ * `Object.prototype`, is not a label.
+ */
+export const own = (m: object, key: string): unknown => (Object.hasOwn(m, key) ? Reflect.get(m, key) : undefined)
 
 /** A salt in the form it is derived from and compared in: hex bytes, lowercase. */
-function saltOf(salt: string): Hex {
+function saltOf(salt: unknown): Hex {
   const lower = text(salt, 'A piece salt').toLowerCase()
   if (!/^0x([0-9a-f]{2})+$/.test(lower)) {
     throw new Error(`A piece salt is hex bytes, got ${JSON.stringify(salt)}`)
   }
   return lower as Hex
+}
+
+/**
+ * A piece's salt as every reader takes it, envelope and claims alike: exactly 16 bytes of hex,
+ * canonical. Anything else is refused.
+ *
+ * @throws If it is not a string of 16 bytes of hex.
+ */
+export function pieceSalt(salt: unknown): Hex {
+  const canonical = saltOf(salt)
+  if (canonical.length !== 2 + 2 * 16) {
+    throw new Error(`A piece salt is 16 random bytes, from newSalt(); got ${(canonical.length - 2) / 2}`)
+  }
+  return canonical
 }
 
 /** The key for one piece. Never reused: FEE requires a fresh key per object. */
@@ -367,21 +528,23 @@ export function text(value: unknown, what: string): string {
 }
 
 /**
- * Piece FEE envelope metadata entries.
+ * Piece FEE envelope metadata entries. Read them back with {@link readPieceMetadata}.
+ *
+ * A piece grant covers whatever piece carries its salt, so a salt must be unique to one piece:
+ * always take it from {@link newSalt}, and never reuse one.
  *
  * Everything a reader needs travels with the piece, so a copy opens wherever
  * replication or repair puts it.
  */
-export function pieceMetadata(ref: KeyspaceRef, options: { salt: Hex; scope?: string }): PieceMetadata {
-  const salt = saltOf(options.salt)
-  if (salt.length !== 2 + 2 * 16) {
-    throw new Error(`A piece salt is 16 random bytes, from newSalt(); got ${(salt.length - 2) / 2}`)
-  }
+export function pieceMetadata(ref: GroupKeyRef, options: { salt: Hex; group?: string }): PieceMetadata {
+  // A stale `scope` would be dropped silently, leaving a piece nobody can open.
+  if ('scope' in options) throw new Error('pieceMetadata takes `group`, not `scope`')
+  const salt = pieceSalt(options.salt)
   return {
-    'foc/v': 1,
+    'foc/v': 2,
     'foc/own': ref.owner.toLowerCase() as Address,
-    'foc/ks': keyspaceId(ref.keyspace),
-    ...(options.scope == null ? {} : { 'foc/scope': scopePath(options.scope) }),
+    'foc/gkid': groupKeyId(ref.groupKeyId),
+    ...(options.group == null ? {} : { 'foc/group': groupPath(options.group) }),
     'foc/salt': salt,
   }
 }
@@ -391,92 +554,79 @@ export function pieceMetadata(ref: KeyspaceRef, options: { salt: Hex; scope?: st
  *
  * Build descriptors with `grantDescriptor()` rather than filling the
  * structure by hand: the descriptor is authenticated as the grant's AAD and
- * compared byte for byte, so the owner is lowercased and the keyspace is
+ * compared byte for byte, so the owner is lowercased and the group key is
  * spelled exactly as the envelope spells it.
  */
-export function grantDescriptor(ref: KeyspaceRef, node: GrantNode): GrantDescriptor {
+export function grantDescriptor(ref: GroupKeyRef, node: GrantNode): GrantDescriptor {
   return {
-    v: 1,
-    node: canonicalNode(node) as GrantNode,
+    v: 2,
+    node: canonicalNode(node),
     owner: ref.owner.toLowerCase() as Address,
-    keyspace: keyspaceId(ref.keyspace),
+    groupKeyId: groupKeyId(ref.groupKeyId),
   }
 }
 
 /**
  * Derive a piece's key from whichever node the caller holds.
  *
- * A keyspace-key holder walks the piece's whole scope path. A scope holder walks
- * the rest of the path below its own scope — which works only if its scope is the
- * piece's scope or an ancestor of it. A piece holder already has the key, and
+ * A group key holder walks the piece's whole group path. A group holder walks
+ * the rest of the path below its own group — which works only if its group is the
+ * piece's group or an ancestor of it. A piece holder already has the key, and
  * gets it back only for the piece whose salt it names.
  *
- * Takes the metadata as FEE returns it (`info.appMetadata`), unvalidated, and
- * checks every field before using it.
+ * Takes the metadata as FEE returns it (`info.appMetadata`),
+ * unvalidated, and checks every field before using it (see {@link readPieceMetadata}).
  *
  * Pass the grant that delivered the key as `holding` where you have it: then the
- * piece's owner and keyspace are checked against the grant too, so a key from the
- * wrong keyspace fails here with a clear reason rather than later inside FEE.
+ * piece's owner and group key are checked against the grant too, so a key from the
+ * wrong group key fails here with a clear reason rather than later inside FEE. A descriptor's `v` follows
+ * {@link holdingOf}: absent, or exactly 2.
  *
- * @throws If the piece is not in this format, belongs to another owner or keyspace
- * than the grant, the held scope does not contain the piece's scope, or the held
+ * @throws If the piece is not format 2, belongs to another owner or group key
+ * than the grant, the held group does not contain the piece's group, or the held
  * piece is a different piece.
  */
 export function keyForEnvelope(
   node: Uint8Array,
-  envelopeMetadata: PieceMetadata | Readonly<Record<string, unknown>> | undefined,
-  holder: Holding | GrantDescriptor = 'keyspace'
+  envelopeMetadata: PieceMetadataV2 | Readonly<Record<string, unknown>> | undefined,
+  holder: Holding | GrantDescriptor = 'groupKey'
 ): Uint8Array {
-  if (envelopeMetadata == null || typeof envelopeMetadata !== 'object') {
-    throw new Error(
-      `A piece's envelope metadata must be an object, got ${envelopeMetadata === null ? 'null' : typeof envelopeMetadata}`
-    )
-  }
-  // Every field is checked below before it is used.
-  const metadata = envelopeMetadata as PieceMetadata
-  // Format changes break key derivation, so guard first
-  if (metadata['foc/v'] !== 1 || typeof metadata['foc/ks'] !== 'string') {
-    throw new Error(
-      `This piece's envelope is not format 1 with a keyspace (foc/v ${String(metadata['foc/v'])}, ` +
-        `foc/ks ${String(metadata['foc/ks'])}); this version reads only that.`
-    )
-  }
-  keyspaceId(metadata['foc/ks'])
+  // Checks every field before it is used
+  const piece = readPieceMetadata(envelopeMetadata)
 
-  // Given the grant itself, check the piece is in the grant's keyspace before deriving anything
+  // Given the grant itself, check the piece is in the grant's group key before deriving anything
   let holding: Holding
   if (typeof holder === 'object' && 'node' in holder) {
-    const own = metadata['foc/own']
-    if (keyspaceId(holder.keyspace) !== keyspaceId(metadata['foc/ks'])) {
-      throw new Error(`This key is for keyspace ${holder.keyspace}; the piece is in keyspace ${metadata['foc/ks']}.`)
-    }
-    if (typeof own === 'string' && own.toLowerCase() !== holder.owner.toLowerCase()) {
-      throw new Error(`This key is from owner ${holder.owner}; the piece belongs to ${own}.`)
-    }
     holding = holdingOf(holder)
+    if (groupKeyId(holder.groupKeyId) !== piece.groupKeyId) {
+      throw new Error(`This key is for group key ${holder.groupKeyId}; the piece is in group key ${piece.groupKeyId}.`)
+    }
+    if (piece.owner != null && piece.owner.toLowerCase() !== holder.owner.toLowerCase()) {
+      throw new Error(`This key is from owner ${holder.owner}; the piece belongs to ${piece.owner}.`)
+    }
   } else holding = holder
 
   // If a direct piece grant, verify this is for the correct piece before deriving
-  if (holding !== 'keyspace' && 'piece' in holding) {
-    if (saltOf(holding.piece) !== saltOf(metadata['foc/salt'])) {
+  if (holding !== 'groupKey' && 'piece' in holding) {
+    if (saltOf(holding.piece) !== piece.salt) {
       throw new Error('This piece key belongs to another piece: the envelope names a different salt.')
     }
     return node.slice()
   }
 
-  // Verify the held scope contains the piece's scope before deriving
-  const scope = metadata['foc/scope']
-  const target = scope == null ? [] : scopePath(scope).split('/')
-  const held = holding === 'keyspace' ? [] : scopePath(holding.scope).split('/')
+  // Verify the held group contains the piece's group before deriving
+  const group = piece.group
+  const target = group == null ? [] : group.split('/')
+  const held = holding === 'groupKey' ? [] : groupPath(holding.group).split('/')
   if (held.length > target.length || held.some((name, i) => name !== target[i])) {
     throw new Error(
-      `Scope "${held.join('/')}" does not contain this piece's scope "${scope ?? '(none)'}"; ` +
-        'a scope opens itself and the scopes beneath it.'
+      `Group "${held.join('/')}" does not contain this piece's group "${group ?? '(none)'}"; ` +
+        'a group opens itself and the groups beneath it.'
     )
   }
 
   // Go!
-  return pieceKey(walk(node, target.slice(held.length)), metadata['foc/salt'])
+  return pieceKey(walk(node, target.slice(held.length)), piece.salt)
 }
 
 /**
@@ -484,7 +634,7 @@ export function keyForEnvelope(
  * which calls it with the envelope's metadata before decrypting a byte.
  *
  * ```ts
- * await encrypted.pipeThrough(fee.decrypt(Keysmith.keyResolver(kk))).pipeTo(sink)
+ * await encrypted.pipeThrough(fee.decrypt(Keysmith.keyResolver(groupKey))).pipeTo(sink)
  * ```
  *
  * The metadata is not yet authenticated when FEE calls this; it is checked as
@@ -492,60 +642,60 @@ export function keyForEnvelope(
  * content tags then reject.
  */
 export const keyResolver =
-  (node: Uint8Array, holding: Holding | GrantDescriptor = 'keyspace') =>
+  (node: Uint8Array, holding: Holding | GrantDescriptor = 'groupKey') =>
   (info: { appMetadata?: Readonly<Record<string, unknown>> }): Uint8Array =>
     keyForEnvelope(node, info.appMetadata, holding)
 
 /**
  * Which node a grant carries, ready to pass to {@link keyForEnvelope}.
  *
- * Keyspace and scope keys are all 32 bytes of HKDF output, so nothing
- * distinguishes them once unwrapped — but the grant that delivered the
- * key tells you so keep the whole grant, not just the key.
+ * A group key, a group's key and a piece key are all 32 bytes of HKDF output, so
+ * nothing distinguishes them once unwrapped — but the grant that delivered the
+ * key does, so keep the whole grant, not just the key.
  *
- * @throws If the grant names a node this version does not understand.
+ * Takes a full grant or just `{ node }`. For an in-memory descriptor, `v` may be absent but, if present, must be
+ * exactly 2 (see {@link assertFormatVersion}). Only decoded bytes (`decodeGrant`, `unwrapWith`) require `v: 2`.
+ *
+ * @throws If `v` is present and not 2 (`v` 1 is keysmith 0.1.0's), or the node is not one this version understands.
  */
-export function holdingOf(grant: Pick<GrantDescriptor, 'node'>): Holding {
-  const node = canonicalNode(grant.node)
-  if (node === 'keyspace') {
-    return 'keyspace'
-  }
-  return node.startsWith('piece:')
-    ? { piece: node.slice('piece:'.length) as Hex }
-    : { scope: node.slice('scope:'.length) }
+export function holdingOf(grant: Pick<GrantDescriptor, 'node'> & { v?: unknown }): Holding {
+  assertFormatVersion(grant.v, 'grant', { absent: true })
+  const k = nodeKind(grant.node)
+  if (k.kind === 'groupKey') return 'groupKey'
+  return k.kind === 'piece' ? { piece: k.salt } : { group: k.path }
 }
 
 /**
  * Everything a delegate needs to write a piece, taken from the grant that
- * delegated it: the keyspace to record, the scope to label it with,
+ * delegated it: the group key to record, the group to label it with,
  * and the key to derive its piece key from.
  *
- * The grant decides what is allowed. A keyspace grant may write under any scope
- * or none; a scope grant only under its own scope or a scope beneath it, and
- * defaults to its own scope. A piece grant cannot write at all: its key belongs
+ * The grant decides what is allowed. A group key grant may write under any group
+ * or none; a group grant only under its own group or a group beneath it, and
+ * defaults to its own group. A piece grant cannot write at all: its key belongs
  * to one existing piece, and FEE needs a fresh key for every object. Anything
  * else is refused here, before a piece is encrypted under a key its intended
  * readers could never derive.
  *
- * @throws If the grant is a piece grant, the scope lies outside the grant's subtree, or the key is not 32 bytes.
+ * @throws If the grant's `v` is present and not 2 (as {@link holdingOf}), the grant is a piece grant, the group lies outside the grant's subtree, or the key is not 32 bytes.
  */
-export function writeTarget(grant: GrantDescriptor, nodeKey: Uint8Array, scope?: string): WriteTarget {
+export function writeTarget(grant: GrantDescriptor, nodeKey: Uint8Array, group?: string): WriteTarget {
   if (nodeKey.length !== 32) {
     throw new Error(`Expected a 32-byte node key, got ${nodeKey.length} bytes`)
   }
   const holding = holdingOf(grant)
-  if (holding !== 'keyspace' && 'piece' in holding) {
+  if (holding !== 'groupKey' && 'piece' in holding) {
     throw new Error('A piece grant opens one existing piece and cannot write: FEE needs a fresh key for every object.')
   }
-  const held = holding === 'keyspace' ? [] : holding.scope.split('/')
-  const path = scope == null ? held : scopePath(scope).split('/')
+  const held = holding === 'groupKey' ? [] : holding.group.split('/')
+  const path = group == null ? held : groupPath(group).split('/')
   if (held.length > path.length || held.some((name, i) => name !== path[i])) {
-    const covers = held.length === 0 ? 'the whole keyspace' : `scope "${held.join('/')}" and the scopes beneath it`
-    throw new Error(`This grant covers ${covers}; it cannot write under "${scope}".`)
+    const covers = held.length === 0 ? 'the whole group key' : `group "${held.join('/')}" and the groups beneath it`
+    throw new Error(`This grant covers ${covers}; it cannot write under "${group}".`)
   }
   return {
-    ref: { owner: grant.owner, keyspace: keyspaceId(grant.keyspace) },
-    ...(path.length === 0 ? {} : { scope: path.join('/') }),
+    ref: { owner: grant.owner, groupKeyId: groupKeyId(grant.groupKeyId) },
+    ...(path.length === 0 ? {} : { group: path.join('/') }),
     key: walk(nodeKey, path.slice(held.length)),
   }
 }
