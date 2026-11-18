@@ -32,6 +32,10 @@ pnpm add @filoz/keysmith
 Requires `viem` 2.x as a peer dependency. Works in Node.js and browsers; in a browser it
 needs a secure context (HTTPS or localhost) for WebCrypto.
 
+## Changes from 0.1.0
+
+0.2.0 is one breaking release that writes and reads format 2 only: 0.1.0 data (which called a group key a *keyspace* and a group a *scope*) is not readable, is refused with a clear error.
+
 ## Development
 
 ```bash
@@ -41,18 +45,23 @@ pnpm --filter @filoz/keysmith test     # node + browser
 
 `test/vectors.json` pins the outputs for fixed inputs (the well-known Anvil development
 keys). If a change alters any of them, existing keys would be orphaned. Other
-implementations can test themselves against the same file.
+implementations (Curio, the Go port) test themselves against the same file. It also pins the
+refusals of data from 0.1.0.
 
 `test/claims-vectors.json` does the same for claim chains: presentations a gating provider
 must serve or refuse (with the step that refuses them), the EIP-712 type strings, and the
 digests of a link and a request, for implementations in other languages.
+
+Both files were produced by this implementation (FIP-1253 draft). Regenerate them with
+`node scripts/generate-vectors.ts` from this directory; it is deterministic, and the tests read
+the JSON rather than run the script.
 
 ## Core concepts
 
 - **Group key** is the top level concept: the group key forms the root of the
 tree. The group key binds back to the owner's wallet. Anyone holding the
 group key can ultimately decrypt any Piece underneath it.
-- **Groups** are intermediate nodes on the tree: just like scopes in other
+- **Groups** are intermediate nodes on the tree: just like access labels in other
 security protocols they are highly flexible and user/application-defined, and
 can model metaphors like ‘subfolders’, or ‘roles’, ‘security classification’.
 Any of these metaphors (and more!) work, but it would be very dangerous to try
@@ -65,28 +74,22 @@ of data with others on a safe, ad-hoc basis.
 
 **There is no subdivision below the Piece level**.
 
-ℹ️ NOTE: A group key was previously called a *keyspace*, and a group a *scope*. The
-wire formats keep the original spelling so existing keys and encrypted data keep
-working: the `KeyspaceKey` and `ReadGrant` EIP-712 types and their `keyspace` fields,
-the `foc/ks` and `foc/scope` metadata keys, the HKDF info strings, and the
-`'keyspace'` and `'scope:<path>'` grant nodes.
-
 | Term | Meaning |
 | --- | --- |
-| **group key** (`KK`, `kk`) | The secret root key of one tree, derived from the owner's wallet signature |
-| **group key id** (`groupKeyId`) | The public 16 random bytes that name a group key: `foc/ks` in envelopes and dataset metadata. Not a key |
+| **group key** (`groupKey`) | The secret root key of one tree, derived from the owner's wallet signature |
+| **group key id** (`groupKeyId`) | The public 16 random bytes that name a group key: `foc/gkid` in envelopes and dataset metadata. Not a key |
 | **group** | A named subtree, such as `'agent-memory'` or `'top-secret/secret'` |
-| **a group's key** (`RK`) | The key for one group, from `keyForGroup` |
+| **a group's key** | The key for one group, from `keyForGroup` |
 | **piece key** | The key for one piece |
 
 | API name | Wire name |
 | --- | --- |
-| Holding `'groupKey'`; `grantDescriptor(ref, 'keyspace')` | grant node `'keyspace'` |
-| Holding `{ group }`; `grantDescriptor(ref, 'scope:<path>')` | grant node `'scope:<path>'`, piece label `foc/scope` |
+| Holding `'groupKey'`; `grantDescriptor(ref, 'groupKey')` | grant node `'groupKey'` |
+| Holding `{ group }`; `grantDescriptor(ref, 'group:<path>')` | grant node `'group:<path>'`, piece label `foc/group` |
 | Holding `{ piece }` | grant node `'piece:<salt>'` |
-| `groupKeyId` | `foc/ks`; EIP-712 `keyspace` |
-| `groupKeyCommitment` | `foc/kc` (without `v1.`); EIP-712 `keyspaceCommitment` |
-| `GroupKeyMessage { owner, keyspace }` | EIP-712 `KeyspaceKey { owner, keyspace }` |
+| `groupKeyId` | `foc/gkid`; EIP-712 `groupKeyId` |
+| `groupKeyCommitment` | `foc/kc` (without `v2.`); EIP-712 `groupKeyCommitment` |
+| `GroupKeyMessage { owner, groupKeyId }` | EIP-712 `GroupKey { owner, groupKeyId }` |
 
 **Group key initialization signs twice by default to verify deterministic signing.**
 Reopening with a recorded commitment signs once. Applications can cache keys or
@@ -131,15 +134,15 @@ Record its id in the metadata when creating a dataset so it can be read
 back from the chain.
 
 **IMPORTANT**: Initializing a group key requires the owner's wallet to sign a
-specially crafted message twice by default. Once the Group Key (KK) is
+specially crafted message twice by default. Once the group key is
 available, keys beneath it can be derived without further wallet signatures.
 Delegates receive keys through grants. Because this scheme demands deterministic
 signatures, signing must happen in a wallet or library that supports RFC 6979.
-Keysmith checks this behavior before returning a root KK.
+Keysmith checks this behavior before returning a root group key.
 
 ## The key derivation tree
 
-Each group key (`KK`) is the root of its own tree. From it are derived the keys of **groups**
+Each group key is the root of its own tree. From it are derived the keys of **groups**
 — access labels such as `agent-memory` or `super-secret` — and from either of
 those, keys for individual Pieces.
 
@@ -184,8 +187,67 @@ however, use public key recovery metadata in two places:
 
 | Where | Keys | Written | Needed to decrypt? |
 | --- | --- | --- | --- |
-| FEE envelope (`pieceMetadata`) | `foc/v`, `foc/own`, `foc/ks`, `foc/scope`, `foc/salt` | per piece | **yes** — this is what `keyForEnvelope` reads, and the source of truth |
-| FWSS dataset metadata | `foc/ks`, `foc/kc` | once, at `createDataSet` | no — lets a client list its group key ids from the chain, and check its key before decrypting |
+| FEE envelope (`pieceMetadata`) | `foc/v`, `foc/own`, `foc/gkid`, `foc/group`, `foc/salt` | per piece | **yes** — this is what `keyForEnvelope` reads, and the source of truth |
+| FWSS dataset metadata | `foc/gkid`, `foc/kc` | once, at `createDataSet` | no — lets a client list its group key ids from the chain, and check its key before decrypting |
+
+### Format
+
+There is one format, `foc/v` `2`. Envelope labels are authenticated by FEE (they go into the
+AEAD), and nodes are signed, so what is stored or issued can never be edited.
+
+| Label | |
+| --- | --- |
+| `foc/v` | `2` |
+| `foc/own` | The group key owner, lowercased |
+| `foc/gkid` | The group key id |
+| `foc/group` | The group path (optional) |
+| `foc/salt` | The piece's salt |
+
+`readPieceMetadata(metadata)` parses the labels into `{ owner?, groupKeyId, group?, salt }`; use
+it instead of reading the labels yourself. Any other `foc/v` is refused with a clear error.
+Types: `PieceMetadataV2`, and `PieceMetadata`, an alias of the format written today. A future
+format adds a `PieceMetadataV3` and repoints the alias. Keysmith owns the `foc/` prefix.
+
+#### Data sets
+
+A data set records the group key id as `foc/gkid`, and the commitment as `foc/kc` (`v2.<32 hex>`).
+Look the id up with `groupKeyIdOf(dataSetMetadata)` rather than reading the key: it returns the id
+canonical (or `undefined`, including for a keysmith 0.1.0 data set, or throws if the value is malformed).
+`undefined` does not mean "not encrypted": a data set recording `foc/ks`, or a `v1.` `foc/kc`, is a keysmith 0.1.0
+encrypted data set, and an app should not add new data to it.
+Write the metadata with `dataSetMetadata(ref, commitment)`. Synapse reuses a data set only on an exact metadata match,
+so to keep adding to an existing data set, pass that data set's own metadata as it is rather than
+rebuilding it.
+
+#### Grant nodes
+
+A grant node names what a grant unlocks. It is signed (the `ReadGrant` `node` field) and bound
+into a wrapped grant's AAD, so a received node string is never rewritten:
+
+| Node | Unlocks |
+| --- | --- |
+| `'groupKey'` | The whole group key |
+| `'group:<path>'` | One group, and the groups beneath it |
+| `'piece:<salt>'` | One piece |
+
+`canonicalNode(node)` is the canonical spelling, and `holdingOf(grant)` maps a node to what is
+held. Keys never depend on a label name or a node prefix.
+
+#### Wire strings
+
+These are signed or hashed, so changing one changes every key.
+
+| What | Value |
+| --- | --- |
+| EIP-712 domain | `{ name: 'Filecoin Encryption', version: '2' }` |
+| EIP-712 group key type | `GroupKey{owner: address, groupKeyId: bytes16}` |
+| EIP-712 claim types | `ReadGrant`, `ReadRequest` (see [Claims on the wire](#claims-on-the-wire)) |
+| HKDF info, group key | `foc/acl/group-key/v2` |
+| HKDF info, a group's key | `foc/acl/group/v2` + group name |
+| HKDF info, piece key | `foc/acl/piece/v2` + salt |
+| HKDF info, wrap | `foc/acl/ecdh/v2`, `foc/acl/wrap/v2` |
+| HKDF info, commitment | `foc/kc/v2` |
+| Object versions | envelope `foc/v` 2, grant `v` 2, claim link `v` 2 (also in the signed `ReadGrant`), delivery and presentation 2 |
 
 - **No key material lives on chain.** The group key id is public by design; the commitment is a one-way function of a key that is never published.
 - **Every piece names its owner.** A provider implementing gated retrieval can use `foc/own` to check that a grant chain is rooted at that owner. This field is for verification, not key derivation; setting it does not enable retrieval gating automatically.
@@ -220,18 +282,18 @@ const ref = {
 // For a new group key the wallet signs twice, so Keysmith can check it signs
 // deterministically. The signature itself stays inside the call; you get the
 // group key, a public commitment, and a descriptor of exactly what was signed.
-const { kk, commitment, descriptor } = await Keysmith.deriveGroupKey(account, ref)
+const { groupKey, commitment, descriptor } = await Keysmith.deriveGroupKey(account, ref)
 
 // Write the way a delegate does: the group key id comes from what was signed,
 // so a stale key or a mistyped ref cannot produce an envelope nobody can open.
-const target = Keysmith.writeTarget(descriptor, kk, 'agent-memory')
+const target = Keysmith.writeTarget(descriptor, groupKey, 'agent-memory')
 const salt = Keysmith.newSalt()
 const key = Keysmith.pieceKey(target.key, salt) // hand to FEE
 const metadata = Keysmith.pieceMetadata(target.ref, { salt, group: target.group }) // goes in the FEE envelope
 const encrypted = plaintext.pipeThrough(fee.encrypt({ cek: key, appMetadata: metadata })) // upload these bytes
 
 // Record the group key id and commitment in the createDataSet call you were making anyway:
-//   metadata: { [Keysmith.GROUP_KEY_ID_KEY]: ref.groupKeyId, [Keysmith.COMMITMENT_KEY]: commitment }
+//   metadata: Keysmith.dataSetMetadata(ref, commitment)
 ```
 
 ## Sharing
@@ -262,8 +324,8 @@ or store, and `decodeGrant` reads them back. `unwrapWith` takes either.
 
 ```text
 grant = {                 ; a CBOR map
-  0 => 1,                 ; v: version 1 implies ECDH-ES + A256GCM over secp256k1
-  1 => tstr,              ; node: "keyspace" / "scope:<path>" / "piece:<salt>"
+  0 => 2,                 ; v: version 2 implies ECDH-ES + A256GCM over secp256k1
+  1 => tstr,              ; node: "groupKey" / "group:<path>" / "piece:<salt>"
   2 => bstr .size 20,     ; owner
   3 => bstr .size 16,     ; group key id
   4 => bstr .size 65,     ; epk, the ephemeral public key, uncompressed
@@ -276,7 +338,9 @@ grant = {                 ; a CBOR map
 The authenticated data is `[v, node, owner, groupKeyId]` as deterministic CBOR
 (RFC 8949 §4.2.1), with the owner and group key id as bytes, so every implementation
 builds the same bytes. `decodeGrant` accepts only canonical CBOR: no indefinite
-lengths, duplicate keys, tags, trailing bytes or unknown numbered fields.
+lengths, duplicate keys, tags, trailing bytes or unknown numbered fields. It re-encodes
+what it decoded, so a float `v` or map keys out of order are refused too, including a
+grant inside a delivery.
 
 When sending a grant to a recipient over a text channel, use a safe
 deterministic encoding such as Base64.
@@ -285,8 +349,8 @@ deterministic encoding such as Base64.
 
 ```ts
 // Current custodian, sharing out the whole group key:
-const descriptor = Keysmith.grantDescriptor(ref, 'keyspace')
-const grant = await Keysmith.wrapTo(Keysmith.publicKeyOf(theirKey), kk, descriptor)
+const descriptor = Keysmith.grantDescriptor(ref, 'groupKey')
+const grant = await Keysmith.wrapTo(Keysmith.publicKeyOf(theirKey), groupKey, descriptor)
 const bytes = Keysmith.encodeGrant(grant)
 ```
 
@@ -294,10 +358,10 @@ Send the bytes through application channels, e.g. a share link, then:
 
 ```ts
 // recipient, elsewhere:
-const kk = await Keysmith.unwrapWith(myPrivateKey, bytes)
+const groupKey = await Keysmith.unwrapWith(myPrivateKey, bytes)
 ```
 
-With KK, the recipient can derive every encryption key under the group key and
+With the group key, the recipient can derive every encryption key under the group key and
 delegate access to any data beneath it. Storage write permissions are still
 required to upload new pieces.
 
@@ -310,8 +374,8 @@ permissions are required separately.
 To share one **group** instead of the whole group key:
 
 ```ts
-const rk = Keysmith.keyForGroup(kk, 'agent-memory')
-const grant = await Keysmith.wrapTo(theirPublicKey, rk, Keysmith.grantDescriptor(ref, 'scope:agent-memory'))
+const agentMemoryKey = Keysmith.keyForGroup(groupKey, 'agent-memory')
+const grant = await Keysmith.wrapTo(theirPublicKey, agentMemoryKey, Keysmith.grantDescriptor(ref, 'group:agent-memory'))
 ```
 
 The recipient can then:
@@ -327,9 +391,9 @@ and the piece's CID rides alongside so the recipient knows what to fetch:
 
 ```ts
 // anyone holding a node above the piece:
-const pk = Keysmith.keyForEnvelope(kk, metadata)
+const pieceKey = Keysmith.keyForEnvelope(groupKey, metadata)
 const bytes = Keysmith.encodeGrant({
-  ...(await Keysmith.wrapTo(theirPublicKey, pk, Keysmith.grantDescriptor(ref, Keysmith.pieceNode(metadata)))),
+  ...(await Keysmith.wrapTo(theirPublicKey, pieceKey, Keysmith.grantDescriptor(ref, Keysmith.pieceNode(metadata)))),
   pieceCid, // where to fetch it: informational, outside the authenticated descriptor
 })
 
@@ -346,6 +410,11 @@ upload, and `keyForEnvelope` checks it against the envelope at no cost. The CID 
 protection: if it is wrong, the recipient fetches a piece with a different salt, and
 `keyForEnvelope` refuses it. The recipient reads that one piece and nothing else. A piece grant is read-only, and `writeTarget` refuses it: FEE needs
 a fresh key for every object, so a piece key must never encrypt anything else.
+
+Because a piece grant is bound to the salt alone, it covers whatever piece carries that
+salt, so a salt must be unique to one piece: always take it from `newSalt()` (16 random
+bytes), and never reuse one. A reused salt serves the second piece's ciphertext to the
+holder, though the key it derives from its own group still differs.
 
 A delegate writing pieces should start from its grant rather than assembling the pieces by
 hand. `writeTarget` takes the group key id from the grant, checks the group against what
@@ -382,8 +451,8 @@ can only keep or narrow the group.
 The end of the claim chain is a **request** signed by the final bearer to prove
 they are the legitimate holder of the grant.
 
-Relying parties can check the claim chain against the piece's FEE metadata (`foc/own`, `foc/ks`,
-`foc/scope`, `foc/salt`) with **no on-chain lookups required**.
+Relying parties can check the claim chain against the piece's FEE metadata (`foc/own`, `foc/gkid`,
+`foc/group`, `foc/salt`) with **no on-chain lookups required**.
 
 ### Example flows
 
@@ -394,13 +463,13 @@ The owner, delegating to a session key (one extra wallet prompt beyond group key
 ```ts
 const { chain, nodeKey } = await Keysmith.rootClaim(wallet, {
   owner, groupKeyId, chainId,
-  kk, // from deriveGroupKey(): the node key and the group key commitment are derived from it
-  node: 'scope:agent-memory',
+  groupKey, // from deriveGroupKey(): the node key and the group key commitment are derived from it
+  node: 'group:agent-memory',
   bearer: sessionKeyAddress,
   maxDepth: 1, // the bearer may delegate one more level
   expires: sessionKeyExpiry, // required; unix seconds
 })
-const grant = await Keysmith.wrapTo(theirPublicKey, nodeKey, Keysmith.grantDescriptor(ref, 'scope:agent-memory'))
+const grant = await Keysmith.wrapTo(theirPublicKey, nodeKey, Keysmith.grantDescriptor(ref, 'group:agent-memory'))
 const delivery = Keysmith.encodeDelivery(chain, grant) // one blob: send it like a grant
 ```
 
@@ -441,9 +510,9 @@ An application holding a suitably delegated session key can create onward grants
 ```ts
 const { chain: next, nodeKey } = await Keysmith.delegateClaim(myAccount, chain, {
   parentKey: key, // the key openDelivery() returned
-  node: 'scope:agent-memory/notes', bearer: agentAddress, maxDepth: 0,
+  node: 'group:agent-memory/notes', bearer: agentAddress, maxDepth: 0,
 })
-const theirs = Keysmith.encodeDelivery(next, await Keysmith.wrapTo(agentPublicKey, nodeKey, Keysmith.grantDescriptor(ref, 'scope:agent-memory/notes')))
+const theirs = Keysmith.encodeDelivery(next, await Keysmith.wrapTo(agentPublicKey, nodeKey, Keysmith.grantDescriptor(ref, 'group:agent-memory/notes')))
 ```
 
 `delegateClaim` checks `parentKey` against the delegator's own link and derives the
@@ -477,6 +546,16 @@ const forWrite = Keysmith.pickGrant(held, { owner, groupKeyId, group: 'users/fin
 // undefined: no grant reaches it; ask for one
 ```
 
+A grant's owner and group key id are public, so anyone can root a grant under another wallet's
+group key id. `pickGrant` therefore matches one owner, never any owner. A group target names it
+(`owner` is required, and a missing or invalid one throws). A piece target takes it from the piece's
+`foc/own`; for a piece without one (not gated) pass the expected owner as `options.owner`, or it throws.
+When both are present they must match.
+
+```ts
+const ungated = Keysmith.pickGrant(held, { piece: labels }, { chainId, owner: expectedOwner })
+```
+
 #### Verifying, as a relying party
 
 For a provider implementing gated retrieval, `verifyPresentation` defines the
@@ -496,7 +575,7 @@ separately from the delivery:
 ```ts
 const T = generatePrivateKey() // viem/accounts: sent to the recipient on its own channel
 const { chain, nodeKey } = await Keysmith.rootClaim(wallet, {
-  ...ref, chainId, kk, node: Keysmith.pieceNode(metadata), piece: metadata, pieceCid,
+  ...ref, chainId, groupKey, node: Keysmith.pieceNode(metadata), piece: metadata, pieceCid,
   bearer: privateKeyToAccount(T).address, maxDepth: 0, expires,
 })
 const descriptor = Keysmith.grantDescriptor(ref, Keysmith.pieceNode(metadata)) // the piece's node, not the group key's
@@ -512,12 +591,12 @@ decrypts.
 ### Claims on the wire
 
 ```text
-delivery     = [1, chain, grant]           ; to a new bearer, once; grant = encodeGrant() bytes
-presentation = [1, chain, request]         ; to a provider, with each gated request
+delivery     = [2, chain, grant]           ; to a new bearer, once; grant = encodeGrant() bytes
+presentation = [2, chain, request]         ; to a provider, with each gated request
 chain        = [root-link, 0*7 link]       ; root first, at most 8 links
 
 root-link = {
-   0 => 1,                                 ; v
+   0 => 2,                                 ; v
    1 => node,
    2 => bstr .size 20,                     ; owner
    3 => bstr .size 16,                     ; group key id
@@ -527,11 +606,11 @@ root-link = {
    7 => bstr .size 16,                     ; keyCommitment of the node key
    8 => signature,                         ; the owner's
  ? 9 => bstr,                              ; pieceCid: a locator only, never signed or checked
-  10 => bstr .size 16,                     ; groupKeyCommitment: the dataset's foc/kc, without "v1."
+  10 => bstr .size 16,                     ; groupKeyCommitment: the dataset's foc/kc, without "v2."
   11 => uint .le 9007199254740991,         ; expires, unix seconds
 }
 link = {                                   ; every link after the root: no other keys
-   0 => 1,
+   0 => 2,
    1 => node,
    4 => bstr .size 20,                     ; bearer
    5 => uint .le 255,                      ; maxDepth
@@ -545,7 +624,7 @@ request = {                                ; exactly these keys
    2 => signature,                         ; the final bearer's, over ReadRequest
 }
 
-node      = "keyspace" / tstr              ; or "scope:" + canonical group path, or "piece:0x" + 32 lowercase hex digits
+node      = "groupKey" / tstr              ; or "group:" + canonical group path, or "piece:0x" + 32 lowercase hex digits
 signature = bstr .size 65                  ; r ‖ s ‖ v, with s ≤ n/2 (low s) and v = 27 or 28
 ```
 
@@ -558,13 +637,21 @@ must fit in 53 bits. Unknown keys are refused everywhere. A node must be in cano
 whatever their signer returns to low s and v = 27 or 28.
 
 The piece labels are compared in canonical form, never as raw text: `foc/own` as an address,
-`foc/ks` and `foc/salt` as lowercase hex, `foc/scope` after `groupPath()`.
+`foc/gkid` and `foc/salt` as lowercase hex, `foc/group` after `groupPath()`.
+`foc/own` absent or falsy means the piece is not gated; a truthy value that is not a
+string address is refused. `foc/salt` is exactly 16 bytes of hex, on the envelope side and the claim side alike.
+Labels are read as own properties only, so a label inherited from a prototype, or from a polluted
+`Object.prototype`, is not a label. The claim-side functions (`verifyPresentation`, `reaches`, `pickGrant`,
+`openDelivery`) accept `foc/v` absent, `2` or `"2"`, so a provider may pass it as a string or leave it out.
+They refuse 0.1.0 labels (`foc/v` 1 or `"1"`, or `foc/ks`) and any other `foc/v`. They read only the labels a
+decision needs, so a bad `foc/group` is not an error unless the node asks for it. A bad `foc/salt` is
+refused when a piece link reads it, when `pickGrant` is given the piece, and by `verifyPresentation` for any gated piece.
 
 Every link's signature covers the fields it inherits from the root, so a link cannot be moved
 under a root that differs in any of them, and nobody below the owner can change the root's
 commitments or expiry. Links name their parent by its bearer's address, not by hash, so a parent
-can be re-issued without invalidating the links beneath it. The EIP-712 domain is the
-`KeyspaceKey` one, `{ name: 'FOC Encryption', version: '1' }`; the types are exported as
+can be re-issued without invalidating the links beneath it. The EIP-712 domain is
+`{ name: 'Filecoin Encryption', version: '2' }`; the types are exported as
 `READ_GRANT_TYPES` and `READ_REQUEST_TYPES`.
 
 ## Reading a piece
@@ -581,20 +668,20 @@ own metadata.
 import * as fee from 'filecoin-encryption-envelope'
 
 // the group key: walks down into whatever group the metadata names
-await encrypted.pipeThrough(fee.decrypt(Keysmith.keyResolver(kk))).pipeTo(sink)
+await encrypted.pipeThrough(fee.decrypt(Keysmith.keyResolver(groupKey))).pipeTo(sink)
 
 // a group's key: say which group it is, and it walks down from there
-fee.decrypt(Keysmith.keyResolver(rk, { group: 'agent-memory' }))
+fee.decrypt(Keysmith.keyResolver(agentMemoryKey, { group: 'agent-memory' }))
 
 // a piece key: nothing to derive, but it opens only the piece whose salt it names
-fee.decrypt(Keysmith.keyResolver(pk, { piece: salt }))
+fee.decrypt(Keysmith.keyResolver(pieceKey, { piece: salt }))
 ```
 
-`KK`, `RK` and a piece key are all 32 bytes of HKDF output, so nothing in the
+A group key, a group's key and a piece key are all 32 bytes of HKDF output, so nothing in the
 envelope says which one you are holding — you have to tell it. The grant that
 delivered the key holds this information, so keep the whole grant when
 receiving a share and pass it to the derivation. Given the grant, Keysmith also checks
-the piece's `foc/own` and `foc/ks` against it, so a key from the wrong group key fails with
+the piece's `foc/own` and `foc/gkid` against it, so a key from the wrong group key fails with
 a clear reason rather than as a FEE decryption error:
 
 ```ts
@@ -618,18 +705,18 @@ Recovery requires the owner's wallet, a compatible signer that can reproduce the
 original signatures, and accessible encrypted pieces with their envelopes. It
 cannot recover a lost wallet or missing stored data.
 
-1. List the wallet's datasets, and fetch their pieces. A dataset's `GROUP_KEY_ID_KEY`
-   metadata says which group key id to expect, but **each envelope is the source of truth**:
-   read `foc/ks` from it.
+1. List the wallet's datasets, and fetch their pieces. `groupKeyIdOf(dataSetMetadata)`
+   says which group key id a dataset expects, but **each envelope is the source of truth**:
+   read the id from it with `readPieceMetadata`.
 2. Call `deriveGroupKey` once per distinct group key id. Pass a recorded commitment only
-   when the dataset's `foc/ks` matches the envelope's group key id. With that commitment,
+   when the dataset's group key id matches the envelope's group key id. With that commitment,
    it signs once and throws before anything is decrypted if the key does not match.
    For matching dataset metadata:
 
    ```ts
-   const { kk } = await Keysmith.deriveGroupKey(
+   const { groupKey } = await Keysmith.deriveGroupKey(
      wallet,
-     { owner, groupKeyId: Keysmith.groupKeyId(datasetMetadata[Keysmith.GROUP_KEY_ID_KEY]) },
+     { owner, groupKeyId: Keysmith.groupKeyIdOf(datasetMetadata) }, // defined: this dataset records one
      { commitment: datasetMetadata[Keysmith.COMMITMENT_KEY] } // wrong wallet, or a signer that is not deterministic, throws
    )
    ```
@@ -641,7 +728,7 @@ cannot recover a lost wallet or missing stored data.
 
 A copy found in a dataset other than the one it was written to opens exactly the same way:
 the envelope, not the dataset, names its group key id. Because the commitment is derived from
-`KK`, anything holding the group key — an agent replicating data, say — can record it in
+the group key, anything holding it — an agent replicating data, say — can record it in
 a new dataset's metadata too.
 
 ## API
@@ -650,27 +737,31 @@ a new dataset's metadata too.
 | --- | --- |
 | `newGroupKeyId()` | A fresh group key id |
 | `groupKeyId(id)` | A group key id in canonical form (lowercase `0x` + 32 hex digits), or a thrown error |
-| `groupKeyMessage(ref)` | The EIP-712 message an owner signs for a group key: `{ owner, keyspace }` |
-| `deriveGroupKey(signer, ref, { commitment?, verifySigner?, password? })` | One owner signature per group key (two without a recorded commitment) → `{ kk, commitment, descriptor }` |
-| `keyForGroup(kk, path)` | The key for a group, e.g. `'super-secret/secret'` |
+| `groupKeyMessage(ref)` | The EIP-712 message an owner signs for a group key: `{ owner, groupKeyId }` |
+| `deriveGroupKey(signer, ref, { commitment?, verifySigner?, password? })` | One owner signature per group key (two without a recorded commitment) → `{ groupKey, commitment, descriptor }` |
+| `keyForGroup(groupKey, path)` | The key for a group, e.g. `'super-secret/secret'` |
 | `groupName(name)` / `groupPath(path)` | A group name or path in canonical form, or a thrown error |
 | `pieceKey(node, salt)` | The key for one piece — hand this to FEE |
 | `keyForEnvelope(node, metadata, grant or holding?)` | Derive a piece key from whatever node you hold; given the grant, also checks the piece's owner and group key |
 | `keyResolver(node, grant or holding?)` | The same, as a FEE key resolver: `fee.decrypt(keyResolver(node, grant))` |
 | `writeTarget(grant, key, group?)` | For a delegate: the ref, group and key to write a piece, refusing groups its grant does not cover, and piece grants |
 | `holdingOf(grant)` | Which node a grant carries — group key, group or piece — for `keyForEnvelope` |
-| `pieceMetadata(ref, { salt, group? })` | What the envelope must record |
+| `pieceMetadata(ref, { salt, group? })` | What the envelope must record, as `PieceMetadata` |
+| `readPieceMetadata(metadata)` | An envelope's labels as `{ owner?, groupKeyId, group?, salt }`; refuses any other `foc/v` |
+| `canonicalNode(node)` | A grant node in canonical form, or a thrown error |
 | `pieceNode(metadata)` | The grant node for one piece, `piece:<salt>`, from its envelope metadata |
-| `commitment(kk)` | The non-secret check value, recomputable by any `KK` holder |
-| `matchesCommitment(kk, recorded)` | Whether a key matches a recorded commitment |
-| `GROUP_KEY_ID_KEY` / `COMMITMENT_KEY` | FWSS metadata keys for the group key id and commitment |
-| `grantDescriptor(ref, node)` | Name what a grant unlocks: `'keyspace'`, `'scope:<path>'` or `'piece:<salt>'` |
+| `commitment(groupKey)` | The non-secret check value, recomputable by any group key holder |
+| `matchesCommitment(groupKey, recorded)` | Whether a key matches a recorded commitment |
+| `dataSetMetadata(ref, commitment)` | The metadata to record on a data set for a group key: the id and the commitment |
+| `groupKeyIdOf(dataSetMetadata)` | The group key id a data set records (`foc/gkid`), canonical, or `undefined`; use it instead of reading the key |
+| `COMMITMENT_KEY` | The FWSS metadata key for the commitment (`foc/kc`) |
+| `grantDescriptor(ref, node)` | Name what a grant unlocks: `'groupKey'`, `'group:<path>'` or `'piece:<salt>'` |
 | `wrapTo(publicKey, key, descriptor)` | Wrap a node key for a recipient |
 | `encodeGrant(grant)` / `decodeGrant(bytes)` | A grant to and from its CBOR bytes, for delivery or storage |
 | `unwrapWith(privateKey, grant)` | Open a grant, as bytes or decoded |
 | `publicKeyOf(privateKey)` | The key-agreement key to publish, derived from a private key |
-| `newSalt()` | A fresh per-piece salt |
-| `rootClaim(wallet, { owner, groupKeyId, chainId, kk, node, bearer, maxDepth, expires, piece?, pieceCid?, now? })` | The owner-signed root of a claim chain → `{ chain, nodeKey }`; refuses an `expires` already past |
+| `newSalt()` | A fresh per-piece salt: 16 random bytes. Always use it; a piece grant covers any piece carrying the salt |
+| `rootClaim(wallet, { owner, groupKeyId, chainId, groupKey, node, bearer, maxDepth, expires, piece?, pieceCid?, now? })` | The owner-signed root of a claim chain → `{ chain, nodeKey }`; refuses an `expires` already past |
 | `delegateClaim(signer, chain, { parentKey, node, bearer, maxDepth, piece?, pieceCid?, now? })` | A narrower link, signed by the chain's final bearer, with its key derived from `parentKey` → `{ chain, nodeKey }`; refuses an expired chain |
 | `encodeDelivery(chain, grant)` / `decodeDelivery(bytes)` | A claim chain and its grant, as one blob for the new bearer |
 | `openDelivery(privateKey, bytes, { now?, piece? })` | Verify a delivery and unwrap its key, checked against the owner-signed commitment; opens an expired one, reporting `expired` |
@@ -680,12 +771,12 @@ a new dataset's metadata too.
 | `verifyChain(chain, { now?, piece? })` | Check a chain on its own: signatures, expiry, narrowing |
 | `verifyPresentation(bytes, { pieceCid, piece, chainId, now? })` | What a gating provider checks; the reference verifier |
 | `reaches(node, labels)` | Whether a node covers a piece, from its envelope labels |
-| `pickGrant(grants, target, { chainId, now? })` | The narrowest live grant (anything with a `claim`, such as `openDelivery`'s result) reaching a piece or a group |
+| `pickGrant(grants, target, { chainId, now?, owner? })` | The narrowest live grant (anything with a `claim`, such as `openDelivery`'s result) reaching a piece or a group, for one owner. `owner` is required for a piece without `foc/own`: grant owners are public, so pin it |
 | `keyCommitmentOf(key)` | The 16-byte key commitment a link carries |
 
 ## Be aware
 
-- **A signature is a bearer credential.** Anything that can elicit the `KeyspaceKey`
+- **A signature is a bearer credential.** Anything that can elicit the `GroupKey`
   signature for a group key can derive that group key's keys. Narrowness is the defence: the
   message names one group key, so one careless approval costs one group key, not the client's
   whole estate. Day-to-day reads never sign, so a prompt is itself an anomaly.

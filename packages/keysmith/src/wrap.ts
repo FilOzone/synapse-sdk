@@ -21,7 +21,7 @@ import { utf8ToBytes } from '@noble/hashes/utils.js'
 import { decode, encode } from 'cborg'
 import type { Address, Hex } from 'viem'
 import { bytesToHex, hexToBytes, isAddress } from 'viem'
-import { canonicalNode, groupKeyId, text } from './derive.ts'
+import { assertFormatVersion, canonicalNode, groupKeyId, text } from './derive.ts'
 import type { Grant, GrantDescriptor } from './types.ts'
 
 /**
@@ -32,8 +32,8 @@ import type { Grant, GrantDescriptor } from './types.ts'
  */
 export type DecodedGrant = Grant & { pieceCid?: unknown }
 
-const ECDH_INFO = utf8ToBytes('foc/acl/ecdh/v1')
-const WRAP_INFO = utf8ToBytes('foc/acl/wrap/v1')
+const ECDH_INFO = utf8ToBytes('foc/acl/ecdh/v2')
+const WRAP_INFO = utf8ToBytes('foc/acl/wrap/v2')
 const ALG = 'ECDH-ES+A256GCM/secp256k1'
 const KEY_LENGTH = 32
 
@@ -190,7 +190,7 @@ export function encodeGrant<G extends Grant>(grant: G): Uint8Array {
  * Read a grant delivered as bytes, without opening it: to see what it names
  * before unwrapping, or to pass to {@link holdingOf}.
  *
- * @throws If the bytes are not one canonical CBOR map holding a version 1
+ * @throws If the bytes are not one canonical CBOR map holding a version 2
  * grant, with every field the right type and size and no unknown numbered field.
  */
 export function decodeGrant(bytes: Uint8Array): DecodedGrant {
@@ -199,6 +199,11 @@ export function decodeGrant(bytes: Uint8Array): DecodedGrant {
     map = decode(bytes, STRICT)
   } catch (cause) {
     throw new Error('Not a grant: the bytes are not canonical CBOR', { cause })
+  }
+  // Exactly what encodeGrant writes: the decoded map must encode back to the same bytes. This refuses a
+  // float `v` or reordered keys, which would otherwise decode, as `decodeArray` does for presentations.
+  if (bytesToHex(encode(map)) !== bytesToHex(bytes)) {
+    throw new Error('Not a grant: the bytes are not canonical CBOR')
   }
   if (!(map instanceof Map)) {
     throw new Error('Not a grant: expected a CBOR map')
@@ -211,9 +216,7 @@ export function decodeGrant(bytes: Uint8Array): DecodedGrant {
       throw new Error(`Not a grant this version understands: unknown field ${String(key)}`)
     }
   }
-  if (map.get(FIELD.v) !== 1) {
-    throw new Error(`Unsupported grant version: ${String(map.get(FIELD.v))}`)
-  }
+  assertFormatVersion(map.get(FIELD.v), 'grant')
   const field = (key: number, name: string, length: number): Hex => {
     const value = map.get(key)
     if (!(value instanceof Uint8Array) || value.length !== length) {
@@ -223,7 +226,7 @@ export function decodeGrant(bytes: Uint8Array): DecodedGrant {
   }
   return {
     ...info,
-    v: 1,
+    v: 2,
     node: text(map.get(FIELD.node), 'A grant node'),
     owner: field(FIELD.owner, 'owner', 20),
     groupKeyId: field(FIELD.groupKeyId, 'groupKeyId', 16),
@@ -262,15 +265,13 @@ function wrapKek(shared: Uint8Array, epk: Uint8Array, pkR: Uint8Array): Uint8Arr
  * @throws If it is not a version this code understands, or a field is malformed.
  */
 function canonical(d: GrantDescriptor): GrantDescriptor {
-  if (d.v !== 1) {
-    throw new Error(`Unsupported grant version: ${String(d.v)}`)
-  }
+  assertFormatVersion(d.v, 'grant')
   const owner = text(d.owner, "A grant's owner").toLowerCase()
   if (!isAddress(owner, { strict: false })) {
     throw new Error(`A grant's owner must be an address, got ${JSON.stringify(d.owner)}`)
   }
   return {
-    v: 1,
+    v: 2,
     node: canonicalNode(d.node),
     owner: owner as Address,
     groupKeyId: groupKeyId(d.groupKeyId),

@@ -1,43 +1,103 @@
 {
-  "description": "Pinned Keysmith outputs for fixed inputs. A release that changes any of them orphans existing keys. The private keys are the well-known Anvil/Hardhat development keys #0 and #1: public, never for anything of value.",
+  "description": "Keysmith format 2 outputs for fixed inputs. A release that changes any of them orphans existing keys. These vectors were produced by this implementation (FIP-1253 draft), so they pin it against change rather than independently confirm it. They are what Curio and other implementations test against. The private keys are the well-known Anvil/Hardhat development keys: public, never for anything of value.",
   "owner": {
     "privateKey": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
     "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   },
-  "keyspace": "0x00112233445566778899aabbccddeeff",
-  "scope": {
+  "groupKeyId": "0x00112233445566778899aabbccddeeff",
+  "groupKey": {
+    "typedData": {
+      "type": "GroupKey(address owner,bytes16 groupKeyId)",
+      "hash": "0xb322fd11498b6ea7651bc594a05e443f7527f46f051e3a34a014f2367d2eae09"
+    },
+    "groupKey": "0x3f8dbd05e262469357d580ade751bcadb67833616347f00a428a5e087e610c21",
+    "commitment": "v2.577089220f63dc662b4fc4a60abe1b48"
+  },
+  "passwordGroupKey": {
+    "kdf": "argon2id v0x13, m=65536 KiB, t=3, p=1, dkLen=32, salt=EIP-712 hash of the GroupKey message",
+    "password": "correct horse battery staple",
+    "groupKey": "0xbcaa199bbe8caeebdb10ece174f96010ea8da53af561d9dcc8678eec7e8ad110",
+    "commitment": "v2.ea467d335b8e50c7db897cccf22ebabe"
+  },
+  "group": {
     "path": "admin/finance",
-    "key": "0xcfdd43d7d26f125efdfa8030c5415dacf96163d5b1013f0e09dc2c44a3064396"
+    "key": "0x3a8b1f2060380314f3bbf8da437570c32b199014a62928ddd52d1ae2471fe15d"
   },
   "piece": {
     "metadata": {
-      "foc/v": 1,
+      "foc/v": 2,
       "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-      "foc/ks": "0x00112233445566778899aabbccddeeff",
-      "foc/scope": "admin/finance/clerks",
+      "foc/gkid": "0x00112233445566778899aabbccddeeff",
+      "foc/group": "admin/finance/clerks",
       "foc/salt": "0x000102030405060708090a0b0c0d0e0f"
     },
-    "key": "0x2fb557dd03240b061d5d05baa3030f75b2a9b910c935e909c19b8fa34bb1f2b8"
+    "key": "0xec8090ffcb3798fbf90b82bc360102433092bd1d620d668a0352a1a8d6d32b42"
+  },
+  "dataSet": {
+    "foc/gkid": "0x00112233445566778899aabbccddeeff",
+    "foc/kc": "v2.577089220f63dc662b4fc4a60abe1b48"
+  },
+  "format1DataSet": {
+    "what": "groupKeyIdOf of a data set from keysmith 0.1.0 (foc/ks) is undefined",
+    "dataSet": {
+      "foc/ks": "0x00112233445566778899aabbccddeeff",
+      "foc/kc": "v1.577089220f63dc662b4fc4a60abe1b48"
+    }
   },
   "recipient": {
     "privateKey": "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-    "publicKey": "0x045e37be3bda1b6f6473cea4109645c929bae6d26d596525244cffb239468a3e1cd00c7adf30482122b34c98d2188e1e9c19d117a6ff7e8a95bfaf51502d5d16d5"
+    "publicKey": "0x04b9674f5351c089a89d970a9a38b65f6fb8ceee38166a0846f656a199d91ec307c3dcf68ed69c891fa97ccdea3f423e21dd5884504f34e66c7e73b3ec6fd2ffa2"
   },
   "grant": {
-    "cbor": "0xa70001017373636f70653a61646d696e2f66696e616e63650254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff045841049598c32429277fecc43da0ac2ffe4d334d14fece573c9fc3fc9d5e487e01fb0adf0dee2449145a13da751b24f04da19038f282588e872a39d2aed3a2c703a6de054c0f73558a7044d238bfce2dce0658305a3370055e0ba7fcc8218e3f05f0063077eb05b29c6f6e30b4a0824d5f9d6eac44adb61439f6f560c9041cf924baaeb5",
-    "aad": "0x84017373636f70653a61646d696e2f66696e616e636554f39fd6e51aad88f6f4ce6ab8827279cfffb922665000112233445566778899aabbccddeeff"
+    "cbor": "0xa70002017367726f75703a61646d696e2f66696e616e63650254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff0458410464bf2db234165a85d21db91a4c827053c1f0437686b6b67d54d6c071608360825dbfd134da8b40475c6482c19a076ab1e16d9bfb2f9f868605de5793cd3c2c9e054c9e94df585f5e7d9ee5e177c80658305ee93683ef187314f52e6b80a0ba460c59275cbb5ddc7973d8be5ff4697c0ee8ca701be610a65f40aef3d38ebe053db1",
+    "aad": "0x84027367726f75703a61646d696e2f66696e616e636554f39fd6e51aad88f6f4ce6ab8827279cfffb922665000112233445566778899aabbccddeeff"
   },
   "pieceGrant": {
-    "cbor": "0xa7000101782870696563653a307830303031303230333034303530363037303830393061306230633064306530660254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff045841048b5b8f99eb23b71f28ec6fad63303686a883b04a58d95901d2daf4c3e9159ef39f7b87e03e0f848e8c0a791a4417329aaf7337343bf273e6d77814f08b0342a7054c6d06fd03baa006649e131bcb0658301eaa1f15f213d2d26176f7c4171f51c46daafef9bb850ad9eaf53f7d8e8a296461ddc5327f8613f1df76490721cc3225"
+    "cbor": "0xa7000201782870696563653a307830303031303230333034303530363037303830393061306230633064306530660254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff04584104b1beba03e06ac4b196e72a0908334d747515d5f013290630a8f2b22fde4fc26749f5d98f33c63f70921e2181548900f28111fa1409ac577cde991cae9a99265f054c265c81bb7d317d7aa1f31590065830c853015ef72f5935755f3e14d3010b79eb28864cc076463f04fb854f80009b0c10c3341546dcd363afb08070f1acef83",
+    "aad": "0x8402782870696563653a3078303030313032303330343035303630373038303930613062306330643065306654f39fd6e51aad88f6f4ce6ab8827279cfffb922665000112233445566778899aabbccddeeff"
   },
-  "keyspaceKey": {
-    "kk": "0xce589012fcc0fdc0bf625537e0fa701b7b1d1e8a8bcef87026ab4e61a7a85a40",
-    "commitment": "v1.6982807649650e311e4c69af4ac90417"
-  },
-  "passwordKeyspaceKey": {
-    "kdf": "argon2id v0x13, m=65536 KiB, t=3, p=1, dkLen=32, salt=EIP-712 hash of the KeyspaceKey message",
-    "password": "correct horse battery staple",
-    "kk": "0x26bcd2e39044b37af3bc3b05ec762af965e82eb5d380b1c4059a8b6bbcaf5f7e",
-    "commitment": "v1.71828a21771640196a46ec77c68fd060"
-  }
+  "refused": [
+    {
+      "what": "An envelope from keysmith 0.1.0 (foc/v 1)",
+      "metadata": {
+        "foc/v": 1,
+        "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "foc/ks": "0x00112233445566778899aabbccddeeff",
+        "foc/scope": "admin/finance/clerks",
+        "foc/salt": "0x000102030405060708090a0b0c0d0e0f"
+      },
+      "reason": "keysmith 0.1.0 (format 1) data is not supported: a piece with foc/ks labels"
+    },
+    {
+      "what": "A grant from keysmith 0.1.0 (v 1)",
+      "cbor": "0xa70001017373636f70653a61646d696e2f66696e616e63650254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff0458410464bf2db234165a85d21db91a4c827053c1f0437686b6b67d54d6c071608360825dbfd134da8b40475c6482c19a076ab1e16d9bfb2f9f868605de5793cd3c2c9e054c9e94df585f5e7d9ee5e177c80658305ee93683ef187314f52e6b80a0ba460c59275cbb5ddc7973d8be5ff4697c0ee8ca701be610a65f40aef3d38ebe053db1",
+      "reason": "keysmith 0.1.0 (format 1) data is not supported: a grant with v 1"
+    },
+    {
+      "what": "A group key commitment from keysmith 0.1.0 (v1.)",
+      "commitment": "v1.577089220f63dc662b4fc4a60abe1b48",
+      "reason": "keysmith 0.1.0 (format 1) data is not supported: a v1 commitment"
+    },
+    {
+      "what": "A grant whose v is the float 2.0, not the integer 2",
+      "cbor": "0xa700f94000017367726f75703a61646d696e2f66696e616e63650254f39fd6e51aad88f6f4ce6ab8827279cfffb92266035000112233445566778899aabbccddeeff0458410464bf2db234165a85d21db91a4c827053c1f0437686b6b67d54d6c071608360825dbfd134da8b40475c6482c19a076ab1e16d9bfb2f9f868605de5793cd3c2c9e054c9e94df585f5e7d9ee5e177c80658305ee93683ef187314f52e6b80a0ba460c59275cbb5ddc7973d8be5ff4697c0ee8ca701be610a65f40aef3d38ebe053db1",
+      "reason": "Not a grant: the bytes are not canonical CBOR"
+    },
+    {
+      "what": "A grant whose map keys are not in the deterministic order",
+      "cbor": "0xa70658305ee93683ef187314f52e6b80a0ba460c59275cbb5ddc7973d8be5ff4697c0ee8ca701be610a65f40aef3d38ebe053db1054c9e94df585f5e7d9ee5e177c80458410464bf2db234165a85d21db91a4c827053c1f0437686b6b67d54d6c071608360825dbfd134da8b40475c6482c19a076ab1e16d9bfb2f9f868605de5793cd3c2c9e035000112233445566778899aabbccddeeff0254f39fd6e51aad88f6f4ce6ab8827279cfffb92266017367726f75703a61646d696e2f66696e616e63650002",
+      "reason": "Not a grant: the bytes are not canonical CBOR"
+    },
+    {
+      "what": "An envelope whose foc/salt is not 16 bytes",
+      "metadata": {
+        "foc/v": 2,
+        "foc/own": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "foc/gkid": "0x00112233445566778899aabbccddeeff",
+        "foc/group": "admin/finance/clerks",
+        "foc/salt": "0xab"
+      },
+      "reason": "A piece salt is 16 random bytes, from newSalt(); got 1"
+    }
+  ]
 }

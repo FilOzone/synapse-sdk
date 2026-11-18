@@ -32,13 +32,15 @@ export {
 } from './claims.ts'
 export {
   COMMITMENT_KEY,
+  canonicalNode,
   commitment,
   DOMAIN,
+  dataSetMetadata,
   deriveGroupKey,
-  GROUP_KEY_ID_KEY,
   GROUP_KEY_TYPES,
   grantDescriptor,
   groupKeyId,
+  groupKeyIdOf,
   groupKeyMessage,
   groupName,
   groupPath,
@@ -53,6 +55,7 @@ export {
   pieceKey,
   pieceMetadata,
   pieceNode,
+  readPieceMetadata,
   writeTarget,
 } from './derive.ts'
 export type {
@@ -65,6 +68,8 @@ export type {
   GroupKeyRef,
   Holding,
   PieceMetadata,
+  PieceMetadataV2,
+  PieceMetadataView,
   TypedDataSigner,
   WriteTarget,
 } from './types.ts'

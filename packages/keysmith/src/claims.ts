@@ -20,14 +20,22 @@ import { decode, encode } from 'cborg'
 import { type Address, bytesToHex, getAddress, type Hex, hexToBytes, isAddress, recoverTypedDataAddress } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
+  assertFormatVersion,
   canonicalNode,
   commitment,
   DOMAIN,
+  gatedOwner,
   grantDescriptor,
   groupKeyId,
+  groupLabelOf,
   groupPath,
   holdingOf,
   keyForEnvelope,
+  labelsGroupKeyId,
+  type NodeKind,
+  nodeKind,
+  own,
+  pieceSalt,
   writeTarget,
 } from './derive.ts'
 import type { Grant, GrantNode, GroupKeyRef } from './types.ts'
@@ -60,12 +68,12 @@ export const READ_GRANT_TYPES = {
     { name: 'v', type: 'uint8' },
     { name: 'node', type: 'string' },
     { name: 'owner', type: 'address' },
-    { name: 'keyspace', type: 'bytes16' },
+    { name: 'groupKeyId', type: 'bytes16' },
     { name: 'bearer', type: 'address' },
     { name: 'maxDepth', type: 'uint8' },
     { name: 'chainId', type: 'uint256' },
     { name: 'keyCommitment', type: 'bytes16' },
-    { name: 'keyspaceCommitment', type: 'bytes16' },
+    { name: 'groupKeyCommitment', type: 'bytes16' },
     { name: 'expires', type: 'uint64' },
   ],
 } as const
@@ -79,20 +87,26 @@ export const READ_REQUEST_TYPES = {
 
 /** One link: what its bearer may read, and how much further they may delegate. */
 export interface Claim {
-  node: string // Canonical grant node: 'keyspace', 'scope:<path>' or 'piece:<salt>'
-  bearer: Address // Who may present this link, and sign the next one
-  maxDepth: number // Links the bearer may add below this one
-  keyCommitment: Hex // First 16 bytes of the node key's commitment: what the bearer checks after unwrapping
-  signature: Hex // EIP-712: the owner's on the root, the previous bearer's on every later link
-  pieceCid?: Uint8Array // Where a piece link's piece lives. A locator only: not signed, never decided on
+  /** A {@link GrantNode}, as signed. */
+  node: string
+  /** Who may present this link, and sign the next one. */
+  bearer: Address
+  /** Links the bearer may add below this one. */
+  maxDepth: number
+  /** First 16 bytes of the node key's commitment: what the bearer checks after unwrapping. */
+  keyCommitment: Hex
+  /** EIP-712: the owner's on the root, the previous bearer's on every later link. */
+  signature: Hex
+  /** Where a piece link's piece lives. A locator only: not signed, never decided on. */
+  pieceCid?: Uint8Array
 }
 
 /** A chain, root first, with the fields every link inherits from the root. */
 export interface ClaimChain {
   owner: Address // The group key owner, whose wallet signs the root
-  groupKeyId: Hex // Spelled as in `foc/ks`
+  groupKeyId: Hex // Spelled as in `foc/gkid`
   chainId: bigint // The network the claims are for, so a header cannot be replayed on another
-  groupKeyCommitment: Hex // `foc/kc` without its `v1.` prefix, so a bearer can record it on new datasets
+  groupKeyCommitment: Hex // `foc/kc` without its `v2.` prefix
   expires: number // Unix seconds. The whole chain stops working then
   links: Claim[] // Root first
 }
@@ -104,13 +118,28 @@ export interface ReadRequest {
   signature: Hex // The final bearer's EIP-712 ReadRequest signature
 }
 
-/** The labels a provider read from a piece's FEE envelope. */
-export interface PieceLabels {
-  'foc/own'?: string // The group key owner; a piece without it is not gated
-  'foc/ks': string // The group key id
-  'foc/scope'?: string // The group path, if any
+/**
+ * The labels a provider read from a piece's FEE envelope. `foc/v` may be absent, 2 or "2";
+ * keysmith 0.1.0 labels (`foc/v` 1, as a number or string, or `foc/ks`) and any other value are refused.
+ * Hand-written: fields are plain strings (not `Address`/`Hex`) and `foc/own` is optional.
+ */
+export type PieceLabels = {
+  'foc/own'?: string // The group key owner; absent or falsy means not gated
+  'foc/gkid': string // The group key id label
+  'foc/group'?: string // The group path label, if any
   'foc/salt': string // Names the piece for a piece link
 }
+
+const rawLabels = (piece: PieceLabels) => piece as Readonly<Record<string, unknown>>
+
+/** The canonical group key id the labels name. Lenient on `foc/v`: a provider may pass labels parsed from JSON. */
+const idOf = (piece: PieceLabels) => labelsGroupKeyId(rawLabels(piece), { lenient: true })
+
+/** Labels as envelope metadata. */
+const asMetadata = (piece: PieceLabels) => ({ ...piece, 'foc/v': 2 })
+
+/** The canonical group path the labels name, if any. Reads only the group label. */
+const groupOf = (piece: PieceLabels) => groupLabelOf(rawLabels(piece))
 
 /** Anything that signs EIP-712 typed data: a viem account or wallet client. */
 export interface ClaimSigner {
@@ -118,7 +147,7 @@ export interface ClaimSigner {
 }
 
 /** A key's commitment as the 16 bytes a claim carries. */
-export const keyCommitmentOf = (key: Uint8Array): Hex => `0x${commitment(key).slice('v1.'.length)}`
+export const keyCommitmentOf = (key: Uint8Array): Hex => `0x${commitment(key).slice('v2.'.length)}`
 
 function depth(value: number): number {
   if (!Number.isInteger(value) || value < 0 || value > 255) throw new Error(`maxDepth must be 0 to 255, got ${value}`)
@@ -142,17 +171,16 @@ function unixSeconds(value: number, what: string): number {
   return value
 }
 
-// The EIP-712 message keeps the wire field names `keyspace` and `keyspaceCommitment`.
 const grantMessage = (chain: ClaimChain, link: Omit<Claim, 'signature'>) => ({
-  v: 1,
+  v: 2,
   node: link.node,
   owner: chain.owner,
-  keyspace: chain.groupKeyId,
+  groupKeyId: chain.groupKeyId,
   bearer: link.bearer,
   maxDepth: link.maxDepth,
   chainId: chain.chainId,
   keyCommitment: link.keyCommitment,
-  keyspaceCommitment: chain.groupKeyCommitment,
+  groupKeyCommitment: chain.groupKeyCommitment,
   expires: BigInt(chain.expires),
 })
 
@@ -196,7 +224,7 @@ const recoverIssuer = (chain: ClaimChain, link: Claim) =>
 /**
  * The key for `node`, derived from a key the caller holds for `heldNode`, so a
  * claim can only ever commit to a key that really sits below its issuer's.
- * A piece node needs the piece's FEE metadata, which must name that piece.
+ * A piece node needs the piece's labels, which must name that piece in this group key.
  */
 function keyBelow(
   heldKey: Uint8Array,
@@ -205,14 +233,15 @@ function keyBelow(
   ref: { owner: Address; groupKeyId: Hex },
   piece: PieceLabels | undefined
 ): Uint8Array {
-  if (node.startsWith('piece:')) {
+  const target = nodeKind(node)
+  if (target.kind === 'piece') {
     if (!piece) throw new Error(`${node} names a piece: deriving its key needs the piece's labels`)
-    if (canonicalNode(`piece:${piece['foc/salt']}`) !== node || groupKeyId(piece['foc/ks']) !== ref.groupKeyId) {
+    if (pieceNodeOf(piece) !== `piece:${target.salt}` || idOf(piece) !== ref.groupKeyId) {
       throw new Error(`The piece labels given are not for ${node} in group key ${ref.groupKeyId}`)
     }
-    return keyForEnvelope(heldKey, { 'foc/v': 1, ...piece }, holdingOf({ node: heldNode }))
+    return keyForEnvelope(heldKey, asMetadata(piece), holdingOf({ node: heldNode }))
   }
-  const group = node === 'keyspace' ? undefined : node.slice('scope:'.length)
+  const group = target.kind === 'group' ? target.path : undefined
   return writeTarget(grantDescriptor(ref, heldNode as GrantNode), heldKey, group).key.slice()
 }
 
@@ -230,8 +259,8 @@ export async function rootClaim(
     owner: Address
     groupKeyId: Hex
     chainId: bigint
-    kk: Uint8Array // The group key, from deriveGroupKey()
-    node: string
+    groupKey: Uint8Array // The group key, from deriveGroupKey()
+    node: string // A GrantNode
     bearer: Address
     maxDepth: number
     expires: number // Unix seconds. Required: providers check no revocation, so this is what ends the claim
@@ -243,7 +272,7 @@ export async function rootClaim(
   if (!isAddress(input.owner) || !isAddress(input.bearer)) throw new Error('owner and bearer must be addresses')
   const ref = { owner: getAddress(input.owner), groupKeyId: groupKeyId(input.groupKeyId) }
   const node = canonicalNode(input.node)
-  const nodeKey = keyBelow(input.kk, 'keyspace', node, ref, input.piece)
+  const nodeKey = keyBelow(input.groupKey, 'groupKey', node, ref, input.piece)
   const link = {
     node,
     bearer: getAddress(input.bearer),
@@ -254,7 +283,7 @@ export async function rootClaim(
   const chain: ClaimChain = {
     ...ref,
     chainId: input.chainId,
-    groupKeyCommitment: keyCommitmentOf(input.kk),
+    groupKeyCommitment: keyCommitmentOf(input.groupKey),
     expires: unixSeconds(input.expires, 'expires'),
     links: [],
   }
@@ -277,7 +306,7 @@ export async function delegateClaim(
   chain: ClaimChain,
   input: {
     parentKey: Uint8Array // The key for the final link's node, as openDelivery() returned it
-    node: string
+    node: string // A GrantNode
     bearer: Address
     maxDepth: number
     pieceCid?: Uint8Array
@@ -342,11 +371,25 @@ export async function signRequest(
 
 const within = (parent: string, child: string) => child === parent || child.startsWith(`${parent}/`)
 
-/** Whether `node` reaches the piece these labels describe. */
+/**
+ * The piece node naming these labels' piece, in canonical form: labels are compared canonically, never as raw text.
+ * Reads only `foc/salt`.
+ */
+const pieceNodeOf = (piece: PieceLabels) => `piece:${pieceSalt(own(rawLabels(piece), 'foc/salt'))}`
+
+/** Whether a parsed node reaches a piece with this piece node and group: the one rule behind `reaches` and `pickGrant`. */
+function reachesKind(held: NodeKind, pieceNode: string | undefined, group: string | undefined): boolean {
+  if (held.kind === 'groupKey') return true
+  if (held.kind === 'piece') return `piece:${held.salt}` === pieceNode
+  return group != null && within(held.path, group)
+}
+
+/** Whether `node` reaches the piece these labels describe. Reads only the label the node's kind needs. */
 export function reaches(node: string, piece: PieceLabels): boolean {
-  if (node === 'keyspace') return true
-  if (node.startsWith('piece:')) return node === pieceNodeOf(piece)
-  return piece['foc/scope'] != null && within(node, `scope:${groupPath(piece['foc/scope'])}`)
+  const k = nodeKind(node)
+  const pieceNode = k.kind === 'piece' ? pieceNodeOf(piece) : undefined
+  const group = k.kind === 'group' ? groupOf(piece) : undefined
+  return reachesKind(k, pieceNode, group)
 }
 
 /** What a grant is picked for: reading one piece, or writing (or reading) under a group of a group key. */
@@ -355,47 +398,88 @@ export type GrantTarget = { piece: PieceLabels } | (GroupKeyRef & { group: strin
 /**
  * The narrowest held grant that reaches `target`: a piece grant before a group grant, a deeper group before a
  * shallower one, the group key last; on a tie, the one that expires last. Grants for another network or group key,
- * or expired ones, are skipped. Undefined when none reaches it: ask for a grant to that group or piece.
+ * or expired ones, or whose node does not parse, are skipped. Undefined when none reaches it: ask for a grant to that group or piece.
  *
  * Takes anything carrying a verified `claim`, such as what `openDelivery` returns.
+ *
+ * Grants are matched to one owner, never to any owner: a grant's owner and group key id are public, so
+ * anyone can root a grant under another wallet's group key id. A group target names its owner. A piece
+ * target takes it from the piece's `foc/own`; a piece without one (not gated) needs `options.owner`. When
+ * both are present they must match.
+ *
+ * @throws If no owner can be fixed, `options.owner` contradicts the piece's `foc/own`, or a label is malformed.
  */
 export function pickGrant<T extends { claim: VerifiedClaim }>(
   grants: readonly T[],
   target: GrantTarget,
-  options: { chainId: bigint; now?: number }
+  options: { chainId: bigint; now?: number; owner?: Address }
 ): T | undefined {
   // A stale `scope` would read as "no group", and could pick a grant that is too broad.
   if ('scope' in target) throw new Error('pickGrant takes `group`, not `scope`')
   const now = options.now ?? Math.floor(Date.now() / 1000)
   // Validate the target once, so bad input fails the same way whatever grants are held
-  const rawOwner = 'piece' in target ? target.piece['foc/own'] : target.owner
-  const owner = rawOwner ? getAddress(rawOwner) : undefined
-  const id = groupKeyId('piece' in target ? target.piece['foc/ks'] : target.groupKeyId)
-  const group = 'piece' in target ? target.piece['foc/scope'] : target.group
-  const groupNode = group == null ? undefined : `scope:${groupPath(group)}`
-  const covers =
-    'piece' in target
-      ? (node: string) => reaches(node, target.piece)
-      : (node: string) => node === 'keyspace' || (node.startsWith('scope:') && within(node, groupNode ?? ''))
+  const owner = expectedOwner(target, options.owner)
+  const id = 'piece' in target ? idOf(target.piece) : groupKeyId(target.groupKeyId)
+  let group: string | undefined
+  let pieceNode: string | undefined
+  if ('piece' in target) {
+    pieceNode = pieceNodeOf(target.piece) // Refuses a malformed salt, though only a piece grant would read it
+    group = groupOf(target.piece)
+  } else if (target.group != null) group = groupPath(target.group)
   let best: T | undefined
+  let bestRank = 0
   for (const held of grants) {
     const { claim } = held
     if (claim.chainId !== options.chainId || claim.expires <= now || claim.groupKeyId !== id) continue
-    if ((owner && owner !== claim.owner) || !covers(claim.node)) continue
-    if (
-      !best ||
-      narrowness(claim) > narrowness(best.claim) ||
-      (narrowness(claim) === narrowness(best.claim) && claim.expires > best.claim.expires)
-    ) {
+    if (owner !== claim.owner) continue
+    // A node that does not parse (a stored 0.1.0 claim, say) reaches nothing: skip it
+    const kind = tryNodeKind(claim.node)
+    if (kind === undefined || !reachesKind(kind, pieceNode, group)) continue
+    const rank = narrowness(kind)
+    if (!best || rank > bestRank || (rank === bestRank && claim.expires > best.claim.expires)) {
       best = held
+      bestRank = rank
     }
   }
   return best
 }
 
-// 'keyspace' 0, 'scope:a/b' 2, any piece above every group
-const narrowness = ({ node }: { node: string }) =>
-  node === 'keyspace' ? 0 : node.startsWith('piece:') ? Number.POSITIVE_INFINITY : node.split('/').length
+/** The one owner whose grants `pickGrant` may pick: the target's own, checked against `pinned` when both exist. */
+function expectedOwner(target: GrantTarget, pinned: unknown): Address {
+  const named =
+    'piece' in target
+      ? gatedOwner(own(rawLabels(target.piece), 'foc/own'))
+      : asOwner(target.owner, 'pickGrant needs the group key owner')
+  const fixed = pinned == null ? undefined : asOwner(pinned, 'pickGrant options.owner must be an address')
+  const owner = named ?? fixed
+  if (owner === undefined) throw new Error('pickGrant needs the expected owner for a piece without foc/own')
+  if (fixed !== undefined && getAddress(owner) !== fixed) {
+    throw new Error(`pickGrant options.owner ${fixed} does not match the owner ${getAddress(owner)}`)
+  }
+  return getAddress(owner)
+}
+
+const asOwner = (value: unknown, what: string): Address => {
+  if (typeof value !== 'string' || !isAddress(value, { strict: false })) {
+    throw new Error(`${what}, got ${JSON.stringify(value)}`)
+  }
+  return getAddress(value)
+}
+
+function tryNodeKind(node: string): NodeKind | undefined {
+  try {
+    return nodeKind(node)
+  } catch {
+    return undefined
+  }
+}
+
+// the group key 0, 'group:a/b' 2, any piece above every group
+const narrowness = (k: NodeKind) => {
+  if (k.kind === 'groupKey') return 0
+  if (k.kind === 'piece') return Number.POSITIVE_INFINITY
+  return k.path.split('/').length
+}
 
 /**
  * The `Authorization` header for one gated request: a request for `pieceCid` signed by the chain's final bearer,
@@ -420,9 +504,6 @@ function base64url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/** The piece node naming these labels' piece, in canonical form: labels are compared canonically, never as raw text. */
-const pieceNodeOf = (piece: PieceLabels) => canonicalNode(`piece:${piece['foc/salt']}`)
-
 /** Check one step down a chain: the child no wider than its parent, and within its depth. */
 function checkStep(
   parent: Pick<Claim, 'node' | 'maxDepth'>,
@@ -433,12 +514,14 @@ function checkStep(
   if (parent.maxDepth < 1 || child.maxDepth > parent.maxDepth - 1) {
     throw new Error(`Link ${index} exceeds link ${index - 1}'s maxDepth`)
   }
+  const from = nodeKind(parent.node)
+  const to = nodeKind(child.node)
   let narrower: boolean
-  if (parent.node === 'keyspace') narrower = true
-  else if (child.node.startsWith('piece:')) {
+  if (from.kind === 'groupKey') narrower = true
+  else if (to.kind === 'piece') {
     if (!piece) throw new Error(`Link ${index} names a piece: checking it needs the piece's labels`)
-    narrower = child.node === pieceNodeOf(piece) && reaches(parent.node, piece)
-  } else narrower = !parent.node.startsWith('piece:') && child.node !== 'keyspace' && within(parent.node, child.node)
+    narrower = `piece:${to.salt}` === pieceNodeOf(piece) && reaches(parent.node, piece)
+  } else narrower = from.kind === 'group' && to.kind === 'group' && within(from.path, to.path)
   if (!narrower) throw new Error(`Link ${index} widens ${parent.node} to ${child.node}`)
 }
 
@@ -476,7 +559,7 @@ async function verifyLinks(chain: ClaimChain, piece: PieceLabels | undefined): P
   const { links } = chain
   if (links.length < 1 || links.length > MAX_CHAIN_LENGTH) throw new Error(`A chain has 1 to ${MAX_CHAIN_LENGTH} links`)
   const root = links[0] as Claim
-  if (root.node === 'keyspace' && root.keyCommitment !== chain.groupKeyCommitment) {
+  if (nodeKind(root.node).kind === 'groupKey' && root.keyCommitment !== chain.groupKeyCommitment) {
     throw new Error('A group key root must carry the group key commitment')
   }
   if ((await recoverIssuer(chain, root)) !== chain.owner) throw new Error('The root is not signed by the owner')
@@ -503,8 +586,8 @@ async function verifyLinks(chain: ClaimChain, piece: PieceLabels | undefined): P
 
 /**
  * What a gating provider checks on a request, with only the header and the
- * piece's labels: the chain, the request's piece, lifetime and signer, and that the final node reaches the piece. A piece without
- * `foc/own` is not gated.
+ * piece's labels: the chain, the request's piece, lifetime and signer, and that the final node reaches the piece. A piece whose
+ * `foc/own` is absent or falsy is not gated.
  *
  * @throws With the reason the request is refused.
  */
@@ -537,16 +620,15 @@ export async function verifyPresentation(
     signature: request.signature,
   })
   if (signer !== claim.bearer) throw new Error('The request is not signed by the final bearer')
-  const owner = options.piece['foc/own']
-  if (
-    owner &&
-    (owner.toLowerCase() !== claim.owner.toLowerCase() || groupKeyId(options.piece['foc/ks']) !== claim.groupKeyId)
-  ) {
+  const { piece } = options
+  const owner = gatedOwner(own(rawLabels(piece), 'foc/own')) // Throws on a truthy `foc/own` that is not an address
+  if (owner === undefined) return claim // Not gated; other labels are not read
+  if (owner.toLowerCase() !== claim.owner.toLowerCase() || idOf(piece) !== claim.groupKeyId) {
     throw new Error('The piece belongs to another owner or group key')
   }
-  if (owner && !reaches(claim.node, options.piece)) {
-    // Pinned verbatim by claims-vectors.json (cross-implementation), so `scope` here is the `foc/scope` label name.
-    throw new Error(`${claim.node} does not reach this piece (scope ${options.piece['foc/scope'] ?? '(none)'})`)
+  pieceSalt(own(rawLabels(piece), 'foc/salt')) // No key opens a gated piece without a valid salt
+  if (!reaches(claim.node, piece)) {
+    throw new Error(`${claim.node} does not reach this piece (group ${own(rawLabels(piece), 'foc/group') ?? '(none)'})`)
   }
   return claim
 }
@@ -585,7 +667,7 @@ function assertGrantNamesClaim(grant: Grant, claim: { owner: Address; groupKeyId
   if (
     getAddress(grant.owner) !== claim.owner ||
     grant.groupKeyId.toLowerCase() !== claim.groupKeyId ||
-    canonicalNode(grant.node) !== claim.node
+    canonicalNode(grant.node) !== canonicalNode(claim.node)
   ) {
     throw new Error("The delivery's key is for another node than its claim")
   }
@@ -600,7 +682,7 @@ const ROOT_ONLY = [2, 3, 6, 10, 11]
 function encodeChainLinks(chain: ClaimChain): Map<number, unknown>[] {
   return chain.links.map((link, i) => {
     const fields = new Map<number, unknown>([
-      [0, 1],
+      [0, 2],
       [1, link.node],
       [4, hexToBytes(link.bearer)],
       [5, link.maxDepth],
@@ -650,7 +732,7 @@ function decodeChainLinks(value: unknown): ClaimChain {
         throw new Error(`Link ${i} has an unknown field ${String(key)}`)
       if (i > 0 && ROOT_ONLY.includes(key)) throw new Error(`Link ${i} repeats a root-only field`)
     }
-    if (link.get(0) !== 1) throw new Error(`Link ${i} has an unsupported version`)
+    assertFormatVersion(link.get(0), `claim link ${i}`)
     return link as Map<number, unknown>
   })
   const root = maps[0] as Map<number, unknown>
@@ -691,12 +773,13 @@ function decodeArray(bytes: Uint8Array, what: string): unknown[] {
   if (bytesToHex(encode(value)) !== bytesToHex(bytes)) {
     throw new Error(`Not a ${what}: the bytes are not canonical CBOR`)
   }
-  if (!Array.isArray(value) || value.length !== 3 || value[0] !== 1) throw new Error(`Not a version 1 ${what}`)
+  if (!Array.isArray(value) || value.length !== 3) throw new Error(`Not a version 2 ${what}`)
+  assertFormatVersion(value[0], what)
   return value
 }
 
 /**
- * A delivery: sent once to a new bearer, never to a provider. Carries the v1 grant that wraps the key.
+ * A delivery: sent once to a new bearer, never to a provider. Carries the v2 grant that wraps the key.
  * The grant must name the chain's final node, owner and group key; that the wrapped key matches the
  * link's commitment is checked by `openDelivery`, which holds the private key to unwrap it.
  */
@@ -704,7 +787,7 @@ export function encodeDelivery(chain: ClaimChain, grant: Grant): Uint8Array {
   const last = chain.links.at(-1)
   if (!last) throw new Error('A chain has at least one link')
   assertGrantNamesClaim(grant, { owner: chain.owner, groupKeyId: chain.groupKeyId, node: last.node })
-  return encode([1, encodeChainLinks(chain), encodeGrant(grant)])
+  return encode([2, encodeChainLinks(chain), encodeGrant(grant)])
 }
 
 export function decodeDelivery(bytes: Uint8Array): { chain: ClaimChain; grant: Grant } {
@@ -720,7 +803,7 @@ export function encodePresentation(chain: ClaimChain, request: ReadRequest): Uin
     [1, request.expires],
     [2, hexToBytes(request.signature)],
   ])
-  return encode([1, encodeChainLinks(chain), req])
+  return encode([2, encodeChainLinks(chain), req])
 }
 
 export function decodePresentation(bytes: Uint8Array): { chain: ClaimChain; request: ReadRequest } {
