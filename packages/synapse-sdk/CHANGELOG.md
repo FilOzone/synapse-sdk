@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v3.0.0...synapse-sdk-v3.0.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **sdk:** require viem ^2.58.0 as a peer dependency ([4fb26b6](https://github.com/FilOzone/synapse-sdk/commit/4fb26b60367a37bff6b14e3e5e0a3d403ab82d9f))
+
 ## [3.0.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v2.0.2...synapse-sdk-v3.0.0) (2026-11-13)
 
 
