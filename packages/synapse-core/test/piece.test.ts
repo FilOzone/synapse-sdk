@@ -210,6 +210,18 @@ describe('PieceCID', () => {
     })
   })
 
+  describe('size limits', () => {
+    it('MAX_SIZE is the hasher limit (127 × 2^47 bytes)', () => {
+      assert.strictEqual(Piece.MAX_SIZE, 127n << 47n)
+    })
+
+    it('MAX_HEIGHT is the height of a MAX_SIZE payload', () => {
+      assert.strictEqual(Piece.MAX_HEIGHT, 49)
+      assert.strictEqual(Piece.heightFor(Piece.MAX_SIZE), Piece.MAX_HEIGHT)
+      assert.strictEqual(Piece.heightFor(Piece.MAX_SIZE + 1n), Piece.MAX_HEIGHT + 1)
+    })
+  })
+
   // Direct size round-trip across a mid-range sweep that fixture sizes don't cover.
   describe('size round-trips for varied inputs', () => {
     for (const size of [1, 50, 100, 500, 1000, 2048, 4096]) {

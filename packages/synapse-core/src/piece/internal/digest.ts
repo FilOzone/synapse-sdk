@@ -5,9 +5,7 @@
  */
 
 import { varint } from 'multiformats'
-import * as SHA256 from 'sync-multihash-sha2/sha256'
-import { IN_BITS_FR, MULTIHASH_CODE, MULTIHASH_NAME, OUT_BITS_FR } from './constants.ts'
-import { expandedFromHeight } from './size.ts'
+import { MULTIHASH_CODE, MULTIHASH_NAME } from './constants.ts'
 
 export const code = MULTIHASH_CODE
 const name = MULTIHASH_NAME
@@ -15,18 +13,11 @@ const name = MULTIHASH_NAME
 /** Varint max for the tree-height byte. */
 const MAX_PADDING_SIZE = 9
 export const HEIGHT_SIZE = 1
-export const ROOT_SIZE = SHA256.size
+export const ROOT_SIZE = 32
 
-const MAX_DIGEST_SIZE = MAX_PADDING_SIZE + HEIGHT_SIZE + SHA256.size
+const MAX_DIGEST_SIZE = MAX_PADDING_SIZE + HEIGHT_SIZE + ROOT_SIZE
 export const TAG_SIZE = varint.encodingLength(code)
 export const MAX_SIZE = TAG_SIZE + varint.encodingLength(MAX_DIGEST_SIZE) + MAX_DIGEST_SIZE
-
-const MAX_HEIGHT = 255
-
-/**
- * Max payload size derivable from the maximum-height tree.
- */
-export const MAX_PAYLOAD_SIZE = (expandedFromHeight(MAX_HEIGHT) * BigInt(IN_BITS_FR)) / BigInt(OUT_BITS_FR)
 
 /**
  * Multihash digest of a PieceCID payload. Exposes the parsed fields
@@ -80,7 +71,7 @@ export class PieceDigest {
 
   get root(): Uint8Array {
     const [, offset] = varint.decode(this.digest)
-    return this.digest.subarray(offset + HEIGHT_SIZE, offset + HEIGHT_SIZE + SHA256.size)
+    return this.digest.subarray(offset + HEIGHT_SIZE, offset + HEIGHT_SIZE + ROOT_SIZE)
   }
 }
 

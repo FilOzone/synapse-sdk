@@ -585,9 +585,6 @@ importers:
       p-some:
         specifier: 7.0.0
         version: 7.0.0
-      sync-multihash-sha2:
-        specifier: 1.0.0
-        version: 1.0.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -5960,9 +5957,6 @@ packages:
     resolution: {integrity: sha512-bkxnTg1kSU0guhIBmibA6UUhrQmPVA1XsQLN+ylCd+UWzbnLkySOcXpyk1mrl05f+pcaCx2eHb+sp6BgMZWX+Q==}
     engines: {node: '>=16'}
     hasBin: true
-
-  sync-multihash-sha2@1.0.0:
-    resolution: {integrity: sha512-A5gVpmtKF0ov+/XID0M0QRJqF2QxAsj3x/LlDC8yivzgoYCoWkV+XaZPfVu7Vj1T/hYzYS1tfjwboSbXjqocug==}
 
   tagged-tag@1.0.0:
     resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
@@ -12211,10 +12205,6 @@ snapshots:
       csso: 5.0.5
       picocolors: 1.1.1
       sax: 1.6.1
-
-  sync-multihash-sha2@1.0.0:
-    dependencies:
-      '@noble/hashes': 1.8.0
 
   tagged-tag@1.0.0: {}
 

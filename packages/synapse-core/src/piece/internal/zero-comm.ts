@@ -2,7 +2,7 @@
  * Zero-piece merkle roots at each tree level, computed lazily.
  *
  * level 0 is a 32-byte all-zero node; level N is `computeNode(level N-1, level N-1)`.
- * Used when balancing partially-filled layers in the streaming hasher.
+ * Backs the public `Piece.merkle.zeroRoot` helper.
  */
 
 import { NODE_SIZE } from './constants.ts'
