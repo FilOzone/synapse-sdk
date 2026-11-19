@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.6.0...synapse-react-v0.6.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **react:** require viem ^2.58.0 as a peer dependency ([f2092b2](https://github.com/FilOzone/synapse-sdk/commit/f2092b2f485cd7dc42f2d64665bb36e583b36a7b))
+
 ## [0.6.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.5.1...synapse-react-v0.6.0) (2026-11-13)
 
 
