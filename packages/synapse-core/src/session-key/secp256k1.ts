@@ -3,6 +3,7 @@ import {
   type Chain,
   type Client,
   createClient,
+  custom,
   type FallbackTransport,
   type Hex,
   type HttpTransport,
@@ -135,7 +136,14 @@ class Secp256k1SessionKey extends TypedEventTarget<SessionKeyEvents> implements 
    * @throws Errors {@link getExpirations.ErrorType}
    */
   async syncExpirations(permissions?: Permission[]) {
-    this.#expirations = await getExpirations(this.#client, {
+    // Read without the session key as `from`: viem sends a client's account as `from` on eth_call,
+    // and Lotus rejects a call from an address with no actor ("actor not found"), which is what a
+    // session key that has never held FIL is. getExpirations reads that error as nothing granted.
+    const readClient = createClient({
+      chain: this.#client.chain,
+      transport: custom({ request: this.#client.transport.request }),
+    })
+    this.#expirations = await getExpirations(readClient, {
       address: this.#client.account.rootAddress,
       sessionKeyAddress: this.#client.account.address,
       permissions: permissions,
