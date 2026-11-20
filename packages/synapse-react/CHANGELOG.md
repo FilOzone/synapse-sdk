@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.6.1...synapse-react-v0.6.2) (2026-11-20)
+
+
+### Chores
+
+* **deps:** bump minor and patch dependencies ([#1155](https://github.com/FilOzone/synapse-sdk/issues/1155)) ([63f145e](https://github.com/FilOzone/synapse-sdk/commit/63f145ea9bbb316093bc7fed6669de9f9bc64bc9))
+
 ## [0.6.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.6.0...synapse-react-v0.6.1) (2026-11-18)
 
 
