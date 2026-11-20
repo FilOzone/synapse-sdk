@@ -184,8 +184,8 @@
     "update:msw": "pnpx msw init test/mocks/ --save"
   },
   "dependencies": {
-    "@hugomrdias/commp-wasm": "0.1.4",
-    "dnum": "2.17.0",
+    "@hugomrdias/commp-wasm": "0.1.5",
+    "dnum": "2.18.1",
     "iso-web": "catalog:",
     "multiformats": "14.0.5",
     "ox": "catalog:",
@@ -200,14 +200,14 @@
     "@types/chai": "5.2.3",
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
-    "@wagmi/cli": "^2.7.0",
+    "@wagmi/cli": "^2.10.1",
     "abitype": "catalog:",
     "assert": "^2.1.0",
-    "chai": "6.2.2",
+    "chai": "6.3.0",
     "mocha": "catalog:",
     "msw": "catalog:",
     "playwright-test": "^15.0.1",
-    "type-fest": "^5.7.0",
+    "type-fest": "^5.10.0",
     "typescript": "catalog:",
     "viem": "catalog:"
   },
