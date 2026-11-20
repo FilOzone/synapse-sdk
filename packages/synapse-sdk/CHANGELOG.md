@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v3.0.1...synapse-sdk-v3.0.2) (2026-11-20)
+
+
+### Chores
+
+* **deps:** bump minor and patch dependencies ([#1155](https://github.com/FilOzone/synapse-sdk/issues/1155)) ([63f145e](https://github.com/FilOzone/synapse-sdk/commit/63f145ea9bbb316093bc7fed6669de9f9bc64bc9))
+
 ## [3.0.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v3.0.0...synapse-sdk-v3.0.1) (2026-11-18)
 
 
