@@ -114,5 +114,13 @@
       "quoteStyle": "single"
     },
     "globals": ["document", "navigator", "window"]
+  },
+  "markdown": {
+    "formatter": { "enabled": false },
+    "linter": { "enabled": false }
+  },
+  "yaml": {
+    "formatter": { "enabled": false },
+    "linter": { "enabled": false }
   }
 }
