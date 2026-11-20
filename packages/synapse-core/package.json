@@ -203,7 +203,7 @@
     "@wagmi/cli": "^2.7.0",
     "abitype": "catalog:",
     "assert": "^2.1.0",
-    "chai": "6.2.2",
+    "chai": "6.3.0",
     "mocha": "catalog:",
     "msw": "catalog:",
     "playwright-test": "^15.0.1",
