@@ -3,7 +3,7 @@
  * bits truncated (SHA254), matching Filecoin piece tree construction.
  */
 
-import * as SHA256 from 'sync-multihash-sha2/sha256'
+import { Hash } from 'ox'
 import { NODE_SIZE } from './constants.ts'
 
 export type Node = Uint8Array
@@ -25,21 +25,7 @@ export function computeNode(left: Node, right: Node): Node {
   const payload = new Uint8Array(left.length + right.length)
   payload.set(left, 0)
   payload.set(right, left.length)
-  const { digest } = SHA256.digest(payload)
-  return truncate(digest)
-}
-
-/**
- * Split FR32-expanded bytes into 32-byte merkle leaves.
- */
-export function split(source: Uint8Array): Node[] {
-  const count = source.length / NODE_SIZE
-  const chunks = new Array<Node>(count)
-  for (let n = 0; n < count; n++) {
-    const offset = n * NODE_SIZE
-    chunks[n] = source.subarray(offset, offset + NODE_SIZE)
-  }
-  return chunks
+  return truncate(Hash.sha256(payload))
 }
 
 /** Returns a frozen all-zeros 32-byte node. */

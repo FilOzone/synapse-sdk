@@ -35,9 +35,6 @@ export const EXPANDED_BYTES_PER_NODE = BigInt(NODE_SIZE)
  */
 export const MIN_PAYLOAD_SIZE = 2 * NODE_SIZE + 1
 
-/** Maximum tree height (one byte). */
-export const MAX_HEIGHT = 255
-
 /** PieceCID multihash code (fr32-sha2-256-trunc254-padded-binary-tree). */
 export const MULTIHASH_CODE = 0x1011
 /** PieceCID multihash name. */

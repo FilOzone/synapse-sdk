@@ -5,8 +5,8 @@
  * before the data has been read.
  */
 
-import { IN_BYTES_PER_QUAD, MAX_HEIGHT as INTERNAL_MAX_HEIGHT, MIN_PAYLOAD_SIZE } from './internal/constants.ts'
-import { MAX_PAYLOAD_SIZE as INTERNAL_MAX_PAYLOAD_SIZE } from './internal/digest.ts'
+import { MAX_PAYLOAD_SIZE } from '@hugomrdias/commp-wasm'
+import { IN_BYTES_PER_QUAD, MIN_PAYLOAD_SIZE } from './internal/constants.ts'
 import { expandedFromHeight, unpaddedToHeight } from './internal/size.ts'
 
 /**
@@ -40,13 +40,16 @@ export function paddedSizeAtHeight(height: number): bigint {
 export const MIN_SIZE: number = MIN_PAYLOAD_SIZE
 
 /**
- * Maximum payload size that a single PieceCID can represent (limited by the
- * 1-byte tree height field).
+ * Maximum payload size `calculate` accepts: 127 × 2^47 bytes (~15.9 PiB).
+ *
+ * The 1-byte height field allows larger trees, but past this size the
+ * padding and piece size no longer fit exactly in a JS number. Matches the
+ * limit enforced by the hasher.
  */
-export const MAX_SIZE: bigint = INTERNAL_MAX_PAYLOAD_SIZE
+export const MAX_SIZE: bigint = MAX_PAYLOAD_SIZE
 
-/** Maximum tree height (255). */
-export const MAX_HEIGHT: number = INTERNAL_MAX_HEIGHT
+/** Tree height of a {@link MAX_SIZE} payload (49). */
+export const MAX_HEIGHT: number = unpaddedToHeight(MAX_PAYLOAD_SIZE)
 
 /** Source bytes per FR32 quad (127). */
 export const BYTES_PER_QUAD: number = IN_BYTES_PER_QUAD
