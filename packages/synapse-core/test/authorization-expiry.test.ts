@@ -2,7 +2,7 @@ import assert from 'assert'
 import { setup } from 'iso-web/msw'
 import { createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
-import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
+import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from '../src/mocks/jsonrpc/index.ts'
 import { authorizationExpiry, authorizationExpiryCall } from '../src/session-key/authorization-expiry.ts'
 import {
   AddPiecesPermission,
@@ -10,6 +10,7 @@ import {
   SchedulePieceRemovalsPermission,
   TerminateServicePermission,
 } from '../src/session-key/permissions.ts'
+import { fromSecp256k1 } from '../src/session-key/secp256k1.ts'
 
 describe('authorizationExpiry', () => {
   const server = setup()
@@ -192,6 +193,29 @@ describe('authorizationExpiry', () => {
       })
 
       assert.equal(expiry, 0n)
+    })
+  })
+
+  describe('SessionKey.syncExpirations', () => {
+    it('reads without the session key as from, which Lotus refuses for a key that never held FIL', async () => {
+      server.use(JSONRPC(presets.basic))
+      const calls: Array<{ method: string; params: [{ from?: string }] }> = []
+      const sessionKey = fromSecp256k1({
+        privateKey: PRIVATE_KEYS.key2,
+        root: ADDRESSES.client1,
+        chain: calibration,
+        transport: http(undefined, {
+          onFetchRequest(_request, init) {
+            if (typeof init.body === 'string') calls.push(JSON.parse(init.body))
+          },
+        }),
+      })
+
+      await sessionKey.syncExpirations([CreateDataSetPermission, AddPiecesPermission])
+
+      const reads = calls.filter(({ method }) => method === 'eth_call')
+      assert.ok(reads.length > 0)
+      for (const read of reads) assert.equal(read.params[0].from, undefined)
     })
   })
 })
