@@ -18,10 +18,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "knip": "6.32.2",
-    "markdownlint-cli2": "0.23.2",
-    "pkg-pr-new": "0.0.88",
-    "turbo": "2.11.10",
+    "knip": "6.45.1",
+    "markdownlint-cli2": "0.23.3",
+    "pkg-pr-new": "0.0.93",
+    "turbo": "2.11.11",
     "typescript": "catalog:"
   },
   "simple-git-hooks": {
@@ -30,7 +30,7 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@12.18.0",
+  "packageManager": "pnpm@12.20.0",
   "devEngines": {
     "runtime": {
       "name": "node",

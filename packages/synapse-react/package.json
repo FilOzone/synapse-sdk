@@ -61,7 +61,7 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/node": "catalog:",
-    "type-fest": "^5.7.0",
+    "type-fest": "^5.10.0",
     "typescript": "catalog:",
     "viem": "catalog:"
   },

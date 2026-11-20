@@ -96,7 +96,7 @@
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
     "assert": "^2.1.0",
-    "chai": "6.2.2",
+    "chai": "6.3.0",
     "iso-web": "catalog:",
     "mocha": "catalog:",
     "msw": "catalog:",
