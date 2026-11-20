@@ -2129,6 +2129,11 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
+    inputs: [{ name: 'id', internalType: 'bytes32', type: 'bytes32' }],
+    name: 'UnknownStorageTerms',
+  },
+  {
+    type: 'error',
     inputs: [{ name: 'v', internalType: 'uint8', type: 'uint8' }],
     name: 'UnsupportedSignatureV',
   },
@@ -2477,6 +2482,25 @@ export const filecoinWarmStorageServiceAbi = [
     ],
     name: 'DataSetServiceProviderChanged',
   },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'storageTermsId',
+        internalType: 'bytes32',
+        type: 'bytes32',
+        indexed: true,
+      },
+    ],
+    name: 'DataSetStorageTermsSelected',
+  },
   { type: 'event', anonymous: false, inputs: [], name: 'EIP712DomainChanged' },
   {
     type: 'event',
@@ -2490,6 +2514,11 @@ export const filecoinWarmStorageServiceAbi = [
       },
     ],
     name: 'Initialized',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'token', internalType: 'address', type: 'address' }],
+    name: 'CDNUnsupportedCurrency',
   },
   {
     type: 'error',
@@ -2578,6 +2607,18 @@ export const filecoinWarmStorageServiceAbi = [
     name: 'RailNotFullySettled',
   },
   { type: 'error', inputs: [], name: 'StorageProviderChangesNotSupported' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'storageTermsId', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'StorageTermsNotEnabled',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'keysOffset', internalType: 'uint256', type: 'uint256' }],
+    name: 'UnsupportedExtraDataVariant',
+  },
   {
     type: 'function',
     inputs: [
@@ -2794,6 +2835,42 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [{ name: '', internalType: 'address', type: 'address' }],
     name: 'Unauthorized',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'ops', internalType: 'bytes', type: 'bytes' }],
+    name: 'cleanupLegacyPieceMetadata',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'opOffset', internalType: 'uint256', type: 'uint256' },
+      { name: 'index', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'KeyIndexOutOfRange',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'opOffset', internalType: 'uint256', type: 'uint256' }],
+    name: 'TruncatedCleanupOp',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'opOffset', internalType: 'uint256', type: 'uint256' },
+      { name: 'kind', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'UnknownCleanupOp',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'opOffset', internalType: 'uint256', type: 'uint256' },
+      { name: 'count', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ValueDataSlotsOutOfRange',
   },
   {
     type: 'function',
@@ -3078,6 +3155,149 @@ export const filecoinWarmStorageServiceAbi = [
   { type: 'error', inputs: [], name: 'ServiceContractMustTerminateRail' },
   {
     type: 'function',
+    inputs: [
+      { name: 'storageTermsId', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'disableStorageTerms',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'storageTermsId', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'getStorageTerms',
+    outputs: [
+      {
+        name: 'terms',
+        internalType: 'struct StorageTerms',
+        type: 'tuple',
+        components: [
+          { name: 'token', internalType: 'address', type: 'address' },
+          { name: 'tokenDecimals', internalType: 'uint8', type: 'uint8' },
+          { name: 'salt', internalType: 'bytes32', type: 'bytes32' },
+          {
+            name: 'pricePerTiBPerMonth',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+        ],
+      },
+      { name: 'enabled', internalType: 'bool', type: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'terms',
+        internalType: 'struct StorageTerms',
+        type: 'tuple',
+        components: [
+          { name: 'token', internalType: 'address', type: 'address' },
+          { name: 'tokenDecimals', internalType: 'uint8', type: 'uint8' },
+          { name: 'salt', internalType: 'bytes32', type: 'bytes32' },
+          {
+            name: 'pricePerTiBPerMonth',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+        ],
+      },
+    ],
+    name: 'getStorageTermsId',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'terms',
+        internalType: 'struct StorageTerms',
+        type: 'tuple',
+        components: [
+          { name: 'token', internalType: 'address', type: 'address' },
+          { name: 'tokenDecimals', internalType: 'uint8', type: 'uint8' },
+          { name: 'salt', internalType: 'bytes32', type: 'bytes32' },
+          {
+            name: 'pricePerTiBPerMonth',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+        ],
+      },
+    ],
+    name: 'registerStorageTerms',
+    outputs: [
+      { name: 'storageTermsId', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'storageTermsId',
+        internalType: 'bytes32',
+        type: 'bytes32',
+        indexed: true,
+      },
+    ],
+    name: 'StorageTermsDisabled',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'storageTermsId',
+        internalType: 'bytes32',
+        type: 'bytes32',
+        indexed: true,
+      },
+      {
+        name: 'terms',
+        internalType: 'struct StorageTerms',
+        type: 'tuple',
+        components: [
+          { name: 'token', internalType: 'address', type: 'address' },
+          { name: 'tokenDecimals', internalType: 'uint8', type: 'uint8' },
+          { name: 'salt', internalType: 'bytes32', type: 'bytes32' },
+          {
+            name: 'pricePerTiBPerMonth',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+        ],
+        indexed: false,
+      },
+    ],
+    name: 'StorageTermsRegistered',
+  },
+  { type: 'error', inputs: [], name: 'CannotDisableLegacyStorageTerms' },
+  {
+    type: 'error',
+    inputs: [{ name: 'tokenDecimals', internalType: 'uint8', type: 'uint8' }],
+    name: 'InvalidTokenDecimals',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'pricePerTiBPerMonth', internalType: 'uint96', type: 'uint96' },
+      {
+        name: 'minimumPricePerTiBPerMonth',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'PriceBelowMinimum',
+  },
+  {
+    type: 'function',
     inputs: [],
     name: 'viewContractAddress',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
@@ -3236,6 +3456,47 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'function',
+    inputs: [
+      { name: 'client', internalType: 'address', type: 'address' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getClientDataSetsV2',
+    outputs: [
+      {
+        name: 'infos',
+        internalType: 'struct DataSetInfoViewV2[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+          { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cacheMissRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cdnRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'payer', internalType: 'address', type: 'address' },
+          { name: 'payee', internalType: 'address', type: 'address' },
+          { name: 'serviceProvider', internalType: 'address', type: 'address' },
+          { name: 'commissionBps', internalType: 'uint256', type: 'uint256' },
+          { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+          { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+          { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'pendingOneTimePayments',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          {
+            name: 'lifecycleReserveBalance',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          { name: 'storageTermsId', internalType: 'bytes32', type: 'bytes32' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [],
     name: 'getCurrentPricingRates',
     outputs: [
@@ -3323,6 +3584,43 @@ export const filecoinWarmStorageServiceAbi = [
     name: 'getDataSetStatus',
     outputs: [
       { name: 'status', internalType: 'enum DataSetStatus', type: 'uint8' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetV2',
+    outputs: [
+      {
+        name: 'info',
+        internalType: 'struct DataSetInfoViewV2',
+        type: 'tuple',
+        components: [
+          { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+          { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cacheMissRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'cdnRailId', internalType: 'uint256', type: 'uint256' },
+          { name: 'payer', internalType: 'address', type: 'address' },
+          { name: 'payee', internalType: 'address', type: 'address' },
+          { name: 'serviceProvider', internalType: 'address', type: 'address' },
+          { name: 'commissionBps', internalType: 'uint256', type: 'uint256' },
+          { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+          { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+          { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'pendingOneTimePayments',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          {
+            name: 'lifecycleReserveBalance',
+            internalType: 'uint96',
+            type: 'uint96',
+          },
+          { name: 'storageTermsId', internalType: 'bytes32', type: 'bytes32' },
+        ],
+      },
     ],
     stateMutability: 'view',
   },
