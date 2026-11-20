@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.11.1...synapse-core-v0.11.2) (2026-11-20)
+
+
+### Chores
+
+* **deps:** bump minor and patch dependencies ([#1155](https://github.com/FilOzone/synapse-sdk/issues/1155)) ([63f145e](https://github.com/FilOzone/synapse-sdk/commit/63f145ea9bbb316093bc7fed6669de9f9bc64bc9))
+* **synapse-core:** update filecoin-services ref to v1.6.0 ([#1153](https://github.com/FilOzone/synapse-sdk/issues/1153)) ([5cbd3fd](https://github.com/FilOzone/synapse-sdk/commit/5cbd3fde531bb100091fdc813a4d7663afba215e))
+
 ## [0.11.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.11.0...synapse-core-v0.11.1) (2026-11-17)
 
 
