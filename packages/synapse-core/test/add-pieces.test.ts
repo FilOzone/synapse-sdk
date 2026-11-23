@@ -2,20 +2,12 @@ import assert from 'assert'
 import { AddPiecesBatchTooLargeError, InvalidUploadSizeError } from '../src/errors/pdp.ts'
 import { AtLeastOnePieceRequiredError } from '../src/errors/warm-storage.ts'
 import * as Piece from '../src/piece/index.ts'
-import * as Digest from '../src/piece/internal/digest.ts'
-import { PieceCID } from '../src/piece/piece-cid.ts'
 import { addPiecesFits, assertAddPiecesFit } from '../src/utils/add-pieces-fits.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
+import { pieceCidWithRawSize } from './utils/piece-cid.ts'
 
 const pieceCid = Piece.from('bafkzcibcaabffs4jcd4iheeo5wisbmurjb7l4xgpmzgyzrenebvjjhsbwgx4smy')
 const tooSmallPieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
-
-function pieceCidWithRawSize(rawSize: number): PieceCID {
-  const height = Piece.heightFor(rawSize < Piece.MIN_SIZE ? Piece.MIN_SIZE : rawSize)
-  const root = new Uint8Array(32)
-  const probe = PieceCID._fromDigest(Digest.fromFields({ padding: 0n, height, root }))
-  return PieceCID._fromDigest(Digest.fromFields({ padding: BigInt(probe.size - rawSize), height, root }))
-}
 
 const maxMetadata = {
   aaa: 'x'.repeat(96),
@@ -76,13 +68,13 @@ describe('assertAddPiecesFit', () => {
     const atMax = pieceCidWithRawSize(SIZE_CONSTANTS.MAX_UPLOAD_SIZE)
     assert.equal(atMax.size, SIZE_CONSTANTS.MAX_UPLOAD_SIZE)
     assert.equal(atMax.paddedSize, 64n * SIZE_CONSTANTS.GiB)
-    assert.equal(Piece.paddedSizeFor(SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1), 128n * SIZE_CONSTANTS.GiB)
     assert.doesNotThrow(() => assertAddPiecesFit({ kind: 'addPieces', pieces: [{ pieceCid: atMax }] }))
   })
 
   it('should throw when a PieceCID is above MAX_UPLOAD_SIZE', () => {
     const tooLarge = pieceCidWithRawSize(SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1)
     assert.equal(tooLarge.size, SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1)
+    assert.equal(tooLarge.paddedSize, 128n * SIZE_CONSTANTS.GiB)
     assert.throws(
       () => assertAddPiecesFit({ kind: 'addPieces', pieces: [{ pieceCid: tooLarge }] }),
       InvalidUploadSizeError
