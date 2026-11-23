@@ -24,7 +24,7 @@ FOC offers three ways to retrieve a piece. They share the same PieceCID and can 
 
 | Path | Source | Latency | When to use |
 | ----- | ------- | ------- | ----------- |
-| **Direct SP `/piece` retrieval** | Storage provider `/piece` HTTP API | Seconds | Default. No extra setup or egress charges. |
+| **Direct SP `/public` retrieval** | Storage provider `/public` HTTP API | Seconds | Default. No extra setup or egress charges. |
 | **FilBeam (CDN) `/piece` retrieval** | Filecoin Beam cache, backed by SPs | Milliseconds | Hot data, frequent reads, latency-sensitive apps. |
 | **IPFS retrieval** | Storage provider `/ipfs` HTTP API, with potential IPFS HTTP gateway as an intermediary | Varies | IPFS-native applications and gateways. |
 
@@ -107,7 +107,7 @@ This path lets IPFS-native apps treat FOC as a durable, verifiable backing store
 The Synapse SDK exposes direct SP and FilBeam retrieval through a single `download` method. You pass a PieceCID and the SDK handles discovery and validation:
 
 1. It queries your on-chain data sets to find which providers store pieces for your account.
-2. It probes those providers in parallel with `HEAD /piece/{pieceCid}` and picks the first one that responds.
+2. It probes those providers in parallel with `HEAD /public/{pieceCid}` and picks the first one that responds.
 3. It downloads from that provider and validates the bytes against the PieceCID.
 
 Setting `withCDN` races a FilBeam lookup alongside the provider probes, so whichever path responds first wins.

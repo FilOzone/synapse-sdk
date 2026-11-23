@@ -66,12 +66,12 @@ export namespace createPieceUrlPDP {
  * ```ts
  * const cid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
  * const pieceUrl = createPieceUrlPDP({ cid, serviceURL: 'https://pdp.example.com' })
- * console.log(pieceUrl) // https://pdp.example.com/piece/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy
+ * console.log(pieceUrl) // https://pdp.example.com/public/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy
  * ```
  */
 export function createPieceUrlPDP(options: createPieceUrlPDP.OptionsType) {
   const { cid, serviceURL } = options
-  return serviceURLJoin(`piece/${cid}`, serviceURL).toString()
+  return serviceURLJoin(`public/${cid}`, serviceURL).toString()
 }
 
 export namespace createPieceUrlFilBeam {

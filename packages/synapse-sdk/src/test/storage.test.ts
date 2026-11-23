@@ -1076,10 +1076,10 @@ describe('StorageService', () => {
             status: 404,
           })
         }),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           return new HttpResponse(null, { status: 200 })
         }),
-        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.get('https://pdp.example.com/public/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
@@ -1100,10 +1100,10 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
         }),
         Mocks.PING(),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           return new HttpResponse(null, { status: 200 })
         }),
-        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.get('https://pdp.example.com/public/:pieceCid', async () => {
           return HttpResponse.error()
         })
       )
@@ -1128,10 +1128,10 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
         }),
         Mocks.PING(),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           return new HttpResponse(null, { status: 200 })
         }),
-        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.get('https://pdp.example.com/public/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
@@ -1157,11 +1157,11 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
         }),
         Mocks.PING(),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           onHead?.()
           return new HttpResponse(null, { status: 200 })
         }),
-        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.get('https://pdp.example.com/public/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(body.buffer)
         })
       )
@@ -1204,7 +1204,7 @@ describe('StorageService', () => {
       const controller = new AbortController()
       const service = await createContext(testData)
       server.use(
-        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.get('https://pdp.example.com/public/:pieceCid', async () => {
           controller.abort()
           await new Promise((resolve) => setTimeout(resolve, 100))
           return HttpResponse.arrayBuffer(testData.buffer)
@@ -1967,7 +1967,7 @@ describe('StorageService', () => {
         }) as unknown as StorageContext
       const primary = {
         provider: { id: 1n },
-        getPieceUrl: () => 'https://pdp.example.com/piece',
+        getPieceUrl: () => 'https://pdp.example.com/public',
       } as unknown as StorageContext
       return { counts, makeSecondary, primary }
     }
@@ -1988,7 +1988,7 @@ describe('StorageService', () => {
         provider: provider(1n),
         store: async () => ({ pieceCid, size: 127 }),
         commit: async () => committed,
-        getPieceUrl: () => 'https://sp1.example.com/piece',
+        getPieceUrl: () => 'https://sp1.example.com/public',
       } as unknown as StorageContext
       const secondary = {
         provider: provider(2n),
@@ -2004,7 +2004,7 @@ describe('StorageService', () => {
           calls.commit.push(options)
           return committed
         },
-        getPieceUrl: () => 'https://sp2.example.com/piece',
+        getPieceUrl: () => 'https://sp2.example.com/public',
       } as unknown as StorageContext
       const storage = synapse.storage as any
       storage._resolveUploadContexts = async () => ({ contexts: [primary, secondary], explicitProviders: true })
@@ -2346,7 +2346,7 @@ describe('StorageService', () => {
       const status = await service.pieceStatus({ pieceCid: mockPieceCID })
 
       assert.isNotNull(status)
-      assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
+      assert.equal(status.retrievalUrl, `https://pdp.example.com/public/${mockPieceCID}`)
       assert.isNotNull(status.dataSetLastProven)
       assert.isNotNull(status.dataSetNextProofDue)
       assert.isFalse(status.inChallengeWindow)
@@ -2426,7 +2426,7 @@ describe('StorageService', () => {
 
       assert.isNotNull(status)
       // Should not have double slash
-      assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
+      assert.equal(status.retrievalUrl, `https://pdp.example.com/public/${mockPieceCID}`)
       // Check that the URL doesn't contain double slashes after the protocol
       const urlWithoutProtocol = (status.retrievalUrl ?? '').substring(8) // Remove 'https://'
       assert.notInclude(urlWithoutProtocol, '//')

@@ -58,13 +58,13 @@ describe('Piece download and validation', () => {
       const pieceCid = await Piece.calculate(testData)
 
       server.use(
-        http.get('http://pdp.local/piece/:pieceCid', () => {
+        http.get('http://pdp.local/public/:pieceCid', () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
 
       const result = await downloadAndValidate({
-        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        url: `http://pdp.local/public/${pieceCid.toString()}`,
         expectedPieceCid: pieceCid,
       })
       assert.deepEqual(result, testData)
@@ -75,7 +75,7 @@ describe('Piece download and validation', () => {
       const pieceCid = await Piece.calculate(testData)
 
       server.use(
-        http.get('http://pdp.local/piece/:pieceCid', () => {
+        http.get('http://pdp.local/public/:pieceCid', () => {
           return HttpResponse.text('Not Found', {
             status: 404,
           })
@@ -84,7 +84,7 @@ describe('Piece download and validation', () => {
 
       try {
         await downloadAndValidate({
-          url: `http://pdp.local/piece/${pieceCid.toString()}`,
+          url: `http://pdp.local/public/${pieceCid.toString()}`,
           expectedPieceCid: pieceCid,
         })
         assert.fail('Should have thrown error')
@@ -105,7 +105,7 @@ describe('Piece download and validation', () => {
       const pieceCid = await Piece.calculate(testData)
 
       server.use(
-        http.get('http://pdp.local/piece/:pieceCid', () => {
+        http.get('http://pdp.local/public/:pieceCid', () => {
           return HttpResponse.text('Internal Server Error', {
             status: 500,
           })
@@ -114,7 +114,7 @@ describe('Piece download and validation', () => {
 
       try {
         await downloadAndValidate({
-          url: `http://pdp.local/piece/${pieceCid.toString()}`,
+          url: `http://pdp.local/public/${pieceCid.toString()}`,
           expectedPieceCid: pieceCid,
         })
         assert.fail('Should have thrown error')
@@ -131,11 +131,11 @@ describe('Piece download and validation', () => {
 
     it('should fall back to the status when an HTTP error has no body', async () => {
       const pieceCid = await Piece.calculate(new Uint8Array([1, 2, 3, 4]))
-      server.use(http.get('http://pdp.local/piece/:pieceCid', () => new HttpResponse(null, { status: 503 })))
+      server.use(http.get('http://pdp.local/public/:pieceCid', () => new HttpResponse(null, { status: 503 })))
 
       await rejects(
         downloadAndValidate({
-          url: `http://pdp.local/piece/${pieceCid.toString()}`,
+          url: `http://pdp.local/public/${pieceCid.toString()}`,
           expectedPieceCid: pieceCid,
           retryCount: 0,
         }),
@@ -153,14 +153,14 @@ describe('Piece download and validation', () => {
       const wrongData = new Uint8Array([9, 9, 9, 9]) // Different data
 
       server.use(
-        http.get('http://pdp.local/piece/:pieceCid', () => {
+        http.get('http://pdp.local/public/:pieceCid', () => {
           return HttpResponse.arrayBuffer(wrongData.buffer)
         })
       )
 
       try {
         await downloadAndValidate({
-          url: `http://pdp.local/piece/${pieceCid.toString()}`,
+          url: `http://pdp.local/public/${pieceCid.toString()}`,
           expectedPieceCid: pieceCid,
         })
         assert.fail('Should have thrown error')
@@ -179,14 +179,14 @@ describe('Piece download and validation', () => {
       const pieceCid = await Piece.calculate(testData)
 
       server.use(
-        http.get('http://pdp.local/piece/:pieceCid', () => {
+        http.get('http://pdp.local/public/:pieceCid', () => {
           return new HttpResponse()
         })
       )
 
       try {
         await downloadAndValidate({
-          url: `http://pdp.local/piece/${pieceCid.toString()}`,
+          url: `http://pdp.local/public/${pieceCid.toString()}`,
           expectedPieceCid: pieceCid,
         })
         assert.fail('Should have thrown error')
@@ -204,7 +204,7 @@ describe('Piece download and validation', () => {
       const pieceCid = await Piece.calculate(testData)
 
       server.use(
-        http.get('http://pdp.local/piece/:pieceCid', () => {
+        http.get('http://pdp.local/public/:pieceCid', () => {
           // Split test data into chunks
           const chunk1 = testData.slice(0, 4)
           const chunk2 = testData.slice(4)
@@ -226,7 +226,7 @@ describe('Piece download and validation', () => {
       )
 
       const result = await downloadAndValidate({
-        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        url: `http://pdp.local/public/${pieceCid.toString()}`,
         expectedPieceCid: pieceCid,
       })
       // Verify we got all the data correctly reassembled
@@ -242,7 +242,7 @@ describe('Piece download and validation', () => {
       const pieceCid = await Piece.calculate(testData)
 
       server.use(
-        http.get('http://pdp.local/piece/:pieceCid', () => {
+        http.get('http://pdp.local/public/:pieceCid', () => {
           // Create readable stream that emits in 128-byte chunks
           const chunkSize = 128
           let offset = 0
@@ -263,7 +263,7 @@ describe('Piece download and validation', () => {
       )
 
       const result = await downloadAndValidate({
-        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        url: `http://pdp.local/public/${pieceCid.toString()}`,
         expectedPieceCid: pieceCid,
       })
       assert.deepEqual(result, testData)
@@ -308,10 +308,10 @@ describe('Piece download and validation', () => {
 
     it('should stream chunks and close when the PieceCID matches', async () => {
       const pieceCid = await Piece.calculate(testData)
-      server.use(http.get('http://pdp.local/piece/:pieceCid', () => chunkedResponse(testData, 128)))
+      server.use(http.get('http://pdp.local/public/:pieceCid', () => chunkedResponse(testData, 128)))
 
       const stream = await downloadStream({
-        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        url: `http://pdp.local/public/${pieceCid.toString()}`,
         expectedPieceCid: pieceCid,
       })
       const { chunks, bytes } = await readAll(stream)
@@ -322,10 +322,10 @@ describe('Piece download and validation', () => {
     it('should deliver all chunks then error when the PieceCID does not match', async () => {
       const pieceCid = await Piece.calculate(testData)
       const wrongData = testData.map((b) => b ^ 0xff)
-      server.use(http.get('http://pdp.local/piece/:pieceCid', () => chunkedResponse(wrongData, 128)))
+      server.use(http.get('http://pdp.local/public/:pieceCid', () => chunkedResponse(wrongData, 128)))
 
       const stream = await downloadStream({
-        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        url: `http://pdp.local/public/${pieceCid.toString()}`,
         expectedPieceCid: pieceCid,
       })
       let received = 0
@@ -345,7 +345,7 @@ describe('Piece download and validation', () => {
       const pieceCid = await Piece.calculate(testData)
       server.use(
         http.get(
-          'http://pdp.local/piece/:pieceCid',
+          'http://pdp.local/public/:pieceCid',
           () =>
             new HttpResponse(
               new ReadableStream({
@@ -359,7 +359,7 @@ describe('Piece download and validation', () => {
       )
 
       const stream = await downloadStream({
-        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        url: `http://pdp.local/public/${pieceCid.toString()}`,
         expectedPieceCid: pieceCid,
       })
       await rejects(
@@ -375,7 +375,7 @@ describe('Piece download and validation', () => {
       let pulled = 0
       server.use(
         http.get(
-          'http://pdp.local/piece/:pieceCid',
+          'http://pdp.local/public/:pieceCid',
           () =>
             new HttpResponse(
               new ReadableStream<Uint8Array>({
@@ -390,7 +390,7 @@ describe('Piece download and validation', () => {
       )
 
       const stream = await downloadStream({
-        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        url: `http://pdp.local/public/${pieceCid.toString()}`,
         expectedPieceCid: pieceCid,
       })
       let received = 0
@@ -409,10 +409,10 @@ describe('Piece download and validation', () => {
 
     it('should pass through a body that ends exactly at the PieceCID size', async () => {
       const pieceCid = await Piece.calculate(testData)
-      server.use(http.get('http://pdp.local/piece/:pieceCid', () => chunkedResponse(testData, 1000)))
+      server.use(http.get('http://pdp.local/public/:pieceCid', () => chunkedResponse(testData, 1000)))
 
       const stream = await downloadStream({
-        url: `http://pdp.local/piece/${pieceCid.toString()}`,
+        url: `http://pdp.local/public/${pieceCid.toString()}`,
         expectedPieceCid: pieceCid,
       })
       const { bytes } = await readAll(stream)
@@ -421,25 +421,25 @@ describe('Piece download and validation', () => {
 
     it('should not validate or require a PieceCID when validate is false', async () => {
       const wrongData = new Uint8Array([9, 9, 9, 9])
-      server.use(http.get('http://pdp.local/piece/:pieceCid', () => HttpResponse.arrayBuffer(wrongData.buffer)))
+      server.use(http.get('http://pdp.local/public/:pieceCid', () => HttpResponse.arrayBuffer(wrongData.buffer)))
 
-      const stream = await downloadStream({ url: 'http://pdp.local/piece/anything', validate: false })
+      const stream = await downloadStream({ url: 'http://pdp.local/public/anything', validate: false })
       const { bytes } = await readAll(stream)
       assert.deepEqual(bytes, wrongData)
     })
 
     it('should reject before streaming on HTTP errors', async () => {
       const pieceCid = await Piece.calculate(testData)
-      server.use(http.get('http://pdp.local/piece/:pieceCid', () => HttpResponse.text('Not Found', { status: 404 })))
+      server.use(http.get('http://pdp.local/public/:pieceCid', () => HttpResponse.text('Not Found', { status: 404 })))
 
       await rejects(
-        downloadStream({ url: `http://pdp.local/piece/${pieceCid.toString()}`, expectedPieceCid: pieceCid }),
+        downloadStream({ url: `http://pdp.local/public/${pieceCid.toString()}`, expectedPieceCid: pieceCid }),
         (error) => error instanceof DownloadPieceError && error.reason === 'http' && error.notFound
       )
     })
 
     it('should reject on an invalid expected PieceCID', async () => {
-      await rejects(downloadStream({ url: 'http://pdp.local/piece/x', expectedPieceCid: 'not-a-cid' }), {
+      await rejects(downloadStream({ url: 'http://pdp.local/public/x', expectedPieceCid: 'not-a-cid' }), {
         name: 'InvalidPieceCIDError',
       })
     })

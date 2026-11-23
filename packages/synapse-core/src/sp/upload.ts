@@ -52,6 +52,8 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
   const response = await request.post(serviceURLJoin(`pdp/piece`, options.serviceURL), {
     json: {
       pieceCid: pieceCid.toString(),
+      // Curio places a public piece in open-pieces on arrival, so /public serves it before commit.
+      read: 'public',
     },
     retry: {
       methods: ['post'],

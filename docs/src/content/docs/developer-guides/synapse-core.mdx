@@ -311,11 +311,11 @@ const publicClient = createPublicClient({ chain: calibration, transport: http() 
 const provider = await getPDPProvider(publicClient, { providerId: 1n })
 if (!provider) throw new Error('Provider not found.')
 // ---cut---
-import { downloadAndValidate } from "@filoz/synapse-core/piece"
+import { createPieceUrlPDP, downloadAndValidate } from "@filoz/synapse-core/piece"
 
 // Download a piece
 const data = await downloadAndValidate({
-  url: `${provider.pdp.serviceURL}/piece`,
+  url: createPieceUrlPDP({ serviceURL: provider.pdp.serviceURL, cid: "bafkzcib..." }),
   expectedPieceCid: "bafkzcib...",
 })
 console.log(data) // Uint8Array — downloaded piece data
@@ -330,7 +330,7 @@ const writable = null as unknown as WritableStream<Uint8Array>
 import { downloadStream } from "@filoz/synapse-core/piece"
 
 const stream = await downloadStream({
-  url: "https://provider.example.com/piece/bafkzcib...",
+  url: "https://provider.example.com/public/bafkzcib...",
   expectedPieceCid: "bafkzcib...",
 })
 await stream.pipeTo(writable) // Rejects if the PieceCID doesn't match
@@ -423,13 +423,14 @@ if (!secondaryProvider) throw Error('not found')
 if (!primaryProvider) throw Error('not found')
 const pieceCid = "bafkzcib..." as any;
 // ---cut---
+import { createPieceUrlPDP } from "@filoz/synapse-core/piece"
 import * as SP from "@filoz/synapse-core/sp"
 
 const response = await SP.waitForPullPieces(walletClient, {
   serviceURL: secondaryProvider.pdp.serviceURL,
   pieces: [{
     pieceCid,
-    sourceUrl: `${primaryProvider.pdp.serviceURL}/pdp/piece/${pieceCid}`,
+    sourceUrl: createPieceUrlPDP({ serviceURL: primaryProvider.pdp.serviceURL, cid: pieceCid.toString() }),
   }],
   payee: secondaryProvider.payee,
   payer: account.address,

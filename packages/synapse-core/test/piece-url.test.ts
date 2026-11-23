@@ -34,7 +34,7 @@ describe('createPieceUrl', () => {
         chain: devnet,
         serviceURL: testPdpUrl,
       })
-      assert.strictEqual(result, `${testPdpUrl}piece/${testCid}`)
+      assert.strictEqual(result, `${testPdpUrl}public/${testCid}`)
     })
   })
 
@@ -47,7 +47,7 @@ describe('createPieceUrl', () => {
         chain: mainnet,
         serviceURL: testPdpUrl,
       })
-      const expected = `${testPdpUrl}piece/${testCid}`
+      const expected = `${testPdpUrl}public/${testCid}`
       assert.strictEqual(result, expected)
     })
   })
@@ -60,18 +60,18 @@ describe('createPieceUrlPDP', () => {
     const result = createPieceUrlPDP({ cid, serviceURL: pdpUrl })
     assert.strictEqual(
       result,
-      'https://sp.example.com/pdp/piece/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      'https://sp.example.com/pdp/public/bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
     )
   })
   it('should keep the serviceURL path when it has no trailing slash', () => {
     const cid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
     assert.strictEqual(
       createPieceUrlPDP({ cid, serviceURL: 'https://sp.example.com/curio' }),
-      `https://sp.example.com/curio/piece/${cid}`
+      `https://sp.example.com/curio/public/${cid}`
     )
     assert.strictEqual(
       createPieceUrlPDP({ cid, serviceURL: 'https://sp.example.com' }),
-      `https://sp.example.com/piece/${cid}`
+      `https://sp.example.com/public/${cid}`
     )
   })
 })

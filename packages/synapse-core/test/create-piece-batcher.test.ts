@@ -99,7 +99,7 @@ function createDataSet(): PdpDataSet {
 const pullCids = Array.from({ length: 5 }, (_, index) => pieceCidWithRawSize(200 + index))
 
 function pullSource(pieceCid: PieceCID): string {
-  return `${pdpBase}/piece/${pieceCid.toString()}`
+  return `${pdpBase}/public/${pieceCid.toString()}`
 }
 
 function parkHandlers() {
@@ -419,7 +419,7 @@ describe('createPieceBatcher', () => {
     const uploadedP = batcher.upload({ data: new Uint8Array(127).fill(1), pieceCid: pieceCidA })
     const pulledP = batcher.pull({
       pieceCid: pieceCidB,
-      sourceUrl: `${pdpBase}/piece/${pieceCidB.toString()}`,
+      sourceUrl: `${pdpBase}/public/${pieceCidB.toString()}`,
     })
     await batcher.close()
     const [uploaded, pulled] = await Promise.all([uploadedP, pulledP])
@@ -465,7 +465,7 @@ describe('createPieceBatcher', () => {
     })
     const pulledP = batcher.pull({
       pieceCid: pieceCidB,
-      sourceUrl: `${pdpBase}/piece/${pieceCidB.toString()}`,
+      sourceUrl: `${pdpBase}/public/${pieceCidB.toString()}`,
     })
     await batcher.close()
     await pulledP
@@ -519,7 +519,7 @@ describe('createPieceBatcher', () => {
     })
     const pulledP = batcher.pull({
       pieceCid: pieceCidB,
-      sourceUrl: `${pdpBase}/piece/${pieceCidB.toString()}`,
+      sourceUrl: `${pdpBase}/public/${pieceCidB.toString()}`,
       metadata: { name: 'b' },
       onParked: onParked('pull'),
     })
@@ -638,7 +638,7 @@ describe('createPieceBatcher', () => {
     await assert.rejects(() => batcher.enqueue({ pieceCid: tooSmallPieceCid }), InvalidUploadSizeError)
     await assert.rejects(() => batcher.enqueue({ pieceCid: tooLarge }), InvalidUploadSizeError)
     await assert.rejects(
-      () => batcher.pull({ pieceCid: tooSmallPieceCid, sourceUrl: `${pdpBase}/piece/${tooSmallPieceCid.toString()}` }),
+      () => batcher.pull({ pieceCid: tooSmallPieceCid, sourceUrl: `${pdpBase}/public/${tooSmallPieceCid.toString()}` }),
       InvalidUploadSizeError
     )
     await assert.rejects(
