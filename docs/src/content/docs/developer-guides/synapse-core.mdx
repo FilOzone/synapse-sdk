@@ -311,11 +311,11 @@ const publicClient = createPublicClient({ chain: calibration, transport: http() 
 const provider = await getPDPProvider(publicClient, { providerId: 1n })
 if (!provider) throw new Error('Provider not found.')
 // ---cut---
-import { downloadAndValidate } from "@filoz/synapse-core/piece"
+import { createPieceUrlPDP, downloadAndValidate } from "@filoz/synapse-core/piece"
 
 // Download a piece
 const data = await downloadAndValidate({
-  url: `${provider.pdp.serviceURL}/public/bafkzcib...`,
+  url: createPieceUrlPDP({ serviceURL: provider.pdp.serviceURL, cid: "bafkzcib..." }),
   expectedPieceCid: "bafkzcib...",
 })
 console.log(data) // Uint8Array — downloaded piece data
@@ -423,13 +423,14 @@ if (!secondaryProvider) throw Error('not found')
 if (!primaryProvider) throw Error('not found')
 const pieceCid = "bafkzcib..." as any;
 // ---cut---
+import { createPieceUrlPDP } from "@filoz/synapse-core/piece"
 import * as SP from "@filoz/synapse-core/sp"
 
 const response = await SP.waitForPullPieces(walletClient, {
   serviceURL: secondaryProvider.pdp.serviceURL,
   pieces: [{
     pieceCid,
-    sourceUrl: `${primaryProvider.pdp.serviceURL}/pdp/piece/${pieceCid}`,
+    sourceUrl: createPieceUrlPDP({ serviceURL: primaryProvider.pdp.serviceURL, cid: pieceCid.toString() }),
   }],
   payee: secondaryProvider.payee,
   payer: account.address,
