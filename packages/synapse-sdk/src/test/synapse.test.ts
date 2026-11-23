@@ -199,10 +199,10 @@ describe('Synapse', () => {
       const testData = new TextEncoder().encode('test data')
       server.use(
         Mocks.JSONRPC(Mocks.presets.basic),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           return new HttpResponse(null, { status: 200 })
         }),
-        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.get('https://pdp.example.com/public/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
@@ -230,10 +230,10 @@ describe('Synapse', () => {
           deferred.resolve(params)
           return HttpResponse.arrayBuffer(testData.buffer)
         }),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           return new HttpResponse(null, { status: 200 })
         }),
-        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.get('https://pdp.example.com/public/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
@@ -276,10 +276,10 @@ describe('Synapse', () => {
             },
           },
         }),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           return new HttpResponse(null, { status: 200 })
         }),
-        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.get('https://pdp.example.com/public/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
@@ -298,7 +298,7 @@ describe('Synapse', () => {
     it('should handle download errors', async () => {
       server.use(
         Mocks.JSONRPC(Mocks.presets.basic),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           return HttpResponse.error()
         })
       )
@@ -329,10 +329,10 @@ describe('Synapse', () => {
     function servePiece(body: Uint8Array) {
       server.use(
         Mocks.JSONRPC(Mocks.presets.basic),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           return new HttpResponse(null, { status: 200 })
         }),
-        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.get('https://pdp.example.com/public/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(body.buffer)
         })
       )
@@ -371,7 +371,7 @@ describe('Synapse', () => {
       let headRequests = 0
       server.use(
         Mocks.JSONRPC(Mocks.presets.basic),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           headRequests++
           return new HttpResponse(null, { status: 200 })
         })
@@ -386,7 +386,7 @@ describe('Synapse', () => {
       const controller = new AbortController()
       server.use(
         Mocks.JSONRPC(Mocks.presets.basic),
-        http.head('https://pdp.example.com/piece/:pieceCid', async () => {
+        http.head('https://pdp.example.com/public/:pieceCid', async () => {
           controller.abort()
           return new HttpResponse(null, { status: 404 })
         })
