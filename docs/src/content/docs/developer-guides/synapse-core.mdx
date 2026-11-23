@@ -315,7 +315,7 @@ import { downloadAndValidate } from "@filoz/synapse-core/piece"
 
 // Download a piece
 const data = await downloadAndValidate({
-  url: `${provider.pdp.serviceURL}/piece`,
+  url: `${provider.pdp.serviceURL}/public/bafkzcib...`,
   expectedPieceCid: "bafkzcib...",
 })
 console.log(data) // Uint8Array — downloaded piece data
@@ -330,7 +330,7 @@ const writable = null as unknown as WritableStream<Uint8Array>
 import { downloadStream } from "@filoz/synapse-core/piece"
 
 const stream = await downloadStream({
-  url: "https://provider.example.com/piece/bafkzcib...",
+  url: "https://provider.example.com/public/bafkzcib...",
   expectedPieceCid: "bafkzcib...",
 })
 await stream.pipeTo(writable) // Rejects if the PieceCID doesn't match
