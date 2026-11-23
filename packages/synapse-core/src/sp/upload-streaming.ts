@@ -234,6 +234,8 @@ export async function uploadPieceStreaming(
   const finalizeResponse = await request.post(serviceURLJoin(`pdp/piece/uploads/${uploadUuid}`, options.serviceURL), {
     json: {
       pieceCid: pieceCid.toString(),
+      // Curio places a public piece in open-pieces on arrival, so /public serves it before commit.
+      read: 'public',
     },
     timeout: RETRY_CONSTANTS.TIMEOUT,
     retry: {

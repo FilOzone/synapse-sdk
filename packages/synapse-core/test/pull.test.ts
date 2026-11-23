@@ -34,7 +34,7 @@ describe('Pull', () => {
   const TEST_RECORD_KEEPER = '0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f' as const
   const TEST_EXTRA_DATA = '0x1234567890abcdef' as const
   const TEST_PIECE_CID = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-  const TEST_SOURCE_URL = `https://other-sp.example.com/piece/${TEST_PIECE_CID}`
+  const TEST_SOURCE_URL = `https://other-sp.example.com/public/${TEST_PIECE_CID}`
 
   const baseOptions = (): pullPiecesApiRequest.OptionsType => ({
     serviceURL: TEST_ENDPOINT,
@@ -201,7 +201,7 @@ describe('Pull', () => {
         ...baseOptions(),
         pieces: [
           { pieceCid: TEST_PIECE_CID, sourceUrl: TEST_SOURCE_URL },
-          { pieceCid: pieceCid2, sourceUrl: `https://other-sp.example.com/piece/${pieceCid2}` },
+          { pieceCid: pieceCid2, sourceUrl: `https://other-sp.example.com/public/${pieceCid2}` },
         ],
       })
 
@@ -256,7 +256,7 @@ describe('Pull', () => {
         ...baseOptions(),
         pieces: [
           { pieceCid: TEST_PIECE_CID, sourceUrl: TEST_SOURCE_URL },
-          { pieceCid: OTHER_PIECE_CID, sourceUrl: `https://other-sp.example.com/piece/${OTHER_PIECE_CID}` },
+          { pieceCid: OTHER_PIECE_CID, sourceUrl: `https://other-sp.example.com/public/${OTHER_PIECE_CID}` },
         ],
         pollInterval: 10,
       }
@@ -395,7 +395,7 @@ describe('Pull', () => {
 
   describe('input index and dedupe', () => {
     const PIECE_CID_2 = 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk'
-    const sourceUrl = (pieceCid: string, host = 'other-sp.example.com') => `https://${host}/piece/${pieceCid}`
+    const sourceUrl = (pieceCid: string, host = 'other-sp.example.com') => `https://${host}/public/${pieceCid}`
     const client = createWalletClient({
       account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
       chain: calibration,

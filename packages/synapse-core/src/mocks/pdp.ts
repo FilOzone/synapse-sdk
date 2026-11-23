@@ -75,25 +75,29 @@ export function findAnyPieceHandler(found: boolean, options: PDPMockOptions = {}
  */
 export function postPieceHandler(pieceCid: string, uuid?: string, options: PDPMockOptions = {}) {
   const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
-  return http.post<Record<string, never>, { pieceCid: string }>(`${baseUrl}/pdp/piece`, async ({ request }) => {
-    const body = await request.json()
-    assert(body != null, 'Body should be defined')
-    assert(body.pieceCid != null, 'PieceCID should be defined')
-    assert.strictEqual(body.pieceCid, pieceCid, 'PieceCID should match expected value')
-    if (uuid == null) {
-      // parked piece found
-      return HttpResponse.json({
-        pieceCid,
+  return http.post<Record<string, never>, { pieceCid: string; read?: string }>(
+    `${baseUrl}/pdp/piece`,
+    async ({ request }) => {
+      const body = await request.json()
+      assert(body != null, 'Body should be defined')
+      assert(body.pieceCid != null, 'PieceCID should be defined')
+      assert.strictEqual(body.pieceCid, pieceCid, 'PieceCID should match expected value')
+      assert.strictEqual(body.read, 'public', 'read should be public')
+      if (uuid == null) {
+        // parked piece found
+        return HttpResponse.json({
+          pieceCid,
+        })
+      }
+      // Piece does not exist, proceed to create a new upload request
+      return HttpResponse.text('Created', {
+        status: 201,
+        headers: {
+          Location: `/pdp/piece/upload/${uuid}`,
+        },
       })
     }
-    // Piece does not exist, proceed to create a new upload request
-    return HttpResponse.text('Created', {
-      status: 201,
-      headers: {
-        Location: `/pdp/piece/upload/${uuid}`,
-      },
-    })
-  })
+  )
 }
 
 export function uploadPieceHandler(uuid: string, options: PDPMockOptions = {}) {
@@ -143,10 +147,11 @@ export function uploadPieceStreamingHandler(uuid: string, options: PDPMockOption
  */
 export function finalizePieceUploadHandler(uuid: string, expectedPieceCid?: string, options: PDPMockOptions = {}) {
   const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
-  return http.post<{ uuid: string }, { pieceCid: string }>(
+  return http.post<{ uuid: string }, { pieceCid: string; read?: string }>(
     `${baseUrl}/pdp/piece/uploads/${uuid}`,
     async ({ request }) => {
       const body = await request.json()
+      assert.strictEqual(body.read, 'public', 'read should be public')
       if (expectedPieceCid != null) {
         assert.equal(body.pieceCid, expectedPieceCid, 'PieceCID should match expected value')
       }
@@ -191,15 +196,19 @@ export function streamingUploadHandlers(options: PDPMockOptions = {}) {
     }),
 
     // Step 3: Finalize with PieceCID
-    http.post<{ uuid: string }, { pieceCid: string }>(`${baseUrl}/pdp/piece/uploads/:uuid`, async ({ request }) => {
-      const body = await request.json()
-      return HttpResponse.json(
-        { pieceCid: body.pieceCid },
-        {
-          status: 200,
-        }
-      )
-    }),
+    http.post<{ uuid: string }, { pieceCid: string; read?: string }>(
+      `${baseUrl}/pdp/piece/uploads/:uuid`,
+      async ({ request }) => {
+        const body = await request.json()
+        assert.strictEqual(body.read, 'public', 'read should be public')
+        return HttpResponse.json(
+          { pieceCid: body.pieceCid },
+          {
+            status: 200,
+          }
+        )
+      }
+    ),
   ]
 }
 

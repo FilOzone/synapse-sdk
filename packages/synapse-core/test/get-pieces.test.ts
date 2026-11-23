@@ -111,7 +111,7 @@ describe('getPieces', () => {
         {
           cid: firstPieceCid,
           id: 0n,
-          url: `https://pdp.example.com/pdp/piece/${firstPieceCid.toString()}`,
+          url: `https://pdp.example.com/pdp/public/${firstPieceCid.toString()}`,
         },
       ],
     })
