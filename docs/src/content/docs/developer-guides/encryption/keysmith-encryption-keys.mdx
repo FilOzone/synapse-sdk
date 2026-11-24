@@ -216,9 +216,9 @@ By default, the wallet's signature alone derives the group key, so anyone who tr
 
 The cost is recovery: **if the password is lost, the group key and everything under it are lost**, and nothing can bring them back.
 
-- **When creating a group key,** ask the user to type the password twice and compare. Keysmith has nothing to check it against yet, so a typo would silently create the group key under the typo.
-- **When reopening a group key,** pass both `password` and the recorded `commitment`. Only the commitment can tell a wrong password from a right one: without it, a wrong password silently derives a different key that decrypts nothing.
-- An empty password, or one that isn't well-formed Unicode, is refused before the wallet prompts. Passwords are compared in Unicode NFC form, so the same text typed on different keyboards matches.
+* **When creating a group key,** ask the user to type the password twice and compare. Keysmith has nothing to check it against yet, so a typo would silently create the group key under the typo.
+* **When reopening a group key,** pass both `password` and the recorded `commitment`. Only the commitment can tell a wrong password from a right one: without it, a wrong password silently derives a different key that decrypts nothing.
+* An empty password, or one that isn't well-formed Unicode, is refused before the wallet prompts. Passwords are compared in Unicode NFC form, so the same text typed on different keyboards matches.
 
 ```ts twoslash
 // @lib: esnext,dom
