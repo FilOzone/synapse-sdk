@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.12.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.11.1...synapse-core-v0.12.0) (2026-11-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core:** these are no longer exported from `@filoz/synapse-core/piece`: `merkle` (`computeNode`, `truncate`, `zeroRoot`), `fr32` (`expand`, `reduce`), `paddedSizeFor`, `heightFor`, `paddedSizeAtHeight`, `MIN_SIZE`, `MAX_SIZE`, `MAX_HEIGHT` and `BYTES_PER_QUAD`.
+
+### Features
+
+* **core:** remove unused Piece merkle, fr32 and sizing exports ([#1163](https://github.com/FilOzone/synapse-sdk/issues/1163)) ([1c7fc53](https://github.com/FilOzone/synapse-sdk/commit/1c7fc53c873df847227586e27e0f248a68228869))
+* **core:** retrieve pieces from /public and send read: public on upload ([#1161](https://github.com/FilOzone/synapse-sdk/issues/1161)) ([60e4d2f](https://github.com/FilOzone/synapse-sdk/commit/60e4d2f8ae97b816b1159c55b46919d6e56c4dbe))
+
+
+### Bug Fixes
+
+* **core:** drop sync-multihash-sha2 and align piece size limits with commp-wasm ([#1152](https://github.com/FilOzone/synapse-sdk/issues/1152)) ([873945b](https://github.com/FilOzone/synapse-sdk/commit/873945b3a3a113c0829c7f08c7789f02afa3e063))
+
+
+### Chores
+
+* **deps:** bump minor and patch dependencies ([#1155](https://github.com/FilOzone/synapse-sdk/issues/1155)) ([63f145e](https://github.com/FilOzone/synapse-sdk/commit/63f145ea9bbb316093bc7fed6669de9f9bc64bc9))
+* **synapse-core:** update filecoin-services ref to v1.6.0 ([#1153](https://github.com/FilOzone/synapse-sdk/issues/1153)) ([5cbd3fd](https://github.com/FilOzone/synapse-sdk/commit/5cbd3fde531bb100091fdc813a4d7663afba215e))
+
 ## [0.11.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.11.0...synapse-core-v0.11.1) (2026-11-17)
 
 

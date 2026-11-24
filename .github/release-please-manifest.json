@@ -1,6 +1,6 @@
 {
   "packages/synapse-sdk": "3.0.1",
-  "packages/synapse-core": "0.11.1",
+  "packages/synapse-core": "0.12.0",
   "packages/synapse-react": "0.6.1",
   "packages/filecoin-encryption-envelope": "0.1.1",
   "packages/keysmith": "0.2.0"
