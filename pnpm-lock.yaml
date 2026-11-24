@@ -491,8 +491,8 @@ importers:
   packages/filecoin-encryption-envelope:
     dependencies:
       cborg:
-        specifier: 6.2.1
-        version: 6.2.1
+        specifier: 7.0.0
+        version: 7.0.0
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -3489,10 +3489,6 @@ packages:
 
   cborg@5.1.11:
     resolution: {integrity: sha512-oc6Pzg/gkTobxHZNgMmny+G99dOeBMbAmnGHcZWMKtolxZBIVwfi0Pj0khxEtNU8HMFdbT5sK0HmtgecDUPP0A==}
-    hasBin: true
-
-  cborg@6.2.1:
-    resolution: {integrity: sha512-DwiF3Jd5RW6kJuTQMzQb/sdZD03utp15EcQNOMTvE/ZYCdDPzETsGOY5lj8imKxbsEuYvOzcMSiKLiT4C2/2Lw==}
     hasBin: true
 
   cborg@7.0.0:
@@ -9122,8 +9118,6 @@ snapshots:
   camelcase@9.0.0: {}
 
   cborg@5.1.11: {}
-
-  cborg@6.2.1: {}
 
   cborg@7.0.0: {}
 

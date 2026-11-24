@@ -14,6 +14,7 @@ import {
   hexToBytes,
   MINIMAL_ENVELOPE_TAG16_HEX,
   MINIMAL_PROTECTED_HEADER_HEX,
+  rfc8949AllowDuplicateKeysOptions,
   toNullProto,
   utf8Bytes,
 } from './cose-fixtures.ts'
@@ -61,7 +62,7 @@ function envelopeWithRawRecipient(
       null,
       [[recipientProtected, recipientUnprotected, ciphertext]],
     ]),
-    rfc8949EncodeOptions
+    rfc8949AllowDuplicateKeysOptions
   )
 }
 
@@ -80,7 +81,7 @@ describe('COSE_recipient structural validation', () => {
         [1, -31],
         [100, byteStringDuplicateMap()],
       ]),
-      rfc8949EncodeOptions
+      rfc8949AllowDuplicateKeysOptions
     )
     assert.throws(() => decodeEnvelope(envelopeWithRawRecipient(recipientProtected, new Map())), MalformedEnvelopeError)
   })
@@ -473,7 +474,7 @@ describe('decodeEnvelope', () => {
           new Map([[100, byteStringDuplicateMap()]]),
           null,
         ]),
-        rfc8949EncodeOptions
+        rfc8949AllowDuplicateKeysOptions
       )
       assert.throws(() => decodeEnvelope(bytes), MalformedEnvelopeError)
     })
@@ -486,7 +487,7 @@ describe('decodeEnvelope', () => {
           [16, ENVELOPE_TYPE],
           [100, byteStringDuplicateMap()],
         ]),
-        rfc8949EncodeOptions
+        rfc8949AllowDuplicateKeysOptions
       )
       const bytes = cborEncode(new Tagged(TAG_ENCRYPT0, [protectedBytes, new Map(), null]), rfc8949EncodeOptions)
       assert.throws(() => decodeEnvelope(bytes), MalformedEnvelopeError)

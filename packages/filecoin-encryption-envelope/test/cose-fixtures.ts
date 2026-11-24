@@ -5,6 +5,28 @@
  * package's own encoder.
  */
 
+import { type EncodeOptions, rfc8949EncodeOptions } from 'cborg'
+
+const rfc8949MapSorter = rfc8949EncodeOptions.mapSorter as NonNullable<EncodeOptions['mapSorter']>
+
+/**
+ * `rfc8949EncodeOptions`, except map keys that encode to equal bytes are kept
+ * (in insertion order) instead of throwing. Since cborg 7 the encoder refuses
+ * to emit duplicate map keys, but the decode tests need exactly those
+ * malformed bytes on the wire to prove the decoder rejects them.
+ */
+export const rfc8949AllowDuplicateKeysOptions: EncodeOptions = {
+  ...rfc8949EncodeOptions,
+  mapSorter: (e1, e2, options) => {
+    try {
+      return rfc8949MapSorter(e1, e2, options)
+    } catch (error) {
+      if (error instanceof Error && error.message.endsWith('duplicate map key')) return 0
+      throw error
+    }
+  },
+}
+
 /** Decode a hex string (no separators, even length) into bytes. */
 export function hexToBytes(hex: string): Uint8Array {
   const pairs = hex.match(/.{2}/g) ?? []
