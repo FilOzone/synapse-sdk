@@ -19,8 +19,8 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "knip": "6.45.1",
-    "markdownlint-cli2": "0.23.3",
-    "pkg-pr-new": "0.0.93",
+    "markdownlint-cli2": "0.24.1",
+    "pkg-pr-new": "0.0.94",
     "turbo": "2.11.11",
     "typescript": "catalog:"
   },
@@ -30,7 +30,7 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@12.20.0",
+  "packageManager": "pnpm@12.21.0",
   "devEngines": {
     "runtime": {
       "name": "node",
