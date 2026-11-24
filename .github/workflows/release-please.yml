@@ -38,6 +38,9 @@ jobs:
       contains(fromJson(needs.release.outputs.paths_released), 'packages/keysmith') ||
       contains(fromJson(needs.release.outputs.paths_released), 'packages/filecoin-encryption-envelope')
     runs-on: ubuntu-latest
+    # npm trusted publishers require this environment, and it only deploys from master.
+    # Without it any branch could edit this workflow and publish.
+    environment: npm
     permissions:
       contents: read
       id-token: write
