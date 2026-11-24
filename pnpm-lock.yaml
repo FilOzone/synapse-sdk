@@ -528,8 +528,8 @@ importers:
         specifier: ^2.4.0
         version: 2.4.0
       cborg:
-        specifier: ^6.2.1
-        version: 6.2.1
+        specifier: ^7.0.0
+        version: 7.0.0
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
@@ -3493,6 +3493,10 @@ packages:
 
   cborg@6.2.1:
     resolution: {integrity: sha512-DwiF3Jd5RW6kJuTQMzQb/sdZD03utp15EcQNOMTvE/ZYCdDPzETsGOY5lj8imKxbsEuYvOzcMSiKLiT4C2/2Lw==}
+    hasBin: true
+
+  cborg@7.0.0:
+    resolution: {integrity: sha512-YYXJ+ozY26INm46oz2P+iOww/LhrfgPz2CuHaskDcitt0rKyh6LlWhNCfMlxxcdD+k7m0TspkRvcPPXAGYzZ8w==}
     hasBin: true
 
   ccount@2.0.1:
@@ -9120,6 +9124,8 @@ snapshots:
   cborg@5.1.11: {}
 
   cborg@6.2.1: {}
+
+  cborg@7.0.0: {}
 
   ccount@2.0.1: {}
 

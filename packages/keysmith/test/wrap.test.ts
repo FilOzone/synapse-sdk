@@ -147,6 +147,25 @@ describe('wrapTo / unwrapWith', () => {
     assert.deepStrictEqual(await unwrapWith(recipient, encodeGrant(relabelled)), groupKey)
   })
 
+  it('writes a float16 subnormal informational value in its shortest form, and refuses the longer one', async () => {
+    // cborg 7 writes every float16 subnormal as a 3-byte f9 item. cborg 6 (keysmith <= 0.2) wrote the ones
+    // that are not powers of two, such as 3 * 2^-24, as a 5-byte f32. decodeGrant only accepts the bytes the
+    // current encoder writes, so a grant carrying such a value written before the upgrade no longer opens,
+    // and one written now does not open on a reader still on cborg 6.
+    const groupKey = await groupKeyOf()
+    const recipient = generatePrivateKey()
+    const grant = { ...(await wrapTo(publicKeyOf(recipient), groupKey, descriptor)), weight: 3 * 2 ** -24 }
+    const bytes = encodeGrant(grant)
+    assert.equal(bytesToHex(bytes.subarray(-3)), '0xf90003', 'the informational value is the last field')
+    assert.deepStrictEqual(decodeGrant(bytes), grant)
+    assert.deepStrictEqual(await unwrapWith(recipient, bytes), groupKey)
+
+    const cborg6 = new Uint8Array([...bytes.subarray(0, -3), 0xfa, 0x34, 0x40, 0x00, 0x00])
+    assert.deepStrictEqual(decode(cborg6, { useMaps: true }), decode(bytes, { useMaps: true }), 'the same value')
+    assert.throws(() => decodeGrant(cborg6), /Not a grant: the bytes are not canonical CBOR/)
+    await assert.rejects(unwrapWith(recipient, cborg6), /Not a grant: the bytes are not canonical CBOR/)
+  })
+
   it('refuses bytes that are not one canonical version 2 grant', async () => {
     const recipient = generatePrivateKey()
     const bytes = encodeGrant(await wrapTo(publicKeyOf(recipient), await groupKeyOf(), descriptor))
