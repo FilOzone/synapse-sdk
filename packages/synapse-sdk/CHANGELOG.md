@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.1.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v3.0.1...synapse-sdk-v3.1.0) (2026-11-24)
+
+
+### Features
+
+* **core:** retrieve pieces from /public and send read: public on upload ([#1161](https://github.com/FilOzone/synapse-sdk/issues/1161)) ([60e4d2f](https://github.com/FilOzone/synapse-sdk/commit/60e4d2f8ae97b816b1159c55b46919d6e56c4dbe))
+
+
+### Chores
+
+* **deps:** bump minor and patch dependencies ([#1155](https://github.com/FilOzone/synapse-sdk/issues/1155)) ([63f145e](https://github.com/FilOzone/synapse-sdk/commit/63f145ea9bbb316093bc7fed6669de9f9bc64bc9))
+
 ## [3.0.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v3.0.0...synapse-sdk-v3.0.1) (2026-11-18)
 
 
