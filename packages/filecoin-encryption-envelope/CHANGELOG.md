@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/FilOzone/synapse-sdk/compare/filecoin-encryption-envelope-v0.1.1...filecoin-encryption-envelope-v0.1.2) (2026-11-24)
+
+
+### Chores
+
+* **deps:** bump minor and patch dependencies ([#1155](https://github.com/FilOzone/synapse-sdk/issues/1155)) ([63f145e](https://github.com/FilOzone/synapse-sdk/commit/63f145ea9bbb316093bc7fed6669de9f9bc64bc9))
+* **deps:** bump playwright-test to 15 for ubuntu 26.04 runners ([#1086](https://github.com/FilOzone/synapse-sdk/issues/1086)) ([c937823](https://github.com/FilOzone/synapse-sdk/commit/c93782351b4bdc5be4f1308bba06e26407d6946f))
+
 ## [0.1.1](https://github.com/FilOzone/synapse-sdk/compare/filecoin-encryption-envelope-v0.1.0...filecoin-encryption-envelope-v0.1.1) (2026-11-05)
 
 
