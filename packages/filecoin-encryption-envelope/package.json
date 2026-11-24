@@ -43,7 +43,7 @@
     "lint:fix": "biome check --fix ."
   },
   "dependencies": {
-    "cborg": "6.2.1",
+    "cborg": "7.0.0",
     "zod": "catalog:"
   },
   "devDependencies": {
