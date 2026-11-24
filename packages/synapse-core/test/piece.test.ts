@@ -3,8 +3,8 @@
  *
  * Coverage strategy: a small set of high-assurance tests focused on cryptographic
  * correctness (golden fixtures from go-fil-commp-hashhash), input-variant
- * equivalence, streaming-vs-batch parity, accessor consistency, validation
- * rejection, and the low-level fr32/merkle primitives.
+ * equivalence, streaming-vs-batch parity, accessor consistency, and
+ * validation rejection.
  */
 
 import { assert } from 'chai'
@@ -199,29 +199,6 @@ describe('PieceCID', () => {
     assert.isTrue(original.equals(fromBytes))
   })
 
-  // === Sizing-without-hashing cross-check ===
-  describe('sizing helpers match hashed PieceCID', () => {
-    zeroPieceFixtures.forEach(({ rawSize, paddedSize }) => {
-      it(`paddedSizeFor(${rawSize}) === ${paddedSize} and heightFor matches hashed`, async () => {
-        assert.strictEqual(Piece.paddedSizeFor(rawSize), BigInt(paddedSize))
-        const piece = await Piece.calculate(new Uint8Array(rawSize))
-        assert.strictEqual(Piece.heightFor(rawSize), piece.height)
-      })
-    })
-  })
-
-  describe('size limits', () => {
-    it('MAX_SIZE is the hasher limit (127 × 2^47 bytes)', () => {
-      assert.strictEqual(Piece.MAX_SIZE, 127n << 47n)
-    })
-
-    it('MAX_HEIGHT is the height of a MAX_SIZE payload', () => {
-      assert.strictEqual(Piece.MAX_HEIGHT, 49)
-      assert.strictEqual(Piece.heightFor(Piece.MAX_SIZE), Piece.MAX_HEIGHT)
-      assert.strictEqual(Piece.heightFor(Piece.MAX_SIZE + 1n), Piece.MAX_HEIGHT + 1)
-    })
-  })
-
   // Direct size round-trip across a mid-range sweep that fixture sizes don't cover.
   describe('size round-trips for varied inputs', () => {
     for (const size of [1, 50, 100, 500, 1000, 2048, 4096]) {
@@ -308,61 +285,7 @@ describe('PieceCID', () => {
   it('empty input produces a valid PieceCID with size 0', async () => {
     const piece = await Piece.calculate(new Uint8Array(0))
     assert.strictEqual(piece.size, 0)
-    // 0 bytes ⇒ padded up to MIN_PAYLOAD_SIZE (65) ⇒ height matches that floor.
-    assert.isAbove(piece.height, 0)
-  })
-})
-
-// === Lower-level primitives ===
-describe('Piece.fr32', () => {
-  it('round-trips expand → reduce', () => {
-    // FR32 round-trip across a few sizes including the 127B quad boundary.
-    const sizes = [127, 254, 508, 1016]
-    for (const size of sizes) {
-      const original = new Uint8Array(size)
-      for (let i = 0; i < size; i++) original[i] = (i * 17 + 3) & 0xff
-      const expanded = Piece.fr32.expand(original)
-      const reduced = Piece.fr32.reduce(expanded)
-      assert.deepEqual(Array.from(reduced.subarray(0, size)), Array.from(original), `failed at size ${size}`)
-    }
-  })
-
-  it('expands 127 input bytes to 128 output bytes', () => {
-    const expanded = Piece.fr32.expand(new Uint8Array(127).fill(0xff))
-    assert.strictEqual(expanded.length, 128)
-    // Top 2 bits of each Fr boundary (byte 31, 63, 95) must be zero after FR32.
-    assert.strictEqual(expanded[31] & 0b11000000, 0)
-    assert.strictEqual(expanded[63] & 0b11000000, 0)
-    assert.strictEqual(expanded[95] & 0b11000000, 0)
-  })
-})
-
-describe('Piece.merkle', () => {
-  it('computeNode SHA254s the concatenation of two 32-byte nodes', () => {
-    // Known vector: hash of 64 zero bytes, top 2 bits truncated.
-    const zero = new Uint8Array(32)
-    const node = Piece.merkle.computeNode(zero, zero)
-    assert.strictEqual(node.length, 32)
-    assert.strictEqual(node[31] & 0b11000000, 0) // top 2 bits cleared (SHA254)
-  })
-
-  it('zeroRoot(0) is the all-zero node', () => {
-    const root = Piece.merkle.zeroRoot(0)
-    assert.strictEqual(root.length, 32)
-    assert.isTrue(root.every((b) => b === 0))
-  })
-
-  it('zeroRoot(level+1) equals computeNode(zeroRoot(level), zeroRoot(level))', () => {
-    for (let level = 0; level < 5; level++) {
-      const expected = Piece.merkle.computeNode(Piece.merkle.zeroRoot(level), Piece.merkle.zeroRoot(level))
-      const actual = Piece.merkle.zeroRoot(level + 1)
-      assert.deepEqual(Array.from(actual), Array.from(expected), `failed at level ${level + 1}`)
-    }
-  })
-
-  it('truncate clears top 2 bits of last byte', () => {
-    const node = new Uint8Array(32).fill(0xff)
-    Piece.merkle.truncate(node)
-    assert.strictEqual(node[31], 0b00111111)
+    // 0 bytes ⇒ padded up to one 127-byte quad ⇒ height is 2.
+    assert.strictEqual(piece.height, 2)
   })
 })

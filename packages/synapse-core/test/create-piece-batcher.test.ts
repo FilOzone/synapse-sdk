@@ -19,8 +19,7 @@ import {
   streamingUploadHandlers,
 } from '../src/mocks/pdp.ts'
 import * as Piece from '../src/piece/index.ts'
-import * as Digest from '../src/piece/internal/digest.ts'
-import { PieceCID } from '../src/piece/piece-cid.ts'
+import type { PieceCID } from '../src/piece/piece-cid.ts'
 import type { addPiecesApiRequest } from '../src/sp/add-pieces.ts'
 import {
   createPieceBatcher,
@@ -32,6 +31,7 @@ import {
 import * as TypedData from '../src/typed-data/index.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
 import type { PdpDataSet } from '../src/warm-storage/types.ts'
+import { pieceCidWithRawSize } from './utils/piece-cid.ts'
 
 const account = privateKeyToAccount(PRIVATE_KEYS.key1)
 const client = createWalletClient({
@@ -44,12 +44,6 @@ const pieceCidA = Piece.from('bafkzcibcaabffs4jcd4iheeo5wisbmurjb7l4xgpmzgyzrene
 const pieceCidB = Piece.from('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace')
 const tooSmallPieceCid = Piece.from('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
 
-function pieceCidWithRawSize(rawSize: number): PieceCID {
-  const height = Piece.heightFor(rawSize < Piece.MIN_SIZE ? Piece.MIN_SIZE : rawSize)
-  const root = new Uint8Array(32)
-  const probe = PieceCID._fromDigest(Digest.fromFields({ padding: 0n, height, root }))
-  return PieceCID._fromDigest(Digest.fromFields({ padding: BigInt(probe.size - rawSize), height, root }))
-}
 const mockTxHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' as const
 const mockTxHash2 = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as const
 const pdpBase = 'https://pdp.example.com'

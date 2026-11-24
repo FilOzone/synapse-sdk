@@ -7,17 +7,12 @@
 import { varint } from 'multiformats'
 import { MULTIHASH_CODE, MULTIHASH_NAME } from './constants.ts'
 
-export const code = MULTIHASH_CODE
+const code = MULTIHASH_CODE
 const name = MULTIHASH_NAME
 
-/** Varint max for the tree-height byte. */
-const MAX_PADDING_SIZE = 9
-export const HEIGHT_SIZE = 1
-export const ROOT_SIZE = 32
-
-const MAX_DIGEST_SIZE = MAX_PADDING_SIZE + HEIGHT_SIZE + ROOT_SIZE
-export const TAG_SIZE = varint.encodingLength(code)
-export const MAX_SIZE = TAG_SIZE + varint.encodingLength(MAX_DIGEST_SIZE) + MAX_DIGEST_SIZE
+const HEIGHT_SIZE = 1
+const ROOT_SIZE = 32
+const TAG_SIZE = varint.encodingLength(code)
 
 /**
  * Multihash digest of a PieceCID payload. Exposes the parsed fields
