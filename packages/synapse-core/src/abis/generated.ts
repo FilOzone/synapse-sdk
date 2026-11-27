@@ -60,6 +60,15 @@ export const errorsAbi = [
     type: 'error',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expectedWorker', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotProviderWorker',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       {
         name: 'expectedServiceProvider',
         internalType: 'address',
@@ -116,6 +125,14 @@ export const errorsAbi = [
     type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
     name: 'DataSetNotRegistered',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'payee', internalType: 'address', type: 'address' },
+    ],
+    name: 'DataSetPayeeAlreadyCurrent',
   },
   {
     type: 'error',
@@ -2268,6 +2285,13 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'retargetDataSetPayee',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     inputs: [],
     name: 'serviceProviderRegistry',
     outputs: [
@@ -2468,6 +2492,55 @@ export const filecoinWarmStorageServiceAbi = [
         indexed: true,
       },
       {
+        name: 'oldPayee',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newPayee',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'oldPdpRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newPdpRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'oldCacheMissRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newCacheMissRailId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'DataSetPayeeRetargeted',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
         name: 'oldServiceProvider',
         internalType: 'address',
         type: 'address',
@@ -2522,12 +2595,34 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CacheMissPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expectedWorker', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotProviderWorker',
+  },
+  {
+    type: 'error',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'requiredEpoch', internalType: 'uint256', type: 'uint256' },
       { name: 'currentBlock', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'DataSetNotAbandoned',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'payee', internalType: 'address', type: 'address' },
+    ],
+    name: 'DataSetPayeeAlreadyCurrent',
   },
   {
     type: 'error',
@@ -2684,11 +2779,6 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
     name: 'CDNPaymentAlreadyTerminated',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'CacheMissPaymentAlreadyTerminated',
   },
   {
     type: 'error',
@@ -4435,6 +4525,11 @@ export const pdpVerifierAbi = [
     inputs: [
       { name: '_initializerVersion', internalType: 'uint64', type: 'uint64' },
       { name: '_challengeFinality', internalType: 'uint256', type: 'uint256' },
+      {
+        name: '_serviceProviderRegistry',
+        internalType: 'contract IServiceProviderWorkerRegistry',
+        type: 'address',
+      },
     ],
     stateMutability: 'nonpayable',
   },
@@ -4462,15 +4557,21 @@ export const pdpVerifierAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'MAX_ENQUEUED_REMOVALS',
+    name: 'MAX_PIECE_SIZE_LOG2',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
     inputs: [],
-    name: 'MAX_PIECE_SIZE_LOG2',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    name: 'SERVICE_PROVIDER_REGISTRY',
+    outputs: [
+      {
+        name: '',
+        internalType: 'contract IServiceProviderWorkerRegistry',
+        type: 'address',
+      },
+    ],
     stateMutability: 'view',
   },
   {
@@ -5399,6 +5500,7 @@ export const pdpVerifierAbi = [
   },
   { type: 'error', inputs: [], name: 'UnterminatedUvarint' },
   { type: 'error', inputs: [], name: 'UvarintOverflow' },
+  { type: 'error', inputs: [], name: 'ZeroServiceProviderRegistry' },
 ] as const
 
 /**
@@ -5588,6 +5690,13 @@ export const serviceProviderRegistryAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'REMOVE_PROVIDER_TYPEHASH',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
     name: 'UPGRADE_INTERFACE_VERSION',
     outputs: [{ name: '', internalType: 'string', type: 'string' }],
     stateMutability: 'view',
@@ -5671,6 +5780,26 @@ export const serviceProviderRegistryAbi = [
       { name: 'delayEpochs', internalType: 'uint96', type: 'uint96' },
     ],
     name: 'announceUpgradePlan',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+      { name: 'newPayee', internalType: 'address', type: 'address' },
+    ],
+    name: 'changePayee',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+      { name: 'newServiceProvider', internalType: 'address', type: 'address' },
+    ],
+    name: 'changeServiceProvider',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -5824,6 +5953,19 @@ export const serviceProviderRegistryAbi = [
     ],
     name: 'getProviderIdByAddress',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'workerOrFormerWorker',
+        internalType: 'address',
+        type: 'address',
+      },
+    ],
+    name: 'getProviderIdByWorkerAddress',
+    outputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
@@ -6025,6 +6167,16 @@ export const serviceProviderRegistryAbi = [
   },
   {
     type: 'function',
+    inputs: [
+      { name: 'registrationAddress', internalType: 'address', type: 'address' },
+      { name: 'attemptedAddress', internalType: 'address', type: 'address' },
+    ],
+    name: 'isAuthorizedWorker',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     name: 'isProviderActive',
     outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
@@ -6087,6 +6239,13 @@ export const serviceProviderRegistryAbi = [
     ],
     name: 'productTypeProviderCount',
     outputs: [{ name: 'count', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'providerActionNonce',
+    outputs: [{ name: 'nonce', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
@@ -6178,6 +6337,16 @@ export const serviceProviderRegistryAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'removeProvider',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+      { name: 'signature', internalType: 'bytes', type: 'bytes' },
+    ],
     name: 'removeProvider',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -6282,6 +6451,31 @@ export const serviceProviderRegistryAbi = [
       },
     ],
     name: 'OwnershipTransferred',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'oldPayee',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newPayee',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'PayeeChanged',
   },
   {
     type: 'event',
@@ -6426,6 +6620,31 @@ export const serviceProviderRegistryAbi = [
       },
     ],
     name: 'ProviderRemoved',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'oldServiceProvider',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newServiceProvider',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'ServiceProviderChanged',
   },
   {
     type: 'event',
