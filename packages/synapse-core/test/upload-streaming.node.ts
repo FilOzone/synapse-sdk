@@ -3,6 +3,7 @@
  * fetch before the request body would be buffered or a redirect handled.
  */
 
+import { rejects } from 'node:assert/strict'
 import { createReadStream } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -10,6 +11,8 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert } from 'chai'
+import { NetworkError } from 'iso-web/http'
+import { InvalidUploadSizeError } from '../src/errors/pdp.ts'
 import * as Piece from '../src/piece/index.ts'
 import { uploadPieceStreaming } from '../src/sp/upload-streaming.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
@@ -128,6 +131,35 @@ describe('uploadPieceStreaming over HTTP', () => {
     } finally {
       server.close()
       await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('preserves the size error for a stream below the upload minimum', async () => {
+    await withServer(204, async (serviceURL) => {
+      const data = new Blob([new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE - 1)]).stream()
+      await rejects(() => uploadPieceStreaming({ serviceURL, data }), InvalidUploadSizeError)
+    })
+  })
+
+  it('preserves a refused connection despite an undersized upload stream', async () => {
+    const server = createServer((_req, res) => {
+      server.close()
+      res.writeHead(201, { Connection: 'close', Location: '/pdp/piece/uploads/0123abcd' }).end()
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const serviceURL = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`
+    const data = new Blob([new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE - 1)]).stream()
+    try {
+      await rejects(
+        () => uploadPieceStreaming({ serviceURL, data }),
+        (error) => {
+          assert.instanceOf(error, NetworkError)
+          assert.propertyVal((error.cause as Error).cause, 'code', 'ECONNREFUSED')
+          return true
+        }
+      )
+    } finally {
+      server.close()
     }
   })
 

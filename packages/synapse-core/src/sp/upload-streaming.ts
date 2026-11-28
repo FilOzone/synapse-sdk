@@ -127,6 +127,7 @@ export async function uploadPieceStreaming(
 
   // Add size tracking and progress reporting
   let bytesUploaded = 0
+  let sizeError: InvalidUploadSizeError | undefined
   const trackingStream = new TransformStream<unknown, Uint8Array>({
     transform(chunk, controller) {
       let bytes: Uint8Array | undefined
@@ -143,7 +144,8 @@ export async function uploadPieceStreaming(
       bytesUploaded += bytes.length
 
       if (bytesUploaded > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
-        controller.error(new InvalidUploadSizeError(bytesUploaded))
+        sizeError = new InvalidUploadSizeError(bytesUploaded)
+        controller.error(sizeError)
         return
       }
 
@@ -156,7 +158,8 @@ export async function uploadPieceStreaming(
     },
     flush(controller) {
       if (bytesUploaded < SIZE_CONSTANTS.MIN_UPLOAD_SIZE) {
-        controller.error(new InvalidUploadSizeError(bytesUploaded))
+        sizeError = new InvalidUploadSizeError(bytesUploaded)
+        controller.error(sizeError)
         return
       }
     },
@@ -211,14 +214,17 @@ export async function uploadPieceStreaming(
     if (HttpError.is(uploadResponse.error)) {
       throw await UploadPieceError.fromHttpError(uploadResponse.error)
     }
-    // undici reports redirect: 'error' as a network error caused by 'unexpected redirect'
-    // (pinned by the redirect tests in upload-streaming.node.ts). Browsers raise a generic
-    // TypeError instead, so they get the plain NetworkError.
-    if (
-      NetworkError.is(uploadResponse.error) &&
-      ((uploadResponse.error.cause as Error)?.cause as Error)?.message === 'unexpected redirect'
-    ) {
-      throw new UploadRedirectError(uploadURL.href, uploadResponse.error)
+    if (NetworkError.is(uploadResponse.error)) {
+      const cause = (uploadResponse.error.cause as Error)?.cause as Error | undefined
+      // The stream can error while fetch reports an unrelated transport failure.
+      if (sizeError && (cause == null || cause === sizeError)) throw sizeError
+
+      // undici reports redirect: 'error' as a network error caused by 'unexpected redirect'
+      // (pinned by the redirect tests in upload-streaming.node.ts). Browsers raise a generic
+      // TypeError instead, so they get the plain NetworkError.
+      if (cause?.message === 'unexpected redirect') {
+        throw new UploadRedirectError(uploadURL.href, uploadResponse.error)
+      }
     }
     throw uploadResponse.error
   }
