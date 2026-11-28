@@ -3,6 +3,7 @@
  * fetch before the request body would be buffered or a redirect handled.
  */
 
+import { rejects } from 'node:assert/strict'
 import { createReadStream } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -10,6 +11,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assert } from 'chai'
+import { InvalidUploadSizeError } from '../src/errors/pdp.ts'
 import * as Piece from '../src/piece/index.ts'
 import { uploadPieceStreaming } from '../src/sp/upload-streaming.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
@@ -129,6 +131,13 @@ describe('uploadPieceStreaming over HTTP', () => {
       server.close()
       await rm(dir, { recursive: true, force: true })
     }
+  })
+
+  it('preserves the size error for a stream below the upload minimum', async () => {
+    await withServer(204, async (serviceURL) => {
+      const data = new Blob([new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE - 1)]).stream()
+      await rejects(() => uploadPieceStreaming({ serviceURL, data }), InvalidUploadSizeError)
+    })
   })
 
   for (const status of [307, 308]) {
