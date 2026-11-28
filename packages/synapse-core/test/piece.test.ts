@@ -234,6 +234,21 @@ describe('PieceCID', () => {
       assert.isNull(Piece.tryFrom(undefined))
     })
 
+    for (const [label, digestPrefix] of [
+      ['a tree below height 2', [0x00, 0x01]],
+      ['padding larger than its tree', [0x80, 0x01, 0x02]],
+      // Height 49 with one byte more padding than 127n << 47n can hold.
+      ['padding just above a large tree capacity', [0x81, 0x80, 0x80, 0x80, 0x80, 0x80, 0xe0, 0x1f, 49]],
+    ] as const) {
+      it(`rejects a PieceCID with ${label}`, () => {
+        // CIDv1, raw codec, PieceCID multihash, digest length, padding and height.
+        const bytes = new Uint8Array(5 + digestPrefix.length + 32)
+        bytes.set([0x01, 0x55, 0x91, 0x20, digestPrefix.length + 32, ...digestPrefix])
+        assert.throws(() => Piece.from(bytes), RangeError)
+        assert.isNull(Piece.tryFrom(bytes))
+      })
+    }
+
     // Locks in the digest-shape validation. A CID with the correct codec and
     // multihash code but a truncated digest (only padding + height, no root)
     // must be rejected: the digest layout requires padding-varint + 1-byte
@@ -285,6 +300,7 @@ describe('PieceCID', () => {
   it('empty input produces a valid PieceCID with size 0', async () => {
     const piece = await Piece.calculate(new Uint8Array(0))
     assert.strictEqual(piece.size, 0)
+    assert.strictEqual(Piece.from(piece.bytes).size, 0)
     // 0 bytes ⇒ padded up to one 127-byte quad ⇒ height is 2.
     assert.strictEqual(piece.height, 2)
   })

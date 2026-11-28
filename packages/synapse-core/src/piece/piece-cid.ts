@@ -51,6 +51,13 @@ export class PieceCID extends CID<unknown, typeof CODEC_CODE, typeof MULTIHASH_C
       )
     }
     const digest = new Digest.PieceDigest(cid.multihash.bytes)
+    const { height, padding } = digest
+    if (height < 2) {
+      throw new RangeError(`PieceCID height must be at least 2, got ${height}`)
+    }
+    if (unpaddedFromPiece(height, padding) < 0n) {
+      throw new RangeError(`PieceCID padding ${padding} exceeds the capacity of height ${height}`)
+    }
     return new PieceCID(cid.bytes, digest)
   }
 
