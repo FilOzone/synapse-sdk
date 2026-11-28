@@ -237,6 +237,8 @@ describe('PieceCID', () => {
     for (const [label, digestPrefix] of [
       ['a tree below height 2', [0x00, 0x01]],
       ['padding larger than its tree', [0x80, 0x01, 0x02]],
+      // Height 49 with one byte more padding than 127n << 47n can hold.
+      ['padding just above a large tree capacity', [0x81, 0x80, 0x80, 0x80, 0x80, 0x80, 0xe0, 0x1f, 49]],
     ] as const) {
       it(`rejects a PieceCID with ${label}`, () => {
         // CIDv1, raw codec, PieceCID multihash, digest length, padding and height.

@@ -55,8 +55,12 @@ export class PieceDigest {
   }
 
   get padding(): bigint {
-    const [padding] = varint.decode(this.digest)
-    return BigInt(padding)
+    const paddingLength = this.digest.length - HEIGHT_SIZE - ROOT_SIZE
+    let padding = 0n
+    for (let i = paddingLength - 1; i >= 0; i--) {
+      padding = (padding << 7n) | BigInt(this.digest[i] & 0x7f)
+    }
+    return padding
   }
 
   get height(): number {
