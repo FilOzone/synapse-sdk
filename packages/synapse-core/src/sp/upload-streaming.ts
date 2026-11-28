@@ -214,16 +214,17 @@ export async function uploadPieceStreaming(
     if (HttpError.is(uploadResponse.error)) {
       throw await UploadPieceError.fromHttpError(uploadResponse.error)
     }
-    // Fetch can wrap a streaming request body failure in a network error.
-    if (sizeError && NetworkError.is(uploadResponse.error)) throw sizeError
-    // undici reports redirect: 'error' as a network error caused by 'unexpected redirect'
-    // (pinned by the redirect tests in upload-streaming.node.ts). Browsers raise a generic
-    // TypeError instead, so they get the plain NetworkError.
-    if (
-      NetworkError.is(uploadResponse.error) &&
-      ((uploadResponse.error.cause as Error)?.cause as Error)?.message === 'unexpected redirect'
-    ) {
-      throw new UploadRedirectError(uploadURL.href, uploadResponse.error)
+    if (NetworkError.is(uploadResponse.error)) {
+      const cause = (uploadResponse.error.cause as Error)?.cause as Error | undefined
+      // The stream can error while fetch reports an unrelated transport failure.
+      if (sizeError && (cause == null || cause === sizeError)) throw sizeError
+
+      // undici reports redirect: 'error' as a network error caused by 'unexpected redirect'
+      // (pinned by the redirect tests in upload-streaming.node.ts). Browsers raise a generic
+      // TypeError instead, so they get the plain NetworkError.
+      if (cause?.message === 'unexpected redirect') {
+        throw new UploadRedirectError(uploadURL.href, uploadResponse.error)
+      }
     }
     throw uploadResponse.error
   }
